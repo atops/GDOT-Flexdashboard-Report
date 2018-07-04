@@ -1,7 +1,6 @@
 
 # Monthly_Report_Calcs.R
 
-#setwd('c:/users/alan.toppen/Code/GDOT/GDOT-Flexdashboard-Report/')
 user_folder <- sub("\\Documents", "", path.expand("~"))
 setwd(paste(user_folder, "Code", "GDOT", "GDOT-Flexdashboard-Report", sep = "/"))
 
@@ -12,10 +11,7 @@ start_date <- "2017-07-01"
 end_date <- "2018-06-30"
 #-----------------------------------------------------------------------------#
 
-#sl_fn <- "../SIGNALS_LIST_2018.txt"
 sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
-#sl_fn <- "../SIGNALS_LIST_all_SRTOP.txt"
-#sl_fn = '../SIGNALS_LIST_North_Ave.txt'
 signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID 
 
 #Signals to exclude in June 2018 (and months prior):
@@ -52,12 +48,9 @@ get_dates_for_filenames <- function(start_date, end_date) {
     }
     s
 }
-#date_range <- get_dates_for_filenames(start_date, end_date)
 
 dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
 month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
-
-#signals_list_of_lists <- split(signals_list, ceiling(seq_along(signals_list)/10))
 
 # # GET CORRIDORS #############################################################
 
@@ -104,20 +97,6 @@ get_raw_15min_counts_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-# start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-# lapply(start_dates, function(start_date) {
-#     library(DBI)
-#     library(dplyr)
-#     library(tidyr)
-#     library(lubridate)
-#     
-#     end_date <- start_date
-#     print(start_date)
-#     counts <- get_15min_counts(start_date, end_date, signals_list)
-#     if (nrow(counts) > 0) {
-#         write_fst_(counts, paste0("counts_15min_TWR_",start_date,".fst"), append = TRUE)
-#     }
-# })
 
 get_raw_15min_counts_date_range(start_date, end_date)
 
@@ -149,11 +128,6 @@ get_raw_1hr_counts_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
     
-    #raw_counts_1hr <- bind_rows(counts_groups)
-    #date_range <- get_dates_for_filenames(start_date, end_date)
-    #write_feather(raw_counts_1hr, paste0("counts_1hr_",date_range,".feather"))
-    
-    #raw_counts_1hr
 }
 get_raw_1hr_counts_date_range(start_date, end_date)
 
@@ -207,8 +181,6 @@ lapply(month_abbrs, function(yyyy_mm) {
     rm(filtered_counts_1hr)
     
     write_fst(bad_detectors, paste0("bad_detectors_",yyyy_mm,".fst"))
-    # Need to be carefule with this to prevent duplicates
-    #dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
 })
 
 # --- This needs the ATSPM database ---
@@ -219,26 +191,18 @@ conn <- dbConnect(odbc::odbc(),
 lapply(month_abbrs, function(yyyy_mm) {
     print(yyyy_mm)
     bad_detectors <- read_fst(paste0("bad_detectors_",yyyy_mm,".fst"))
+    # Need to be carefule with this to prevent duplicates
     dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
 })
+
+
 
 # -- Run etl_dashboard (Python) to S3/Athena
 
 # --- ----------------------------- ---
 
 
-# THIS WORKED WHEN WE WERE JUST DOING COUNT STATIONS
-# filtered_counts_1hr <- get_filtered_counts(counts, interval = "1 hour")
-# write_fst(filtered_counts_1hr, paste0("filtered_counts_1hr_",start_date,".fst"))
-# 
-# adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
-# write_fst(adjusted_counts_1hr, paste0("adjusted_counts_1hr_",start_date,".fst"))
-# 
-# 
-# filtered_counts_1hr <- get_filtered_counts(raw_counts_1hr, interval = "1 hour")
-# write_feather(filtered_counts_1hr, paste0("filtered_counts_1hr_",date_range,".feather"))
-# adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
-# write_feather(adjusted_counts_1hr, paste0("adjusted_counts_1hr_",date_range,".feather"))
+
 
 lapply(month_abbrs, function(yyyy_mm) {
     
@@ -291,22 +255,16 @@ get_aog_date_range <- function(start_date, end_date) {
         library(fst)
         library(purrr)
         
-        #end_date <- start_date
         end_date <- as.character(ymd(start_date) + months(1) - days(1))
         
         cycle_data <- get_cycle_data(start_date, end_date, signals_list)
         if (nrow(collect(head(cycle_data))) > 0) {
             aog <- get_aog(cycle_data)
-            #write_fst_(aog, paste0("aog_",start_date,".fst"), append = TRUE)
             write_fst_(aog, paste0("aog_", substr(ymd(start_date),1,7), ".fst"), append=FALSE)
             
         }
     })
     stopCluster(cl)
-    
-    #aog <- bind_rows(dfs) 
-    #date_range <- get_dates_for_filenames(start_date, end_date)
-    #write_fst(aog, paste0("aog_",date_range,".fst"))
 }
 
 
@@ -315,7 +273,7 @@ get_aog_date_range(start_date, end_date)
 # # GET QUEUE SPILLBACK #######################################################
 get_queue_spillback_date_range <- function(start_date, end_date) {
     
-    start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month") #by = "1 day")
+    start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
     cl <- makeCluster(3)
     clusterExport(cl, c("get_detection_events", 
                         "get_spm_data",
@@ -341,15 +299,11 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
         }
     })
     stopCluster(cl)
-
-    #qs <- bind_rows(dfs)
-    #date_range <- get_dates_for_filenames(start_date, end_date)
-												 
-    #write_fst(qs, paste0("qs_",date_range,".fst"))
 }
-														   
-														   
+
 get_queue_spillback_date_range(start_date, end_date)
+
+
 
 # # GET SPLIT FAILURES ########################################################
 
@@ -359,13 +313,8 @@ get_split_failures_date_range <- function(start_date, end_date) {
     system(paste("python", "split_failures2.py", start_date, end_date, sl_fn))
 }
 
-
 get_split_failures_date_range(ymd(start_date), ymd(end_date))
 
-
-#sf_filenames <- list.files(pattern = "sf_2018.*.csv")
-#sf <- get_sf(sf_filenames)
-#saveRDS(sf, paste0("sf_",date_range_,".rds"))
 
 
 # # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
@@ -379,8 +328,6 @@ pti <- tt$pti
 
 write_fst(tti, "tti.fst")
 write_fst(pti, "pti.fst")
-#saveRDS(tti, paste0("tti_",date_range,".rds"))
-#saveRDS(pti, paste0("pti_",date_range,".rds"))
 
 
 # # BLUETOAD  UPTIME ##########################################################
@@ -498,8 +445,6 @@ monthly_vpd <- get_monthly_vpd(vpd)
 cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
 
 # Monthly % change from previous month by corridor ----------------------------
-#cor_mo_pct <- get_cor_monthly_pct_change_vpd(cor_monthly_vpd)
-
 saveRDS(weekly_vpd, "weekly_vpd.rds")
 saveRDS(monthly_vpd, "monthly_vpd.rds")
 saveRDS(cor_weekly_vpd, "cor_weekly_vpd.rds")
@@ -608,7 +553,6 @@ wsf <- lapply(sfs, get_weekly_sf_by_day) %>%
     mutate(SignalID = factor(SignalID),
            Week = factor(Week))
 
-#wsf <- get_weekly_sf_by_day(sf)
 cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
 
 
@@ -616,7 +560,6 @@ monthly_sfd <- lapply(sfs, get_monthly_sf_by_day) %>%
     bind_rows() %>% ungroup() %>%
     mutate(SignalID = factor(SignalID))
 
-#monthly_sfd <- get_monthly_sf_by_day(sf)
 cor_monthly_sfd <- get_cor_monthly_sf_by_day(monthly_sfd, corridors)
 
 saveRDS(wsf, "wsf.rds")
@@ -634,13 +577,10 @@ sfh <- lapply(sfs, get_sf_by_hr) %>%
            Week = factor(Week),
            DOW = factor(DOW))
 
-#sfh <- get_sf_by_hr(sf)
 msfh <- get_monthly_sf_by_hr(sfh)
 
 # Hourly volumes by Corridor --------------------------------------------------
 cor_msfh <- get_cor_monthly_sf_by_hr(msfh, corridors)
-
-#cor_monthly_sf_by_hr_peak <- get_cor_monthly_sf_by_hr_peak(cor_msfh) # not written yet
 
 saveRDS(msfh, "msfh.rds")
 saveRDS(cor_msfh, "cor_msfh.rds")
@@ -701,9 +641,6 @@ rm(pti)
 # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
 fns <- list.files(path = "Excel Monthly Reports/2017_12", recursive = TRUE, full.names = TRUE)
-#xl_uptime_fn_2018_01 <- "January Vehicle and Ped Detector Info.xlsx"
-#xl_uptime_fn_2018_02 <- "February Vehicle and Ped Detector Info.xlsx"
-#xl_uptime_fn_2018_03 <- "March Vehicle and Ped Detector Info.xlsx"
 xl_uptime_fns <- c("January Vehicle and Ped Detector Info.xlsx",
                    "February Vehicle and Ped Detector Info.xlsx",
                    "March Vehicle and Ped Detector Info.xlsx",
@@ -719,12 +656,6 @@ mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
 mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
 
 mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
-
-
-# man_xl1 <- get_det_uptime_from_manual_xl(xl_uptime_fn_2018_01, "2018-01-01") 
-# man_xl2 <- get_det_uptime_from_manual_xl(xl_uptime_fn_2018_02, "2018-02-01")
-# man_xl3 <- get_det_uptime_from_manual_xl(xl_uptime_fn_2018_03, "2018-03-01") 
-# man_xl <- bind_rows(man_xl1, man_xl2, man_xl3)
 
 man_xl <- purrr::map2(xl_uptime_fns, 
                       xl_uptime_mos,
@@ -868,29 +799,24 @@ teams <- readRDS("teams.rds")
 
 type_table <- get_outstanding_events(teams, "Task_Type") %>% 
     mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
-    #select(-Corridor) %>% 
     group_by(Zone_Group, Task_Type, Month) %>% 
     summarize_all(sum)
 
 subtype_table <- get_outstanding_events(teams, "Task_Subtype") %>% 
     mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
-    #select(-Corridor) %>% 
     group_by(Zone_Group, Task_Subtype, Month) %>% 
     summarize_all(sum)
 
 source_table <- get_outstanding_events(teams, "Task_Source") %>% 
     mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
-    #select(-Corridor) %>% 
     group_by(Zone_Group, Task_Source, Month) %>% 
     summarize_all(sum)
 
 priority_table <- get_outstanding_events(teams, "Priority") %>% 
-    #select(-Corridor) %>% 
     group_by(Zone_Group, Priority, Month) %>% 
     summarize_all(sum)
 
 all_teams_table <- get_outstanding_events(teams, "All") %>% 
-    #select(-Corridor) %>% 
     group_by(Zone_Group, All, Month) %>% 
     summarize_all(sum)
 
@@ -918,6 +844,8 @@ cor_monthly_events <- teams_tables$all %>%
            delta.out = (Outstanding - lag(Outstanding))/lag(Outstanding))
 
 saveRDS(cor_monthly_events, "cor_monthly_events.rds")
+
+
 
 # Package up for Flexdashboard
 
@@ -1024,6 +952,9 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$mo$du, corridors),
                "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
                "cctv" = readRDS("monthly_cctv_uptime.rds"))
+
+saveRDS(cor, "cor.rds")
+saveRDS(sig, "sig.rds")
 
 
 # Bring April data back from April Report.

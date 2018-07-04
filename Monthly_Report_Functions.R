@@ -15,30 +15,17 @@ library(fst)
 library(parallel)
 library(pool)
 
-
-
-
-#library(ggplot2)
 library(plotly)
 library(crosstalk)
 
-#setwd('c:/users/alan.toppen/Code/GDOT/GDOT-Flexdashboard-Report/')
-#user_folder <- sub("/Documents", "", path.expand("~"))
-#setwd(paste(user_folder, "Code", "GDOT", "GDOT-Flexdashboard-Report", sep = "/"))
-																				 
+
 # Colorbrewer Paired Palette Colors
-LIGHT_BLUE = "#A6CEE3"
-BLUE = "#1F78B4"
-LIGHT_GREEN = "#B2DF8A"
-GREEN = "#33A02C"
-LIGHT_RED = "#FB9A99"
-RED = "#E31A1C"
-LIGHT_ORANGE = "#FDBF6F"
-ORANGE = "#FF7F00"
-LIGHT_PURPLE = "#CAB2D6"
-PURPLE = "#6A3D9A"
-LIGHT_BROWN = "#FFFF99"
-BROWN = "#B15928"
+LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
+LIGHT_GREEN = "#B2DF8A";  GREEN = "#33A02C"
+LIGHT_RED = "#FB9A99";    RED = "#E31A1C"
+LIGHT_ORANGE = "#FDBF6F"; ORANGE = "#FF7F00"
+LIGHT_PURPLE = "#CAB2D6"; PURPLE = "#6A3D9A"
+LIGHT_BROWN = "#FFFF99";  BROWN = "#B15928"
 
 RED2 = "#e41a1c"
 GDOT_BLUE = "#256194"
@@ -69,7 +56,7 @@ get_corridors <- function(corr_fn) {
         transmute(SignalID=factor(`GDOT MaxView Device ID`), 
                   Zone = as.factor(Zone), 
                   Zone_Group = District,
-                  Corridor = as.factor(Group), #as.factor(Corridor), 
+                  Corridor = as.factor(Group),
                   Milepost = as.numeric(Milepost),
                   Name = Name) %>% 
         filter(!is.na(SignalID)) %>% 
@@ -240,8 +227,7 @@ get_counts <- function(start_date, end_date, signals_list,
     end_date1 <- as.character(ymd(end_date) + days(1))
     
     counts <- dplyr::filter(cel, Timestamp >= start_date & Timestamp < end_date1 &
-                                EventCode==event_code) %>% #& 
-                                #SignalID %in% signals_list) %>%
+                                EventCode==event_code) %>% 
         rename(Detector = EventParam) %>% 
         group_by(SignalID, Timeperiod, Detector) %>%
         summarize(vol = n())
@@ -250,15 +236,11 @@ get_counts <- function(start_date, end_date, signals_list,
         det <- tbl(conn, "DetectorConfig2")
     } else if (event_code==90L) {
         det <- tbl(conn, "PedestrianConfig")
-        #det <- data.frame()
     } else {
         print("no EventCode provided. assuming 82 (vehicles)")
         det <- tbl(conn, "DetectorConfig2")
     }
-    #det <- det %>%
-    #    mutate(SignalID = as.character(SignalID)) %>%
-    #    select(Detector, CallPhase, SignalID)
-    
+
     
     ret_df <- left_join(counts, det)
     
@@ -313,8 +295,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
         dplyr::filter(Total_Volume > (100 * num_days)) %>%
         select(-Total_Volume)
     
-    #dtlevels <- as.character(sort(as.integer(unique(included_detectors$Detector))))
-    #cplevels <- as.character(sort(as.integer(unique(included_detectors$CallPhase))))
     dtlevels <- as.character(sort(as.integer(levels(included_detectors$Detector))))
     cplevels <- as.character(sort(as.integer(levels(included_detectors$CallPhase))))
     
@@ -393,30 +373,15 @@ get_adjusted_counts <- function(filtered_counts) {
         mutate(Ph_Contr = vol/sum(vol)) %>% 
         select(-vol) %>% ungroup()
         
-        #filtered_counts %>% 
-        #group_by(SignalID, CallPhase, Timeperiod) %>% 
-        #mutate(Ph_Contr = vol/sum(vol, na.rm = TRUE)) %>% 
-        #group_by(SignalID, CallPhase, Detector) %>% 
-        #summarize(Ph_Contr = median(Ph_Contr, na.rm = TRUE)) 
     # SignalID | CallPhase | Detector | Ph_Contr
     
-    
-    
-    # hourly volumes over the entire date range to fill in missing detectors
-    #yr_hrly_vols <- filtered_counts %>%
-    #    group_by(SignalID, CallPhase, Detector, Hour) %>%
-    #    summarize(Hourly_Volume = median(vol, na.rm = TRUE)) %>% 
-    #    ungroup()
-    
+
     # fill in missing detectors from other detectors on that phase
     fc_phc <- left_join(filtered_counts, ph_contr) %>% 
         # fill in missing detectors from other detectors on that phase
         group_by(SignalID, Timeperiod, CallPhase) %>%
         mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
-        #mutate(vol = if_else(is.na(vol),
-        #                    as.integer(mean(as.double(vol)/as.double(Ph_Contr), na.rm = TRUE) * Ph_Contr),
-        #                    vol))
-    
+
     fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
     
     #hourly volumes over the month to fill in missing data for all detectors in a phase
@@ -430,14 +395,6 @@ get_adjusted_counts <- function(filtered_counts) {
     left_join(fc_phc, mo_hrly_vols) %>%
         ungroup() %>%
         mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), vol)) %>%
-        
-        # fill in missing detectors from hourly volume over the entire date range
-        # TOO AGGRESSIVE
-        #mutate(Hour = Month_Hour - months(month(Month_Hour) -1)) %>%
-        #left_join(yr_hrly_vols) %>%
-        #mutate(vol = as.integer(ifelse(is.na(vol), Hourly_Volume, vol))) %>%
-        #select(-Hourly_Volume) %>%
-        #ungroup() %>%
         
         select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
         
@@ -531,7 +488,6 @@ get_detector_count <- function(signals_list) {
         dplyr::filter(SignalID %in% signals_list & CallPhase %in% c(2,6)) %>%
         mutate(SignalID = as.character(SignalID)) %>%
         collect() %>%
-        #mutate(SignalID = factor(SignalID)) %>%
         group_by(SignalID, CallPhase) %>%
         summarize(Detectors = n())
 }
@@ -567,7 +523,6 @@ get_thruput <- function(counts) {
         summarize(vph = sum(vol)) %>%
         group_by(SignalID, Week, DOW, Date) %>%
         summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4) %>%
-        #filter(vph < 5000) %>%
         ungroup() %>%
         arrange(SignalID, Date) %>%
         mutate(CallPhase = 0) %>%
@@ -605,8 +560,7 @@ get_aog <- function(cycle_data) {
                Week = factor(week(Date))) %>%
         ungroup() %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, vol)
-        #select(SignalID, CallPhase, Date_Hour, Date, Hour, AOG, Vol)
-    
+
     # SignalID | CallPhase | Date_Hour | Date | Hour | aog | vol
 }
 get_daily_aog <- function(aog) {
@@ -820,7 +774,7 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
                   !!wt_ := sum(!!wt_)) %>%
         mutate(Corridor = factor(corr_grp)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
-        mutate(Zone_Group = corr_grp) %>% # this is new and untested
+        mutate(Zone_Group = corr_grp) %>% 
         select(Corridor, Zone_Group, !!per_, !!var_, !!wt_, delta) # addition of Zone_Group is new
 }
 group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
@@ -852,27 +806,12 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
             filter(Zone_Group == zg) %>%
             gr_(per_, var_, wt_, zg)
     })
-    # rtop1_df_out <- df %>%
-    #     filter(Zone_Group == "RTOP1") %>%
-    #     gr_(per_, var_, wt_, "RTOP1")
-    # rtop2_df_out <- df %>%
-    #     filter(Zone_Group == "RTOP2") %>%
-    #     gr_(per_, var_, wt_, "RTOP2")
-    # d5_df_out <- df %>%
-    #     filter(Zone_Group == "D5") %>%
-    #     gr_(per_, var_, wt_, "D5")
-    # mtop_df_out <- df %>%
-    #     filter(Zone_Group == "MTOP") %>%
-    #     gr_(per_, var_, wt_, "MTOP")
     all_rtop_df_out <- df %>%
         filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
         gr_(per_, var_, wt_, "All RTOP")
 
     dplyr::bind_rows(select_(df, "Corridor", "Zone_Group", per_, var_, wt_, "delta"),
                      zgs,
-                     #rtop1_df_out, 
-                     #rtop2_df_out,
-                     #d5_df_out,
                      all_rtop_df_out) %>%
         mutate(Corridor = factor(Corridor))
 }
@@ -888,9 +827,6 @@ get_daily_avg <- function(df, var_, wt_="ones") {
     }
     
     df %>%
-        #group_by(SignalID, CallPhase, Date) %>% 
-        #summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
-        #          !!wt_ := sum(!!wt_)) %>% # Mean over 3 days in the week
         group_by(SignalID, Date) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_), # Mean of phases 2,6
                   !!wt_ := sum(!!wt_)) %>% # Sum of phases 2,6
@@ -906,9 +842,6 @@ get_daily_sum <- function(df, var_, per_) {
     
     
     df %>%
-        #group_by(SignalID, CallPhase, Date) %>% 
-        #summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
-        #          !!wt_ := sum(!!wt_)) %>% # Mean over 3 days in the week
         group_by(SignalID, !!per_) %>% 
         summarize(!!var_ := sum(!!var_)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
@@ -972,7 +905,6 @@ get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
         filter(!is.nan(!!var_))
     
     # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
-    #group_corridors_(cor_df_out, group_corridor_by_date, var_, wt_)
     group_corridors_(cor_df_out, "Date", var_, wt_)
 }
 get_monthly_avg_by_day <- function(df, var_, wt_=NULL) {
@@ -1015,7 +947,6 @@ get_cor_monthly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
         filter(!is.nan(!!var_))
 
     group_corridors_(cor_df_out, "Month", var_, wt_)
-    #cor_df_out
 }
 
 get_weekly_avg_by_hr <- function(df, var_, wt_=NULL) {
@@ -1067,7 +998,6 @@ get_cor_weekly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
     cor_df_out <- weighted_mean_by_corridor_(df, "Hour", corridors, var_, wt_)
     
     # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
-    #group_corridors_(cor_df_out, group_corridor_by_hour, var_, wt_)
     group_corridors_(cor_df_out, "Hour", var_, wt_)
 }
 
@@ -1090,9 +1020,7 @@ get_sum_by_hr <- function(df, var_) {
 get_avg_by_hr <- function(df, var_, wt_=NULL) {
     
     df_ <- as.data.table(df)
-    #var_ <- quote(var_)
-    #wt_ <- quote(wt_)
-    
+
     df_[, c("DOW", "Week", "Hour") := list(wday(Date_Hour), 
                                            week(Date_Hour), 
                                            floor_date(Date_Hour, unit = '1 hour'))]
@@ -1165,7 +1093,6 @@ get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
     var_ <- as.name(var_)
     
     cor_df_out <- weighted_mean_by_corridor_(df, "Hour", corridors, var_, wt_)
-    #group_corridors_(cor_df_out, group_corridor_by_hour, var_, wt_)
     group_corridors_(cor_df_out, "Hour", var_, wt_)
 }
 
@@ -1195,18 +1122,11 @@ get_device_uptime_from_xl_multiple <- function(fns, range, corridors) {
     dfs <- lapply(fns, function(x) get_device_uptime_from_xl(x, range))
     df <- bind_rows(dfs)
     
-    # corrs <- corridors %>% group_by(Corridor, Zone_Group) %>% 
-    #     summarize(SignalID = min(as.integer(SignalID), na.rm = TRUE)) %>%
-    #     ungroup() %>%
-    #     mutate(Corridor = factor(Corridor),
-    #            SignalID = factor(SignalID))
-    
     corrs <- corridors %>% distinct(Corridor, Zone_Group) %>%
         mutate(Corridor = factor(Corridor),
                SignalID = factor(0))
     df_ <- left_join(df, corrs)
     
-    #get_cor_monthly_avg_by_day(df_, corridors, "uptime", "num")
     df_ %>% select(Zone_Group, Corridor, Month, up, num, uptime)
     
 }
@@ -1375,10 +1295,12 @@ get_vph <- function(counts) {
         filter(CallPhase %in% c(2,6)) %>% # sum over Phases 2,6
         group_by(SignalID, Week, DOW, Hour) %>% 
         summarize(vph = sum(vol, na.rm = TRUE))
+    
     # SignalID | CallPhase | Week | DOW | Hour | aog | vph
 }
 get_aog_by_hr <- function(aog) {
     get_avg_by_hr(aog, "aog", "vol")
+    
     # SignalID | CallPhase | Week | DOW | Hour | aog | vol
 }
 get_sf_by_hr <- function(sf) {
@@ -1575,12 +1497,7 @@ get_cor_monthly_xl_uptime <- function(df) {
                   up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE)) %>%
         ungroup()
-    #a <- df %>% group_by(Zone_Group, Corridor, Month) %>%
-    #  summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE)) %>%
-    #  ungroup() %>%
-    #  left_join(nums) %>%
-    #  mutate()
-    
+
     b <- a %>% 
         group_by(Zone_Group, Corridor = Zone_Group, Month) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
@@ -1819,10 +1736,8 @@ get_outstanding_events <- function(teams, group_var) {
         arrange(Month) %>%
         filter(!is.na(Month)) %>%
         group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
-        #group_by_(group_var, quote(Zone_Group), quote(Corridor), quote(Month)) %>%
         summarize(Rep = n()) %>% 
         group_by_(quote(Zone_Group), group_var) %>%
-        #group_by_(quote(Zone_Group), quote(Corridor), group_var) %>%
         mutate(cumRep = cumsum(Rep))
     
     res <- teams %>% 
@@ -1830,10 +1745,8 @@ get_outstanding_events <- function(teams, group_var) {
         arrange(Month) %>%
         filter(!is.na(Month)) %>%
         group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
-        #group_by_(group_var, quote(Zone_Group), quote(Corridor), quote(Month)) %>%
         summarize(Res = n()) %>% 
         group_by_(quote(Zone_Group), group_var) %>%
-        #group_by_(quote(Zone_Group), quote(Corridor), group_var) %>%
         mutate(cumRes = cumsum(Res))
     
     left_join(rep, res) %>% 
@@ -1841,7 +1754,6 @@ get_outstanding_events <- function(teams, group_var) {
         replace_na(list(Rep = 0, cumRep = 0, 
                         Res = 0, cumRes = 0)) %>% 
         group_by_(quote(Zone_Group), group_var) %>%
-        #group_by_(quote(Zone_Group), quote(Corridor), group_var) %>%
         mutate(outstanding = cumRep - cumRes) %>%
         ungroup()
 }
@@ -1913,7 +1825,6 @@ perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%",
         add_ribbons(x = ~per, 
                     ymin = 0,
                     ymax = ~var, 
-                    #color = I(GDOT_BLUE)) %>%
                     color = I(DARK_GRAY)) %>%
         layout(yaxis = list(range = c(0, range_max),
                             tickformat = number_format),
@@ -1988,9 +1899,7 @@ signal_dashboard <- function(sigid,
     }, error = function(cond) {
         plot_ly()
     })
-    #p_ac <- volplot_plotly(adjusted_counts_1hr %>% filter(SignalID == sigid) %>% mutate(vol = ifelse(is.na(vol), 0, vol)))
-    #subplot(list(p_rc, p_fc, p_vpd, p_ddu))
-    
+
     p_vpd <- tryCatch({
         perf_plotly_by_phase(vpd %>% filter(SignalID==sigid & !is.na(vpd)), 
                              "Date", "vpd", 

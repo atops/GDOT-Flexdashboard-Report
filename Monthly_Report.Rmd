@@ -14,7 +14,6 @@ runtime: shiny
 
 library(flexdashboard)
 library(shiny)
-#library(codetools)
 
 library(data.table)
 library(dplyr)
@@ -27,29 +26,21 @@ library(crosstalk)
 library(memoise)
 
 # Colorbrewer Paired Palette Colors
-LIGHT_BLUE = "#A6CEE3"
-BLUE = "#1F78B4"
-LIGHT_GREEN = "#B2DF8A"
-GREEN = "#33A02C"
-LIGHT_RED = "#FB9A99"
-RED = "#E31A1C"
-LIGHT_ORANGE = "#FDBF6F"
-ORANGE = "#FF7F00"
-LIGHT_PURPLE = "#CAB2D6"
-PURPLE = "#6A3D9A"
-LIGHT_BROWN = "#FFFF99"
-BROWN = "#B15928"
-DARK_GRAY = "#636363"
+LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
+LIGHT_GREEN = "#B2DF8A";  GREEN = "#33A02C"
+LIGHT_RED = "#FB9A99";    RED = "#E31A1C"
+LIGHT_ORANGE = "#FDBF6F"; ORANGE = "#FF7F00"
+LIGHT_PURPLE = "#CAB2D6"; PURPLE = "#6A3D9A"
+LIGHT_BROWN = "#FFFF99";  BROWN = "#B15928"
 
+DARK_GRAY = "#636363"
 BLACK = "#000000"
 DARK_GRAY_BAR = "#252525"
 LIGHT_GRAY_BAR = "#bdbdbd"
 
 RED2 = "#e41a1c"
-GDOT_BLUE = "#256194"
-GDOT_BLUE_RGB = "rgba(37,97,148,0.80)"
-GDOT_YELLOW = "#EEB211"
-GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+GDOT_BLUE = "#256194"; GDOT_BLUE_RGB = "rgba(37,97,148,0.80)"
+GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN, 
            "5" = LIGHT_RED, "6" = RED, "7" = LIGHT_ORANGE, "8" = ORANGE, 
@@ -101,9 +92,6 @@ get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE,
     del <- paste0(ifelse(vals$delta > 0, " (+", " ( "), as_pct(vals$delta), ")")
     
     validate(need(val, message = "NA"))
-    
-    #req(val)
-    #req(del)
     
     if (break_) {
         tags$div(HTML(paste(
@@ -165,7 +153,6 @@ perf_plot <- function(data_, value_, name_, color_,
                                       text = name_,
                                       font = list(size = 12),
                                       showarrow = FALSE),
-                   #font = font_,
                    showlegend = FALSE,
                    margin = list(l = 120,
                                  r = 40)) %>% 
@@ -176,8 +163,6 @@ no_data_plot_ <- function(name_) {
     
     ax <- list(title="", showticklabels=FALSE, showgrid=FALSE, zeroline=FALSE)
     ay <- list(title="", showticklabels=FALSE, showgrid=FALSE, zeroline=FALSE)
-    
-    #font_ <- list(family = "Ubuntu")
     
     plot_ly(type = "scatter", mode = "markers") %>%
         layout(xaxis = ax, 
@@ -198,10 +183,8 @@ no_data_plot_ <- function(name_) {
                     font = list(size = 16),
                     showarrow = FALSE)),
                
-               
-                   #font = font_,
-                   margin = list(l = 180,
-                                 r = 100)) %>% 
+               margin = list(l = 180,
+                             r = 100)) %>% 
         config(displayModeBar = F)
         
 }
@@ -217,8 +200,8 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                         var_,
                                         num_format, # percent, integer, decimal
                                         highlight_color,
-                                        month_, # = current_month(),
-                                        zone_group_, # = zone_group(),
+                                        month_, 
+                                        zone_group_, 
                                         x_bar_title = "___",
                                         x_line1_title = "___",
                                         x_line2_title = "___",
@@ -276,11 +259,10 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                 barmode = "overlay",
                 xaxis = list(title = x_bar_title, 
                              zeroline = FALSE, 
-                             #range = c(0,1),
                              tickformat = tickformat_),
                 yaxis = list(title = ""),
                 showlegend = FALSE,
-                font = list(size = 11), #font_,
+                font = list(size = 11),
                 margin = list(pad = 4,
                               l = 100)
             )
@@ -299,9 +281,8 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                       color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
                       alpha = 0.6) %>%
             layout(xaxis = list(title = x_line1_title),
-                   yaxis = list(#range = c(0.5,1.0),
-                       tickformat = tickformat_,
-                       hoverformat = tickformat_), ## NEW
+                   yaxis = list(tickformat = tickformat_,
+                                hoverformat = tickformat_),
                    title = "__plot1_title__",
                    showlegend = FALSE,
                    margin = list(t = 50)
@@ -333,8 +314,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                           color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
                           alpha = 0.6) %>%
                 layout(xaxis = list(title = x_line2_title),
-                       yaxis = list(#range = c(0,1),
-                           tickformat = tickformat_),
+                       yaxis = list(tickformat = tickformat_),
                        title = "__plot2_title__",
                        showlegend = FALSE)
             
@@ -362,15 +342,13 @@ get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_)
 get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
                         cor_monthly_pti, cor_monthly_pti_by_hr, 
                         highlight_color = RED2,
-                        month_, # = current_month(),
+                        month_,
                         zone_group_,
                         x_bar_title = "___",
                         x_line1_title = "___",
                         x_line2_title = "___",
                         plot_title = "___ ") {
                         
-    #excl_zone_grps <- zone_group_options[zone_group_options != zone_group_]
-    
     var_fmt <- as_2dec
     tickformat <- ".2f"
         
@@ -378,15 +356,13 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       by=c("Corridor", "Zone_Group", "Month"),
                       suffix = c(".tti", ".pti"))  %>%
         filter(!is.na(Corridor)) %>% #,
-               #!Corridor %in% excl_zone_grps) %>%
         mutate(bti = pti - tti) %>%
         select(Corridor, Zone_Group, Month, tti, pti, bti)
 
     hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
-                      by=c("Corridor", "Zone_Group", "Hour"), #, "vph"),
+                      by=c("Corridor", "Zone_Group", "Hour"),
                       suffix = c(".tti", ".pti"))  %>%
         filter(!is.na(Corridor)) %>%#,
-               #!Corridor %in% excl_zone_grps) %>%
         mutate(bti = pti - tti) %>%
         select(Corridor, Zone_Group, Hour, tti, pti, bti)
 
@@ -412,7 +388,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
     sdh <- SharedData$new(dplyr::filter(hrtt, date(Hour)==month_), 
                           ~Corridor, group = "grp")
     
-    #font_ <- list(family = "Ubuntu")
     highlight_color_ <- RED2 # Colorbrewer red
 
     base_b <- plot_ly(sdb, color = I("gray")) %>%
@@ -427,7 +402,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         arrange(tti) %>%
         add_bars(x = ~tti, 
                  y = ~factor(Corridor, levels = Corridor),
-                 text = ~as_2dec(tti), #round(tti, 2),
+                 text = ~as_2dec(tti),
                  color = I("gray"),
                  textposition = "auto",
                  insidetextfont = list(color="black"),
@@ -447,7 +422,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                          range = c(0,2)),
             yaxis = list(title = ""),
             showlegend = FALSE,
-            font = list(size = 11), #font_,
+            font = list(size = 11),
             margin = list(pad = 4)
         )
     pttimo <- base_m %>%
@@ -456,7 +431,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                   alpha = 0.6) %>%
         layout(xaxis = list(title = "Travel Time Index (TTI"),
                yaxis = list(tickformat = tickformat,
-                            #rangemode = "tozero"
                             range = c(1,2.5)),
                showlegend = FALSE)
 
@@ -467,7 +441,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         layout(xaxis = list(title = x_line1_title),
                yaxis = list(range = c(1,3),
                    tickformat = tickformat),
-               #title = "__plot2_title__",
                showlegend = FALSE)
     
     pptimo <- base_m %>%
@@ -476,7 +449,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                   alpha = 0.6) %>%
         layout(xaxis = list(title = "Planning Time Index (PTI)"),
                yaxis = list(tickformat = tickformat,
-                            #rangemode = "tozero"
                             range = c(1,2.5)),
                showlegend = FALSE)
     
@@ -487,7 +459,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         layout(xaxis = list(title = x_line2_title),
                yaxis = list(range = c(1,3),
                    tickformat = tickformat),
-               #title = "__plot2_title__",
                showlegend = FALSE)
     
     x0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
@@ -516,8 +487,8 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
 get_tt_plot <- memoise(get_tt_plot_)
 
 get_pct_ch_plot_ <- function(cor_monthly_vpd,
-                            month_, # = current_month(), 
-                            zone_group_) { # , = zone_group()
+                            month_,
+                            zone_group_) {
     pl <- function(df) { 
         neg <- dplyr::filter(df, delta < 0)
         pos <- dplyr::filter(df, delta > 0)
@@ -528,24 +499,15 @@ get_pct_ch_plot_ <- function(cor_monthly_vpd,
             add_bars(data = neg,
                      x = ~Month, 
                      y = ~delta, 
-                     #text = ~scales::percent(delta), 
-                     #textposition = "outside",
-                     #textfont = list(family = "Ubuntu", size = 11),
                      marker = list(color = "#e31a1c")) %>%
             add_bars(data = pos,
                      x = ~Month, 
                      y = ~delta, 
-                     #text = ~scales::percent(delta), 
-                     #textposition = "outside",
-                     #textfont = list(family = "Ubuntu", size = 11),
                      marker = list(color = "#33a02c")) %>%
             layout(xaxis = list(title = "",
                                 nticks = nrow(df)),
-                                #tickfont = list(family = "Ubuntu")),
                    yaxis = list(title = "",
-                                #range = c(-0.5,0.5),
                                 tickformat = "%"),
-                                #tickfont = list(family = "Ubuntu")),
                    showlegend = FALSE,
                    annotations = list(text = title_,
                                       font = list(size = 12),
@@ -598,8 +560,6 @@ get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle,
     sdw <- SharedData$new(dplyr::filter(df, Month <= month_), ~Corridor, group = "grp")
     sdm <- SharedData$new(dplyr::filter(df, Month == month_), ~Corridor, group = "grp")
     
-    #font_ <- list(family = "Ubuntu")
-    
     base <- plot_ly(sdw, color = I("gray")) %>%
         group_by(Corridor)
     base_m <- plot_ly(sdm, color = I("gray")) %>%
@@ -619,7 +579,7 @@ get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle,
             xaxis = list(title = bar_subtitle, zeroline = FALSE),
             yaxis = list(title = ""),
             showlegend = FALSE,
-            font = list(size = 11), #font_,
+            font = list(size = 11),
             margin = list(pad = 4)
         )
     p2 <- base %>%
@@ -704,7 +664,6 @@ get_minmax_hourly_plot_ <- function(cor_monthly_vph,
     if (nrow(df) > 0) {
 
     minmax <- df %>% 
-        #filter(!Corridor %in% excl_zone_grps) %>% 
         mutate(Hour = (Hour + (date(max(Hour)) - date(Hour)))) %>%
         group_by(Corridor, Hour) %>% 
         summarize(min_vph = min(vph), max_vph = max(vph))
@@ -773,7 +732,6 @@ det_uptime_line_plot_ <- function(df, corr, showlegend_) {
         layout(yaxis = list(title = "",
                             range = c(0,1.1),
                             tickformat = "%"),
-                            #tickfont = list(family = "Ubuntu")),
                xaxis = list(title = ""),
                annotations = list(text = corr,
                                   font = list(size = 14),
@@ -785,14 +743,13 @@ det_uptime_line_plot_ <- function(df, corr, showlegend_) {
                                   x = 0.1,
                                   y = 0.1,
                                   showarrow = FALSE),
-               #paper_bgcolor = "#f0f0f0",
                plot_bgcolor = "#ffffff")
 }
 det_uptime_line_plot <- memoise(det_uptime_line_plot_)
 
 get_cor_det_uptime_plot_ <- function(avg_daily_uptime, 
-                                    month_, # = current_month(), 
-                                    zone_group_, # = zone_group(), 
+                                    month_,
+                                    zone_group_,
                                     month_name) {
     
     # Plot Detector Uptime for a Corridor. The basis of subplot.
@@ -819,10 +776,8 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
             layout(yaxis = list(title = "",
                                 range = c(0,1.1),
                                 tickformat = "%"),
-                                #tickfont = list(family = "Ubuntu")),
                    xaxis = list(title = ""),
                    annotations = list(text = corr,
-                                      #font = list(family = "Ubuntu"),
                                       xref = "paper",
                                       yref = "paper",
                                       yanchor = "bottom",
@@ -906,19 +861,13 @@ get_cor_det_uptime_plot <- memoise(get_cor_det_uptime_plot_)
 
 get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
                                     avg_monthly_uptime,
-                                    month_, # = current_month(), 
-                                    zone_group_, # = zone_group(), 
+                                    month_,
+                                    zone_group_,
                                     month_name) {
     
     # Plot Detector Uptime for a Corridor. The basis of subplot.
     plot_detector_uptime <- function(df, corr, showlegend_) {
         plot_ly(data = df) %>% 
-            #add_lines(x = ~Date, 
-            #          y = ~uptime.pr,
-            #          color = I(LIGHT_BLUE),
-            #          name = "Presence",
-            #          legendgroup = "Presence",
-            #          showlegend = showlegend_) %>%
             add_lines(x = ~Date, 
                       y = ~uptime, #
                       color = I(BLUE),
@@ -934,10 +883,8 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
             layout(yaxis = list(title = "",
                                 range = c(0,1.1),
                                 tickformat = "%"),
-                                #tickfont = list(family = "Ubuntu")),
                    xaxis = list(title = ""),
                    annotations = list(text = corr,
-                                      #font = list(family = "Ubuntu"),
                                       xref = "paper",
                                       yref = "paper",
                                       yanchor = "bottom",
@@ -950,9 +897,6 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
     plot_detector_uptime_bar <- function(df) {
         
         df <- df %>% 
-            #filter(Month == month_) %>%
-            #group_by(Corridor, Zone_Group) %>%
-            #summarize(uptime = mean(uptime.all)) %>%
             arrange(uptime) %>% ungroup() %>%
             mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
@@ -1044,11 +988,11 @@ plot_teams_tasks_ <- function(tab, var_,
     
     p1 <- plot_ly(data = tab, height = height_) %>%
         add_bars(x = ~Rep, 
-                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 y = ~var,
                  color = I(LIGHT_BLUE),
                  name = "Reported",
                  text = ~Rep,
-                 textposition = textpos, #"auto",
+                 textposition = textpos,
                  insidetextfont=list(size=11, color="black"),
                  outsidetextfont=list(size=11)) %>%
         layout(margin = list(l=180),
@@ -1056,15 +1000,14 @@ plot_teams_tasks_ <- function(tab, var_,
                yaxis = list(title = ""),
                xaxis = list(title = "Reported this Month",
                             zeroline = FALSE),
-               #font = list(family = "Ubuntu"),
                margin = list(pad = 4))
-    p2 <- plot_ly(data = tab) %>% #, height = height_
+    p2 <- plot_ly(data = tab) %>%
         add_bars(x = ~Res, 
-                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 y = ~var,
                  color = I(BLUE),
                  name = "Resolved",
                  text = ~Res,
-                 textposition = textpos, #"auto",
+                 textposition = textpos,
                  insidetextfont=list(size=11, color="white"),
                  outsidetextfont=list(size=11)) %>%
         layout(margin = list(l=180),
@@ -1072,15 +1015,14 @@ plot_teams_tasks_ <- function(tab, var_,
                yaxis = list(title = ""),
                xaxis = list(title = "Resolved this Month",
                             zeroline = FALSE),
-               #font = list(family = "Ubuntu"),
                margin = list(pad = 4))
-    p3 <- plot_ly(data = tab) %>% #, height = height_
+    p3 <- plot_ly(data = tab) %>% 
         add_bars(x = ~outstanding, 
-                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 y = ~var, 
                  color = I(ORANGE),
                  name = "Outstanding",
                  text = ~outstanding,
-                 textposition = textpos, #"auto",
+                 textposition = textpos, 
                  insidetextfont=list(size=11, color="white"),
                  outsidetextfont=list(size=11)) %>%
         layout(margin = list(l=180),
@@ -1088,7 +1030,6 @@ plot_teams_tasks_ <- function(tab, var_,
                yaxis = list(title = ""),
                xaxis = list(title = "Cumulative Tasks Outstanding",
                             zeroline = FALSE),
-               #font = list(family = "Ubuntu"),
                margin = list(pad = 4))
     subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
         layout(title = title_)
@@ -1176,7 +1117,6 @@ cum_events_plot_ <- function(df) {
         layout(barmode = "group",
                yaxis = list(title = "Events"),
                xaxis = list(title = ""))
-               #font = list(family = "Ubuntu"))
 }
 cum_events_plot <- memoise(cum_events_plot_)
 ```
@@ -1733,7 +1673,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = FALSE),
     icon = "fa-area-chart",
-      color = GDOT_YELLOW_RGB #GDOT_BLUE_RGB
+      color = GDOT_YELLOW_RGB
   )
 })
 ```
@@ -1748,7 +1688,7 @@ renderValueBox({
                            mo = current_month(),
                            qu = current_quarter(), break_ = FALSE),
       icon = "fa-area-chart",
-      color = GDOT_YELLOW #GDOT_BLUE_RGB
+      color = GDOT_YELLOW
   )
 })
 ```
@@ -1763,7 +1703,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
       icon = "fa-area-chart",
-      color = GDOT_YELLOW_RGB #GDOT_BLUE_RGB
+      color = GDOT_YELLOW_RGB
   )
 })
 ```
@@ -2353,7 +2293,7 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "ion-paper-airplane" #"fa-user" #
+      icon = "ion-paper-airplane"
   )
 })
 ```
@@ -2415,7 +2355,6 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
 
 renderPlotly({
-    #get_cor_det_uptime_plot(cor_avg_daily_detector_uptime, month_name = input$month)
     get_cor_comm_uptime_plot(mr()$dy$cu, 
                              mr()$mo$cu, 
                              month_name = input$month,
