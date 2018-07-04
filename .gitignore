@@ -1,0 +1,22 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+
+/2018-03
+/2018-04 Report Files
+/2018-05
+/Excel Monthly Reports
+/Monthly_Report_cache
+/Inrix
+/TE_Reports
+/test_cache
+
+
+*.feather
+*.fst
+*.csv
+*.xlsx
+*.docx
+*.rds

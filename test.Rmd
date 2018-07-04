@@ -1,0 +1,185 @@
+---
+title: "Monthly Report - BETA"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    logo: favicon_rtop.png
+    favicon: favicon_rtop.png
+runtime: shiny
+---
+
+```{r global, cache=TRUE, include=FALSE, warning=FALSE}
+library(profvis)
+#profvis({
+# FLEXDASHBOARD - RTOP_MONTHLY_REPORT_-_BETA
+
+library(flexdashboard)
+library(shiny)
+library(codetools)
+
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(feather)
+library(forcats)
+library(plotly)
+library(crosstalk)
+library(memoise)
+
+# Colorbrewer Paired Palette Colors
+LIGHT_BLUE = "#A6CEE3"
+BLUE = "#1F78B4"
+LIGHT_GREEN = "#B2DF8A"
+GREEN = "#33A02C"
+LIGHT_RED = "#FB9A99"
+RED = "#E31A1C"
+LIGHT_ORANGE = "#FDBF6F"
+ORANGE = "#FF7F00"
+LIGHT_PURPLE = "#CAB2D6"
+PURPLE = "#6A3D9A"
+LIGHT_BROWN = "#FFFF99"
+BROWN = "#B15928"
+DARK_GRAY = "#636363"
+
+BLACK = "#000000"
+DARK_GRAY_BAR = "#252525"
+LIGHT_GRAY_BAR = "#bdbdbd"
+
+RED2 = "#e41a1c"
+GDOT_BLUE = "#256194"
+GDOT_BLUE_RGB = "rgba(37,97,148,0.80)"
+GDOT_YELLOW = "#EEB211"
+GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+
+colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN, 
+           "5" = LIGHT_RED, "6" = RED, "7" = LIGHT_ORANGE, "8" = ORANGE, 
+           "9" = LIGHT_PURPLE, "10" = PURPLE, "11" = LIGHT_BROWN, "12" = BROWN,
+           "0" = DARK_GRAY)
+
+FIG_WIDTH = 14
+FIG_HEIGHT = 7
+
+# ###########################################################
+
+corridors <- read_feather("corridors.feather")
+teams_tables <- readRDS("teams_tables.rds")
+
+cor <- readRDS("cor.rds")
+sig <- readRDS("sig.rds")
+
+
+as_int <- function(x) {scales::comma_format()(as.integer(x))}
+as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
+as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
+
+
+#raw_counts_1hr_ <- read_feather("sig_raw_counts_1hr.feather")
+#filtered_counts_1hr_ <- read_feather("sig_filtered_counts_1hr.feather")
+#adjusted_counts_1hr_ <- read_feather("sig_adjusted_counts_1hr.feather")
+#vpd_ <- read_feather("sig_vpd.feather")
+#aog_ <- read_feather("sig_aog.feather")
+#sf_ <- read_feather("sig_sf.feather")
+#qs_ <- read_feather("sig_qs.feather")
+#avg_daily_detector_uptime_ <- read_feather("sig_avg_daily_detector_uptime.feather")
+#daily_comm_uptime_ <- read_feather("sig_daily_comm_uptime.feather")
+
+```
+
+
+
+
+
+Inputs {.sidebar}
+=====================================
+
+This is the New RTOP Monthly Report.
+
+Past month reports can be viewed back to September 2017.
+
+```{r sidebar, warning=FALSE}
+# shiny inputs defined here
+
+month_options <- c("March 2018",
+                   "February 2018",
+                   "January 2018",
+                   "December 2017",
+                   "November 2017",
+                   "October 2017",
+                   "September 2017")
+zone_group_options <- c("All RTOP", 
+                        "RTOP1",
+                        "RTOP2",
+                        "D1",
+                        "D5",
+                        "D6")
+
+selectInput("month", "Month:",
+                       choices = month_options,
+                       selected = "March 2018")
+
+selectInput("zone_group", "Zone Group:",
+                       choices = zone_group_options,
+                       selected = "All RTOP")
+
+
+
+# FUTURE. TO DRILL DOWN WITHIN CORRIDORS TO SEE ALL SIGNALS
+conditionalPanel("input.zone_group == 'RTOP1'",
+                 selectInput("corridor1", "Corridor",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "RTOP1")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+conditionalPanel("input.zone_group == 'RTOP2'",
+                 selectInput("corridor2", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "RTOP2")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'D5'",
+                 selectInput("corridor3", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D5")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
+zone_group <- reactive(input$zone_group)
+corridor <- reactive(
+    if (input$zone_group == "RTOP1") {
+        input$corridor1
+    } else if (input$zone_group == "RTOP2") {
+        input$corridor2
+    } else if (input$zone_group == "D5") {
+        input$corridor3
+    } else {
+        "All Corridors"
+    })
+
+#renderText({"\nSelected Month"})
+#renderPrint({current_month()})
+
+#renderText({"Selected Zone Group"})
+#renderPrint({zone_group()})
+
+renderText({"Selected Corridor"})
+renderPrint({corridor()})
+
+mr <- reactive(
+    if(corridor() == "All Corridors") {
+        cor
+    } else {
+        sig
+    }
+)
+renderPrint({mr()$wk$vpd})
+
+
+```

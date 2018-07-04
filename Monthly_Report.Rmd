@@ -1,0 +1,2818 @@
+---
+title: "Monthly Report - BETA"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    logo: favicon_rtop.png
+    favicon: favicon_rtop.png
+runtime: shiny
+---
+
+```{r global, cache=TRUE, include=FALSE, warning=FALSE}
+# FLEXDASHBOARD - RTOP_MONTHLY_REPORT_-_BETA
+
+library(flexdashboard)
+library(shiny)
+#library(codetools)
+
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(feather)
+library(forcats)
+library(plotly)
+library(crosstalk)
+library(memoise)
+
+# Colorbrewer Paired Palette Colors
+LIGHT_BLUE = "#A6CEE3"
+BLUE = "#1F78B4"
+LIGHT_GREEN = "#B2DF8A"
+GREEN = "#33A02C"
+LIGHT_RED = "#FB9A99"
+RED = "#E31A1C"
+LIGHT_ORANGE = "#FDBF6F"
+ORANGE = "#FF7F00"
+LIGHT_PURPLE = "#CAB2D6"
+PURPLE = "#6A3D9A"
+LIGHT_BROWN = "#FFFF99"
+BROWN = "#B15928"
+DARK_GRAY = "#636363"
+
+BLACK = "#000000"
+DARK_GRAY_BAR = "#252525"
+LIGHT_GRAY_BAR = "#bdbdbd"
+
+RED2 = "#e41a1c"
+GDOT_BLUE = "#256194"
+GDOT_BLUE_RGB = "rgba(37,97,148,0.80)"
+GDOT_YELLOW = "#EEB211"
+GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+
+colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN, 
+           "5" = LIGHT_RED, "6" = RED, "7" = LIGHT_ORANGE, "8" = ORANGE, 
+           "9" = LIGHT_PURPLE, "10" = PURPLE, "11" = LIGHT_BROWN, "12" = BROWN,
+           "0" = DARK_GRAY)
+
+FIG_WIDTH = 14
+FIG_HEIGHT = 7
+
+# ###########################################################
+
+corridors <- read_feather("corridors.feather")
+teams_tables <- readRDS("teams_tables.rds")
+
+cor <- readRDS("cor.rds")
+sig <- readRDS("sig.rds")
+
+
+as_int <- function(x) {scales::comma_format()(as.integer(x))}
+as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
+as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
+
+
+#raw_counts_1hr_ <- read_feather("sig_raw_counts_1hr.feather")
+#filtered_counts_1hr_ <- read_feather("sig_filtered_counts_1hr.feather")
+#adjusted_counts_1hr_ <- read_feather("sig_adjusted_counts_1hr.feather")
+#vpd_ <- read_feather("sig_vpd.feather")
+#aog_ <- read_feather("sig_aog.feather")
+#sf_ <- read_feather("sig_sf.feather")
+#qs_ <- read_feather("sig_qs.feather")
+#avg_daily_detector_uptime_ <- read_feather("sig_avg_daily_detector_uptime.feather")
+#daily_comm_uptime_ <- read_feather("sig_daily_comm_uptime.feather")
+
+
+
+get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
+                    zone, mo, qu = NULL) {
+    vals <- cor_monthly_df %>% 
+        replace_na(list(delta = 0))
+    
+    if (is.null(qu)) { # want monthly, not quarterly data
+        vals <- vals %>%
+            dplyr::filter(Corridor == zone & Month == mo) %>% as.list()
+    } else {
+        vals <- vals %>%
+            dplyr::filter(Corridor == zone & Quarter == qu) %>% as.list()
+    }
+    val <- var_fmt(vals[[var_]])
+    del <- paste0(ifelse(vals$delta > 0, " (+", " ( "), as_pct(vals$delta), ")")
+    
+    validate(need(val, message = "NA"))
+    
+    #req(val)
+    #req(del)
+    
+    if (break_) {
+        tags$div(HTML(paste(
+            val,
+            tags$p(del, style = "font-size: 50%; line-height: 5px; padding: 0 0 0.2em 0;")
+        )))
+    } else {
+        tags$div(HTML(paste(
+            val, tags$span(del, style = "font-size: 70%;")
+        )))
+    }
+}
+get_valuebox <- memoise(get_valuebox_)
+
+
+
+perf_plot <- function(data_, value_, name_, color_, 
+                      format_func = function(x) {x},
+                      hoverformat_ = ",.0f") {
+
+    ax <- list(title="", showticklabels=TRUE, showgrid=FALSE)
+    ay <- list(title="", showticklabels=FALSE, showgrid=FALSE, zeroline=FALSE, hoverformat = hoverformat_)
+    
+    value_ <- as.name(value_)
+    data_ <- dplyr::rename(data_, value = !!value_)
+    
+    first <- data_[which.min(data_$Month),]
+    last <- data_[which.max(data_$Month),]
+    
+    plot_ly(type = "scatter", mode = "markers") %>% 
+        add_trace(data = data_, 
+                  x = ~Month, y = ~value, 
+                  name = name_,
+                  line=list(color = color_), 
+                  mode = 'lines+markers',
+                  marker = list(size = 8,
+                                line = list(width = 1,
+                                            color = 'rgba(255,255,255,255.8)'))) %>%
+        add_annotations(x = first$Month,
+                        y = first$value,
+                        text = format_func(first$value),
+                        showarrow = FALSE,
+                        xanchor = "right",
+                        xshift = -10) %>%
+        add_annotations(x = last$Month,
+                        y = last$value,
+                        text = format_func(last$value),
+                        font = list(size = 16),
+                        showarrow = FALSE,
+                        xanchor = "left",
+                        xshift = 20) %>%
+            layout(xaxis = ax, 
+                   yaxis = ay,
+                   annotations = list(x = -.02,
+                                      y = 0.4,
+                                      xref = "paper",
+                                      yref = "paper",
+                                      xanchor = "right",
+                                      text = name_,
+                                      font = list(size = 12),
+                                      showarrow = FALSE),
+                   #font = font_,
+                   showlegend = FALSE,
+                   margin = list(l = 120,
+                                 r = 40)) %>% 
+        config(displayModeBar = F)
+}
+
+no_data_plot_ <- function(name_) {
+    
+    ax <- list(title="", showticklabels=FALSE, showgrid=FALSE, zeroline=FALSE)
+    ay <- list(title="", showticklabels=FALSE, showgrid=FALSE, zeroline=FALSE)
+    
+    #font_ <- list(family = "Ubuntu")
+    
+    plot_ly(type = "scatter", mode = "markers") %>%
+        layout(xaxis = ax, 
+               yaxis = ay,
+               annotations = list(list(x = -.02,
+                                      y = 0.4,
+                                      xref = "paper",
+                                      yref = "paper",
+                                      xanchor = "right",
+                                      text = name_,
+                                      font = list(size = 12),
+                                      showarrow = FALSE),
+               list(x = 0.5,
+                    y = 0.5,
+                    xref = "paper",
+                    yref = "paper",
+                    text = "NO DATA",
+                    font = list(size = 16),
+                    showarrow = FALSE)),
+               
+               
+                   #font = font_,
+                   margin = list(l = 180,
+                                 r = 100)) %>% 
+        config(displayModeBar = F)
+        
+}
+no_data_plot <- memoise(no_data_plot_)
+
+# Empty plot - space filler
+x0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
+p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis = x0)
+
+get_bar_line_dashboard_plot_ <- function(cor_weekly, 
+                                        cor_monthly, 
+                                        cor_hourly = NULL, 
+                                        var_,
+                                        num_format, # percent, integer, decimal
+                                        highlight_color,
+                                        month_, # = current_month(),
+                                        zone_group_, # = zone_group(),
+                                        x_bar_title = "___",
+                                        x_line1_title = "___",
+                                        x_line2_title = "___",
+                                        plot_title = "___ ") {
+    
+    var_ <- as.name(var_)
+    if (num_format == "percent") {
+        var_fmt <- as_pct
+        tickformat_ <- ".0%"
+    } else if (num_format == "integer") {
+        var_fmt <- as_int
+        tickformat_ <- ",.0"
+    } else if (num_format == "decimal") {
+        var_fmt <- as_2dec
+        tickformat_ <- ".2f"
+    }
+    
+    highlight_color_ <- highlight_color
+
+    if (zone_group_ == "All RTOP") {
+        mdf <- cor_monthly %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"), 
+                   Month == month_)
+        wdf <- cor_weekly %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"), 
+                   Date < month_ + months(1))
+    } else {
+        mdf <- cor_monthly %>% 
+            filter(Zone_Group == zone_group_, Month == month_)
+        wdf <- cor_weekly %>% 
+            filter(Zone_Group == zone_group_, Date < month_ + months(1))
+    }
+    if (nrow(mdf) > 0 & nrow(wdf) > 0) {
+        # Current Month Data
+        mdf <- mdf %>%
+            arrange(!!var_) %>%
+            mutate(var = !!var_,
+                   col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                   Corridor = factor(Corridor, levels = Corridor))
+        
+        sdm <- SharedData$new(mdf, ~Corridor, group = "grp")
+    
+        bar_chart <- plot_ly(sdm,
+                             type = "bar",
+                             x = ~var, 
+                             y = ~Corridor,
+                             marker = list(color = ~col),
+                             text = ~var_fmt(var),
+                             textposition = "auto",
+                             insidetextfont = list(color="black"),
+                             hoverinfo = "none") %>%
+            layout(
+                barmode = "overlay",
+                xaxis = list(title = x_bar_title, 
+                             zeroline = FALSE, 
+                             #range = c(0,1),
+                             tickformat = tickformat_),
+                yaxis = list(title = ""),
+                showlegend = FALSE,
+                font = list(size = 11), #font_,
+                margin = list(pad = 4,
+                              l = 100)
+            )
+    
+        # Weekly Data - historical trend
+        wdf <- wdf %>%
+            mutate(var = !!var_,
+                   col = factor(ifelse(Corridor == zone_group_, 0, 1))) %>%
+            group_by(Corridor)
+        
+        sdw <- SharedData$new(wdf, ~Corridor, group = "grp")
+    
+        weekly_line_chart <- plot_ly(sdw) %>%
+            add_lines(x = ~Date, 
+                      y = ~var, 
+                      color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
+                      alpha = 0.6) %>%
+            layout(xaxis = list(title = x_line1_title),
+                   yaxis = list(#range = c(0.5,1.0),
+                       tickformat = tickformat_,
+                       hoverformat = tickformat_), ## NEW
+                   title = "__plot1_title__",
+                   showlegend = FALSE,
+                   margin = list(t = 50)
+            )
+    
+        if (!is.null(cor_hourly)) {
+            
+            if (zone_group_ == "All RTOP") {
+                hdf <- cor_hourly %>%
+                    filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                           !Corridor %in% c("RTOP1", "RTOP2"), 
+                           date(Hour) == month_)
+            } else {
+                hdf <- cor_hourly %>%
+                    filter(Zone_Group == zone_group_, date(Hour) == month_)
+            }
+    
+            # Hourly Data - current month
+            hdf <- hdf %>%
+                mutate(var = !!var_,
+                       col = factor(ifelse(Corridor == zone_group_, 0, 1))) %>%
+                group_by(Corridor)
+            
+            sdh <- SharedData$new(hdf, ~Corridor, group = "grp")
+            
+            hourly_line_chart <- plot_ly(sdh) %>%
+                add_lines(x = ~Hour,
+                          y = ~var,
+                          color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
+                          alpha = 0.6) %>%
+                layout(xaxis = list(title = x_line2_title),
+                       yaxis = list(#range = c(0,1),
+                           tickformat = tickformat_),
+                       title = "__plot2_title__",
+                       showlegend = FALSE)
+            
+            ax0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
+            p0 <- plot_ly() %>% layout(xaxis = ax0, yaxis = ax0)
+            
+            s1 <- subplot(weekly_line_chart, p0, hourly_line_chart, 
+                          titleX = TRUE, heights = c(0.6, 0.1, 0.3), nrows = 3)
+        } else {
+            s1 <- weekly_line_chart
+        }
+        
+        subplot(bar_chart, s1, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
+            layout(margin = list(l = 100),
+                   title = plot_title) %>%
+            highlight(color = highlight_color_, opacityDim = 0.9, defaultValues = c(zone_group_),
+                      selected = attrs_selected(insidetextfont=list(color="white"), 
+                                                textposition = "auto"))
+    } else(
+        no_data_plot("")
+    )
+}
+get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_)
+
+get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
+                        cor_monthly_pti, cor_monthly_pti_by_hr, 
+                        highlight_color = RED2,
+                        month_, # = current_month(),
+                        zone_group_,
+                        x_bar_title = "___",
+                        x_line1_title = "___",
+                        x_line2_title = "___",
+                        plot_title = "___ ") {
+                        
+    #excl_zone_grps <- zone_group_options[zone_group_options != zone_group_]
+    
+    var_fmt <- as_2dec
+    tickformat <- ".2f"
+        
+    mott <- full_join(cor_monthly_tti, cor_monthly_pti,
+                      by=c("Corridor", "Zone_Group", "Month"),
+                      suffix = c(".tti", ".pti"))  %>%
+        filter(!is.na(Corridor)) %>% #,
+               #!Corridor %in% excl_zone_grps) %>%
+        mutate(bti = pti - tti) %>%
+        select(Corridor, Zone_Group, Month, tti, pti, bti)
+
+    hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
+                      by=c("Corridor", "Zone_Group", "Hour"), #, "vph"),
+                      suffix = c(".tti", ".pti"))  %>%
+        filter(!is.na(Corridor)) %>%#,
+               #!Corridor %in% excl_zone_grps) %>%
+        mutate(bti = pti - tti) %>%
+        select(Corridor, Zone_Group, Hour, tti, pti, bti)
+
+    if (zone_group_ == "All RTOP") {
+        mott <- mott %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"))
+        hrtt <- hrtt %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"))
+    } else {
+        mott <- mott %>% 
+            filter(Zone_Group == zone_group_)
+        hrtt <- hrtt %>% 
+            filter(Zone_Group == zone_group_) 
+    }
+
+    if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
+    sdb <- SharedData$new(dplyr::filter(mott, Month==month_), 
+                          ~Corridor, group = "grp")
+    sdm <- SharedData$new(mott, 
+                          ~Corridor, group = "grp")
+    sdh <- SharedData$new(dplyr::filter(hrtt, date(Hour)==month_), 
+                          ~Corridor, group = "grp")
+    
+    #font_ <- list(family = "Ubuntu")
+    highlight_color_ <- RED2 # Colorbrewer red
+
+    base_b <- plot_ly(sdb, color = I("gray")) %>%
+        group_by(Corridor)
+    base_m <- plot_ly(sdm, color = I("gray")) %>%
+        group_by(Corridor)
+    base_h <- plot_ly(sdh, color = I("gray")) %>%
+        group_by(Corridor)
+    
+    pbar <- base_b %>%
+        
+        arrange(tti) %>%
+        add_bars(x = ~tti, 
+                 y = ~factor(Corridor, levels = Corridor),
+                 text = ~as_2dec(tti), #round(tti, 2),
+                 color = I("gray"),
+                 textposition = "auto",
+                 insidetextfont = list(color="black"),
+                 hoverinfo = "none") %>%
+        add_bars(x = ~bti,
+                 y = ~factor(Corridor, levels = Corridor),
+                 text = ~as_2dec(pti),
+                 color = I(LIGHT_BLUE),
+                 textposition = "auto",
+                 insidetextfont = list(color="black"),
+                 hoverinfo = "none") %>%
+        layout(
+            barmode = "stack",
+            xaxis = list(title = x_bar_title, 
+                         zeroline = FALSE, 
+                         tickformat = tickformat,
+                         range = c(0,2)),
+            yaxis = list(title = ""),
+            showlegend = FALSE,
+            font = list(size = 11), #font_,
+            margin = list(pad = 4)
+        )
+    pttimo <- base_m %>%
+        add_lines(x = ~Month, 
+                  y = ~tti, 
+                  alpha = 0.6) %>%
+        layout(xaxis = list(title = "Travel Time Index (TTI"),
+               yaxis = list(tickformat = tickformat,
+                            #rangemode = "tozero"
+                            range = c(1,2.5)),
+               showlegend = FALSE)
+
+    pttihr <- base_h %>%
+        add_lines(x = ~Hour,
+                  y = ~tti,
+                  alpha = 0.6) %>%
+        layout(xaxis = list(title = x_line1_title),
+               yaxis = list(range = c(1,3),
+                   tickformat = tickformat),
+               #title = "__plot2_title__",
+               showlegend = FALSE)
+    
+    pptimo <- base_m %>%
+        add_lines(x = ~Month, 
+                  y = ~pti, 
+                  alpha = 0.6) %>%
+        layout(xaxis = list(title = "Planning Time Index (PTI)"),
+               yaxis = list(tickformat = tickformat,
+                            #rangemode = "tozero"
+                            range = c(1,2.5)),
+               showlegend = FALSE)
+    
+    pptihr <- base_h %>%
+        add_lines(x = ~Hour,
+                  y = ~pti,
+                  alpha = 0.6) %>%
+        layout(xaxis = list(title = x_line2_title),
+               yaxis = list(range = c(1,3),
+                   tickformat = tickformat),
+               #title = "__plot2_title__",
+               showlegend = FALSE)
+    
+    x0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
+    p0 <- plot_ly(type = "scatter", mode = "markers") %>% 
+        layout(xaxis = x0, 
+               yaxis = x0)
+    
+    stti <- subplot(pttimo, p0, pttihr, 
+                    titleX = TRUE, heights = c(0.6, 0.1, 0.3), nrows = 3)
+
+    sbti <- subplot(pptimo, p0, pptihr, 
+                    titleX = TRUE, heights = c(0.6, 0.1, 0.3), nrows = 3)
+        
+    subplot(pbar, stti, sbti, titleX = TRUE, widths = c(0.2, 0.4, 0.4), margin = 0.03) %>%
+        layout(margin = list(l = 120, r = 80),
+               title = "Travel Time and Planning Time Index") %>%
+        highlight(color = highlight_color_, opacityDim = 0.9, 
+                  defaultValues = c(zone_group_),
+                  selected = attrs_selected(insidetextfont=list(color="white"), 
+                                            textposition = "auto", base = 0))
+
+    } else {
+        no_data_plot("")
+    }
+}
+get_tt_plot <- memoise(get_tt_plot_)
+
+get_pct_ch_plot_ <- function(cor_monthly_vpd,
+                            month_, # = current_month(), 
+                            zone_group_) { # , = zone_group()
+    pl <- function(df) { 
+        neg <- dplyr::filter(df, delta < 0)
+        pos <- dplyr::filter(df, delta > 0)
+        
+        title_ <- df$Corridor[1]
+        
+        plot_ly() %>% 
+            add_bars(data = neg,
+                     x = ~Month, 
+                     y = ~delta, 
+                     #text = ~scales::percent(delta), 
+                     #textposition = "outside",
+                     #textfont = list(family = "Ubuntu", size = 11),
+                     marker = list(color = "#e31a1c")) %>%
+            add_bars(data = pos,
+                     x = ~Month, 
+                     y = ~delta, 
+                     #text = ~scales::percent(delta), 
+                     #textposition = "outside",
+                     #textfont = list(family = "Ubuntu", size = 11),
+                     marker = list(color = "#33a02c")) %>%
+            layout(xaxis = list(title = "",
+                                nticks = nrow(df)),
+                                #tickfont = list(family = "Ubuntu")),
+                   yaxis = list(title = "",
+                                #range = c(-0.5,0.5),
+                                tickformat = "%"),
+                                #tickfont = list(family = "Ubuntu")),
+                   showlegend = FALSE,
+                   annotations = list(text = title_,
+                                      font = list(size = 12),
+                                      xref = "paper",
+                                      yref = "paper",
+                                      yanchor = "bottom",
+                                      xanchor = "center",
+                                      align = "center",
+                                      x = 0.5,
+                                      y = 0.95,
+                                      showarrow = FALSE))}
+    
+
+    if (zone_group_ == "All RTOP") {
+        df <- cor_monthly_vpd %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"), 
+                   Month <= month_)
+    } else {
+        df <- cor_monthly_vpd %>% 
+            filter(Zone_Group == zone_group_ & Month <= month_)
+    }
+    if (nrow(df) > 0) {
+    
+    pcts <- split(df, df$Corridor)
+    plts <- lapply(pcts[lapply(pcts, nrow)>0], pl)
+    subplot(plts,
+            margin = 0.03, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE) %>%
+        layout(title = "Percent Change from Previous Month (vehicles/day)",
+               margin = list(t = 60))
+    } else {
+        no_data_plot("")
+    }
+}
+get_pct_ch_plot <- memoise(get_pct_ch_plot_)
+
+get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle, 
+                              month_ = current_month, zone_group_ = zone_group()) {
+    
+    if (zone_group_ == "All RTOP") {
+        df <- df %>%
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"))
+    } else {
+        df <- df %>%
+            filter(Zone_Group == zone_group_)
+    }
+    if (nrow(df) > 0) {
+    
+    sdw <- SharedData$new(dplyr::filter(df, Month <= month_), ~Corridor, group = "grp")
+    sdm <- SharedData$new(dplyr::filter(df, Month == month_), ~Corridor, group = "grp")
+    
+    #font_ <- list(family = "Ubuntu")
+    
+    base <- plot_ly(sdw, color = I("gray")) %>%
+        group_by(Corridor)
+    base_m <- plot_ly(sdm, color = I("gray")) %>%
+        group_by(Corridor)
+    
+    p1 <- base_m %>%
+        summarise(vph = mean(vph)) %>% # This has to be just the current month's vph
+        arrange(vph) %>%
+        add_bars(x = ~vph, 
+                 y = ~factor(Corridor, levels = Corridor),
+                 text = ~scales::comma_format()(as.integer(vph)),
+                 textposition = "inside",
+                 textfont=list(color="black"),
+                 hoverinfo = "none") %>%
+        layout(
+            barmode = "overlay",
+            xaxis = list(title = bar_subtitle, zeroline = FALSE),
+            yaxis = list(title = ""),
+            showlegend = FALSE,
+            font = list(size = 11), #font_,
+            margin = list(pad = 4)
+        )
+    p2 <- base %>%
+        add_lines(x = ~Month, y = ~vph, alpha = 0.6) %>%
+        layout(xaxis = list(title = "Date"),
+               showlegend = FALSE,
+               annotations = list(text = chart_title,
+                                  font = list(size = 12),
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1,
+                                  showarrow = FALSE)
+        )
+    
+    
+    subplot(p1, p2, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
+        layout(margin = list(l = 80, r = 40)) %>%
+        highlight(color = "#256194", opacityDim = 0.9, defaultValues = c(zone_group_),
+                  selected = attrs_selected(insidetextfont=list(color="white"), textposition = "inside"))
+    } else {
+        no_data_plot("")
+    }
+}
+get_vph_peak_plot <- memoise(get_vph_peak_plot_)
+
+get_minmax_hourly_plot_ <- function(cor_monthly_vph, 
+                                   month_ = current_month(), 
+                                   zone_group_ = zone_group()) {
+    
+    mm_pl <- function(mm, tm) {
+        
+        title_ <- mm$Corridor[1]
+        
+        plot_ly() %>%
+            add_bars(data = mm,
+                     x = ~Hour,
+                     y = ~min_vph,
+                     opacity = 0) %>%
+            add_bars(data = mm,
+                     x = ~Hour,
+                     y = ~(max_vph-min_vph),
+                     marker = list(color = "#a6cee3")) %>%
+            add_markers(data = tm,
+                        x = ~Hour,
+                        y = ~vph,
+                        marker = list(color = "#ca0020")) %>%
+            layout(barmode = "stack",
+                   showlegend = FALSE,
+                   xaxis = list(title = "",
+                                tickformat = "%H:%M"),
+                   yaxis = list(title = "",
+                                range = c(0, round(max(minmax$max_vph), -3) + 1000)),
+                   title = "Current Month (veh/hr) compared to range over previous months",
+                   annotations = list(text = title_,
+                                      font = list(size = 12),
+                                      xref = "paper",
+                                      yref = "paper",
+                                      yanchor = "bottom",
+                                      xanchor = "center",
+                                      align = "center",
+                                      x = 0.5,
+                                      y = 0.85,
+                                      showarrow = FALSE))
+    }
+    
+    if (zone_group_ == "All RTOP") {
+        df <- cor_monthly_vph %>% 
+            filter(!Corridor %in% c("RTOP1", "RTOP2", "D3", "D4", "D5", "Zone 7") & date(Hour) <= month_)
+    } else {
+        df <- cor_monthly_vph %>% 
+            filter(Zone_Group == zone_group_ & date(Hour) <= month_)
+    }
+
+    # Current Month Data
+    this_month <- df %>% 
+        filter(date(Hour) == month_) 
+    
+    if (nrow(df) > 0) {
+
+    minmax <- df %>% 
+        #filter(!Corridor %in% excl_zone_grps) %>% 
+        mutate(Hour = (Hour + (date(max(Hour)) - date(Hour)))) %>%
+        group_by(Corridor, Hour) %>% 
+        summarize(min_vph = min(vph), max_vph = max(vph))
+    
+    mms <- split(minmax, minmax$Corridor)
+    tms <- split(this_month, this_month$Corridor)
+    mms_ <- mms[lapply(mms, nrow)>0]
+    tms_ <- tms[lapply(mms, nrow)>0]
+    
+    plts <- lapply(seq_along(mms_), function(i) mm_pl(mms_[[i]], tms_[[i]]))
+    subplot(plts, 
+            margin = 0.02, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE) %>%
+        layout(title = "Current Month (veh/hr) compared to range over previous months",
+               yaxis = list(title = "vph"),
+               margin = list(t = 60))
+    } else {
+        no_data_plot("")
+    }
+}
+get_minmax_hourly_plot <- memoise(get_minmax_hourly_plot_)
+
+
+det_uptime_bar_plot_ <- function(df, xtitle, month_) {
+        
+    data = df %>%
+        dplyr::filter(month(X)==month_) %>%
+        group_by(Corridor) %>%
+        summarize(Uptime = mean(Y)) %>%
+        arrange(Uptime)
+    
+
+    plot_ly(data) %>%
+            add_bars(x = ~Uptime,
+                     y = ~factor(Corridor, levels = Corridor),
+                     color = I(BLUE),
+                     text = ~scales::percent(Uptime),
+                     textposition = "inside",
+                     textfont=list(color="white"),
+                     hoverinfo = "y+x",
+                     showlegend = FALSE) %>%
+            layout(
+                barmode = "overlay",
+                xaxis = list(title = xtitle,
+                             zeroline = FALSE,
+                             tickformat = "%"),
+                yaxis = list(title = ""),
+                showlegend = FALSE,
+                font = list(size = 11),
+                margin = list(pad = 4),
+                paper_bgcolor = "#f0f0f0",
+                plot_bgcolor = "#f0f0f0"
+            )
+}
+det_uptime_bar_plot <- memoise(det_uptime_bar_plot_)
+
+# Subplots
+det_uptime_line_plot_ <- function(df, corr, showlegend_) {
+    plot_ly()
+    plot_ly(data = df) %>%
+        add_lines(x = ~X,
+                  y = ~Y,
+                  color = ~C,
+                  colors = cols,
+                  legendgroup = ~C,
+                  showlegend = showlegend_) %>%
+        layout(yaxis = list(title = "",
+                            range = c(0,1.1),
+                            tickformat = "%"),
+                            #tickfont = list(family = "Ubuntu")),
+               xaxis = list(title = ""),
+               annotations = list(text = corr,
+                                  font = list(size = 14),
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "left",
+                                  align = "center",
+                                  x = 0.1,
+                                  y = 0.1,
+                                  showarrow = FALSE),
+               #paper_bgcolor = "#f0f0f0",
+               plot_bgcolor = "#ffffff")
+}
+det_uptime_line_plot <- memoise(det_uptime_line_plot_)
+
+get_cor_det_uptime_plot_ <- function(avg_daily_uptime, 
+                                    month_, # = current_month(), 
+                                    zone_group_, # = zone_group(), 
+                                    month_name) {
+    
+    # Plot Detector Uptime for a Corridor. The basis of subplot.
+    plot_detector_uptime <- function(df, corr, showlegend_) {
+        plot_ly(data = df) %>% 
+            add_lines(x = ~Date, 
+                      y = ~uptime.pr,
+                      color = I(LIGHT_BLUE),
+                      name = "Presence",
+                      legendgroup = "Presence",
+                      showlegend = showlegend_) %>%
+            add_lines(x = ~Date, 
+                      y = ~uptime.sb,
+                      color = I(BLUE),
+                      name = "Setback",
+                      legendgroup = "Setback",
+                      showlegend = showlegend_) %>%
+            add_lines(x = ~Date,
+                      y = 0.95,
+                      color = I(LIGHT_RED),
+                      name = "Goal (95%)",
+                      legendgroup = "Goal",
+                      showlegend = showlegend_) %>%
+            layout(yaxis = list(title = "",
+                                range = c(0,1.1),
+                                tickformat = "%"),
+                                #tickfont = list(family = "Ubuntu")),
+                   xaxis = list(title = ""),
+                   annotations = list(text = corr,
+                                      #font = list(family = "Ubuntu"),
+                                      xref = "paper",
+                                      yref = "paper",
+                                      yanchor = "bottom",
+                                      xanchor = "left",
+                                      align = "center",
+                                      x = 0.1,
+                                      y = 0.95,
+                                      showarrow = FALSE))
+    }
+    plot_detector_uptime_bar <- function(df) {
+        
+        df <- df %>% 
+            filter(Date - days(day(Date) -1) == month_) %>%
+            group_by(Corridor, Zone_Group) %>%
+            summarize(uptime = mean(uptime.all)) %>%
+            arrange(uptime) %>% ungroup() %>%
+            mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                   Corridor = factor(Corridor, levels = Corridor))
+        
+        plot_ly(data = arrange(df, uptime),
+                marker = list(color = ~col)) %>%
+            add_bars(
+                x = ~uptime, 
+                y = ~Corridor,
+                text = ~as_pct(uptime),
+                textposition = "auto",
+                insidetextfont = list(color="black"),
+                hoverinfo = "y+x",
+                showlegend = FALSE) %>%
+            add_lines(x = ~0.95,
+                      y = ~Corridor,
+                      mode = "lines",
+                      marker = NULL,
+                      color = I(LIGHT_RED),
+                      name = "Goal (95%)",
+                      legendgroup = "Goal",
+                      showlegend = FALSE) %>%
+            
+        layout(
+            barmode = "overlay",
+            xaxis = list(title = paste(month_name, "Detector Uptime (%)"), 
+                         zeroline = FALSE,
+                         tickformat = "%"),
+            yaxis = list(title = ""),
+            showlegend = FALSE,
+            font = list(size = 11),
+            margin = list(pad = 4,
+                          l = 100)
+        )
+    }
+    
+    
+    if (zone_group_ == "All RTOP") {
+        avg_daily_uptime <- avg_daily_uptime %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"), 
+                   Date <= month_ + months(1))
+    } else {
+        avg_daily_uptime <- avg_daily_uptime %>% 
+            filter(Zone_Group == zone_group_ & Date <= month_ + months(1))
+    }
+    
+    if (nrow(avg_daily_uptime) > 0) {
+        # Create Uptime by Detector Type (Setback, Presence) by Corridor Subplots.
+        cdfs <- split(avg_daily_uptime, avg_daily_uptime$Corridor)
+        cdfs <- cdfs[lapply(cdfs, nrow)>0]
+        
+        p1 <- plot_detector_uptime_bar(avg_daily_uptime)
+        
+        plts <- lapply(seq_along(cdfs), function(i) { 
+            plot_detector_uptime(cdfs[[i]], names(cdfs)[i], ifelse(i==1, TRUE, FALSE)) 
+        })
+        s2 <- subplot(plts, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE, which_layout = 1)
+        subplot(p1, s2, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
+            layout(margin = list(l = 100))
+    } else {
+        no_data_plot("")
+    }
+}
+get_cor_det_uptime_plot <- memoise(get_cor_det_uptime_plot_)
+
+get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
+                                    avg_monthly_uptime,
+                                    month_, # = current_month(), 
+                                    zone_group_, # = zone_group(), 
+                                    month_name) {
+    
+    # Plot Detector Uptime for a Corridor. The basis of subplot.
+    plot_detector_uptime <- function(df, corr, showlegend_) {
+        plot_ly(data = df) %>% 
+            #add_lines(x = ~Date, 
+            #          y = ~uptime.pr,
+            #          color = I(LIGHT_BLUE),
+            #          name = "Presence",
+            #          legendgroup = "Presence",
+            #          showlegend = showlegend_) %>%
+            add_lines(x = ~Date, 
+                      y = ~uptime, #
+                      color = I(BLUE),
+                      name = "Uptime", #
+                      legendgroup = "Uptime", #
+                      showlegend = showlegend_) %>%
+            add_lines(x = ~Date,
+                      y = 0.95,
+                      color = I(LIGHT_RED),
+                      name = "Goal (95%)",
+                      legendgroup = "Goal",
+                      showlegend = showlegend_) %>%
+            layout(yaxis = list(title = "",
+                                range = c(0,1.1),
+                                tickformat = "%"),
+                                #tickfont = list(family = "Ubuntu")),
+                   xaxis = list(title = ""),
+                   annotations = list(text = corr,
+                                      #font = list(family = "Ubuntu"),
+                                      xref = "paper",
+                                      yref = "paper",
+                                      yanchor = "bottom",
+                                      xanchor = "left",
+                                      align = "center",
+                                      x = 0.1,
+                                      y = 0.95,
+                                      showarrow = FALSE))
+    }
+    plot_detector_uptime_bar <- function(df) {
+        
+        df <- df %>% 
+            #filter(Month == month_) %>%
+            #group_by(Corridor, Zone_Group) %>%
+            #summarize(uptime = mean(uptime.all)) %>%
+            arrange(uptime) %>% ungroup() %>%
+            mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                   Corridor = factor(Corridor, levels = Corridor))
+        
+        plot_ly(data = arrange(df, uptime),
+                marker = list(color = ~col)) %>%
+            add_bars(
+                x = ~uptime, 
+                y = ~Corridor,
+                text = ~as_pct(uptime),
+                textposition = "auto",
+                insidetextfont = list(color="black"),
+                hoverinfo = "y+x",
+                showlegend = FALSE) %>%
+            add_lines(x = ~0.95,
+                      y = ~Corridor,
+                      mode = "lines",
+                      marker = NULL,
+                      color = I(LIGHT_RED),
+                      name = "Goal (95%)",
+                      legendgroup = "Goal",
+                      showlegend = FALSE) %>%
+            
+            layout(
+                barmode = "overlay",
+                xaxis = list(title = paste(month_name, "Comms Uptime (%)"), 
+                             zeroline = FALSE,
+                             tickformat = "%"),
+                yaxis = list(title = ""),
+                showlegend = FALSE,
+                font = list(size = 11),
+                margin = list(pad = 4,
+                              l = 100)
+            )
+    }
+    
+    
+    if (zone_group_ == "All RTOP") {
+        avg_daily_uptime <- avg_daily_uptime %>% 
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2"), 
+                   Date <= month_ + months(1))
+        avg_monthly_uptime <- avg_monthly_uptime %>%
+            filter(Zone_Group %in% c("RTOP1","RTOP2","All RTOP"), 
+                   !Corridor %in% c("RTOP1", "RTOP2") 
+                   & Month == month_)
+    } else {
+        avg_daily_uptime <- avg_daily_uptime %>% 
+            filter(Zone_Group == zone_group_ & Date <= month_ + months(1))
+        avg_monthly_uptime <- avg_monthly_uptime %>%
+            filter(Zone_Group == zone_group_ & Month == month_)
+    }
+    
+    if (nrow(avg_daily_uptime) > 0) {
+    # Create Uptime by Detector Type (Setback, Presence) by Corridor Subplots.
+    cdfs <- split(avg_daily_uptime, avg_daily_uptime$Corridor)
+    cdfs <- cdfs[lapply(cdfs, nrow)>0]
+    
+    p1 <- plot_detector_uptime_bar(avg_monthly_uptime)
+    
+    plts <- lapply(seq_along(cdfs), function(i) { 
+        plot_detector_uptime(cdfs[[i]], names(cdfs)[i], ifelse(i==1, TRUE, FALSE)) 
+    })
+    s2 <- subplot(plts, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE, which_layout = 1)
+    subplot(p1, s2, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
+        layout(margin = list(l = 100))
+    } else {
+        no_data_plot("")
+    }
+}
+get_cor_comm_uptime_plot <- memoise(get_cor_comm_uptime_plot_)
+
+# Reshape to show multiple on the same chart
+gather_outstanding_events <- function(cor_monthly_events) {
+    
+    cor_monthly_events %>% 
+        ungroup() %>% 
+        gather(Events, Status, -c(Month, Corridor, Zone_Group))
+}
+
+plot_teams_tasks_ <- function(tab, var_,
+                             title_ = "", textpos = "auto", height_ = 300) { #
+    
+    var_ <- as.name(var_)
+    
+    tab <- tab %>% 
+        arrange(!!var_) %>% 
+        mutate(var = fct_rev(factor(!!var_, levels = !!var_)))
+    
+    p1 <- plot_ly(data = tab, height = height_) %>%
+        add_bars(x = ~Rep, 
+                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 color = I(LIGHT_BLUE),
+                 name = "Reported",
+                 text = ~Rep,
+                 textposition = textpos, #"auto",
+                 insidetextfont=list(size=11, color="black"),
+                 outsidetextfont=list(size=11)) %>%
+        layout(margin = list(l=180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Reported this Month",
+                            zeroline = FALSE),
+               #font = list(family = "Ubuntu"),
+               margin = list(pad = 4))
+    p2 <- plot_ly(data = tab) %>% #, height = height_
+        add_bars(x = ~Res, 
+                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 color = I(BLUE),
+                 name = "Resolved",
+                 text = ~Res,
+                 textposition = textpos, #"auto",
+                 insidetextfont=list(size=11, color="white"),
+                 outsidetextfont=list(size=11)) %>%
+        layout(margin = list(l=180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Resolved this Month",
+                            zeroline = FALSE),
+               #font = list(family = "Ubuntu"),
+               margin = list(pad = 4))
+    p3 <- plot_ly(data = tab) %>% #, height = height_
+        add_bars(x = ~outstanding, 
+                 y = ~var, #factor(var, levels = sort(levels(tab$var), decreasing = TRUE)),
+                 color = I(ORANGE),
+                 name = "Outstanding",
+                 text = ~outstanding,
+                 textposition = textpos, #"auto",
+                 insidetextfont=list(size=11, color="white"),
+                 outsidetextfont=list(size=11)) %>%
+        layout(margin = list(l=180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Cumulative Tasks Outstanding",
+                            zeroline = FALSE),
+               #font = list(family = "Ubuntu"),
+               margin = list(pad = 4))
+    subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
+        layout(title = title_)
+}
+plot_teams_tasks <- memoise(plot_teams_tasks_)
+
+plot_tasks_ <- function(type_plot, source_plot, priority_plot, 
+                       month_name = input$month) {
+    
+    p1 <- subplot(type_plot, source_plot, priority_plot, 
+                  heights = c(0.42, 0.42, 0.16), nrows = 3, margin = 0.05) %>% 
+        layout(paper_bgcolor = "#f0f0f0", 
+               annotations = list(
+                   list(text = paste("Tasks by Type -", month_name), 
+                        font = list(size = 12), 
+                        xref="paper", 
+                        yref="paper", 
+                        yanchor = "bottom",
+                        xanchor = "center",
+                        x=0.5, 
+                        y=1.0,
+                        showarrow = FALSE,
+                        showlegend = FALSE), 
+                   list(text = paste("Tasks by Source -", month_name), 
+                        font = list(size = 12), 
+                        xref="paper", 
+                        yref="paper", 
+                        yanchor = "top",
+                        xanchor = "center",
+                        x=0.5, 
+                        y=0.58,
+                        showarrow = FALSE,
+                        showlegend = FALSE), 
+                   list(text = paste("Tasks by Priority -", month_name), 
+                        font = list(size = 12), 
+                        xref="paper", 
+                        yref="paper", 
+                        yanchor = "top",
+                        xanchor = "center",
+                        x=0.5, 
+                        y=0.16,
+                        showarrow = FALSE,
+                        showlegend = FALSE)))
+    
+    p2 <- subtype_plot %>% 
+        layout(annotations = list(text = paste("Tasks by Subtype -", month_name), 
+                                  font = list(size = 12), 
+                                  xref="paper", 
+                                  yref="paper", 
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  x=0.5, 
+                                  y=1.0,
+                                  showarrow = FALSE))
+    
+    subplot(p1, p2, nrows = 1, margin = 0.1)
+}
+plot_tasks <- memoise(plot_tasks_)
+
+# Number reported and resolved in each month. Side-by-side.
+cum_events_plot_ <- function(df) {
+    plot_ly(height = 300) %>%
+        add_bars(data = filter(df, Events == "Reported"),
+                 x = ~Month,
+                 y = ~Status,
+                 name = "Reported",
+                 marker = list(color = LIGHT_BLUE)) %>%
+        add_bars(data = filter(df, Events == "Resolved"),
+                 x = ~Month,
+                 y = ~Status,
+                 name = "Resolved",
+                 marker = list(color = BLUE)) %>%
+        add_trace(data = filter(df, Events == "Outstanding"),
+                  x = ~Month,
+                  y = ~Status,
+                  type = 'scatter', mode = 'lines', name = 'Outstanding', #fill = 'tozeroy',
+                  line = list(color = ORANGE)) %>%
+        add_trace(data = filter(df, Events == "Outstanding"),
+                  x = ~Month,
+                  y = ~Status,
+                  type = 'scatter',
+                  name = 'Outstanding',
+                  marker = list(color = ORANGE),
+                  showlegend = FALSE) %>%
+        layout(barmode = "group",
+               yaxis = list(title = "Events"),
+               xaxis = list(title = ""))
+               #font = list(family = "Ubuntu"))
+}
+cum_events_plot <- memoise(cum_events_plot_)
+```
+
+
+
+
+
+Inputs {.sidebar}
+=====================================
+
+This is the New RTOP Monthly Report.
+
+Past month reports can be viewed back to September 2017.
+
+```{r sidebar, warning=FALSE}
+# shiny inputs defined here
+
+month_options <- c("June 2018",
+                   "May 2018",
+                   "April 2018",
+                   "March 2018",
+                   "February 2018",
+                   "January 2018",
+                   "December 2017",
+                   "November 2017",
+                   "October 2017",
+                   "September 2017")
+zone_group_options <- c("All RTOP", 
+                        "RTOP1",
+                        "RTOP2",
+                        "D1",
+                        "D3",
+                        "D4",
+                        "D5",
+                        "D6",
+                        "Zone 7")
+
+selectInput("month", "Month:",
+                       choices = month_options,
+                       selected = "June 2018")
+
+selectInput("zone_group", "Signal Group:",
+                       choices = zone_group_options,
+                       selected = "All RTOP")
+
+
+
+# DRILL DOWN WITHIN CORRIDORS TO SEE ALL SIGNALS
+conditionalPanel("input.zone_group == 'RTOP1'",
+                 selectInput("corridor_rtop1", "Corridor",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "RTOP1")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'RTOP2'",
+                 selectInput("corridor_rtop2", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "RTOP2")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'D3'",
+                 selectInput("corridor_d3", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D3")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'D4'",
+                 selectInput("corridor_d4", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D4")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'D5'",
+                 selectInput("corridor_d5", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D5")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'Zone 7'",
+                 selectInput("corridor_z7", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "Zone 7")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
+
+corridor <- reactive(
+    if (input$zone_group == "RTOP1") {
+        input$corridor_rtop1
+    } else if (input$zone_group == "RTOP2") {
+        input$corridor_rtop2
+    } else if (input$zone_group == "D3") {
+        input$corridor_d3
+    } else if (input$zone_group == "D4") {
+        input$corridor_d4
+    } else if (input$zone_group == "D5") {
+        input$corridor_d5
+    } else if (input$zone_group == "Zone 7") {
+        input$corridor_z7
+    } else {
+        "All Corridors"
+    })
+
+zone_group <- reactive(
+    if (corridor() == "All Corridors") {
+        input$zone_group
+    } else {
+        corridor()
+    }
+)
+
+#renderText({"Selected Corridor"})
+#renderPrint({corridor()})
+
+mr <- reactive(
+    if (corridor() == "All Corridors") {
+        cor
+    } else {
+        sig
+    }
+)
+
+#renderText({"\nSelected Month"})
+#renderPrint({current_month()})
+
+#renderText({"Selected Zone Group"})
+#renderPrint({zone_group()})
+
+#renderText({"Selected Corridor"})
+#renderPrint({corridor()})
+```
+
+
+
+One-Month Summary
+=====================================
+
+Row {data-height=50}
+-------------------------------------
+
+### Performance <a id="page_performance"></a>
+
+Arterial performance measures
+
+Row
+-------------------------------------
+
+### Throughput (vph) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$tp, "vph", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-bar-chart",
+    color = BLUE
+  )
+})
+```
+
+### Arrivals on Green {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$aogd, "aog", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
+### Spillback Rate {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$qsd, "qs_freq", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
+### Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
+### Travel Time Index {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$tti, "tti", as_2dec, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-dashboard",
+    color = BLUE
+  )
+})
+```
+
+### Planning Time Index {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$pti, "pti", as_2dec, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-dashboard",
+    color = BLUE
+  )
+})
+```
+
+
+Row {data-height=50}
+-------------------------------------
+
+### Volume-Based Measures
+
+Corridor volumes
+
+Row
+-------------------------------------
+
+
+### Traffic Volume (veh/day) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(mr()$mo$vpd, "vpd", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### AM Peak Volume (veh/hr) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### PM Peak Volume (veh/hr) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
+
+Row {data-height=50}
+-------------------------------------
+
+### Equipment Measures
+
+Device and Communications Uptime
+
+Row
+-------------------------------------
+
+### Vehicle Detector Availability (manually collected) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$veh, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
+### Pedestrian Detector Availability (manually collected) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-child",
+    color = BLUE
+  )
+})
+```
+
+### CCTV Availability {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(mr()$mo$cctv, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "glyphicon-facetime-video",
+    color = BLUE
+  )
+})
+```
+
+### Communications Uptime {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "ion-paper-airplane", #"fa-user" #
+    color = BLUE
+  )
+})
+```
+
+
+Row {data-height=50}
+-------------------------------------
+
+### Activity Measures
+
+Activity measures from TEAMS and as reported by Traffic Engineers.
+
+Row
+-------------------------------------
+
+### TEAMS Tasks Reported This Month {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### TEAMS Tasks Resolved This Month {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### TEAMS Tasks Outstanding (Unresolved) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
+
+
+
+
+
+
+Quarter Summary
+=====================================
+
+Row {data-height=50}
+-------------------------------------
+
+### Performance
+
+Arterial performance measures
+
+Row
+-------------------------------------
+
+### Throughput (vph) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$tp, "vph", as_int, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-bar-chart",
+      color = GDOT_BLUE
+  )
+})
+```
+
+### Arrivals on Green {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$aogd, "aog", as_pct, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+### Spillback Rate {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$qsd, "qs_freq", as_pct, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE
+  )
+})
+```
+
+### Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$sfd, "sf_freq", as_pct, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+### Travel Time Index {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$tti, "tti", as_2dec, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-dashboard",
+      color = GDOT_BLUE
+  )
+})
+```
+
+### Planning Time Index {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$pti, "pti", as_2dec, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-dashboard",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+
+Row {data-height=50}
+-------------------------------------
+
+### Volume-Based Measures
+
+Corridor volumes
+
+Row
+-------------------------------------
+
+
+### Traffic Volume (veh/day) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$vpd, "vpd", as_int, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = FALSE),
+    icon = "fa-area-chart",
+      color = GDOT_YELLOW_RGB #GDOT_BLUE_RGB
+  )
+})
+```
+
+### AM Peak Volume (veh/hr) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$vphpa, "vph", as_int, 
+                           zone = zone_group(), 
+                           mo = current_month(),
+                           qu = current_quarter(), break_ = FALSE),
+      icon = "fa-area-chart",
+      color = GDOT_YELLOW #GDOT_BLUE_RGB
+  )
+})
+```
+
+### PM Peak Volume (veh/hr) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$vphpp, "vph", as_int, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+      icon = "fa-area-chart",
+      color = GDOT_YELLOW_RGB #GDOT_BLUE_RGB
+  )
+})
+```
+
+
+### {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
+
+Row {data-height=50}
+-------------------------------------
+
+### Equipment Measures
+
+Device and Communications Uptime
+
+Row
+-------------------------------------
+
+### Vehicle Detector Availability (manually collected){.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$veh, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+      icon = "fa-car",
+      color = GDOT_BLUE
+  )
+})
+```
+
+### Pedestrian Detector Availability (manually collected) {.value-box}
+
+```{r}
+
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$ped, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+    icon = "fa-child",
+      color = GDOT_BLUE_RGB 
+  )
+})
+```
+
+### CCTV Availability {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$cctv, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+    icon = "glyphicon-facetime-video",
+      color = GDOT_BLUE 
+  )
+})
+```
+
+### Communications Uptime {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$cu, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+      icon = "ion-paper-airplane",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+
+Row {data-height=50}
+-------------------------------------
+
+### Activity Measures
+
+Activity measures from TEAMS and as reported by Traffic Engineers.
+
+Row
+-------------------------------------
+
+### TEAMS Tasks Reported This Month {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$qu$reported, "Reported", as_int, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+      icon = "fa-area-chart",
+      color = GDOT_YELLOW
+  )
+})
+```
+
+### TEAMS Tasks Resolved This Month {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$resolved, "Resolved", as_int, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+    icon = "fa-area-chart",
+      color = GDOT_YELLOW_RGB
+  )
+})
+```
+
+### TEAMS Tasks Outstanding (Unresolved) {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$outstanding, "Outstanding", as_int, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+    icon = "fa-area-chart",
+      color = GDOT_YELLOW
+  )
+})
+```
+
+### {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
+
+
+
+
+Summary Trend
+=====================================
+
+Row
+-------------------------------------
+
+### Performance
+
+```{r performance plot, cache=TRUE, warning=FALSE}
+
+```
+
+```{r summary_left, eval = TRUE, warning=FALSE}
+fillCol(
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "vph", "Throughput", RED2, as_int) 
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$aogd, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, as_pct, ".1%") 
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$qsd, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "qs_freq", "Queue\nSpillback", RED2, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$sfd, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "sf_freq", "Split\nFailure", RED2, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(cor$mo$tti, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "tti", "Travel Time\nIndex", RED2, as_2dec, ".2f") 
+    }),
+    renderPlotly({ 
+        data.set <- filter(cor$mo$pti, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "pti", "Planning Time\nIndex", RED2, as_2dec, ".2f")
+    }),
+    height = 700)
+```
+
+### Volumes and Equipment
+
+```{r summary_right, eval = TRUE, warning=FALSE}
+
+fillCol(
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$vpd, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, as_int)
+    }),
+    
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$vphp$am, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, as_int)
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$vphp$pm, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, as_int)
+    }),
+
+    renderPlotly({ 
+        data.set <- filter(cor$mo$du, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(cor$mo$ped, 
+                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$cctv, 
+                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$cu, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
+    }),
+    height=800)
+```
+
+
+
+
+
+
+
+
+
+Performance
+=====================================
+
+Row
+-------------------------------------
+
+### Throughput (vph) {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$tp, "vph", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-bar-chart"
+  )
+})
+```
+
+### Arrivals on Green {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$aogd, "aog", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car"
+  )
+})
+```
+
+### Spillback Rate {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$qsd, "qs_freq", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car"
+  )
+})
+```
+
+### Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car"
+  )
+})
+```
+
+### Travel Time Index {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$tti, "tti", as_2dec,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-dashboard"
+  )
+})
+```
+
+### Planning Time Index {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$pti, "pti", as_2dec,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-dashboard"
+  )
+})
+```
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+```{r, cache=TRUE}
+
+```
+
+### Throughput
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(mr()$wk$tp, mr()$mo$tp, NULL,
+                                "vph", "integer", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Hour",
+                                x_line1_title = paste(input$month, "Throughput (vph)"),
+                                plot_title = "Throughput (peak veh/hr) Trend")
+})
+```
+
+
+### Arrivals on Green
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning=FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(mr()$wk$aog, mr()$mo$aogd, mr()$mo$aogh,
+                                "aog", "percent", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "AOG"),
+                                x_line1_title = "AOG Trend",
+                                x_line2_title = paste(input$month, "AOG by TOD"),
+                                plot_title = "Percent Arrivals on Green")
+})
+```
+
+
+### Queue Spillback Rate
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(mr()$wk$qs, mr()$mo$qsd, mr()$mo$mqsh,
+                                "qs_freq", "percent", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "Queue Spillback Rate"),
+                                x_line1_title = "Queue Spillback Trend",
+                                x_line2_title = paste(input$month, "Queue Spillback by TOD"),
+                                plot_title = "Queue Spillback Rate")
+})
+```
+
+
+### Split Failures
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning=FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(mr()$wk$sf, mr()$mo$sfd, mr()$mo$sfh,
+                                "sf_freq", "percent", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "Split Failures Rate"),
+                                x_line1_title = "Split Failures Trend",
+                                x_line2_title = paste(input$month, "Split Failures by TOD"),
+                                plot_title = "Split Failures Rate")
+})
+```
+
+
+### Travel Time Metrics
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    get_tt_plot(cor$mo$tti, cor$mo$ttih, 
+                cor$mo$pti, cor$mo$ptih,
+                month_ = current_month(),
+                zone_group_ = zone_group(),
+                x_bar_title = paste(input$month, "TTI & PTI"),
+                x_line1_title = paste(input$month, "TTI by hr"),
+                x_line2_title = paste(input$month, "PTI by hr"))
+})
+```
+
+
+
+
+
+
+
+
+
+Volumes
+=====================================
+
+Row
+-------------------------------------
+
+### Traffic Volume (veh/day) {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart"
+  )
+})
+```
+
+### AM Peak Volume (veh/hr) {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart"
+  )
+})
+```
+
+### PM Peak Volume (veh/hr) {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart"
+  )
+})
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Daily Volume
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({ # Good version
+    get_bar_line_dashboard_plot(mr()$wk$vpd, mr()$mo$vpd, NULL,
+                                "vpd", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Day",
+                                x_line1_title = paste(input$month, "Daily Volume (vpd)"),
+                                plot_title = "Daily Volume (veh/day) Trend")
+})
+```
+
+### Monthly Change
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    get_pct_ch_plot(mr()$mo$vpd,
+                    month_ = current_month(),
+                    zone_group = zone_group())
+})
+```
+
+### Peak Hour Volumes
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    am_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$am,
+                                               mr()$mo$vphp$am, NULL,
+                                "vph", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Hour",
+                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+    pm_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$pm,
+                                               mr()$mo$vphp$pm, NULL,
+                                "vph", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Hour",
+                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+    subplot(am_vph_plot, pm_vph_plot, nrows = 1, margin = 0.04)
+})
+```
+
+### Hourly Volumes
+
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+renderPlotly({
+    get_minmax_hourly_plot(mr()$mo$vph,
+                           month_ = current_month(), 
+                           zone_group_ = zone_group())
+})
+```
+
+
+
+
+
+
+
+
+
+Equipment
+=====================================
+
+Row
+-------------------------------------
+
+### Vehicle Detector Availability {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$du %>% 
+                          group_by(Corridor) %>% 
+                          mutate(delta = uptime.all - lag(uptime.all)), 
+                      "uptime.all", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-car"
+  )
+})
+```
+
+### CCTV Availability {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$mo$cctv, "uptime", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "glyphicon-facetime-video" 
+  )
+})
+```
+
+### Pedestrian Detector Availability {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$ped, "uptime", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-child" 
+  )
+})
+```
+
+### Communications Uptime {.value-box}
+
+```{r, warning=FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "ion-paper-airplane" #"fa-user" #
+  )
+})
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Detector Uptime
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+
+renderPlotly({
+    get_cor_det_uptime_plot(mr()$dy$du, month_name = input$month,
+                            month_ = current_month(), 
+                            zone_group_ = zone_group())
+})
+```
+
+### Pedestrian Detector Uptime
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning=FALSE}
+renderPlotly({
+    
+    weekly_ped_df <- rename(cor$mo$ped, Date = Month) %>%
+        filter(Date >= ymd("2017-07-01"))
+    monthly_ped_df <- cor$mo$ped %>%
+        filter(Month >= ymd("2017-07-01"))
+    get_bar_line_dashboard_plot(weekly_ped_df,
+                                monthly_ped_df,
+                                var_ = "uptime", num_format = "percent", highlight_color = BROWN,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "Ped Det Uptime"),
+                                x_line1_title = "Pedestrian Detector Uptime Trend",
+                                plot_title = "Ped Detector Uptime")
+})
+```
+
+### CCTV Uptime
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning=FALSE}
+renderPlotly({
+    weekly_cctv_df <- cor$dy$cctv %>%
+        filter(Date >= ymd("2017-07-01"))
+    monthly_cctv_df <- cor$mo$cctv %>%
+        filter(Month >= ymd("2017-07-01"))
+    get_bar_line_dashboard_plot(weekly_cctv_df,
+                                monthly_cctv_df,
+                                var_ = "uptime", num_format = "percent", highlight_color = BROWN,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "CCTV Uptime"),
+                                x_line1_title = "CCTV Uptime Trend",
+                                plot_title = "CCTV Uptime")
+})
+```
+
+### Communications Uptime
+
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning=FALSE}
+
+renderPlotly({
+    #get_cor_det_uptime_plot(cor_avg_daily_detector_uptime, month_name = input$month)
+    get_cor_comm_uptime_plot(mr()$dy$cu, 
+                             mr()$mo$cu, 
+                             month_name = input$month,
+                             month_ = current_month(), 
+                             zone_group_ = zone_group())
+})
+```
+
+
+
+
+
+
+
+Activity
+=====================================
+
+Row
+-------------------------------------
+
+### TEAMS Tasks Reported This Month {.value-box}
+
+```{r, eval = TRUE, warning=TRUE}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart"
+  )
+})
+```
+
+### TEAMS Tasks Resolved This Month {.value-box}
+
+```{r, eval = TRUE, warning=TRUE}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart"
+  )
+})
+```
+
+### TEAMS Tasks Outstanding (Unresolved) {.value-box}
+
+```{r, eval = TRUE, warning=TRUE}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+    icon = "fa-area-chart"
+  )
+})
+```
+
+
+Row {.tabset .tabset-fade data-height=800}
+-------------------------------------
+
+### TEAMS
+
+```{r eval = TRUE, warning=FALSE}
+
+fillRow(
+    fillCol(
+        renderPlotly({ 
+            data.set <- gather_outstanding_events(
+                filter(cor$mo$events, Zone_Group == zone_group() & Month <= current_month())
+            )
+            validate(need(nrow(data.set) > 0, "No Data"))
+            cum_events_plot(data.set)
+        }),
+        renderPlotly({ 
+            data.set <- filter(teams_tables$type, Zone_Group == zone_group() & Month == current_month())
+            validate(need(nrow(data.set) > 0, "No Data"))
+            plot_teams_tasks(data.set,
+                             var_ = "Task_Type",
+                             title_ = "Incidents by Type (top), Source (bottom)", 
+                             height_ = 200) 
+        }), 
+        renderPlotly({ 
+            data.set <- filter(teams_tables$source, Zone_Group == zone_group() & Month == current_month())
+            validate(need(nrow(data.set) > 0, "No Data"))
+            plot_teams_tasks(data.set,
+                             var_ = "Task_Source", 
+                             height_ = 200) 
+        }), 
+        height = 800, flex = c(NA,NA,1)), 
+        
+    fillCol(
+        renderPlotly({ 
+            data.set <- filter(teams_tables$subtype, Zone_Group == zone_group() & Month == current_month())
+            validate(need(nrow(data.set) > 0, "No Data"))
+            plot_teams_tasks(data.set,
+                             var_ = "Task_Subtype",
+                             title = "Incidents by Subtype", 
+                             textpos = "outside", 
+                             height_ = 700) 
+        }),
+        height = 800))
+```
+
+
+
+
+
+### RTOP Activity Logs
+
+
+#### **Download TSOS Monthly Reports (docx)**
+
+[January 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-01.docx) | 
+[February 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-02.docx) | 
+[March 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-03.docx) | 
+[April 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-04.docx) | 
+May 2018
+
+#### **Download Traffic Engineers' Activity Reports (pdf)**
+
+
+**RTOP 1**
+
+Zone 1: 
+[SR 13/42/155](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+13-42-155.pdf) | 
+[SR 141S](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+141S.pdf) | 
+[SR 237](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+237.pdf) | 
+[SR 9-Atlanta](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+9-Atlanta.pdf)
+
+Zone 2: 
+[SR 120W](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+120W.pdf) | 
+[SR 140-Roswell](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+140-Roswell.pdf) | 
+[SR 280](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+280.pdf) | 
+[SR 360](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+360.pdf) | 
+[SR 3N](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+3N.pdf) | 
+[SR 92](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+92.pdf) | 
+[SR 9N](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+9N.pdf)
+
+Zone 3: 
+[SR 138](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+138.pdf) | 
+[SR 3S](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+3S.pdf) | 
+[SR 85](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+85.pdf)
+
+
+**RTOP 2**
+
+Zone 4: 
+[US 278](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+US+278.pdf) | 
+[SR 3](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+3.pdf) | 
+[SR 5](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+5.pdf) | 
+[SR 6](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+6.pdf)
+
+Zone 5: 
+[SR 10](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+10.pdf) | 
+[SR 12](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+12.pdf) | 
+[SR 154](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+154.pdf) | 
+[SR 155S](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+155S.pdf) | 
+[SR 42](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+42.pdf) | 
+[SR 8W-DeKalb](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+Dekalb.pdf) | 
+[SR 8W-Ponce](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+Ponce.pdf)
+
+Zone 6: 
+[SR 120E](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+120.pdf) | 
+[SR 140-Gwinnett](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+140.pdf) | 
+[SR 141N](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+141.pdf) | 
+[SR 20](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+20.pdf) | 
+[SR 8E](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8E.pdf) | 
+[SR 9-Alpharetta](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+9.pdf)
+
+Zone 7: 
+[Zone 7](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/Zone+7.pdf)
+
+
+
+
+
+
+
+
+
+```{r, cache=FALSE, eval=FALSE}
+
+##### This will go here When we add it.
+
+#Signal Data
+#=====================================
+
+
+```
+
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval=FALSE}
+
+selectInput("signalid", "Signal:",
+            choices =  filter(corridors, SignalID %in% unique(daily_comm_uptime_$SignalID))$Description,
+            width = "50%")
+
+signalid <- reactive(filter(corridors, Description == input$signalid)$SignalID)
+```
+
+Row {data-height=800}
+-------------------------------------
+
+```{r, eval=FALSE, warning=FALSE}
+renderPlotly({ signal_dashboard(signalid()) })
+
+```
+
+Explanation of Calcs
+=====================================
+
+### PERFORMANCE
+
+#### **Throughput**
+
+Throughput is a measure of efficiency. It is meant to represent the maximum
+number of vehicles serviced through an intersection, and the corridor.
+
+Throughput is calculated as the highest 15-minute volume in a day for
+each intersection, converted to an hourly volume, averaged over the
+corridor. Volumes come from high-resolution event logs from the controller,
+which are stored in the ATSPM database.
+
+#### **Arrivals on Green**
+
+Arrivals on Green (AOG) is a measure of coordination. A percentage of 
+vehicles arriving on green would be due to good offsets
+and should be correlated with fewer stops and less delay.
+
+AOG is calculated as the total number of vehicles arriving on green
+divided by the total number of arrivals. It includes main street through phases,
+during peak periods (6am-10am, 3pm-7pm) on Tuesdays, Wednesdays and
+Thursdays.
+
+The calculation takes the ATSPM data, aggregates the counts by cycle and
+interval, and divides the counts in the green intervals by the total counts
+for the cycle, averaged over all cycles.
+
+#### **Queue Spillback Rate**
+
+Queue Spillback Rate is an experimental measure of effectiveness.
+It is a measure of unmet demand in a cycle. Based on the vehicle
+dwell times over setback detectors on the main street through phases, each cycle is
+evaluated for spillback. A spillback condition will be triggered by
+occupancy readings above what is typical for setback detectors under
+freely flowing conditions. 
+
+Specifically, under freely flowing
+conditions, the time between subsequent detector on and off events is typically
+around 0.1 seconds for setback detectors. 
+When the 95^th^ percentile detector occupancy duration increases above 3
+seconds in a cycle, it will be assumed there is standing traffic on the setback
+detector and a spillback event will be flagged for that phase in that
+cycle.
+
+The queue spillback rate is calculated as the number of spillback events
+divided by the number of cycles for main street through phases.
+
+#### **Split Failures**
+
+Split failure is another measure of unmet demand. It identifies cycles where a
+phase has unserved demand. A phase is flagged for split failure when a  detector on event occurs
+before the start of red and the subsequent detector off event occurs after the next
+start of green.
+
+Because this measure requires stop
+bar detection, it is only be calculated for side street and left
+turn phases, i.e., all phases other than main street through phases.
+
+Split Failure Percent is calculated as the number of split failures divided by the total
+number of side street and left turn phases.
+
+#### **Travel Time Index**
+
+Travel Time Index (TTI) is a measure of delay on the corridor. It is the
+ratio of travel time to free flow travel time.
+
+Hourly Inrix travel time data are queried from RITIS. Free flow travel
+times are based on the "reference speed" value from Inrix for each
+segment. Travel time and free flow travel time are calculated for each
+corridor by summing over all segments in the corridor for every hour in
+the month.
+
+An hourly Travel Time Index is then calculated for each corridor as the
+average travel time for that hour of the day divided by the free flow
+travel time for the corridor. The TTI for each hour is then averaged
+over the day, weighted by the average hourly volume on the main street through phases
+(from ATSPM) to get a TTI for the month (this gives more weight to peak
+periods than off-peak periods).
+
+#### **Planning Time Index**
+
+The Planning Time Index (PTI) calculation uses the same data as the
+Travel Time Index. However, instead of taking the average travel times
+for each hour of the day, it takes the 90^th^ percentile for each hour,
+over the days of the month. These 90^th^ percentile travel times are
+then averaged over the day, weighted by the average hourly volume from
+the main street through phases  (from ATSPM) to get a PTI for the month (this gives more
+weight to peak periods than off-peak periods).
+
+
+
+### VOLUMES
+
+#### **Daily Volume**
+
+Volume is a measure of demand on a corridor. Total volume on main street 
+through phases are summed over each Tuesday, Wednesday and Thursday,
+and then averaged over all days in the month.
+
+#### **Monthly Change**
+
+Each bar in the Monthly Change plot shows the percent change in daily volume
+compared with the previous month.
+
+#### **Peak Hour Volumes**
+
+The AM and PM average peak hour volumes are the average hourly volume
+for the month over the AM and PM peak hours, respectively. Peak hours are 6am-10am, 3pm-7pm.
+
+#### **Hourly Volumes**
+
+The hourly volumes chart shows the range of hourly volumes for all
+months from the beginning of the data set, superimposed with the hourly
+volumes for the current month. It is meant to show the spread of each
+hour and whether the current month is high or low compared to the
+historical range.
+
+### EQUIPMENT AND ACTIVITY
+
+#### **Detector Uptime**
+
+Detector Uptime is a measure of state-of-good-repair, which may be correlated to
+other performance measures since failed detectors may negatively affect
+performance.
+
+Based on hourly volumes by detector, each hour is flagged if any of the
+following conditions apply:
+
+-   Missing data (volume = NA)
+
+-   volume &gt; 1000
+
+-   Absolute change in volume from previous hour &gt; 500
+
+-   change in volume from previous hour = 0
+
+For each day, if more than 40% of hours are flagged the detector is considered down for that day.
+Separately, if the average absolute change from the previous hour, averaged over the day, is
+greater than 200, the detector is considered down fot that day. The
+uptime is the percentage of good days in the month. These thresholds are
+all based on observation of the data and can be adjusted as necessary.
+
+#### **Pedestrian Detector Uptime**
+
+Pedestrian Detector Uptime is the percentage of pedestrian pushbuttons operational and is
+reported by Corridor Managers from physically pressing each button in
+the field at some point during the month and observing whether it is
+working.
+
+There are two reasons why this is currently done manually. The first is that
+multiple push buttons are often physically wired into the same detector input,
+making it impossible from the controller inputs to determine whether both push
+buttons are working, or just one. The second is due to the relatively infrequent calls,
+it is difficult to tell from the data whether there is no demand or whether the 
+push button has failed.
+
+#### **CCTV Uptime**
+
+Through December 2017, CCTV Uptime was reported by Corridor Managers in their 
+monthly reports. In January, 2018, it came from TSOS based on a manual check
+of each camera during the month and reporting whether it returns an
+image and whether it can be controlled (pan-tilt-zoom).
+
+As of February 2018, CCTV Uptime is calculated based on the image returned from
+the Georgia 511 website. If there is a live image, it will considered
+working as of its "last modified" timestamp from the website.
+
+#### **Communications Uptime**
+
+This is calculated from detector volumes. Any hour with no volume on all
+detectors in an intersection is considered to have failed
+communications. In the future, this will be generalized to not be 
+dependent on detectors.
+
+#### **Events Reported, Resolved, Outstanding**
+
+Activity measures come from TEAMS reports from data as entered by corridor managers.
+TEAMS is GDOT's ticketing and tracking system for signal equipment and 
+incident-related activity.
+
+All events reported in the month are counted, as are the number of
+events resolved in the month. The number of outstanding events is the
+cumulative sum of reported events less the cumulative sum of resolved
+events.
+
+#### **RTOP Activity Logs**
+
+These are the monthly reports produced monthly by RTOP Corridor Managers detailing key activities, maintenance tasks and action items for the month.
+
