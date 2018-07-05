@@ -4,14 +4,15 @@
 .Ruserdata
 
 
-/2018-03
+/2018-03 Report Files
 /2018-04 Report Files
-/2018-05
+/2018-05 Report Files
 /Excel Monthly Reports
 /Monthly_Report_cache
 /Inrix
 /TE_Reports
-/test_cache
+/TEAMS Reports
+/Vehicle and Ped Detector Info
 
 
 *.feather
