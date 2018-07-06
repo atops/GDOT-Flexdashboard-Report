@@ -1,6 +1,7 @@
 .Rproj.user
 .Rhistory
 .RData
+.RDataTmp
 .Ruserdata
 
 
@@ -21,3 +22,5 @@
 *.xlsx
 *.docx
 *.rds
+
+!corridors.feather

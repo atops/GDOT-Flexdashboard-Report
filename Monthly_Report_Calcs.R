@@ -767,16 +767,16 @@ csv_fns <- c("R1TSO_TEAMSReport_Feb2018.csv",
              "R1TSO_D6_TEAMSReport_Apr2018.csv",
 
              "R1TSO_D1_TEAMSReport_May2018.csv",
-             "R1TSO_D6_TEAMSReport_May2018.csv")
+             "R1TSO_D6_TEAMSReport_May2018.csv",
 
-             #"R1TSO_D1_TEAMSReport_June2018.csv",
-             #"R1TSO_D6_TEAMSReport_June2018.csv")
+             "R1TSO_D1_TEAMSReport_June2018.csv",
+             "R1TSO_D6_TEAMSReport_June2018.csv")
 
 month_dates <- ymd(c("2018-02-01",
                      "2018-03-01", "2018-03-01",
                      "2018-04-01", "2018-04-01",
-                     "2018-05-01", "2018-05-01"))
-                     #"2018-06-01", "2018-06-01"))
+                     "2018-05-01", "2018-05-01",
+                     "2018-06-01", "2018-06-01"))
 
 teams_r16 <- purrr::map2(.x = csv_fns,
                          .y = month_dates,
