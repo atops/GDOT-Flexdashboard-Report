@@ -143,6 +143,7 @@ if __name__=='__main__':
     
     start_date = sys.argv[1]
     end_date = sys.argv[2]
+    """
     signals_file = sys.argv[3]
 
     with open(signals_file) as f:
@@ -154,8 +155,20 @@ if __name__=='__main__':
                           71000,78296] + list(range(1600,1799))
     
     signals = list(set(signals) - set(signals_to_exclude))
+    """
+    corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
+    signalids = list(corridors.SignalID.astype('int').values)
     
-    signals_string = "({})".format(','.join(signals))
+
+    signals_to_exclude = [248,1389,3391,3491,
+                          6329,6330,6331,6347,6350,6656,6657,
+                          7063,7287,7289,7292,7293,7542,
+                          71000,78296] + list(range(1600,1799))
+    
+    
+    signalids = list(set(signalids) - set(signals_to_exclude))
+    
+    signals_string = "({})".format(','.join(signalids))
     
     dates = pd.date_range(start_date, end_date, freq=Day())
     
