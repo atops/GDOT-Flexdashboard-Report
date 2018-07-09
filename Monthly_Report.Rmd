@@ -2563,6 +2563,22 @@ renderPlotly({ signal_dashboard(signalid()) })
 
 ```
 
+Signals List
+=====================================
+
+```{r}
+renderDataTable({
+    datatable(corridors, escape = FALSE,
+            #options=list(searching = FALSE))
+            extensions = 'Scroller', options = list(
+                deferRender = TRUE,
+                scrollY = 500,
+                scroller = TRUE,
+                searching = FALSE)
+            )
+})
+```
+
 Explanation of Calcs
 =====================================
 
