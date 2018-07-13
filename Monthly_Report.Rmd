@@ -28,7 +28,7 @@ This is the New RTOP Monthly Report.
 
 Past month reports can be viewed back to September 2017.
 
-```{r sidebar, warning = FALSE}
+```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
 month_options <- c("June 2018",
@@ -176,7 +176,7 @@ Row
 
 ### Throughput (vph) {.value-box}
 
-```{r}
+```{r cache = FALSE}
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$tp, "vph", as_int, 
@@ -943,7 +943,7 @@ renderValueBox({
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-```{r, cache = TRUE}
+```{r,}
 
 ```
 
@@ -1308,8 +1308,8 @@ renderValueBox({
 ```
 
 
-Row {.tabset .tabset-fade data-height = 800}
--------------------------------------
+Row {.tabset .tabset-fade data-height=800}
+------------------------------------------
 
 ### TEAMS
 

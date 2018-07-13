@@ -1108,3 +1108,50 @@ cum_events_plot_ <- function(df) {
                xaxis = list(title = ""))
 }
 cum_events_plot <- memoise(cum_events_plot_)
+
+
+plot_cctvs <- function(df, month_) {
+    
+    start_date <- ymd("2018-02-01")
+    end_date <- end_date %m+% months(1) - days(1)
+    
+    df_ <- filter(df, Date >= start_date & Date <= end_date & Size > 0)
+    
+    if (nrow(df) > 0) {
+        
+        #date_range <- ymd(date_range)
+        
+        p <- ggplot() + 
+            
+            # tile plot
+            geom_tile(data = df, 
+                      aes(x = Date, 
+                          y = CameraID), 
+                      fill = "steelblue", 
+                      color = "white") + 
+            
+            # fonts, text size and labels and such
+            theme(panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  axis.ticks.x = element_line(color = "gray50"),
+                  axis.text.x = element_text(size = 11),
+                  axis.text.y = element_text(size = 11),
+                  axis.ticks.y = element_blank(),
+                  axis.title = element_text(size = 11)) +
+            scale_x_date(position = "top", limits = c(start_date, end_date)) +
+            labs(x = "", 
+                 y = "Intersection (and phase, if applicable)") +
+            
+            # draw white gridlines between tick labels
+            geom_vline(xintercept = as.numeric(seq(start_date, end_date, by = "1 day")) - 0.5, 
+                       color = "white")
+        
+        if (length(unique(df$CameraID)) > 1) {
+            p <- p +
+                geom_hline(yintercept = seq(1.5, length(unique(df$CameraID)) - 0.5, by = 1), 
+                           color = "white")
+            
+        }
+        p
+    }
+}

@@ -450,7 +450,25 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
 }
 get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only=TRUE) {
     
-    conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena")
+    conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena",
+                           proxy_host = "gdot-enterprise",
+                           proxy_port = "8080",
+                           proxy_user_name = Sys.getenv("GDOT_USERNAME"),
+                           proxy_user_password = Sys.getenv("GDOT_PASSWORD")
+    )
+
+    drv <- JDBC(driverClass="com.simba.athena.jdbc.Driver",
+                "../../AthenaJDBC42_2.0.2.jar", 
+                identifier.quote="'")
+    
+    conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+                      s3_staging_dir = 's3://gdot-spm-athena',
+                      user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                      password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                      ProxyHost = "gdot-enterprise",
+                      ProxyPort = "8080",
+                      ProxyUID = Sys.getenv("GDOT_USERNAME"),
+                      ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
 														  
     if (TWR_only==TRUE) {
         query_where <- "WHERE date_format(date_parse(date, '%Y-%m-%d'), '%W') in ('Tuesday','Wednesday','Thursday')"
@@ -458,7 +476,7 @@ get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only
         query_where <- ""
     }
     
-    query <- paste("SELECT DISTICT * FROM", paste0("gdot_spm.", tolower(table)), query_where)
+    query <- paste("SELECT * FROM", paste0("gdot_spm.", tolower(table)), query_where)
 													  
     df <- tbl(conn, sql(query))
     

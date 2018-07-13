@@ -6,12 +6,47 @@ setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-R
 source("Monthly_Report_Functions.R")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- "2017-07-01"
+start_date <- "2018-05-01"
 end_date <- "2018-06-30"
 #-----------------------------------------------------------------------------#
+get_dates_for_filenames <- function(start_date, end_date) {
+    sd <- ymd(start_date)
+    ed <- ymd(end_date)
+    
+    sy <- year(sd)
+    sm <- month(sd)
+    
+    ey <- year(ed)
+    em <- month(ed)
+    
+    s <- paste(sy, sprintf("%02d", sm), sep = "-")
+    
+    if (sm != em) {
+        e <- paste(ey, sprintf("%02d", em), sep = "-")
+        s <- paste(s, e, sep = "_")
+    }
+    s
+}
 
-sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
-signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID
+dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
+month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
+
+#sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
+#signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID
+
+# # GET CORRIDORS #############################################################
+
+# corr_fn <- "c:/Users/V0010894/Code/GDOT/Master RTOP Counts File_2018-06-29.xlsx"
+#
+# corridors <- get_corridors(corr_fn)
+# write_feather(corridors, "corridors.feather")
+
+corridors <- feather::read_feather("corridors.feather")
+
+signals_list <- corridors$SignalID
+
+#sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() 
+#signals_list <- sig_df$SignalID
 
 #Signals to exclude in June 2018 (and months prior):
 signals_to_exclude <- c("248", "1389", "3391", "3491",
@@ -29,36 +64,7 @@ signals_list <- setdiff(signals_list, signals_to_exclude)
 #dbWriteTable(conn, "signals_list", sldf, overwrite = TRUE)
 #dbSendQuery(conn, "create clustered index signals_list_idx0 on signals_list(SignalID)")
 
-get_dates_for_filenames <- function(start_date, end_date) {
-    sd <- ymd(start_date)
-    ed <- ymd(end_date)
 
-    sy <- year(sd)
-    sm <- month(sd)
-
-    ey <- year(ed)
-    em <- month(ed)
-
-    s <- paste(sy, sprintf("%02d", sm), sep = "-")
-
-    if (sm != em) {
-        e <- paste(ey, sprintf("%02d", em), sep = "-")
-        s <- paste(s, e, sep = "_")
-    }
-    s
-}
-
-dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
-month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
-
-# # GET CORRIDORS #############################################################
-
-# corr_fn <- "c:/Users/V0010894/Code/GDOT/Master RTOP Counts File_2018-06-29.xlsx"
-#
-# corridors <- get_corridors(corr_fn)
-# write_feather(corridors, "corridors.feather")
-
-corridors <- feather::read_feather("corridors.feather")
 
 
 
@@ -283,6 +289,7 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
                         "end_date"))
     parLapply(cl, start_dates, function(start_date) {
         library(DBI)
+        library(RJDBC)
         library(dplyr)
         library(tidyr)
         library(lubridate)
@@ -329,32 +336,19 @@ write_fst(tti, "tti.fst")
 write_fst(pti, "pti.fst")
 
 
-# # BLUETOAD  UPTIME ##########################################################
-
-# bt_data <- readr::read_csv("bt_all.csv") %>% select(-X1)
-# bt_names <- readr::read_csv("btnames.csv")
-#
-# bt <- left_join(bt_data, bt_names)
-#
-# daily_bt_uptime <- bt %>%
-#     group_by(Zone_Group, Zone, Corridor = Group, date(Timestamp)) %>%
-#     summarize(uptime = sum(Up)/n(), num = n()) %>%
-#     mutate(delta = uptime - lag(uptime))
-#
-# monthly_bt_uptime <- bt %>%
-#     group_by(Zone_Group, Zone, Corridor = Group, Month = date(Timestamp) - days(day(Timestamp) - 1)) %>%
-#     summarize(uptime = sum(Up)/n(), num = n()) %>%
-#     mutate(delta = uptime - lag(uptime)) %>%
-#     ungroup()
-#
-# cor_monthly_bt_uptime <- get_cor_monthly_avg_by_day(monthly_bt_uptime, corridors, "uptime", "num")
-#
-# saveRDS(daily_bt_uptime, "daily_bt_uptime.rds")
-# saveRDS(monthly_bt_uptime, "monthly_bt_uptime.rds")
 
 
 
+# # ###########################################################################
 
+# # Package everything up for Monthly Report back to 7/1/17
+
+#----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
+start_date <- "2017-07-01"
+end_date <- "2018-06-30"
+#-----------------------------------------------------------------------------#
+dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
+month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
 
 # # ###########################################################################
 f <- function(prefix, month_abbrs) {
@@ -544,8 +538,9 @@ wds <- wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames))
 twr <- sapply(wds, function(x) {x %in% c(TUE, WED, THU)})
 sf_filenames <- sf_filenames[twr]
 sf <- get_sf(bind_rows(lapply(sf_filenames, read_feather)))
-
 sfs <- split(sf, sf$SignalID)
+
+rm(sf)
 
 wsf <- lapply(sfs, get_weekly_sf_by_day) %>%
     bind_rows() %>% ungroup() %>%
@@ -583,8 +578,6 @@ cor_msfh <- get_cor_monthly_sf_by_hr(msfh, corridors)
 
 saveRDS(msfh, "msfh.rds")
 saveRDS(cor_msfh, "cor_msfh.rds")
-
-rm(sf)
 
 # DAILY QUEUE SPILLBACK #######################################################
 
@@ -644,12 +637,15 @@ xl_uptime_fns <- c("January Vehicle and Ped Detector Info.xlsx",
                    "February Vehicle and Ped Detector Info.xlsx",
                    "March Vehicle and Ped Detector Info.xlsx",
                    "April Vehicle and Ped Detector Info.xlsx",
-                   "May Vehicle and Ped Detector Info.xlsx")
+                   "May Vehicle and Ped Detector Info.xlsx",
+                   "June Vehicle and Ped Detector Info.xlsx")
+xl_uptime_fns <- file.path("Vehicle and Ped Detector Info", xl_uptime_fns)
 xl_uptime_mos <- c("2018-01-01",
                    "2018-02-01",
                    "2018-03-01",
                    "2018-04-01",
-                   "2018-05-01")
+                   "2018-05-01",
+                   "2018-06-01")
 
 mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
 mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
@@ -691,13 +687,15 @@ num_cams <- cam_config %>% group_by(Corridor) %>% summarize(num = n())
 cctv_511 <- read_feather("../parsed_cctv.feather") %>%
     filter(Date > "2018-02-01") %>%
     left_join(cam_config) %>%
-    select(-Location) %>%
+    select(-Location)
+
+cor_cctv_511 <- cctv_511 %>%
     group_by(Corridor, Date) %>%
     summarize(up = sum(Size != 0), num = n()) %>%
     mutate(uptime = up/num) %>%
     left_join(distinct(corridors, Corridor, Zone_Group))
 
-cctv_uptime <- bind_rows(mrs_cctv_xl, man_cctv_xl_2018_01, man_cctv_xl_2018_02, cctv_511) #%>%
+cctv_uptime <- bind_rows(mrs_cctv_xl, man_cctv_xl_2018_01, man_cctv_xl_2018_02, cor_cctv_511) #%>%
 
 cctv_uptime$Date[is.na(cctv_uptime$Date)] <- cctv_uptime$Month[is.na(cctv_uptime$Date)]
 
@@ -719,13 +717,15 @@ cor_monthly_xl_cctv_uptime <- get_cor_monthly_xl_uptime(monthly_cctv_uptime)
 cor_daily_xl_cctv_uptime <- get_cor_monthly_xl_uptime(mutate(cctv_uptime, Month = Date)) %>%
     mutate(Date = Month,
            Zone_Group = factor(Zone_Group),
-           Corridor = factor(Corridor)) %>% select(-Month)
+           Corridor = factor(Corridor)) %>% 
+    select(-Month)
+daily_cctv_uptime <- cctv_511 %>% filter(Size > 0)
 
 saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
 saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
 saveRDS(cor_monthly_xl_cctv_uptime, "cor_monthly_xl_cctv_uptime.rds")
 saveRDS(cor_daily_xl_cctv_uptime, "cor_daily_xl_cctv_uptime.rds")
-
+saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
 
 
 
@@ -925,7 +925,8 @@ cor$qu <- list("vpd" = get_quarterly(cor$mo$vpd, "vpd"),
 
 sig <- list()
 sig$dy <- list("du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$dy$du, corridors),
-               "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors))
+               "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors),
+               "cctv" = readRDS("daily_cctv_uptime.rds"))
 sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "vph" = sigify(readRDS("weekly_vph.rds"), cor$wk$vph, corridors),
                "vphp" = purrr::map2(readRDS("weekly_vph_peak.rds"), cor$wk$vphp,
