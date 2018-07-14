@@ -640,7 +640,7 @@ get_minmax_hourly_plot_ <- function(cor_monthly_vph,
     
     if (zone_group_ == "All RTOP") {
         df <- cor_monthly_vph %>% 
-            filter(!Corridor %in% c("RTOP1", "RTOP2", "D3", "D4", "D5", "Zone 7") & date(Hour) <= month_)
+            filter(!Corridor %in% c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7") & date(Hour) <= month_)
     } else {
         df <- cor_monthly_vph %>% 
             filter(Zone_Group == zone_group_ & date(Hour) <= month_)
@@ -1113,7 +1113,7 @@ cum_events_plot <- memoise(cum_events_plot_)
 plot_cctvs <- function(df, month_) {
     
     start_date <- ymd("2018-02-01")
-    end_date <- end_date %m+% months(1) - days(1)
+    end_date <- month_ %m+% months(1) - days(1)
     
     df_ <- filter(df, Date >= start_date & Date <= end_date & Size > 0)
     
@@ -1140,7 +1140,7 @@ plot_cctvs <- function(df, month_) {
                   axis.title = element_text(size = 11)) +
             scale_x_date(position = "top", limits = c(start_date, end_date)) +
             labs(x = "", 
-                 y = "Intersection (and phase, if applicable)") +
+                 y = "Camera") +
             
             # draw white gridlines between tick labels
             geom_vline(xintercept = as.numeric(seq(start_date, end_date, by = "1 day")) - 0.5, 

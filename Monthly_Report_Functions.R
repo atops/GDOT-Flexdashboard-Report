@@ -450,25 +450,26 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
 }
 get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only=TRUE) {
     
-    conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena",
-                           proxy_host = "gdot-enterprise",
-                           proxy_port = "8080",
-                           proxy_user_name = Sys.getenv("GDOT_USERNAME"),
-                           proxy_user_password = Sys.getenv("GDOT_PASSWORD")
-    )
-
-    drv <- JDBC(driverClass="com.simba.athena.jdbc.Driver",
-                "../../AthenaJDBC42_2.0.2.jar", 
-                identifier.quote="'")
-    
-    conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                      s3_staging_dir = 's3://gdot-spm-athena',
-                      user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                      password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                      ProxyHost = "gdot-enterprise",
-                      ProxyPort = "8080",
-                      ProxyUID = Sys.getenv("GDOT_USERNAME"),
-                      ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
+    conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena")#,
+    #                        ProxyHost = "gdot-enterprise",
+    #                        ProxyPort = "8080",
+    #                        ProxyUid = Sys.getenv("GDOT_USERNAME"),
+    #                        ProxyPwd = Sys.getenv("GDOT_PASSWORD"),
+    #                        UseProxy = 1
+    # )
+    # 
+    # drv <- JDBC(driverClass="com.simba.athena.jdbc.Driver",
+    #             "../../AthenaJDBC42_2.0.2.jar", 
+    #             identifier.quote="'")
+    # 
+    # conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+    #                   s3_staging_dir = 's3://gdot-spm-athena',
+    #                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+    #                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+    #                   ProxyHost = "gdot-enterprise",
+    #                   ProxyPort = "8080",
+    #                   ProxyUID = Sys.getenv("GDOT_USERNAME"),
+    #                   ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
 														  
     if (TWR_only==TRUE) {
         query_where <- "WHERE date_format(date_parse(date, '%Y-%m-%d'), '%W') in ('Tuesday','Wednesday','Thursday')"
@@ -819,7 +820,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
     
-    zgs <- lapply(c("RTOP1", "RTOP2", "D5", "Zone 7"), function(zg) {
+    zgs <- lapply(c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7"), function(zg) {
         df %>%
             filter(Zone_Group == zg) %>%
             gr_(per_, var_, wt_, zg)

@@ -139,7 +139,6 @@ get_raw_1hr_counts_date_range(start_date, end_date)
 # --- Everything up to here needs the ATSPM Database ---
 
 
-# THIS IS NEEDED FOR ALL RTOP (AND SRTOP) INTERSECTIONS
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
 
@@ -148,15 +147,23 @@ lapply(month_abbrs, function(x) {
     fns <- list.files(pattern = month_pattern)
 
     print(fns)
-
+    print("raw counts")
     raw_counts_15min <- bind_rows(lapply(fns, read_fst))
 
     # Filter and Adjust (interpolate) 15 min Counts
+    print("filtered counts")
     filtered_counts_15min <- get_filtered_counts(raw_counts_15min, interval = "15 min")
+    rm(raw_counts_15min)
+    
+    print("adjusted counts")
     adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
+    rm(filtered_counts_15min)
 
     # Calculate and write Throughput
+    print("throughput")
     throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
+    rm(adjusted_counts_15min)
+    
     write_fst(throughput, paste0("tp_", x, ".fst"))
 })
 
@@ -170,18 +177,21 @@ lapply(month_abbrs, function(yyyy_mm) {
     fns <- list.files(pattern = month_pattern)
 
     print(fns)
-
+    print("raw counts")
     raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
         read_fst(x) %>% filter(SignalID %in% signals_list)}))
-
+    
+    print("filtered counts")
     filtered_counts_1hr <- get_filtered_counts(raw_counts_1hr, interval = "1 hour")
     write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
     rm(raw_counts_1hr)
 
+    print("adjusted counts")
     adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
     write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
     rm(adjusted_counts_1hr)
 
+    print("bad detectors")
     bad_detectors <- get_bad_detectors(filtered_counts_1hr)
     rm(filtered_counts_1hr)
 
@@ -197,6 +207,11 @@ lapply(month_abbrs, function(yyyy_mm) {
     print(yyyy_mm)
     bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
     # Need to be carefule with this to prevent duplicates
+    lapply(strsplit(month_abbrs, "-"), 
+           function(x) { 
+               dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
+           }
+    )
     dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
 })
 
@@ -664,14 +679,14 @@ man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% select(-Type)
 # Temporary until we can get manually entered January 2018 data
 man_cctv_xl <- filter(mrs_cctv_xl, Month == ymd("2017-12-01")) %>% mutate(Month = Month + months(1))
 
-man_cctv_xl_2018_01 <- read_excel("January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
+man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
     transmute(Zone_Group = Zone_Group,
               Corridor = Corridor,
               Month = ymd("2018-01-01"),
               up = as.integer(up),
               num = as.integer(num),
               uptime = uptime)
-man_cctv_xl_2018_02 <- read_excel("February Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
+man_cctv_xl_2018_02 <- read_excel("Vehicle and Ped Detector Info/February Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
     transmute(Zone_Group = Zone_Group,
               Corridor = Corridor,
               Month = ymd("2018-02-01"),
@@ -719,7 +734,12 @@ cor_daily_xl_cctv_uptime <- get_cor_monthly_xl_uptime(mutate(cctv_uptime, Month 
            Zone_Group = factor(Zone_Group),
            Corridor = factor(Corridor)) %>% 
     select(-Month)
-daily_cctv_uptime <- cctv_511 %>% filter(Size > 0)
+daily_cctv_uptime <- cctv_511 %>% 
+    filter(Size > 0) %>%
+    left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
+    mutate(CameraID = factor(CameraID), 
+           Corridor = factor(Corridor),
+           Zone_Group = factor(Zone_Group))
 
 saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
 saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
@@ -740,6 +760,7 @@ csv_fns <- c("Teams Tasks Reported July-November_simpl.csv",
              "May Teams Tasks.csv",
              "June RTOP (1-6) Reported Teams Tasks.csv")
              #"June Zone 7 Reported Teams Tasks.csv")
+csv_fns <- file.path("TEAMS Reports", csv_fns)
 month_dates <- ymd(c("2017-11-01", "2017-12-01",
                      "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01")) #, "2018-06-01"))
 
@@ -771,6 +792,7 @@ csv_fns <- c("R1TSO_TEAMSReport_Feb2018.csv",
 
              "R1TSO_D1_TEAMSReport_June2018.csv",
              "R1TSO_D6_TEAMSReport_June2018.csv")
+csv_fns <- file.path("TEAMS Reports", csv_fns)
 
 month_dates <- ymd(c("2018-02-01",
                      "2018-03-01", "2018-03-01",
