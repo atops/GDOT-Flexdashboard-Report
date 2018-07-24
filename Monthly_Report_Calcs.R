@@ -6,30 +6,16 @@ setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-R
 source("Monthly_Report_Functions.R")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- "2018-05-01"
-end_date <- "2018-06-30"
+start_date <- "2018-07-14"
+end_date <- "2018-07-22"
 #-----------------------------------------------------------------------------#
-get_dates_for_filenames <- function(start_date, end_date) {
-    sd <- ymd(start_date)
-    ed <- ymd(end_date)
-    
-    sy <- year(sd)
-    sm <- month(sd)
-    
-    ey <- year(ed)
-    em <- month(ed)
-    
-    s <- paste(sy, sprintf("%02d", sm), sep = "-")
-    
-    if (sm != em) {
-        e <- paste(ey, sprintf("%02d", em), sep = "-")
-        s <- paste(s, e, sep = "_")
-    }
-    s
-}
-
-dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
-month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
+month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
+                      function(date_) { 
+                          d <- ymd(date_)
+                          y <- year(d)
+                          m <- month(d)
+                          s <- paste(y, sprintf("%02d", m), sep = "-")
+                      })
 
 #sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
 #signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID
@@ -42,27 +28,29 @@ month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
 # write_feather(corridors, "corridors.feather")
 
 corridors <- feather::read_feather("corridors.feather")
-
 signals_list <- corridors$SignalID
 
 #sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() 
 #signals_list <- sig_df$SignalID
 
 #Signals to exclude in June 2018 (and months prior):
-signals_to_exclude <- c("248", "1389", "3391", "3491",
-                        "6329", "6330", "6331", "6347", "6350", "6656", "6657",
-                        "7063", "7287", "7289", "7292", "7293", "7542",
-                        "71000", "78296",
-                        as.character(seq(1600, 1799)),
-                        "7024", "7025")
-signals_list <- setdiff(signals_list, signals_to_exclude)
+#signals_to_exclude <- c("248", "1389", "3391", "3491",
+#                        "6329", "6330", "6331", "6347", "6350", "6656", "6657",
+#                        "7063", "7287", "7289", "7292", "7293", "7542",
+#                        "71000", "78296",
+#                        as.character(seq(1600, 1799)),
+#                        "7024", "7025")
+#signals_list <- setdiff(signals_list, signals_to_exclude)
 
-#signals_df <- read.csv("../Signals_2018-05-16.csv") %>% as_tibble()
-#signals_list <- signals_df$SignalID
+#conn <- dbConnect(odbc::odbc(), 
+#                  dsn = "sqlodbc", 
+#                  uid = Sys.getenv("ATSPM_USERNAME"), 
+#                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+#dbWriteTable(conn, "corridors", corridors, overwrite = TRUE)
+#dbSendQuery(conn, "create clustered index corridors_idx0 on corridors(SignalID)")
 
-#conn <- dbConnect(odbc::odbc(), dsn = "sqlodbc", uid = Sys.getenv("ATSPM_USERNAME"), pwd = Sys.getenv("ATSPM_PASSWORD"))
-#dbWriteTable(conn, "signals_list", sldf, overwrite = TRUE)
-#dbSendQuery(conn, "create clustered index signals_list_idx0 on signals_list(SignalID)")
+corridors <- dbReadTable(conn, "corridors")
+signals_list <- corridors$SignalID
 
 
 
@@ -102,7 +90,6 @@ get_raw_15min_counts_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-
 get_raw_15min_counts_date_range(start_date, end_date)
 
 
@@ -142,116 +129,124 @@ get_raw_1hr_counts_date_range(start_date, end_date)
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
 
-lapply(month_abbrs, function(x) {
-    month_pattern <- paste0("counts_15min_TWR_", x, "-\\d\\d?\\.fst")
-    fns <- list.files(pattern = month_pattern)
-
-    print(fns)
-    print("raw counts")
-    raw_counts_15min <- bind_rows(lapply(fns, read_fst))
-
-    # Filter and Adjust (interpolate) 15 min Counts
-    print("filtered counts")
-    filtered_counts_15min <- get_filtered_counts(raw_counts_15min, interval = "15 min")
-    rm(raw_counts_15min)
-    
-    print("adjusted counts")
-    adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
-    rm(filtered_counts_15min)
-
-    # Calculate and write Throughput
-    print("throughput")
-    throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
-    rm(adjusted_counts_15min)
-    
-    write_fst(throughput, paste0("tp_", x, ".fst"))
-})
+get_daily_throughput <- function(month_abbrs) {
+    lapply(month_abbrs, function(x) {
+        month_pattern <- paste0("counts_15min_TWR_", x, "-\\d\\d?\\.fst")
+        fns <- list.files(pattern = month_pattern)
+        
+        print(fns)
+        print("raw counts")
+        raw_counts_15min <- bind_rows(lapply(fns, read_fst))
+        
+        # Filter and Adjust (interpolate) 15 min Counts
+        print("filtered counts")
+        filtered_counts_15min <- get_filtered_counts(raw_counts_15min, interval = "15 min")
+        rm(raw_counts_15min)
+        
+        print("adjusted counts")
+        adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
+        rm(filtered_counts_15min)
+        
+        # Calculate and write Throughput
+        print("throughput")
+        throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
+        rm(adjusted_counts_15min)
+        
+        write_fst(throughput, paste0("tp_", x, ".fst"))
+    })
+}
+get_daily_throughput(month_abbrs)
 
 # Read Raw Counts for a month from files and output:
 #   filtered_counts_1hr
 #   adjusted_counts_1hr
 #   BadDetectors
 
-lapply(month_abbrs, function(yyyy_mm) {
-    month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
-    fns <- list.files(pattern = month_pattern)
-
-    print(fns)
-    print("raw counts")
-    raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
-        read_fst(x) %>% filter(SignalID %in% signals_list)}))
-    
-    print("filtered counts")
-    filtered_counts_1hr <- get_filtered_counts(raw_counts_1hr, interval = "1 hour")
-    write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-    rm(raw_counts_1hr)
-
-    print("adjusted counts")
-    adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
-    write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
-    rm(adjusted_counts_1hr)
-
-    print("bad detectors")
-    bad_detectors <- get_bad_detectors(filtered_counts_1hr)
-    rm(filtered_counts_1hr)
-
-    write_fst(bad_detectors, paste0("bad_detectors_", yyyy_mm, ".fst"))
-})
+get_filtered_adjusted_bad_detectors <- function(month_abbrs) {
+    lapply(month_abbrs, function(yyyy_mm) {
+        month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
+        fns <- list.files(pattern = month_pattern)
+        
+        print(fns)
+        print("raw counts")
+        raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
+            read_fst(x) %>% filter(SignalID %in% signals_list)}))
+        
+        print("filtered counts")
+        filtered_counts_1hr <- get_filtered_counts(raw_counts_1hr, interval = "1 hour")
+        write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
+        rm(raw_counts_1hr)
+        
+        print("adjusted counts")
+        adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
+        write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
+        rm(adjusted_counts_1hr)
+        
+        print("bad detectors")
+        bad_detectors <- get_bad_detectors(filtered_counts_1hr)
+        rm(filtered_counts_1hr)
+        
+        write_fst(bad_detectors, paste0("bad_detectors_", yyyy_mm, ".fst"))
+    })
+}
+get_filtered_adjusted_bad_detectors(month_abbrs)
 
 # --- This needs the ATSPM database ---
-conn <- dbConnect(odbc::odbc(),
-                  dsn = "sqlodbc",
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
-lapply(month_abbrs, function(yyyy_mm) {
-    print(yyyy_mm)
-    bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
-    # Need to be carefule with this to prevent duplicates
-    lapply(strsplit(month_abbrs, "-"), 
-           function(x) { 
-               dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
-           }
-    )
-    dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
-})
+upload_bad_detectors_to_db <- function(month_abbrs) {
+    conn <- dbConnect(odbc::odbc(),
+                      dsn = "sqlodbc",
+                      uid = Sys.getenv("ATSPM_USERNAME"),
+                      pwd = Sys.getenv("ATSPM_PASSWORD"))
+    lapply(month_abbrs, function(yyyy_mm) {
+        print(yyyy_mm)
+        bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
+        # Need to be carefule with this to prevent duplicates
+        lapply(strsplit(month_abbrs, "-"), 
+               function(x) { 
+                   dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
+               }
+        )
+        dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
+    })
+}
+upload_bad_detectors_to_db(month_abbrs)
 
+
+get_vpd_vph_ddu_cu <- function(month_abbrs) {
+    lapply(month_abbrs, function(yyyy_mm) {
+        
+        print(yyyy_mm)
+        
+        adjusted_counts_1hr <- read_fst(paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
+        
+        # VPD
+        vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
+        write_fst(vpd, paste0("vpd_", yyyy_mm, ".fst"))
+        
+        # VPH
+        vph <- get_vph(adjusted_counts_1hr)
+        write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
+        
+        
+        filtered_counts_1hr <- read_fst(paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
+        
+        # DAILY DETECTOR UPTIME
+        daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
+        ddu <- bind_rows(daily_detector_uptime)
+        write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
+        
+        # COMMUNICATIONS UPTIME
+        comm_uptime <- get_comm_uptime(filtered_counts_1hr)
+        write_fst(comm_uptime, paste0("cu_", yyyy_mm, ".fst"))
+        
+    })
+}
+get_vpd_vph_ddu_cu(month_abbrs)
 
 
 # -- Run etl_dashboard (Python) to S3/Athena
 
 # --- ----------------------------- ---
-
-
-
-
-lapply(month_abbrs, function(yyyy_mm) {
-
-    print(yyyy_mm)
-
-    adjusted_counts_1hr <- read_fst(paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
-
-    # VPD
-    vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
-    write_fst(vpd, paste0("vpd_", yyyy_mm, ".fst"))
-
-    # VPH
-    vph <- get_vph(adjusted_counts_1hr)
-    write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
-
-
-    filtered_counts_1hr <- read_fst(paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-
-    # DAILY DETECTOR UPTIME
-    daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
-    ddu <- bind_rows(daily_detector_uptime)
-    write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
-
-    # COMMUNICATIONS UPTIME
-    comm_uptime <- get_comm_uptime(filtered_counts_1hr)
-    write_fst(comm_uptime, paste0("cu_", yyyy_mm, ".fst"))
-
-})
-
 
 
 # # GET ARRIVALS ON GREEN #####################################################
@@ -286,8 +281,6 @@ get_aog_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-
-
 get_aog_date_range(start_date, end_date)
 
 # # GET QUEUE SPILLBACK #######################################################
@@ -321,7 +314,6 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-
 get_queue_spillback_date_range(start_date, end_date)
 
 
@@ -333,8 +325,10 @@ get_split_failures_date_range <- function(start_date, end_date) {
     # Run Python script to get split failures
     system(paste("python", "split_failures2.py", start_date, end_date, sl_fn))
 }
-
 get_split_failures_date_range(ymd(start_date), ymd(end_date))
+
+
+
 
 
 
@@ -865,6 +859,8 @@ cor_monthly_events <- teams_tables$all %>%
            delta.out = (Outstanding - lag(Outstanding))/lag(Outstanding))
 
 saveRDS(cor_monthly_events, "cor_monthly_events.rds")
+
+
 
 
 

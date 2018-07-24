@@ -448,9 +448,9 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
     dplyr::filter(df, CycleStart >= start_date & CycleStart < end_date1 &
                       SignalID %in% signals_list)
 }
-get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only=TRUE) {
+get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
     
-    conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena")#,
+    #conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena")#,
     #                        ProxyHost = "gdot-enterprise",
     #                        ProxyPort = "8080",
     #                        ProxyUid = Sys.getenv("GDOT_USERNAME"),
@@ -458,20 +458,21 @@ get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only
     #                        UseProxy = 1
     # )
     # 
-    # drv <- JDBC(driverClass="com.simba.athena.jdbc.Driver",
-    #             "../../AthenaJDBC42_2.0.2.jar", 
-    #             identifier.quote="'")
-    # 
-    # conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-    #                   s3_staging_dir = 's3://gdot-spm-athena',
-    #                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-    #                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-    #                   ProxyHost = "gdot-enterprise",
-    #                   ProxyPort = "8080",
-    #                   ProxyUID = Sys.getenv("GDOT_USERNAME"),
-    #                   ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-														  
-    if (TWR_only==TRUE) {
+    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
+                classPath = "../../AthenaJDBC42_2.0.2.jar",
+                identifier.quote = "'")
+
+    conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+                      s3_staging_dir = 's3://gdot-spm-athena',
+                      user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                      password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                      ProxyHost = "gdot-enterprise",
+                      ProxyPort = "8080",
+                      ProxyUID = Sys.getenv("GDOT_USERNAME"),
+                      ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
+
+    
+    if (TWR_only == TRUE) {
         query_where <- "WHERE date_format(date_parse(date, '%Y-%m-%d'), '%W') in ('Tuesday','Wednesday','Thursday')"
     } else {
         query_where <- ""
@@ -481,12 +482,12 @@ get_spm_data_aws <- function(start_date, end_date, singals_list, table, TWR_only
 													  
     df <- tbl(conn, sql(query))
     
-    start_date<- as.character(start_date)
-    end_date1 <- as.character(ymd(end_date) + days(1))
+    #start_date<- as.character(start_date)
+    #end_date1 <- as.character(ymd(end_date) + days(1))
+    end_date1 <- ymd(end_date) + days(1)
     
     signals_list <- as.integer(signals_list)
 								 
-    
     dplyr::filter(df, date >= start_date & date < end_date1 &
                       signalid %in% signals_list)
 }
