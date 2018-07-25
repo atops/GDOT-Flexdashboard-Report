@@ -1227,44 +1227,40 @@ renderPlotly({
 })
 ```
 
-### Corridor CCTV Uptime
+### CCTV Uptime
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 
 renderPlotly({
-    weekly_cctv_df <- cor$dy$cctv %>%
-        filter(Date >= ymd("2017-07-01"))
-    monthly_cctv_df <- cor$mo$cctv %>%
-        filter(Month >= ymd("2017-07-01"))
-    get_bar_line_dashboard_plot(weekly_cctv_df,
-                                monthly_cctv_df,
-                                var_ = "uptime",
-                                num_format = "percent",
-                                highlight_color = BROWN,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "CCTV Uptime"),
-                                x_line1_title = "CCTV Uptime Trend",
-                                plot_title = "CCTV Uptime")
-})
-```
-
-### Individual CCTV Uptime
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-
-renderPlot({
-    if(corridor() == "All Corridors") {
-        if (zone_group() == "All RTOP") {
-            df <- filter(sig$dy$cctv, Zone_Group %in% c("RTOP1", "RTOP2"))
-        } else {
-            df <- filter(sig$dy$cctv, Zone_Group == zone_group())
-        }
+    
+    if (corridor() == "All Corridors") {
+        
+        weekly_cctv_df <- cor$dy$cctv %>%
+            filter(Date >= ymd("2017-07-01"))
+        monthly_cctv_df <- cor$mo$cctv %>%
+            filter(Month >= ymd("2017-07-01"))
+        get_bar_line_dashboard_plot(weekly_cctv_df,
+                                    monthly_cctv_df,
+                                    var_ = "uptime",
+                                    num_format = "percent",
+                                    highlight_color = BROWN,
+                                    month_ = current_month(), 
+                                    zone_group_ = zone_group(),
+                                    x_bar_title = paste(input$month, "CCTV Uptime"),
+                                    x_line1_title = "CCTV Uptime Trend",
+                                    plot_title = "CCTV Uptime")
     } else {
-        df <- filter(sig$dy$cctv, Corridor == corridor())
+        
+        plot_individual_cctvs(sig$dy$cctv, 
+                              month_ = current_month(), 
+                              zone_group_ = zone_group(),
+                              corridor_ = corridor())
     }
-    plot_cctvs(df, month_ = current_month())
+    
 })
 ```
+
+
 
 
 ### Communications Uptime

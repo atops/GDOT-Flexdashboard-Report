@@ -59,7 +59,7 @@ get_corridors <- function(corr_fn) {
                   Corridor = as.factor(Group),
                   Milepost = as.numeric(Milepost),
                   Name = Name) %>% 
-        filter(!is.na(SignalID)) %>% 
+        #filter(!is.na(SignalID)) %>% 
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
 get_corridor_name <- function(string) {
@@ -567,10 +567,11 @@ get_aog <- function(cycle_data) {
 						 
         group_by(SignalID = SignalID, CallPhase, 
                  Hour = date_trunc('hour', CycleStart)) %>%
-        summarize(vol = round(sum(Total_Volume)),
+        summarize(vol = sum(Total_Volume),
                   aog = sum(Volume)/sum(Total_Volume)) %>%
         collect %>% ungroup() %>%
         mutate(SignalID = factor(SignalID),
+               vol = as.integer(vol),
 																  
 				   
                CallPhase = factor(CallPhase),
@@ -631,10 +632,10 @@ get_qs <- function(detection_events) {
         ungroup() %>%
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase),
-               Date_Hour = Hour,
-               Date = lubridate::floor_date(Hour, unit="days"),
-               DOW = factor(wday(Hour)),
-               Week = factor(week(Hour)),
+               Date_Hour = ymd_hms(Hour),
+               Date = lubridate::floor_date(Date_Hour, unit="days"),
+               DOW = factor(wday(Date_Hour)),
+               Week = factor(week(Date_Hour)),
                qs = as.integer(qs),
                cycles = as.integer(cycles),
                qs_freq = as.double(qs)/as.double(cycles)) %>%

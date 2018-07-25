@@ -534,7 +534,7 @@ get_pct_ch_plot_ <- function(cor_monthly_vpd,
 get_pct_ch_plot <- memoise(get_pct_ch_plot_)
 
 get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle, 
-                               month_ = current_month, zone_group_ = zone_group()) {
+                               month_ = current_month(), zone_group_ = zone_group()) {
     
     if (zone_group_ == "All RTOP") {
         df <- df %>%
@@ -1108,6 +1108,51 @@ cum_events_plot_ <- function(df) {
                xaxis = list(title = ""))
 }
 cum_events_plot <- memoise(cum_events_plot_)
+
+
+
+plot_individual_cctvs_ <- function(daily_cctv_df, 
+                                   month_ = current_month(), 
+                                   zone_group_ = zone_group(),
+                                   corridor_ = corridor()) {
+    
+    df <- filter(daily_cctv_df, Date < month_ + months(1))
+    
+    if (corridor_ == "All Corridors") {
+        if (zone_group_ == "All RTOP") {
+            df <- filter(df, Zone_Group %in% c("RTOP1", "RTOP2"))
+        } else {
+            df <- filter(df, Zone_Group == zone_group_)
+        }
+    } else {
+        df <- filter(df, Corridor == corridor_)
+    }
+
+    
+    spr <- df %>%
+        mutate(Up = as.integer(pmin(Size, 1))) %>%
+        select(-Size, -Corridor, -Zone_Group) %>%
+        spread(Date, Up, fill = 0) %>%
+        arrange(desc(CameraID))
+    
+    m <- as.matrix(spr %>% select(-CameraID))
+    row.names(m) <- spr$CameraID
+    m <- round(m,0)
+    
+    plot_ly(x = colnames(m), 
+            y = row.names(m), 
+            z = m, 
+            colors = c(LIGHT_GRAY_BAR, BROWN),
+            type = "heatmap",
+            xgap = 1,
+            ygap = 1,
+            showscale = FALSE) %>% 
+        layout(yaxis = list(type = "category",
+                            title = "CameraID"),
+               margin = list(l = 120))
+}
+plot_individual_cctvs <- memoise(plot_individual_cctvs_)
+
 
 
 plot_cctvs <- function(df, month_) {

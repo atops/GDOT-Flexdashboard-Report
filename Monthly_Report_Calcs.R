@@ -28,7 +28,7 @@ month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
 # write_feather(corridors, "corridors.feather")
 
 corridors <- feather::read_feather("corridors.feather")
-signals_list <- corridors$SignalID
+signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 
 #sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() 
 #signals_list <- sig_df$SignalID
@@ -253,7 +253,7 @@ get_vpd_vph_ddu_cu(month_abbrs)
 get_aog_date_range <- function(start_date, end_date) {
 
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month") #by = "1 day")
-    cl <- makeCluster(3)
+    cl <- makeCluster(4)
     clusterExport(cl, c("get_cycle_data",
                         "get_spm_data",
                         "get_spm_data_aws",
@@ -287,7 +287,7 @@ get_aog_date_range(start_date, end_date)
 get_queue_spillback_date_range <- function(start_date, end_date) {
 
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
-    cl <- makeCluster(3)
+    cl <- makeCluster(4)
     clusterExport(cl, c("get_detection_events",
                         "get_spm_data",
                         "get_spm_data_aws",
@@ -694,15 +694,36 @@ cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
 num_cams <- cam_config %>% group_by(Corridor) %>% summarize(num = n())
 
 cctv_511 <- read_feather("../parsed_cctv.feather") %>%
-    filter(Date > "2018-02-01") %>%
-    left_join(cam_config) %>%
-    select(-Location)
+    filter(Date > "2018-02-01" & Size > 0) %>%
+    distinct()
 
-cor_cctv_511 <- cctv_511 %>%
+e <- expand.grid(CameraID = unique(cctv_511$CameraID), 
+                 Date = seq(min(cctv_511$Date), max(cctv_511$Date), by = "1 day"), 
+                 Size = 0)
+
+daily_cctv_uptime <- bind_rows(cctv_511, e) %>% 
+    group_by(CameraID, Date) %>% 
+    summarize(Size = max(Size)) %>%
+    ungroup() %>%
+    left_join(select(cam_config, -Location))
+
+bad_days <- daily_cctv_uptime %>% 
+    group_by(Date) %>% 
+    summarize(Num = sum(Size)) %>% 
+    filter(Num == 0)
+
+cor_cctv_511 <- daily_cctv_uptime %>%
+    filter(!Date %in% bad_days$Date) %>%
     group_by(Corridor, Date) %>%
     summarize(up = sum(Size != 0), num = n()) %>%
     mutate(uptime = up/num) %>%
     left_join(distinct(corridors, Corridor, Zone_Group))
+
+daily_cctv_uptime <- daily_cctv_uptime %>%
+    left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
+    mutate(CameraID = factor(CameraID), 
+           Corridor = factor(Corridor),
+           Zone_Group = factor(Zone_Group))
 
 cctv_uptime <- bind_rows(mrs_cctv_xl, man_cctv_xl_2018_01, man_cctv_xl_2018_02, cor_cctv_511) #%>%
 
@@ -728,12 +749,8 @@ cor_daily_xl_cctv_uptime <- get_cor_monthly_xl_uptime(mutate(cctv_uptime, Month 
            Zone_Group = factor(Zone_Group),
            Corridor = factor(Corridor)) %>% 
     select(-Month)
-daily_cctv_uptime <- cctv_511 %>% 
-    filter(Size > 0) %>%
-    left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
-    mutate(CameraID = factor(CameraID), 
-           Corridor = factor(Corridor),
-           Zone_Group = factor(Zone_Group))
+
+
 
 saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
 saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
