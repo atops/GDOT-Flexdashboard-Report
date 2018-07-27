@@ -14,7 +14,7 @@ import sqlalchemy as sq
 from multiprocessing import Pool
 from pandas.tseries.offsets import MonthBegin, Day #, MonthEnd
 import feather
-from dask import delayed
+from dask import delayed, compute
 
 #engine = sq.create_engine('mssql+pyodbc://{}:{}@sqlodbc')
 #conn_str = 'awsathena+jdbc://{access_key}:{secret_key}@athena.{region_name}.amazonaws.com:443/'\
@@ -64,10 +64,7 @@ def query_athena(query, database, output_bucket):
     return df
 
 ## SPLIT FAILURES
-#    Need code
-# Define as: Detector occupancy in first five seconds of red is over __.
 
-#def get_split_failures(month):
 def get_split_failures(start_date, end_date, signals_string):
 
     #with engine.connect() as conn:
@@ -136,10 +133,9 @@ def helper(date_):
         
 if __name__=='__main__':
 
-    #start_date = '2017-10-10'
-    #end_date = '2017-10-31'
-    #signals_file = '../SIGNALS_LIST_2018.txt'
-    #signals_file = 'SIGNALS_LIST_all_RTOP.txt'
+    #start_date = '2018-07-14'
+    #end_date = '2018-07-22'
+
     
     start_date = sys.argv[1]
     end_date = sys.argv[2]
@@ -157,38 +153,25 @@ if __name__=='__main__':
     signals = list(set(signals) - set(signals_to_exclude))
     """
     corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
-    signalids = list(corridors.SignalID.astype('int').values)
-    
+    corridors = corridors[~corridors.SignalID.isna()]
 
-    signals_to_exclude = [248,1389,3391,3491,
-                          6329,6330,6331,6347,6350,6656,6657,
-                          7063,7287,7289,7292,7293,7542,
-                          71000,78296] + list(range(1600,1799))
+    signals_list = list(corridors.SignalID.values)
+
+    #signals_to_exclude = [248,1389,3391,3491,
+    #                      6329,6330,6331,6347,6350,6656,6657,
+    #                      7063,7287,7289,7292,7293,7542,
+    #                      71000,78296] + list(range(1600,1799))    
+    #signalids = list(set(signalids) - set(signals_to_exclude))
     
-    
-    signalids = list(set(signalids) - set(signals_to_exclude))
-    
-    signals_string = "({})".format(','.join(signalids))
+    signals_string = "({})".format(','.join(signals_list))
     
     dates = pd.date_range(start_date, end_date, freq=Day())
     
-    
 
-        
-        #return sf
     
+    results = []
     for d in dates:
-        #delayed(helper)(d)
-        helper(d)
-    
-    #pool = Pool(3)
-    #pool.map_async(helper, dates)
-    #pool.close()
-    #pool.join()
-    """
-    dfs = [helper(d) for d in dates]
-    sf = pd.concat(dfs)
-    sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
-    sf = sf.reset_index(drop=True)
-    sf.to_feather('sf_{}.feather'.format(dates[0].strftime('%Y-%m')))
-    """
+        x = delayed(helper)(d)
+        results.append(x)
+    compute(*results)
+
