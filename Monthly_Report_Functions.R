@@ -1753,18 +1753,18 @@ read_teams_csv <- function(csv_fn) {
 get_outstanding_events <- function(teams, group_var) {
     
     rep <- teams %>% 
+        filter(!is.na(`Date Reported`)) %>%
         mutate(Month = `Date Reported` - days(day(`Date Reported`) - 1)) %>%
         arrange(Month) %>%
-        filter(!is.na(Month)) %>%
         group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
         summarize(Rep = n()) %>% 
         group_by_(quote(Zone_Group), group_var) %>%
         mutate(cumRep = cumsum(Rep))
     
     res <- teams %>% 
+        filter(!is.na(`Date Resolved`)) %>%
         mutate(Month = `Date Resolved` - days(day(`Date Resolved`) -1)) %>%
         arrange(Month) %>%
-        filter(!is.na(Month)) %>%
         group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
         summarize(Res = n()) %>% 
         group_by_(quote(Zone_Group), group_var) %>%
