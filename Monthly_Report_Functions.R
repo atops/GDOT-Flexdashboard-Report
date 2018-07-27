@@ -488,8 +488,8 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only
     
     signals_list <- as.integer(signals_list)
 								 
-    dplyr::filter(df, date >= start_date & date < end_date1 &
-                      signalid %in% signals_list)
+    dplyr::filter(df, date >= start_date & date < end_date1) # &
+                      #signalid %in% signals_list)
 }
 # Query Cycle Data
 get_cycle_data <- function(start_date, end_date, signals_list) {
