@@ -6,7 +6,7 @@ setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-R
 source("Monthly_Report_Functions.R")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- "2018-07-14"
+start_date <- "2018-07-01"
 end_date <- "2018-07-22"
 #-----------------------------------------------------------------------------#
 month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
@@ -323,7 +323,7 @@ get_queue_spillback_date_range(start_date, end_date)
 get_split_failures_date_range <- function(start_date, end_date) {
 
     # Run Python script to get split failures
-    system(paste("python", "split_failures2.py", start_date, end_date, sl_fn))
+    system(paste("python", "split_failures2.py", start_date, end_date))
 }
 get_split_failures_date_range(ymd(start_date), ymd(end_date))
 
@@ -354,7 +354,7 @@ write_fst(pti, "pti.fst")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 start_date <- "2017-07-01"
-end_date <- "2018-06-30"
+end_date <- "2018-07-30"
 #-----------------------------------------------------------------------------#
 dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
 month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })

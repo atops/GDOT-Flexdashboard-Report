@@ -31,7 +31,8 @@ Past month reports can be viewed back to September 2017.
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
-month_options <- c("June 2018",
+month_options <- c("July 2018",
+                   "June 2018",
                    "May 2018",
                    "April 2018",
                    "March 2018",
@@ -53,7 +54,7 @@ zone_group_options <- c("All RTOP",
 
 selectInput("month", "Month:",
                        choices = month_options,
-                       selected = "June 2018")
+                       selected = "July 2018")
 
 selectInput("zone_group", "Signal Group:",
                        choices = zone_group_options,
