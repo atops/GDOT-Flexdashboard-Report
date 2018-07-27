@@ -1,0 +1,33 @@
+
+# Monthly_Report config file (yaml format)
+
+
+selected_month: July 2018
+
+report_months:
+    - July 2018
+    - June 2018
+    - May 2018
+    - April 2018
+    - March 2018
+    - February 2018
+    - January 2018
+    - December 2017
+    - November 2017
+    - October 2017
+    - September 2017
+
+zone_groups:
+    - All RTOP 
+    - RTOP1
+    - RTOP2
+    - D1
+    - D3
+    - D4
+    - D5
+    - D6
+    - Zone 7
+
+
+corridors_filename: corridors.feather
+

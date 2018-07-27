@@ -5,29 +5,18 @@ Created on Sat Dec  2 13:27:20 2017
 @author: Alan.Toppen
 """
 
-import sys
 import os
 import pandas as pd
 import numpy as np
 import sqlalchemy as sq
-#from multiprocessing.dummy import Pool
-from multiprocessing import Pool
-from pandas.tseries.offsets import MonthBegin, Day #, MonthEnd
+
+import yaml
 import feather
+from pandas.tseries.offsets import Day #, MonthEnd
+
 from dask import delayed, compute
 
-#engine = sq.create_engine('mssql+pyodbc://{}:{}@sqlodbc')
-#conn_str = 'awsathena+jdbc://{access_key}:{secret_key}@athena.{region_name}.amazonaws.com:443/'\
-#           '{schema_name}?s3_staging_dir={s3_staging_dir}'
-#engine = sq.create_engine(conn_str.format(
-#    access_key=os.environ['AWS_ACCESS_KEY_ID'],
-#    secret_key=os.environ['AWS_SECRET_ACCESS_KEY'],
-#    region_name='us-east-1',
-#    schema_name='default',
-#    s3_staging_dir='s3://gdot-spm-athena/'))
-
 import boto3
-from io import BytesIO
 import polling
 
 ath = boto3.client('athena')
@@ -57,9 +46,7 @@ def query_athena(query, database, output_bucket):
     s3.download_file(Bucket=output_bucket, Key=key, Filename=key)
     df = pd.read_csv(key)
     os.remove(key)
-    #obj = s3.get_object(Bucket=output_bucket,
-    #                    Key='{}.csv'.format(response['QueryExecutionId']))
-    #df = pd.read_csv(BytesIO(obj['Body'].read()))
+
     print ('Results downloaded.')
     return df
 
@@ -67,7 +54,6 @@ def query_athena(query, database, output_bucket):
 
 def get_split_failures(start_date, end_date, signals_string):
 
-    #with engine.connect() as conn:
     between_clause = "= '{}'".format(start_date.strftime('%Y-%m-%d'))
     
     cycle_query = """SELECT DISTINCT SignalID, Phase, PhaseStart 
@@ -87,13 +73,9 @@ def get_split_failures(start_date, end_date, signals_string):
                         
     print(between_clause)
     
-    #sor = cd.query('Phase not in (2,6)')
-    
     sor = (query_athena(cycle_query, 'gdot_spm', 'gdot-spm-athena')
             .assign(PhaseStart = lambda x: pd.to_datetime(x.PhaseStart)))
 
-    #det = de.query('Phase not in (2,6)').rename(columns={'DetTimeStamp':'DetOn'})
-    
     det = (query_athena(detector_query, 'gdot_spm', 'gdot-spm-athena')
             .assign(DetOn = lambda x: pd.to_datetime(x.DetOn))
             .assign(DetOff = lambda x: x.DetOn + pd.to_timedelta(x.DetDuration, unit='s')))
@@ -116,7 +98,6 @@ def get_split_failures(start_date, end_date, signals_string):
             #.filter(items=['sf_freq'])
             .reset_index())
     
-    #sf.to_csv('C:/Users/alan.toppen/Code/GDOT/GDOT-Flexdashboard-Report/sf_{}.csv'.format(start_date.strftime('%Y-%m')))
     return sf
     
 def helper(date_):
@@ -133,12 +114,12 @@ def helper(date_):
         
 if __name__=='__main__':
 
-    #start_date = '2018-07-14'
-    #end_date = '2018-07-22'
+    with open('Monthly_Report_calcs.yaml') as yaml_file:
+        conf = yaml.load(yaml_file)
 
+    start_date = conf['start_date']
+    end_date = conf['end_date']
     
-    start_date = sys.argv[1]
-    end_date = sys.argv[2]
     """
     signals_file = sys.argv[3]
 
@@ -152,7 +133,7 @@ if __name__=='__main__':
     
     signals = list(set(signals) - set(signals_to_exclude))
     """
-    corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
+    corridors = pd.read_feather(conf['corridors_filename'])
     corridors = corridors[~corridors.SignalID.isna()]
 
     signals_list = list(corridors.SignalID.values)

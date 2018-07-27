@@ -1,13 +1,15 @@
 
 # Monthly_Report_Calcs.R
 
-setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report"))
+library(yaml)
 
+setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report"))
 source("Monthly_Report_Functions.R")
+conf <- read_yaml("Monthly_Report_calcs.yaml")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- "2018-07-01"
-end_date <- "2018-07-22"
+start_date <- conf$start_date
+end_date <- conf$end_date
 #-----------------------------------------------------------------------------#
 month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
                       function(date_) { 
@@ -22,16 +24,35 @@ month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
 
 # # GET CORRIDORS #############################################################
 
-# corr_fn <- "c:/Users/V0010894/Code/GDOT/Master RTOP Counts File_2018-06-29.xlsx"
-#
-# corridors <- get_corridors(corr_fn)
+# -- Code to update corridors file/table from Excel file
+
+# corridors <- get_corridors(conf$corridors_xlsx_filename)
 # write_feather(corridors, "corridors.feather")
 
-corridors <- feather::read_feather("corridors.feather")
+# conn <- dbConnect(odbc::odbc(),
+#                  dsn = "sqlodbc",
+#                  uid = Sys.getenv("ATSPM_USERNAME"),
+#                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+# dbWriteTable(conn, "Corridors", corridors, overwrite = TRUE)
+# dbSendQuery(conn, "CREATE CLUSTERED INDEX Corridors_Idx0 on Corridors(SignalID)")
+
+# -- ----------------------------------------------------
+
+corridors <- feather::read_feather(conf$corridors_filename) 
 signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
+
+# -- This could be used. Some differences between factors and chars that would 
+#    need to be tested.
+
+#corridors <- dbReadTable(conn, "Corridors")
+#signals_list <- corridors$SignalID
+
+# -- If we want to run calcs on all signals in ATSPM database
 
 #sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() 
 #signals_list <- sig_df$SignalID
+
+
 
 #Signals to exclude in June 2018 (and months prior):
 #signals_to_exclude <- c("248", "1389", "3391", "3491",
@@ -41,20 +62,6 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 #                        as.character(seq(1600, 1799)),
 #                        "7024", "7025")
 #signals_list <- setdiff(signals_list, signals_to_exclude)
-
-#conn <- dbConnect(odbc::odbc(), 
-#                  dsn = "sqlodbc", 
-#                  uid = Sys.getenv("ATSPM_USERNAME"), 
-#                  pwd = Sys.getenv("ATSPM_PASSWORD"))
-#dbWriteTable(conn, "corridors", corridors, overwrite = TRUE)
-#dbSendQuery(conn, "create clustered index corridors_idx0 on corridors(SignalID)")
-
-corridors <- dbReadTable(conn, "corridors")
-signals_list <- corridors$SignalID
-
-
-
-
 
 
 # # ###########################################################################
@@ -353,10 +360,10 @@ write_fst(pti, "pti.fst")
 # # Package everything up for Monthly Report back to 7/1/17
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- "2017-07-01"
-end_date <- "2018-07-30"
+# start_date <- "2017-07-01"
+# end_date <- "2018-07-30"
 #-----------------------------------------------------------------------------#
-dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
+dates <- seq(ymd(conf$report_start_date), ymd(conf$report_end_date), by = "1 month")
 month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
 
 # # ###########################################################################
@@ -367,27 +374,6 @@ f <- function(prefix, month_abbrs) {
         as_tibble()
 }
 
-
-# Code to put intersection into a SQLite DB, but it's too large for shinyapps.io
-# db <- dbConnect(RSQLite::SQLite(), "counts.db")
-#
-# fns <- paste0("counts_1hr_", seq(ymd(start_date), ymd(end_date), by = "1 day"), ".fst")
-# lapply(fns, function(fn) {
-#     df <- read_fst(fn) %>%
-#         transmute(Month = as.character(date(Timeperiod) - days(day(Timeperiod) - 1)),
-#                   Timeperiod = as.character(Timeperiod),
-#                   SignalID = as.integer(SignalID),
-#                   Detector = as.integer(Detector),
-#                   CallPhase = as.integer(CallPhase),
-#                   vol = vol) %>%
-#         arrange(SignalID, Detector, Timeperiod)
-#     as_tibble()
-#
-#     dbWriteTable(db, "raw_counts", df, append = TRUE)
-# })
-# dbSendQuery(db, "CREATE UNIQUE INDEX IF NOT EXISTS rc_idx0 ON raw_counts (Month, Timeperiod ASC, SignalID, Detector)")
-#
-# rc_ <- tbl(db, "raw_counts")
 
 # # DETECTOR UPTIME ###########################################################
 
@@ -642,19 +628,23 @@ rm(pti)
 # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
 fns <- list.files(path = "Excel Monthly Reports/2017_12", recursive = TRUE, full.names = TRUE)
-xl_uptime_fns <- c("January Vehicle and Ped Detector Info.xlsx",
-                   "February Vehicle and Ped Detector Info.xlsx",
-                   "March Vehicle and Ped Detector Info.xlsx",
-                   "April Vehicle and Ped Detector Info.xlsx",
-                   "May Vehicle and Ped Detector Info.xlsx",
-                   "June Vehicle and Ped Detector Info.xlsx")
-xl_uptime_fns <- file.path("Vehicle and Ped Detector Info", xl_uptime_fns)
-xl_uptime_mos <- c("2018-01-01",
-                   "2018-02-01",
-                   "2018-03-01",
-                   "2018-04-01",
-                   "2018-05-01",
-                   "2018-06-01")
+
+xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
+xl_uptime_mos <- conf$xl_uptime$months
+
+# xl_uptime_fns <- c("January Vehicle and Ped Detector Info.xlsx",
+#                    "February Vehicle and Ped Detector Info.xlsx",
+#                    "March Vehicle and Ped Detector Info.xlsx",
+#                    "April Vehicle and Ped Detector Info.xlsx",
+#                    "May Vehicle and Ped Detector Info.xlsx",
+#                    "June Vehicle and Ped Detector Info.xlsx")
+# xl_uptime_fns <- file.path("Vehicle and Ped Detector Info", xl_uptime_fns)
+# xl_uptime_mos <- c("2018-01-01",
+#                    "2018-02-01",
+#                    "2018-03-01",
+#                    "2018-04-01",
+#                    "2018-05-01",
+#                    "2018-06-01")
 
 mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
 mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
@@ -762,18 +752,9 @@ saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
 
 # ACTIVITIES
 
-csv_fns <- c("Teams Tasks Reported July-November_simpl.csv",
-             "Teams Tasks Reported December.csv",
-             "January TEAMS Data.csv",
-             "February TEAMS Data.csv",
-             "March Teams Data.csv",
-             "April 2018 Teams Data2.csv",
-             "May Teams Tasks.csv",
-             "June RTOP (1-6) Reported Teams Tasks.csv")
-             #"June Zone 7 Reported Teams Tasks.csv")
-csv_fns <- file.path("TEAMS Reports", csv_fns)
-month_dates <- ymd(c("2017-11-01", "2017-12-01",
-                     "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01")) #, "2018-06-01"))
+csv_fns <- file.path(conf$rtop_teams$path, conf$rtop_teams$filenames)
+month_dates <- ymd(conf$rtop_teams$months)
+
 
 teams_rtop_ <- purrr::map2(.x = csv_fns,
                            .y = month_dates,
@@ -790,26 +771,10 @@ teams_rtop = bind_rows(
     mutate(teams_rtop_, Zone_Group = "RTOP2"))
 
 
-csv_fns <- c("R1TSO_TEAMSReport_Feb2018.csv",
+csv_fns <- file.path(conf$rtso_teams$path, conf$rtso_teams$filenames)
+month_dates <- ymd(conf$rtso_teams$months)
 
-             "R1TSO_D1_TEAMSReport_Mar2018.csv",
-             "R1TSO_D6_TEAMSReport_Mar2018.csv",
 
-             "R1TSO_D1_TEAMSReport_Apr2018.csv",
-             "R1TSO_D6_TEAMSReport_Apr2018.csv",
-
-             "R1TSO_D1_TEAMSReport_May2018.csv",
-             "R1TSO_D6_TEAMSReport_May2018.csv",
-
-             "R1TSO_D1_TEAMSReport_June2018.csv",
-             "R1TSO_D6_TEAMSReport_June2018.csv")
-csv_fns <- file.path("TEAMS Reports", csv_fns)
-
-month_dates <- ymd(c("2018-02-01",
-                     "2018-03-01", "2018-03-01",
-                     "2018-04-01", "2018-04-01",
-                     "2018-05-01", "2018-05-01",
-                     "2018-06-01", "2018-06-01"))
 
 teams_r16 <- purrr::map2(.x = csv_fns,
                          .y = month_dates,
@@ -817,8 +782,9 @@ teams_r16 <- purrr::map2(.x = csv_fns,
                              filter(`Date Reported` < .y + months(1)) %>%
                              mutate(Zone_Group = Maintained_by))  %>%
     bind_rows() %>%
-    filter(`Date Reported` >= ymd("2017-01-01")) %>%
+    filter(`Date Reported` >= ymd(conf$report_start_date)) %>% #ymd("2017-01-01")) %>%
     mutate(All = factor("all")) %>%
+    mutate(Zone_Group = if_else(Zone_Group == "1", "D1", Zone_Group)) %>%
     as_tibble()
 
 

@@ -26,35 +26,18 @@ Inputs {.sidebar}
 
 This is the New RTOP Monthly Report.
 
-Past month reports can be viewed back to September 2017.
+Past month reports can be viewed back to `r tail(conf$report_months, 1)`.
 
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
-month_options <- c("July 2018",
-                   "June 2018",
-                   "May 2018",
-                   "April 2018",
-                   "March 2018",
-                   "February 2018",
-                   "January 2018",
-                   "December 2017",
-                   "November 2017",
-                   "October 2017",
-                   "September 2017")
-zone_group_options <- c("All RTOP", 
-                        "RTOP1",
-                        "RTOP2",
-                        "D1",
-                        "D3",
-                        "D4",
-                        "D5",
-                        "D6",
-                        "Zone 7")
+month_options <- conf$report_months
+
+zone_group_options <- conf$zone_groups
 
 selectInput("month", "Month:",
                        choices = month_options,
-                       selected = "July 2018")
+                       selected = conf$selected_month)
 
 selectInput("zone_group", "Signal Group:",
                        choices = zone_group_options,
@@ -1386,7 +1369,9 @@ fillRow(
 [February 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-02.docx) | 
 [March 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-03.docx) | 
 [April 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-04.docx) | 
-May 2018
+May 2018 | 
+June 2018
+
 
 #### **Download Traffic Engineers' Activity Reports (pdf)**
 
@@ -1492,10 +1477,7 @@ renderDataTable({
     } else {
         zg_ <- zone_group()
     }
-    # corr <- corridors %>%
-    #     filter(Zone_Group %in% zg_) %>%
-    #     select(-Description)
-    
+
     if (corridor() == "All Corridors") {
         corr <- corridors %>%
             filter(Zone_Group %in% zg_) %>%
@@ -1514,7 +1496,7 @@ renderDataTable({
                   scrollY = 800,
                   scroller = TRUE,
                   searching = TRUE)
-            )
+    )
 })
 ```
 

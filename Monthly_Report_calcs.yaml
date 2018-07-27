@@ -1,0 +1,93 @@
+
+# Monthly_Report config file (yaml format)
+
+start_date: 2018-07-01
+end_date: 2018-07-22
+
+report_start_date: 2017-07-01
+report_end_date: 2018-07-30
+
+corridors_filename: corridors.feather
+
+corridors_xlsx_filename: c:/Users/V0010894/Code/GDOT/Master RTOP Counts File_2018-06-29.xlsx
+
+
+xl_uptime:
+    path: Vehicle and Ped Detector Info
+
+    filenames: 
+        - January Vehicle and Ped Detector Info.xlsx
+        - February Vehicle and Ped Detector Info.xlsx
+        - March Vehicle and Ped Detector Info.xlsx
+        - April Vehicle and Ped Detector Info.xlsx
+        - May Vehicle and Ped Detector Info.xlsx
+        - June Vehicle and Ped Detector Info.xlsx
+        
+    months:
+        - 2018-01-01
+        - 2018-02-01
+        - 2018-03-01
+        - 2018-04-01
+        - 2018-05-01
+        - 2018-06-01
+
+
+
+rtop_teams:
+    path: TEAMS Reports
+    
+    filenames:
+        - Teams Tasks Reported July-November_simpl.csv
+        - Teams Tasks Reported December.csv
+        - January TEAMS Data.csv
+        - February TEAMS Data.csv
+        - March Teams Data.csv
+        - April 2018 Teams Data2.csv
+        - May Teams Tasks.csv
+        - June RTOP (1-6) Reported Teams Tasks.csv
+        #- June Zone 7 Reported Teams Tasks.csv
+    
+    months:
+        - 2017-11-01
+        - 2017-12-01
+        - 2018-01-01
+        - 2018-02-01
+        - 2018-03-01
+        - 2018-04-01
+        - 2018-05-01
+        - 2018-06-01
+        #- 2018-06-01
+
+
+rtso_teams:
+    path: TEAMS Reports
+
+    filenames:
+        - R1TSO_TEAMSReport_Feb2018.csv
+        
+        - R1TSO_D1_TEAMSReport_Mar2018.csv
+        - R1TSO_D6_TEAMSReport_Mar2018.csv
+        
+        - R1TSO_D1_TEAMSReport_Apr2018.csv
+        - R1TSO_D6_TEAMSReport_Apr2018.csv
+        
+        - R1TSO_D1_TEAMSReport_May2018.csv
+        - R1TSO_D6_TEAMSReport_May2018.csv
+        
+        - R1TSO_D1_TEAMSReport_June2018.csv
+        - R1TSO_D6_TEAMSReport_June2018.csv
+
+    months:
+        - 2018-02-01
+        
+        - 2018-03-01
+        - 2018-03-01
+        
+        - 2018-04-01
+        - 2018-04-01
+        
+        - 2018-05-01
+        - 2018-05-01
+        
+        - 2018-06-01
+        - 2018-06-01

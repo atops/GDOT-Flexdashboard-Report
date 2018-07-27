@@ -3,6 +3,7 @@
 
 library(flexdashboard)
 library(shiny)
+library(yaml)
 
 library(data.table)
 library(dplyr)
@@ -40,6 +41,8 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN,
            "0" = DARK_GRAY)
 
 # ###########################################################
+
+conf <- read_yaml("Monthly_Report.yaml")
 
 corridors <- read_feather("corridors.feather")
 teams_tables <- readRDS("teams_tables.rds")
