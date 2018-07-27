@@ -1149,12 +1149,12 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
             showscale = FALSE) %>% 
         layout(yaxis = list(type = "category",
                             title = "CameraID"),
-               margin = list(l = 120))
+               margin = list(l = 150))
 }
 plot_individual_cctvs <- memoise(plot_individual_cctvs_)
 
 
-
+# No longer used
 plot_cctvs <- function(df, month_) {
     
     start_date <- ymd("2018-02-01")
