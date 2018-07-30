@@ -18,6 +18,8 @@ library(pool)
 library(plotly)
 library(crosstalk)
 
+library(reticulate)
+use_python(file.path(dirname(path.expand("~")), "Anaconda3", "python.exe"))
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
