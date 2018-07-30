@@ -107,7 +107,7 @@ def helper(date_):
     sf = get_split_failures(start_date, end_date, signals_string)
     
     # Moved into function since we're doing so many days. Reduce memory footprint
-    sf = sf[sf.Hour != '2018-03-11 02:00:00']
+    #sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
     sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
     sf = sf.reset_index(drop=True)
     sf.to_feather('sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
