@@ -251,9 +251,11 @@ get_vpd_vph_ddu_cu <- function(month_abbrs) {
 get_vpd_vph_ddu_cu(month_abbrs)
 
 
-# -- Run etl_dashboard (Python) to S3/Athena
+# -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
+import_from_path("spm_events")
+py_run_file("etl_dashboard.py") # python script
 
-# --- ----------------------------- ---
+# --- ----------------------------- -----------
 
 
 # # GET ARRIVALS ON GREEN #####################################################
@@ -327,14 +329,14 @@ get_queue_spillback_date_range(start_date, end_date)
 
 # # GET SPLIT FAILURES ########################################################
 
-get_split_failures_date_range <- function(start_date, end_date) {
+py_run_file("split_failures2.py") # python script
 
-    # Run Python script to get split failures
-    system(paste("python", "split_failures2.py", start_date, end_date))
-}
-get_split_failures_date_range(ymd(start_date), ymd(end_date))
-
-
+# get_split_failures_date_range <- function(start_date, end_date) {
+# 
+#     # Run Python script to get split failures
+#     system(paste("python", "split_failures2.py", start_date, end_date))
+# }
+# get_split_failures_date_range(ymd(start_date), ymd(end_date))
 
 
 
@@ -357,7 +359,7 @@ write_fst(pti, "pti.fst")
 
 # # ###########################################################################
 
-# # Package everything up for Monthly Report back to 7/1/17
+# # Package everything up for Monthly Report back 13 months
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 # start_date <- "2017-07-01"
@@ -682,6 +684,8 @@ cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
 
 num_cams <- cam_config %>% group_by(Corridor) %>% summarize(num = n())
+
+py_run_file("parse_cctvlog.py") # Run python script
 
 cctv_511 <- read_feather("../parsed_cctv.feather") %>%
     filter(Date > "2018-02-01" & Size > 0) %>%
