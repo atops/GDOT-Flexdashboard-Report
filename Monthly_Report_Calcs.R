@@ -10,14 +10,9 @@ conf <- read_yaml("Monthly_Report_calcs.yaml")
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 start_date <- conf$start_date
 end_date <- conf$end_date
+month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
-month_abbrs <- sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
-                      function(date_) { 
-                          d <- ymd(date_)
-                          y <- year(d)
-                          m <- month(d)
-                          s <- paste(y, sprintf("%02d", m), sep = "-")
-                      })
+
 
 #sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
 #signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID
@@ -129,6 +124,31 @@ get_raw_1hr_counts_date_range <- function(start_date, end_date) {
 
 }
 get_raw_1hr_counts_date_range(start_date, end_date)
+
+
+get_comms_date_range <- function(start_date, end_date) {
+    
+    start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    cl <- makeCluster(4)
+    clusterExport(cl, c("get_comm_uptime2",
+                        "signals_list"))
+    
+    parLapply(cl, start_dates, function(start_date) {
+        library(DBI)
+        library(dplyr)
+        library(tidyr)
+        library(lubridate)
+        library(fst)
+        
+        library(glue)
+        
+        comm_uptime <- get_comm_uptime2(start_date, signals_list)
+        write_fst(comm_uptime, paste0("cu_", start_date, ".fst"))
+    })
+    stopCluster(cl)
+}
+get_comms_date_range(start_date, end_date)
+
 
 # --- Everything up to here needs the ATSPM Database ---
 
@@ -243,8 +263,8 @@ get_vpd_vph_ddu_cu <- function(month_abbrs) {
         write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
         
         # COMMUNICATIONS UPTIME
-        comm_uptime <- get_comm_uptime(filtered_counts_1hr)
-        write_fst(comm_uptime, paste0("cu_", yyyy_mm, ".fst"))
+        #comm_uptime <- get_comm_uptime(filtered_counts_1hr)
+        #write_fst(comm_uptime, paste0("cu_", yyyy_mm, ".fst"))
         
     })
 }
@@ -279,6 +299,7 @@ get_aog_date_range <- function(start_date, end_date) {
         library(fst)
         library(purrr)
 
+        start_date <- as.character(ymd(start_date) - days(day(ymd(start_date)) - 1))
         end_date <- as.character(ymd(start_date) + months(1) - days(1))
 
         cycle_data <- get_cycle_data(start_date, end_date, signals_list)
@@ -313,6 +334,8 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
         library(fst)
 
         #end_date <- start_date
+        start_date <- as.character(ymd(start_date) - days(day(ymd(start_date)) - 1))
+        
         end_date <- as.character(ymd(start_date) + months(1) - days(1))
 
         detection_events <- get_detection_events(start_date, end_date, signals_list)
@@ -331,14 +354,9 @@ get_queue_spillback_date_range(start_date, end_date)
 
 py_run_file("split_failures2.py") # python script
 
-# get_split_failures_date_range <- function(start_date, end_date) {
-# 
-#     # Run Python script to get split failures
-#     system(paste("python", "split_failures2.py", start_date, end_date))
-# }
-# get_split_failures_date_range(ymd(start_date), ymd(end_date))
+# # GET CAMERA UPTIMES ########################################################
 
-
+py_run_file("parse_cctvlog.py") # Run python script
 
 
 # # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
@@ -362,11 +380,9 @@ write_fst(pti, "pti.fst")
 # # Package everything up for Monthly Report back 13 months
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-# start_date <- "2017-07-01"
-# end_date <- "2018-07-30"
-#-----------------------------------------------------------------------------#
+
 dates <- seq(ymd(conf$report_start_date), ymd(conf$report_end_date), by = "1 month")
-month_abbrs <- sapply(dates, function(x) { get_dates_for_filenames(x, x) })
+month_abbrs <- get_month_abbrs(conf$report_start_date,conf$report_end_date)
 
 # # ###########################################################################
 f <- function(prefix, month_abbrs) {
@@ -631,27 +647,13 @@ rm(pti)
 
 fns <- list.files(path = "Excel Monthly Reports/2017_12", recursive = TRUE, full.names = TRUE)
 
-xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
-xl_uptime_mos <- conf$xl_uptime$months
-
-# xl_uptime_fns <- c("January Vehicle and Ped Detector Info.xlsx",
-#                    "February Vehicle and Ped Detector Info.xlsx",
-#                    "March Vehicle and Ped Detector Info.xlsx",
-#                    "April Vehicle and Ped Detector Info.xlsx",
-#                    "May Vehicle and Ped Detector Info.xlsx",
-#                    "June Vehicle and Ped Detector Info.xlsx")
-# xl_uptime_fns <- file.path("Vehicle and Ped Detector Info", xl_uptime_fns)
-# xl_uptime_mos <- c("2018-01-01",
-#                    "2018-02-01",
-#                    "2018-03-01",
-#                    "2018-04-01",
-#                    "2018-05-01",
-#                    "2018-06-01")
-
 mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
 mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
 
-mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
+
+
+xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
+xl_uptime_mos <- conf$xl_uptime$months
 
 man_xl <- purrr::map2(xl_uptime_fns,
                       xl_uptime_mos,
@@ -662,9 +664,15 @@ man_xl <- purrr::map2(xl_uptime_fns,
 man_veh_xl <- man_xl %>% filter(Type == "Vehicle") %>% select(-Type)
 man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% select(-Type)
 
-# Temporary until we can get manually entered January 2018 data
-man_cctv_xl <- filter(mrs_cctv_xl, Month == ymd("2017-12-01")) %>% mutate(Month = Month + months(1))
 
+cor_monthly_xl_veh_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_veh_xl, man_veh_xl))
+cor_monthly_xl_ped_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_ped_xl, man_ped_xl))
+
+
+
+mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
+
+# January data. One-time only.
 man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
     transmute(Zone_Group = Zone_Group,
               Corridor = Corridor,
@@ -672,85 +680,111 @@ man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle
               up = as.integer(up),
               num = as.integer(num),
               uptime = uptime)
-man_cctv_xl_2018_02 <- read_excel("Vehicle and Ped Detector Info/February Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
-    transmute(Zone_Group = Zone_Group,
-              Corridor = Corridor,
-              Month = ymd("2018-02-01"),
-              up = as.integer(up),
-              num = as.integer(num),
-              uptime = uptime)
+
 
 cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
-    separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
+    separate(col = CamID, into = c("CameraID", "Location"), sep = ": ") %>%
+    mutate(As_of_Date = ymd(As_of_Date))
 
-num_cams <- cam_config %>% group_by(Corridor) %>% summarize(num = n())
 
-py_run_file("parse_cctvlog.py") # Run python script
-
-cctv_511 <- read_feather("../parsed_cctv.feather") %>%
-    filter(Date > "2018-02-01" & Size > 0) %>%
+# CCTV image size variance by CameraID and Date
+#  -> reduce to 1 for Size > 0, 0 otherwise
+cctv_511 <- read_feather("parsed_cctv.feather") %>%
+    filter(Date > "2018-02-02" & Size > 0) %>%
+    mutate(up = 1, num = 1) %>%
+    select(-Size) %>%
     distinct()
 
 e <- expand.grid(CameraID = unique(cctv_511$CameraID), 
                  Date = seq(min(cctv_511$Date), max(cctv_511$Date), by = "1 day"), 
-                 Size = 0)
+                 up = 0, num = 1)
 
-daily_cctv_uptime <- bind_rows(cctv_511, e) %>% 
+# Expanded out to include all available cameras on all days
+#  up/uptime is 0 if no data
+daily_cctv_uptime_511 <- bind_rows(cctv_511, e) %>% 
     group_by(CameraID, Date) %>% 
-    summarize(Size = max(Size)) %>%
+    summarize(up = max(up),
+              num = 1,
+              uptime = up) %>%
     ungroup() %>%
-    left_join(select(cam_config, -Location))
+    left_join(select(cam_config, -Location)) %>% 
+    filter(Date >= As_of_Date & Corridor != "") %>%
+    select(-As_of_Date)
 
-bad_days <- daily_cctv_uptime %>% 
+# Find the days where uptime across the board is very low (close to 0)
+#  This is symptomatic of a problem with the acquisition rather than the camreras themselves
+bad_days <- daily_cctv_uptime_511 %>% 
     group_by(Date) %>% 
-    summarize(Num = sum(Size)) %>% 
-    filter(Num == 0)
+    summarize(sup = sum(up),
+              snum = sum(num),
+              suptime = sum(up)/sum(num)) %>% 
+    filter(suptime < 0.2)
 
-cor_cctv_511 <- daily_cctv_uptime %>%
+# Filter out the bad days, add zone group
+cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
     filter(!Date %in% bad_days$Date) %>%
     group_by(Corridor, Date) %>%
-    summarize(up = sum(Size != 0), num = n()) %>%
+    summarize(up = sum(up),
+              num = sum(num)) %>%
     mutate(uptime = up/num) %>%
     left_join(distinct(corridors, Corridor, Zone_Group))
 
-daily_cctv_uptime <- daily_cctv_uptime %>%
+# this output doesn't filter bad days because we want it to display all days
+#  on the website. Add zone group.
+daily_cctv_uptime <- daily_cctv_uptime_511 %>%
     left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
     mutate(CameraID = factor(CameraID), 
            Corridor = factor(Corridor),
-           Zone_Group = factor(Zone_Group))
+           Zone_Group = factor(Zone_Group)) 
 
-cctv_uptime <- bind_rows(mrs_cctv_xl, man_cctv_xl_2018_01, man_cctv_xl_2018_02, cor_cctv_511) #%>%
 
-cctv_uptime$Date[is.na(cctv_uptime$Date)] <- cctv_uptime$Month[is.na(cctv_uptime$Date)]
+cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+                                   man_cctv_xl_2018_01, 
+                                   select(cor_daily_cctv_uptime_511,
+                                          Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+    get_cor_monthly_xl_uptime() %>%
+    rename(Date = Month) %>%
+    mutate(Zone_Group = factor(Zone_Group),
+           Corridor = factor(Corridor))
 
-monthly_cctv_uptime <- cctv_uptime %>%
-    mutate(Month = Date - days(day(Date) - 1)) %>%
-    select(-up, -num) %>%
-    left_join(num_cams) %>%
-    mutate(up = uptime * num) %>% group_by(Zone_Group, Corridor, Month) %>%
-    summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
-              up = sum(up, na.rm = TRUE),
-              num = sum(num, na.rm = TRUE)) %>%
-    ungroup()
 
-saveRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds")
 
-cor_monthly_xl_veh_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_veh_xl, man_veh_xl))
-cor_monthly_xl_ped_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_ped_xl, man_ped_xl))
-cor_monthly_xl_cctv_uptime <- get_cor_monthly_xl_uptime(monthly_cctv_uptime)
-cor_daily_xl_cctv_uptime <- get_cor_monthly_xl_uptime(mutate(cctv_uptime, Month = Date)) %>%
-    mutate(Date = Month,
-           Zone_Group = factor(Zone_Group),
-           Corridor = factor(Corridor)) %>% 
-    select(-Month)
+cor_weekly_cctv_uptime_511 <- get_cor_weekly_cctv_uptime(cor_daily_cctv_uptime_511)
+
+cor_weekly_cctv_uptime <- bind_rows(mrs_cctv_xl,
+                                    man_cctv_xl_2018_01,
+                                    select(cor_weekly_cctv_uptime_511,
+                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+    get_cor_monthly_xl_uptime() %>%
+    rename(Date = Month)
+
+
+
+cor_monthly_cctv_uptime_511 <- get_cor_monthly_cctv_uptime(cor_daily_cctv_uptime_511)
+
+cor_monthly_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+                                     man_cctv_xl_2018_01, 
+                                     cor_monthly_cctv_uptime_511) %>%
+    get_cor_monthly_xl_uptime()
+
+
+
 
 
 
 saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
 saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
-saveRDS(cor_monthly_xl_cctv_uptime, "cor_monthly_xl_cctv_uptime.rds")
-saveRDS(cor_daily_xl_cctv_uptime, "cor_daily_xl_cctv_uptime.rds")
+
+
 saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
+
+saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
+
+saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
+saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
+
+
+
 
 
 
@@ -877,10 +911,11 @@ sigify <- function(df, cor_df, corridors) {
 
 
 
+
 cor <- list()
 cor$dy <- list("du" = readRDS("cor_avg_daily_detector_uptime.rds"),
                "cu" = readRDS("cor_daily_comm_uptime.rds"),
-               "cctv" = readRDS("cor_daily_xl_cctv_uptime.rds"))
+               "cctv" = readRDS("cor_daily_cctv_uptime.rds"))
 cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
                "vph" = readRDS("cor_weekly_vph.rds"),
                "vphp" = readRDS("cor_weekly_vph_peak.rds"),
@@ -888,7 +923,8 @@ cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
                "aog" = readRDS("cor_weekly_aog_by_day.rds"),
                "qs" = readRDS("cor_wqs.rds"),
                "sf" = readRDS("cor_wsf.rds"),
-               "cu" = readRDS("cor_weekly_comm_uptime.rds"))
+               "cu" = readRDS("cor_weekly_comm_uptime.rds"),
+               "cctv" =  readRDS("cor_weekly_cctv_uptime.rds"))
 cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
                "vph" = readRDS("cor_monthly_vph.rds"),
                "vphp" = readRDS("cor_monthly_vph_peak.rds"),
@@ -907,7 +943,7 @@ cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
                "cu" = readRDS("cor_monthly_comm_uptime.rds"),
                "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
                "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
-               "cctv" = readRDS("cor_monthly_xl_cctv_uptime.rds"),
+               "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
                "events" = readRDS("cor_monthly_events.rds"))
 cor$qu <- list("vpd" = get_quarterly(cor$mo$vpd, "vpd"),
                "vph" = data.frame(), #get_quarterly(cor$mo$vph, "vph"),
@@ -940,7 +976,8 @@ sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors),
                "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors),
                "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors),
-               "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors))
+               "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors),
+               "cctv" = readRDS("weekly_cctv_uptime.rds"))
 sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors),
                "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors),
                "vphp" = purrr::map2(readRDS("monthly_vph_peak.rds"), cor$mo$vphp,

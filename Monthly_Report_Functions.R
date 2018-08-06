@@ -9,11 +9,13 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(lubridate)
+library(glue)
 library(data.table)
 library(feather)
 library(fst)
 library(parallel)
 library(pool)
+
 
 library(plotly)
 library(crosstalk)
@@ -35,6 +37,17 @@ GDOT_BLUE = "#256194"
 SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
+
+get_month_abbrs <- function(start_date, end_date) {
+    sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
+                      function(date_) { 
+                          d <- ymd(date_)
+                          y <- year(d)
+                          m <- month(d)
+                          s <- paste(y, sprintf("%02d", m), sep = "-")
+                      })
+}
+
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
@@ -757,16 +770,79 @@ get_comm_uptime <- function(filtered_counts) {
                Week = week(Date)) %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
 }
+get_comm_uptime2 <- function(date_, signals_list) {
+    
+    conn <- dbConnect(odbc::odbc(), 
+                      dsn="sqlodbc", 
+                      uid=Sys.getenv("ATSPM_USERNAME"), 
+                      pwd=Sys.getenv("ATSPM_PASSWORD"))
+    
+    start_date <-  ymd_hms(paste(date_, "00:00:00"))
+    end_date <- start_date + days(1)
+    
+    bookends <- expand.grid(SignalID = signals_list, 
+                            Timestamp = c(start_date, start_date + days(1)))
+    
+    signals_string <- paste(glue("'{signals_list}'"), collapse = ",")
+    
+
+        
+    query <- glue("select SignalID, Timestamp from Controller_Event_Log 
+              where Timestamp BETWEEN '{start_date}' AND '{end_date}' 
+                  and EventCode NOT IN (43,44)")
+    #and SignalID = ('{s}') 
+    
+    df <- tbl(conn, sql(query))
+
+    
+    ts <- df %>% 
+        filter(SignalID %in% signals_list) %>% 
+        collect() %>%
+        bind_rows(., bookends) %>%
+        distinct() %>%
+        arrange(SignalID, Timestamp)
+        
+
+    
+    all_spans <- ts %>%
+        mutate(SignalID = 0) %>%
+        distinct() %>%
+        arrange(Timestamp) %>%
+        mutate(span = as.numeric(Timestamp - lag(Timestamp), units = "mins")) %>%
+        drop_na()
+    
+    global_downtime <- all_spans %>%
+        mutate(span = if_else(span > 15, span, 0)) %>%
+        summarize(downtime = sum(span)/(60 * 24 * length(signals_list)))
+    
+    
+    signal_spans <- ts %>%
+        group_by(SignalID) %>%
+        mutate(span = as.numeric(Timestamp - lag(Timestamp), units = "mins"))
+    
+    signal_spans %>% 
+        drop_na() %>%
+        mutate(span = if_else(span > 15, span, 0)) %>%
+        group_by(SignalID) %>% 
+        summarize(uptime = 1 - sum(span)/(60 * 24) - global_downtime$downtime) %>%
+        
+        ungroup() %>%
+        mutate(SignalID = factor(SignalID),
+               CallPhase = factor(0),
+               Date_Hour = date(start_date),
+               Date = date(start_date),
+               DOW = wday(start_date), 
+               Week = week(start_date)) %>%
+        select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
+}
 
 # -- Generic Aggregation Functions
 get_Tuesdays_ <- function(df) {
-    df %>% 
-        ungroup() %>% 
-        dplyr::filter(DOW == 3) %>% 
-        select(Week, Date) %>% 
-        unique() %>% 
-        arrange(Week)
+    dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = 1)
+    tuesdays <- dates_[wday(dates_) == 3]
+    data.frame(Week = week(tuesdays), Date = tuesdays)
 }
+
 weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_=NULL) {
     
     per_ <- as.name(per_)
@@ -1515,19 +1591,24 @@ get_det_uptime_from_manual_xl <- function(fn, date_string) {
 }
 get_cor_monthly_xl_uptime <- function(df) {
     
+    # By Corridor
     a <- df %>% group_by(Zone_Group, Corridor, Month) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
                   up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE)) %>%
         ungroup()
 
+    # RTOP1 and RTOP2
     b <- a %>% 
+        filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
         group_by(Zone_Group, Corridor = Zone_Group, Month) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
                   up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE))
     
+    # All RTOP
     c <- a %>% 
+        filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
         group_by(Zone_Group = "All RTOP", Corridor = Zone_Group, Month) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
                   up = sum(up, na.rm = TRUE),
@@ -1540,6 +1621,35 @@ get_cor_monthly_xl_uptime <- function(df) {
         ungroup()
     
 }
+
+get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
+    
+    df <- daily_cctv_uptime %>% 
+        mutate(DOW = wday(Date), 
+               Week = week(Date))
+    
+    Tuesdays <- get_Tuesdays_(df)
+    
+    df %>% 
+        select(-Date) %>% 
+        left_join(Tuesdays) %>% 
+        group_by(Date, Corridor, Zone_Group) %>% 
+        summarize(up = sum(up),
+                  num = sum(num),
+                  uptime = sum(up)/sum(num))
+}
+get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
+    
+    daily_cctv_uptime %>% 
+        mutate(Month = Date - days(day(Date) - 1)) %>% 
+        group_by(Month, Corridor, Zone_Group) %>% 
+        summarize(up = sum(up),
+                  num = sum(num),
+                  uptime = sum(up)/sum(num)) #%>%
+        #get_cor_monthly_xl_uptime()
+}
+
+
 
 # Cross filter Daily Volumes Chart. For Monthly Report ------------------------
 get_vpd_plot <- function(cor_weekly_vpd, cor_monthly_vpd) {

@@ -1133,9 +1133,9 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
 
     
     spr <- df %>%
-        mutate(Up = as.integer(pmin(Size, 1))) %>%
-        select(-Size, -Corridor, -Zone_Group) %>%
-        spread(Date, Up, fill = 0) %>%
+        select(-num, -uptime, -Corridor, -Zone_Group) %>% 
+        distinct() %>% 
+        spread(Date, up, fill = 0) %>%
         arrange(desc(CameraID))
     
     m <- as.matrix(spr %>% select(-CameraID))
@@ -1151,7 +1151,7 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
             ygap = 1,
             showscale = FALSE) %>% 
         layout(yaxis = list(type = "category",
-                            title = "CameraID"),
+                            title = ""),
                margin = list(l = 150))
 }
 plot_individual_cctvs <- memoise(plot_individual_cctvs_)

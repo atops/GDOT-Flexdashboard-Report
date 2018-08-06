@@ -153,12 +153,12 @@ Row {data-height = 50}
 
 ### Performance <a id = "page_performance"></a>
 
-Arterial performance measures
+Arterial performance measures (% change from previous month)
 
 Row
 -------------------------------------
 
-### Throughput (vph) {.value-box}
+### Throughput [vph] {.value-box}
 
 ```{r cache = FALSE}
 renderValueBox({
@@ -242,13 +242,13 @@ Row {data-height = 50}
 
 ### Volume-Based Measures
 
-Corridor volumes
+Corridor volumes (% change from previous month)
 
 Row
 -------------------------------------
 
 
-### Traffic Volume (veh/day) {.value-box}
+### Traffic Volume [veh/day] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -261,7 +261,7 @@ renderValueBox({
 })
 ```
 
-### AM Peak Volume (veh/hr) {.value-box}
+### AM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -274,7 +274,7 @@ renderValueBox({
 })
 ```
 
-### PM Peak Volume (veh/hr) {.value-box}
+### PM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -304,12 +304,12 @@ Row {data-height = 50}
 
 ### Equipment Measures
 
-Device and Communications Uptime
+Device and Communications Uptime (% change from previous month)
 
 Row
 -------------------------------------
 
-### Vehicle Detector Availability (manually collected) {.value-box}
+### Vehicle Detector Availability \n[manually collected] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -322,7 +322,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability (manually collected) {.value-box}
+### Pedestrian Detector Availability \n[manually collected] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -367,7 +367,7 @@ Row {data-height = 50}
 
 ### Activity Measures
 
-Activity measures from TEAMS and as reported by Traffic Engineers.
+Activity measures from TEAMS and as reported by Traffic Engineers (% change from previous month)
 
 Row
 -------------------------------------
@@ -398,7 +398,7 @@ renderValueBox({
 })
 ```
 
-### TEAMS Tasks Outstanding (Unresolved) {.value-box}
+### TEAMS Tasks Outstanding [Unresolved] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -436,12 +436,12 @@ Row {data-height = 50}
 
 ### Performance
 
-Arterial performance measures
+Arterial performance measures (% change from previous month)
 
 Row
 -------------------------------------
 
-### Throughput (vph) {.value-box}
+### Throughput [vph] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -537,13 +537,13 @@ Row {data-height = 50}
 
 ### Volume-Based Measures
 
-Corridor volumes
+Corridor volumes (% change from previous month)
 
 Row
 -------------------------------------
 
 
-### Traffic Volume (veh/day) {.value-box}
+### Traffic Volume [veh/day] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -558,7 +558,7 @@ renderValueBox({
 })
 ```
 
-### AM Peak Volume (veh/hr) {.value-box}
+### AM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -573,7 +573,7 @@ renderValueBox({
 })
 ```
 
-### PM Peak Volume (veh/hr) {.value-box}
+### PM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -606,12 +606,12 @@ Row {data-height = 50}
 
 ### Equipment Measures
 
-Device and Communications Uptime
+Device and Communications Uptime (% change from previous month)
 
 Row
 -------------------------------------
 
-### Vehicle Detector Availability (manually collected){.value-box}
+### Vehicle Detector Availability [manually collected] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -626,7 +626,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability (manually collected) {.value-box}
+### Pedestrian Detector Availability [manually collected] {.value-box}
 
 ```{r}
 
@@ -678,7 +678,7 @@ Row {data-height = 50}
 
 ### Activity Measures
 
-Activity measures from TEAMS and as reported by Traffic Engineers.
+Activity measures from TEAMS and as reported by Traffic Engineers (% change from previous month)
 
 Row
 -------------------------------------
@@ -713,7 +713,7 @@ renderValueBox({
 })
 ```
 
-### TEAMS Tasks Outstanding (Unresolved) {.value-box}
+### TEAMS Tasks Outstanding [Unresolved] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -1018,7 +1018,7 @@ Volumes
 Row
 -------------------------------------
 
-### Traffic Volume (veh/day) {.value-box}
+### Traffic Volume [veh/day] {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
@@ -1030,7 +1030,7 @@ renderValueBox({
 })
 ```
 
-### AM Peak Volume (veh/hr) {.value-box}
+### AM Peak Volume [veh/hr] {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
@@ -1042,7 +1042,7 @@ renderValueBox({
 })
 ```
 
-### PM Peak Volume (veh/hr) {.value-box}
+### PM Peak Volume [veh/hr] {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
@@ -1219,7 +1219,7 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
         
-        weekly_cctv_df <- cor$dy$cctv %>%
+        weekly_cctv_df <- cor$wk$cctv %>%
             filter(Date >= ymd("2017-07-01"))
         monthly_cctv_df <- cor$mo$cctv %>%
             filter(Month >= ymd("2017-07-01"))
@@ -1258,6 +1258,14 @@ renderPlotly({
                              month_name = input$month,
                              month_ = current_month(), 
                              zone_group_ = zone_group())
+    
+    #get_bar_line_dashboard_plot(cor$dy$cu, 
+    #                        cor$mo$cu, NULL,
+    #                        "uptime", "percent", highlight_color = GDOT_BLUE,
+    #                         month_ = current_month(), zone_group_ = zone_group(),
+    #                        x_bar_title = "",
+    #                        x_line1_title = "",
+    #                        plot_title = "")
 })
 ```
 
