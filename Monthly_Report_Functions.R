@@ -289,6 +289,197 @@ get_qc_counts <- function(start_date, end_date, signals_list) {
     get_counts(start_date, end_date, signals_list, 
                interval = "15 min", TWR_only = FALSE, mainline_only = FALSE)
 }
+
+get_det_config <- function(date_) {
+    
+    adc_ <- read_csv(glue("../ATSPM_Det_Config_{date_}.csv"))
+    adc <- adc_ %>% 
+        select(SignalID, Detector, CallPhase = ProtectedPhaseNumber, TimeFromStopBar, IPAddress) %>% 
+        replace_na(list(TimeFromStopBar = 0)) %>% 
+        mutate(SignalID = factor(SignalID), 
+               Detector = factor(Detector), 
+               CallPhase = factor(CallPhase)) %>%
+        filter(SignalID %in% signals_list)
+    
+    mdp_ <- read_csv(glue("../MaxTime_Det_Plans_{date_}.csv"))
+    mdp <- mdp_ %>%
+        select(SignalID, Detector, CallPhase) %>% 
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase),
+               TimeFromStopBar = -1) %>%
+        filter(SignalID %in% signals_list)
+    
+    
+    det_config <- full_join(adc, mdp, 
+                            by = c("SignalID", "Detector"), 
+                            suffix = c(".atspm", ".maxtime")) %>% 
+        select(SignalID, 
+               Detector, 
+               CallPhase.atspm, 
+               CallPhase.maxtime, 
+               TimeFromStopBar.atspm) %>% 
+        #IPAddress) %>%
+        #full_join(corridors, by = "SignalID") %>%
+        filter(!(is.na(SignalID) | is.na(Detector))) %>% # | 
+        #(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime)))) %>%
+        
+        #mutate(Check = is.na(CallPhase.maxtime) | 
+        #           is.na(CallPhase.atspm) | 
+        #           as.character(CallPhase.atspm) != as.character(CallPhase.maxtime)) %>% 
+        select(#Zone, 
+            #Corridor, 
+            #Name, 
+            #IPAddress, 
+            SignalID, 
+            Detector, 
+            CallPhase.atspm, 
+            CallPhase.maxtime, 
+            TimeFromStopBar.atspm) %>%
+        #Check) %>%
+        #mutate(SignalID = as.integer(SignalID),
+        #       Detector = as.integer(Detector)) %>%
+        #arrange(SignalID, Detector, CallPhase.atspm) %>%
+        filter(!(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime))) %>%
+        mutate(CallPhase = ifelse(is.na(CallPhase.maxtime), CallPhase.atspm, CallPhase.maxtime)) %>%
+        
+        mutate(SignalID = factor(SignalID), 
+               Detector = factor(Detector), 
+               CallPhase = factor(CallPhase))
+    
+    det_config
+}
+
+get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
+    
+
+    distinct_filename <- tempfile()
+    counts_15min_filename <- tempfile()
+    counts_1hr_filename <- tempfile()
+    
+    if (uptime == TRUE) {
+        #cu_filename <- tempfile()
+        print(glue("distinct_filename: {distinct_filename}"))
+    }
+    if (counts == TRUE) {
+        print(glue("counts_15min_filename: {counts_15min_filename}"))
+        print(glue("counts_1hr_filename: {counts_1hr_filename}"))
+    }
+    
+    
+    start_date <- date_
+    end_date <- format(date(date_) + days(1), "%Y-%m-%d")
+    
+
+
+    conn <- dbConnect(odbc::odbc(), 
+                          dsn="sqlodbc", 
+                          uid=Sys.getenv("ATSPM_USERNAME"), 
+                          pwd=Sys.getenv("ATSPM_PASSWORD"))
+
+            
+    lapply(split(signals_list, seq_len(100)), function(signals_sublist) {
+        
+        print(signals_sublist)
+        
+        signals_string <- paste(glue("'{signals_sublist}'"), collapse = ",")
+        
+        query = glue("SELECT * FROM Controller_Event_Log 
+                     WHERE Timestamp BETWEEN '{start_date}' AND '{end_date}'
+                     AND EventCode NOT IN (43,44) 
+                     AND SignalID in ({signals_string})
+                     ORDER BY SignalID, Timestamp")
+        
+        result <- DBI::dbSendQuery(conn, query)
+        
+        
+        
+        while (!dbHasCompleted(result)) {
+            df <- dbFetch(result, 1000000)
+            print(nrow(df))
+            print(head(df))
+            
+            if (uptime == TRUE) {
+                df %>% 
+                    distinct(SignalID, Timestamp) %>%
+                    write_csv(., distinct_filename, append = TRUE)
+            }
+            if (counts == TRUE) {
+
+                df %>%
+                    filter(EventCode == 82) %>%
+                    mutate(Timeperiod = floor_date(Timestamp, unit = "hours")) %>%
+                    group_by(SignalID, Detector = EventParam, Timeperiod) %>%
+                    summarize(vol = n()) %>%
+                    write_csv(., counts_1hr_filename, append = TRUE)
+
+                if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu")) {
+                    df %>%
+                        filter(EventCode == 82) %>%
+                        mutate(Timeperiod = floor_date(Timestamp, unit = "15 minutes")) %>%
+                        group_by(SignalID, Detector = EventParam, Timeperiod) %>%
+                        summarize(vol = n()) %>%
+                        write_csv(., counts_15min_filename, append = TRUE)
+                }
+                
+            }
+        }
+    })
+
+    
+    print("Reducing data. Second pass.")
+    
+    if (uptime == TRUE) {
+        
+        # Second pass on distinct data. Reduce to comm uptime for signals_sublist
+        read_csv(distinct_filename, col_names = c("SignalID","Timestamp")) %>%
+            distinct() %>%
+            arrange(SignalID, Timestamp) %>%
+            mutate(SignalID = factor(SignalID)) %>%
+            get_comm_uptime2(., signals_list) %>%
+            mutate(SignalID = factor(SignalID),
+                   CallPhase = factor(CallPhase)) %>%
+            write_fst(., glue("cu_{start_date}.fst"))
+        
+        file.remove(distinct_filename)
+    }
+    
+    if (counts == TRUE) {
+        
+        det_config <- get_det_config(start_date) %>%
+            select(SignalID, Detector, CallPhase)
+
+        read_csv(counts_1hr_filename, col_names = c("SignalID", "Detector", "Timeperiod", "vol")) %>%
+            mutate(SignalID = factor(SignalID), Detector = factor(Detector)) %>%
+            group_by(SignalID, Detector, Timeperiod) %>%
+            summarize(vol = sum(vol)) %>%
+            left_join(det_config, by = c("SignalID", "Detector")) %>%
+            ungroup() %>%
+            select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+            mutate(SignalID = factor(SignalID),
+                   Detector = factor(Detector)) %>%
+            write_fst(., glue("counts_1hr_{start_date}.fst"))
+
+        if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu")) {
+            
+            read_csv(counts_15min_filename, col_names = c("SignalID", "Detector", "Timeperiod", "vol")) %>%
+                mutate(SignalID = factor(SignalID), Detector = factor(Detector)) %>%
+                group_by(SignalID, Detector, Timeperiod) %>%
+                summarize(vol = sum(vol)) %>%
+                left_join(det_config, by = c("SignalID", "Detector")) %>%
+                ungroup() %>%
+                select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+                mutate(SignalID = factor(SignalID),
+                       Detector = factor(Detector)) %>%
+                write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
+        }
+        
+        
+        file.remove(counts_15min_filename)
+        file.remove(counts_1hr_filename)
+        
+    }
+}
 # Query SPM Database - base query
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
@@ -592,8 +783,8 @@ get_aog <- function(cycle_data) {
                CallPhase = factor(CallPhase),
                Date_Hour = lubridate::ymd_hms(Hour),
                Date = date(Date_Hour),
-               DOW = factor(wday(Date)), 
-               Week = factor(week(Date))) %>%
+               DOW = wday(Date), 
+               Week = week(Date)) %>%
         ungroup() %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, vol)
 
@@ -649,8 +840,8 @@ get_qs <- function(detection_events) {
                CallPhase = factor(CallPhase),
                Date_Hour = ymd_hms(Hour),
                Date = lubridate::floor_date(Date_Hour, unit="days"),
-               DOW = factor(wday(Date_Hour)),
-               Week = factor(week(Date_Hour)),
+               DOW = wday(Date_Hour),
+               Week = week(Date_Hour),
                qs = as.integer(qs),
                cycles = as.integer(cycles),
                qs_freq = as.double(qs)/as.double(cycles)) %>%
@@ -770,39 +961,19 @@ get_comm_uptime <- function(filtered_counts) {
                Week = week(Date)) %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
 }
-get_comm_uptime2 <- function(date_, signals_list) {
-    
-    conn <- dbConnect(odbc::odbc(), 
-                      dsn="sqlodbc", 
-                      uid=Sys.getenv("ATSPM_USERNAME"), 
-                      pwd=Sys.getenv("ATSPM_PASSWORD"))
-    
-    start_date <-  ymd_hms(paste(date_, "00:00:00"))
-    end_date <- start_date + days(1)
-    
+
+get_comm_uptime2 <- function(df, signals_list) {
+
+    start_date <- floor_date(min(df$Timestamp))
+    end_date <- floor_date(max(df$Timestamp)) + days(1)
+
     bookends <- expand.grid(SignalID = signals_list, 
                             Timestamp = c(start_date, start_date + days(1)))
     
-    signals_string <- paste(glue("'{signals_list}'"), collapse = ",")
-    
-
-        
-    query <- glue("select SignalID, Timestamp from Controller_Event_Log 
-              where Timestamp BETWEEN '{start_date}' AND '{end_date}' 
-                  and EventCode NOT IN (43,44)")
-    #and SignalID = ('{s}') 
-    
-    df <- tbl(conn, sql(query))
-
-    
     ts <- df %>% 
-        filter(SignalID %in% signals_list) %>% 
-        collect() %>%
         bind_rows(., bookends) %>%
         distinct() %>%
         arrange(SignalID, Timestamp)
-        
-
     
     all_spans <- ts %>%
         mutate(SignalID = 0) %>%
@@ -834,12 +1005,17 @@ get_comm_uptime2 <- function(date_, signals_list) {
                DOW = wday(start_date), 
                Week = week(start_date)) %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
+    
 }
+
 
 # -- Generic Aggregation Functions
 get_Tuesdays_ <- function(df) {
     dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = 1)
     tuesdays <- dates_[wday(dates_) == 3]
+    
+    tuesdays <- pmax(min(df$Date), tuesdays) # unsure of this. need to test
+    
     data.frame(Week = week(tuesdays), Date = tuesdays)
 }
 
@@ -874,7 +1050,7 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
         mutate(Corridor = factor(corr_grp)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
         mutate(Zone_Group = corr_grp) %>% 
-        select(Corridor, Zone_Group, !!per_, !!var_, !!wt_, delta) # addition of Zone_Group is new
+        select(Corridor, Zone_Group, !!per_, !!var_, !!wt_, delta) 
 }
 group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
     df %>%
@@ -882,8 +1058,8 @@ group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
         summarize(!!var_ := sum(!!var_)) %>%
         mutate(Corridor = factor(corr_grp)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
-        mutate(Zone_Group = corr_grp) %>% # this is new and untested
-        select(Corridor, Zone_Group, !!per_, !!var_, delta) # addition of Zone_Group is new
+        mutate(Zone_Group = corr_grp) %>% 
+        select(Corridor, Zone_Group, !!per_, !!var_, delta) 
 }
 
 group_corridor_by_date <- function(df, var_, wt_, corr_grp) {
@@ -956,8 +1132,10 @@ get_weekly_sum_by_day <- function(df, var_) {
     df %>%
         group_by(SignalID, CallPhase, Week) %>% 
         summarize(!!var_ := mean(!!var_)) %>% # Mean over 3 days in the week
+        
         group_by(SignalID, Week) %>% 
         summarize(!!var_ := sum(!!var_)) %>% # Sum of phases 2,6
+        
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
         left_join(Tuesdays) %>%
         select(SignalID, Date, Week, !!var_, delta)
@@ -978,12 +1156,15 @@ get_weekly_avg_by_day <- function(df, var_, wt_="ones") {
     
     df %>%
         filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
+        
         group_by(SignalID, CallPhase, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
                   !!wt_ := sum(!!wt_)) %>% # Mean over 3 days in the week
+        
         group_by(SignalID, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_), # Mean of phases 2,6
                   !!wt_ := sum(!!wt_)) %>% # Sum of phases 2,6
+        
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
         left_join(Tuesdays) %>%
         select(SignalID, Date, Week, !!var_, !!wt_, delta)
@@ -1830,8 +2011,15 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
 
 # Activities
 tidy_teams <- function(df) {
-    df %>% unite(Location, `Location Groups`, County, sep = "-") %>%
-        transmute(Task_Type = factor(`Task Type`),
+    
+    # set unique id based on creation date, time, lat/long
+    df$cdn <- sapply(lapply(as.character(df$`Created by`), charToRaw), function(x) sum(as.numeric(x)))
+    df$id <- as.numeric(mdy_hms(df$`Created on`))/1e8 + df$cdn + abs(df$Latitude) + abs(df$Longitude)
+    
+    df %>% distinct() %>%
+        unite(Location, `Location Groups`, County, sep = "-") %>%
+        transmute(Id = id,
+                  Task_Type = factor(`Task Type`),
                   Task_Subtype = factor(`Task Subtype`),
                   Task_Source = factor(`Task Source`),
                   Priority = factor(Priority),
@@ -1843,9 +2031,9 @@ tidy_teams <- function(df) {
                   `Time To Resolve In Days` = `Time To Resolve In Days`,
                   Maintained_by = ifelse(
                       grepl(pattern = "District 1", `Maintained by`), "D1",
-                      ifelse(grepl(pattern = "District 6", `Maintained by`),"D6",
-                             ifelse(grepl(pattern = "Consultant|GDOT", `Maintained by`),"D6",
-                                    `Maintained by`)))) %>%
+                      ifelse(grepl(pattern = "District 6", `Maintained by`), "D6",
+                             ifelse(grepl(pattern = "Consultant|GDOT", `Maintained by`), "D6",
+                                    as.character(`Maintained by`))))) %>%
         filter(!is.na(`Date Reported`)) %>% as_tibble()
 }
 read_teams_csv <- function(csv_fn) {
@@ -1856,11 +2044,13 @@ read_teams_csv <- function(csv_fn) {
                 "SR 13S","SR 140","SR 141","SR 154","SR 155N","SR 155S","SR 20","SR 237",
                 "SR 280","SR 3","SR 314","SR 331","SR 360","SR 42","SR 5","SR 6","SR 8",
                 "SR 8/US 278","SR 85","SR 9","SR 92","US 278")
-    df2 <- mutate(df, `Location Groups` = "")
+    df2 <- mutate(df, `Location Groups` = "",
+                  `Overdue In Hours` = as.integer(`Overdue In Hours`))
     for (rt in routes) {
         df2 <- dplyr::mutate(df2, `Location Groups` = ifelse(grepl(rt, `Custom Identifier`), rt, `Location Groups`))
     }
-    tidy_teams(df2)
+    #tidy_teams(df2)
+    as_tibble(df2)
 }
 get_outstanding_events <- function(teams, group_var) {
     
