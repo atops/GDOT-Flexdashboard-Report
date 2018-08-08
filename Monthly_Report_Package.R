@@ -1,0 +1,693 @@
+
+# Monthly_Report_Package.R
+
+library(yaml)
+
+setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report"))
+source("Monthly_Report_Functions.R")
+conf <- read_yaml("Monthly_Report_calcs.yaml")
+
+
+corridors <- feather::read_feather(conf$corridors_filename) 
+signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
+
+# # ###########################################################################
+
+f <- function(prefix, month_abbrs, combine = TRUE) {
+    x <- purrr::map(paste0(prefix, month_abbrs, ".fst"), function(df) {
+        read_fst(df) %>%
+        mutate(SignalID = factor(SignalID)) %>%
+        as_tibble() 
+    })
+    if (combine == TRUE) {
+        x <- bind_rows(x)
+    }
+    x
+}
+
+# # Package everything up for Monthly Report back 13 months
+
+#----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
+
+dates <- seq(ymd(conf$report_start_date), ymd(conf$report_end_date), by = "1 month")
+month_abbrs <- get_month_abbrs(conf$report_start_date,conf$report_end_date)
+
+
+
+# # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
+
+fs <- list.files(path = "Inrix/For_Monthly_Report", recursive = TRUE, full.names = TRUE)
+fns <- fs[grepl("TWTh.csv", fs)]
+tt <- get_tt_csv(fns)
+tti <- tt$tti
+pti <- tt$pti
+
+
+write_fst(tti, "tti.fst")
+write_fst(pti, "pti.fst")
+
+
+
+
+# # DETECTOR UPTIME ###########################################################
+
+ddu <- f("ddu_", month_abbrs)
+daily_detector_uptime <- split(ddu, ddu$setback)
+
+avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
+monthly_detector_uptime <- get_monthly_detector_uptime(avg_daily_detector_uptime)
+
+cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
+cor_monthly_detector_uptime <- get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
+
+saveRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds")
+saveRDS(monthly_detector_uptime, "monthly_detector_uptime.rds")
+
+saveRDS(cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds")
+saveRDS(cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds")
+
+rm(ddu)
+
+# GET COMMUNICATIONS UPTIME ###################################################
+
+cu <- f("cu_", month_abbrs)
+daily_comm_uptime <- get_daily_avg(cu, "uptime")
+cor_daily_comm_uptime <- get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
+
+weekly_comm_uptime <- get_weekly_avg_by_day(cu, "uptime")
+cor_weekly_comm_uptime <- get_cor_weekly_avg_by_day(weekly_comm_uptime, corridors, "uptime")
+
+monthly_comm_uptime <- get_monthly_avg_by_day(cu, "uptime")
+cor_monthly_comm_uptime <- get_cor_monthly_avg_by_day(monthly_comm_uptime, corridors, "uptime")
+
+
+saveRDS(daily_comm_uptime, "daily_comm_uptime.rds")
+saveRDS(cor_daily_comm_uptime, "cor_daily_comm_uptime.rds")
+
+saveRDS(weekly_comm_uptime, "weekly_comm_uptime.rds")
+saveRDS(cor_weekly_comm_uptime, "cor_weekly_comm_uptime.rds")
+
+saveRDS(monthly_comm_uptime, "monthly_comm_uptime.rds")
+saveRDS(cor_monthly_comm_uptime, "cor_monthly_comm_uptime.rds")
+
+rm(cu)
+
+# DAILY VOLUMES ###############################################################
+
+vpd <- f("vpd_", month_abbrs)
+weekly_vpd <- get_weekly_vpd(vpd)
+
+# Group into corridors --------------------------------------------------------
+cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
+
+# Monthly volumes for bar charts and % change ---------------------------------
+monthly_vpd <- get_monthly_vpd(vpd)
+
+# Group into corridors
+cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
+
+# Monthly % change from previous month by corridor ----------------------------
+saveRDS(weekly_vpd, "weekly_vpd.rds")
+saveRDS(monthly_vpd, "monthly_vpd.rds")
+saveRDS(cor_weekly_vpd, "cor_weekly_vpd.rds")
+saveRDS(cor_monthly_vpd, "cor_monthly_vpd.rds")
+
+rm(vpd)
+
+# HOURLY VOLUMES ##############################################################
+
+vph <- f("vph_", month_abbrs)
+weekly_vph <- get_weekly_vph(mutate(vph, CallPhase = 2)) # Hack because next function needs a CallPhase
+weekly_vph_peak <- get_weekly_vph_peak(weekly_vph)
+
+# Group into corridors --------------------------------------------------------
+cor_weekly_vph <- get_cor_weekly_vph(weekly_vph, corridors)
+cor_weekly_vph_peak <- get_cor_weekly_vph_peak(cor_weekly_vph)
+
+monthly_vph <- get_monthly_vph(vph)
+monthly_vph_peak <- get_monthly_vph_peak(monthly_vph)
+
+# Hourly volumes by Corridor --------------------------------------------------
+cor_monthly_vph <- get_cor_monthly_vph(monthly_vph, corridors)
+cor_monthly_vph_peak <- get_cor_monthly_vph_peak(cor_monthly_vph)
+
+saveRDS(weekly_vph, "weekly_vph.rds")
+saveRDS(monthly_vph, "monthly_vph.rds")
+saveRDS(cor_weekly_vph, "cor_weekly_vph.rds")
+saveRDS(cor_monthly_vph, "cor_monthly_vph.rds")
+
+saveRDS(weekly_vph_peak, "weekly_vph_peak.rds")
+saveRDS(monthly_vph_peak, "monthly_vph_peak.rds")
+saveRDS(cor_weekly_vph_peak, "cor_weekly_vph_peak.rds")
+saveRDS(cor_monthly_vph_peak, "cor_monthly_vph_peak.rds")
+
+rm(vph)
+
+# DAILY THROUGHPUT ############################################################
+
+throughput <- f("tp_", month_abbrs)
+weekly_throughput <- get_weekly_thruput(throughput)
+
+# Group into corridors --------------------------------------------------------
+cor_weekly_throughput <- get_cor_weekly_thruput(weekly_throughput, corridors)
+
+# Monthly throughput for bar charts and % change ---------------------------------
+monthly_throughput <- get_monthly_thruput(throughput)
+
+# Group into corridors
+cor_monthly_throughput <- get_cor_monthly_thruput(monthly_throughput, corridors)
+
+# Monthly % change from previous month by corridor ----------------------------
+#cor_mo_pct_throughput <- get_cor_monthly_pct_change_thruput(cor_monthly_throughput)
+
+saveRDS(weekly_throughput, "weekly_throughput.rds")
+saveRDS(monthly_throughput, "monthly_throughput.rds")
+saveRDS(cor_weekly_throughput, "cor_weekly_throughput.rds")
+saveRDS(cor_monthly_throughput, "cor_monthly_throughput.rds")
+
+rm(throughput)
+
+# DAILY ARRIVALS ON GREEN #####################################################
+
+aog <- f("aog_", month_abbrs)
+daily_aog <- get_daily_aog(aog)
+
+weekly_aog_by_day <- get_weekly_aog_by_day(aog)
+
+cor_weekly_aog_by_day <- get_cor_weekly_aog_by_day(weekly_aog_by_day, corridors)
+
+monthly_aog_by_day <- get_monthly_aog_by_day(aog)
+
+cor_monthly_aog_by_day <- get_cor_monthly_aog_by_day(monthly_aog_by_day, corridors)
+
+saveRDS(weekly_aog_by_day, "weekly_aog_by_day.rds")
+saveRDS(monthly_aog_by_day, "monthly_aog_by_day.rds")
+saveRDS(cor_weekly_aog_by_day, "cor_weekly_aog_by_day.rds")
+saveRDS(cor_monthly_aog_by_day, "cor_monthly_aog_by_day.rds")
+
+# HOURLY ARRIVALS ON GREEN ####################################################
+
+aog_by_hr <- get_aog_by_hr(aog)
+monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
+
+# Hourly volumes by Corridor --------------------------------------------------
+cor_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, corridors)
+
+cor_monthly_aog_peak <- get_cor_monthly_aog_peak(cor_monthly_aog_by_hr)
+
+saveRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds")
+saveRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds")
+
+rm(aog)
+
+# DAILY SPLIT FAILURES #####################################################
+
+sf_filenames <- list.files(pattern = "sf_201\\d-\\d{2}-\\d{2}\\.feather")
+wds <- wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames))
+twr <- sapply(wds, function(x) {x %in% c(TUE, WED, THU)})
+sf_filenames <- sf_filenames[twr]
+sf <- get_sf(bind_rows(lapply(sf_filenames, read_feather)))
+sfs <- split(sf, sf$SignalID)
+
+rm(sf)
+
+wsf <- lapply(sfs, get_weekly_sf_by_day) %>%
+    bind_rows() %>% ungroup() %>%
+    mutate(SignalID = factor(SignalID),
+           Week = factor(Week))
+
+cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
+
+
+monthly_sfd <- lapply(sfs, get_monthly_sf_by_day) %>%
+    bind_rows() %>% ungroup() %>%
+    mutate(SignalID = factor(SignalID))
+
+cor_monthly_sfd <- get_cor_monthly_sf_by_day(monthly_sfd, corridors)
+
+saveRDS(wsf, "wsf.rds")
+saveRDS(monthly_sfd, "monthly_sfd.rds")
+saveRDS(cor_wsf, "cor_wsf.rds")
+saveRDS(cor_monthly_sfd, "cor_monthly_sfd.rds")
+
+
+# HOURLY SPLIT FAILURES #######################################################
+
+sfh <- lapply(sfs, get_sf_by_hr) %>%
+    bind_rows() %>% ungroup() %>% as_tibble() %>%
+    mutate(SignalID = factor(SignalID),
+           CallPhase = factor(CallPhase),
+           Week = factor(Week),
+           DOW = factor(DOW))
+
+msfh <- get_monthly_sf_by_hr(sfh)
+
+# Hourly volumes by Corridor --------------------------------------------------
+cor_msfh <- get_cor_monthly_sf_by_hr(msfh, corridors)
+
+saveRDS(msfh, "msfh.rds")
+saveRDS(cor_msfh, "cor_msfh.rds")
+
+rm(sfs)
+
+
+# DAILY QUEUE SPILLBACK #######################################################
+
+qs <- f("qs_", month_abbrs, combine = FALSE)
+wqs <- lapply(qs, get_weekly_qs_by_day)
+cor_wqs <- get_cor_weekly_qs_by_day(wqs, corridors)
+
+monthly_qsd <- get_monthly_qs_by_day(qs)
+cor_monthly_qsd <- get_cor_monthly_qs_by_day(monthly_qsd, corridors)
+
+saveRDS(wqs, "wqs.rds")
+saveRDS(monthly_qsd, "monthly_qsd.rds")
+saveRDS(cor_wqs, "cor_wqs.rds")
+saveRDS(cor_monthly_qsd, "cor_monthly_qsd.rds")
+
+
+# HOURLY QUEUE SPILLBACK ######################################################
+
+qsh <- get_qs_by_hr(qs)
+mqsh <- get_monthly_qs_by_hr(qsh)
+
+# Hourly volumes by Corridor --------------------------------------------------
+cor_mqsh <- get_cor_monthly_qs_by_hr(mqsh, corridors)
+
+saveRDS(mqsh, "mqsh.rds")
+saveRDS(cor_mqsh, "cor_mqsh.rds")
+
+rm(qs)
+
+# TRAVEL TIME AND BUFFER TIME INDEXES #########################################
+
+tti <- read_fst("tti.fst")
+pti <- read_fst("pti.fst")
+
+cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, corridors)
+cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, corridors)
+
+cor_monthly_tti <- get_cor_monthly_tti(cor_monthly_tti_by_hr, corridors)
+cor_monthly_pti <- get_cor_monthly_pti(cor_monthly_pti_by_hr, corridors)
+
+saveRDS(cor_monthly_tti, "cor_monthly_tti.rds")
+saveRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds")
+
+saveRDS(cor_monthly_pti, "cor_monthly_pti.rds")
+saveRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds")
+
+rm(tti)
+rm(pti)
+
+
+# DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
+
+# # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
+
+fns <- list.files(path = "Excel Monthly Reports/2017_12", recursive = TRUE, full.names = TRUE)
+
+mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
+mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
+
+
+
+xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
+xl_uptime_mos <- conf$xl_uptime$months
+
+man_xl <- purrr::map2(xl_uptime_fns,
+                      xl_uptime_mos,
+                      get_det_uptime_from_manual_xl) %>%
+    bind_rows() %>%
+    mutate(Zone_Group = factor(Zone_Group))
+
+man_veh_xl <- man_xl %>% filter(Type == "Vehicle") %>% select(-Type)
+man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% select(-Type)
+
+
+cor_monthly_xl_veh_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_veh_xl, man_veh_xl))
+cor_monthly_xl_ped_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_ped_xl, man_ped_xl))
+
+
+
+mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
+
+# January data. One-time only.
+man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
+    transmute(Zone_Group = Zone_Group,
+              Corridor = Corridor,
+              Month = ymd("2018-01-01"),
+              up = as.integer(up),
+              num = as.integer(num),
+              uptime = uptime)
+
+
+cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
+    separate(col = CamID, into = c("CameraID", "Location"), sep = ": ") %>%
+    mutate(As_of_Date = ymd(As_of_Date))
+
+
+# CCTV image size variance by CameraID and Date
+#  -> reduce to 1 for Size > 0, 0 otherwise
+cctv_511 <- read_feather("parsed_cctv.feather") %>%
+    filter(Date > "2018-02-02" & Size > 0) %>%
+    mutate(up = 1, num = 1) %>%
+    select(-Size) %>%
+    distinct()
+
+e <- expand.grid(CameraID = unique(cctv_511$CameraID), 
+                 Date = seq(min(cctv_511$Date), max(cctv_511$Date), by = "1 day"), 
+                 up = 0, num = 1)
+
+# Expanded out to include all available cameras on all days
+#  up/uptime is 0 if no data
+daily_cctv_uptime_511 <- bind_rows(cctv_511, e) %>% 
+    group_by(CameraID, Date) %>% 
+    summarize(up = max(up),
+              num = 1,
+              uptime = up) %>%
+    ungroup() %>%
+    left_join(select(cam_config, -Location)) %>% 
+    filter(Date >= As_of_Date & Corridor != "") %>%
+    select(-As_of_Date)
+
+# Find the days where uptime across the board is very low (close to 0)
+#  This is symptomatic of a problem with the acquisition rather than the camreras themselves
+bad_days <- daily_cctv_uptime_511 %>% 
+    group_by(Date) %>% 
+    summarize(sup = sum(up),
+              snum = sum(num),
+              suptime = sum(up)/sum(num)) %>% 
+    filter(suptime < 0.2)
+
+# Filter out the bad days, add zone group
+cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
+    filter(!Date %in% bad_days$Date) %>%
+    group_by(Corridor, Date) %>%
+    summarize(up = sum(up),
+              num = sum(num)) %>%
+    mutate(uptime = up/num) %>%
+    left_join(distinct(corridors, Corridor, Zone_Group))
+
+# this output doesn't filter bad days because we want it to display all days
+#  on the website. Add zone group.
+daily_cctv_uptime <- daily_cctv_uptime_511 %>%
+    left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
+    mutate(CameraID = factor(CameraID), 
+           Corridor = factor(Corridor),
+           Zone_Group = factor(Zone_Group)) 
+
+
+cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+                                   man_cctv_xl_2018_01, 
+                                   select(cor_daily_cctv_uptime_511,
+                                          Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+    get_cor_monthly_xl_uptime() %>%
+    rename(Date = Month) %>%
+    mutate(Zone_Group = factor(Zone_Group),
+           Corridor = factor(Corridor))
+
+
+
+cor_weekly_cctv_uptime_511 <- get_cor_weekly_cctv_uptime(cor_daily_cctv_uptime_511)
+
+cor_weekly_cctv_uptime <- bind_rows(mrs_cctv_xl,
+                                    man_cctv_xl_2018_01,
+                                    select(cor_weekly_cctv_uptime_511,
+                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+    get_cor_monthly_xl_uptime() %>%
+    rename(Date = Month)
+
+
+
+cor_monthly_cctv_uptime_511 <- get_cor_monthly_cctv_uptime(cor_daily_cctv_uptime_511)
+
+cor_monthly_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+                                     man_cctv_xl_2018_01, 
+                                     cor_monthly_cctv_uptime_511) %>%
+    get_cor_monthly_xl_uptime()
+
+
+
+
+
+
+saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
+saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
+
+
+saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
+
+saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
+
+saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
+saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
+
+
+
+
+
+
+# ACTIVITIES ##############################
+
+# reduced so it leverages config file structure
+teams <- lapply(conf$teams, function(x) {
+    
+    csv_fns <- file.path(x$path, x$filenames)
+    
+    lapply(csv_fns, read_teams_csv) %>%
+        bind_rows() %>%
+        tidy_teams() %>%
+        filter(`Date Reported` >= ymd(conf$report_start_date) &
+                   `Date Reported` <= ymd(conf$report_end_date)) %>%
+        mutate(All = factor("all"),
+               Zone_Group = x$zone_group)
+    
+}) %>% bind_rows()
+
+
+saveRDS(teams, "teams.rds")
+#------------------------------------------------------------------------------
+teams <- readRDS("teams.rds")
+
+
+type_table <- get_outstanding_events(teams, "Task_Type") %>%
+    mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
+    group_by(Zone_Group, Task_Type, Month) %>%
+    summarize_all(sum)
+
+subtype_table <- get_outstanding_events(teams, "Task_Subtype") %>%
+    mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
+    group_by(Zone_Group, Task_Subtype, Month) %>%
+    summarize_all(sum)
+
+source_table <- get_outstanding_events(teams, "Task_Source") %>%
+    mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
+    group_by(Zone_Group, Task_Source, Month) %>%
+    summarize_all(sum)
+
+priority_table <- get_outstanding_events(teams, "Priority") %>%
+    group_by(Zone_Group, Priority, Month) %>%
+    summarize_all(sum)
+
+all_teams_table <- get_outstanding_events(teams, "All") %>%
+    group_by(Zone_Group, All, Month) %>%
+    summarize_all(sum)
+
+teams_tables <- list("type" = type_table,
+                     "subtype" = subtype_table,
+                     "source" = source_table,
+                     "priority" = priority_table,
+                     "all" = all_teams_table)
+
+saveRDS(teams_tables, "teams_tables.rds")
+
+
+cor_monthly_events <- teams_tables$all %>%
+    ungroup() %>%
+    transmute(Corridor = Zone_Group,
+              Zone_Group = Zone_Group,
+              Month = Month,
+              Reported = Rep,
+              Resolved = Res,
+              Outstanding = outstanding) %>%
+    arrange(Corridor, Zone_Group, Month) %>%
+    group_by(Corridor, Zone_Group) %>%
+    mutate(delta.rep = (Reported - lag(Reported))/lag(Reported),
+           delta.res = (Resolved - lag(Resolved))/lag(Resolved),
+           delta.out = (Outstanding - lag(Outstanding))/lag(Outstanding))
+
+saveRDS(cor_monthly_events, "cor_monthly_events.rds")
+
+
+
+
+
+
+# Package up for Flexdashboard
+
+sigify <- function(df, cor_df, corridors) {
+    
+    df_ <- df %>% left_join(distinct(corridors, SignalID, Corridor, Name)) %>%
+        rename(Zone_Group = Corridor, Corridor = SignalID) %>%
+        ungroup() %>%
+        mutate(Corridor = factor(Corridor))
+    
+    cor_df_ <- cor_df %>%
+        filter(Corridor %in% unique(df_$Zone_Group)) %>%
+        mutate(Zone_Group = Corridor)
+    
+    br <- bind_rows(df_, cor_df_)
+    
+    if ("Month" %in% names(br)) {
+        br %>% arrange(Zone_Group, Corridor, Month)
+    } else if ("Hour" %in% names(br)) {
+        br %>% arrange(Zone_Group, Corridor, Hour)
+    } else if ("Date" %in% names(br)) {
+        br %>% arrange(Zone_Group, Corridor, Date)
+    }
+}
+
+
+
+
+cor <- list()
+cor$dy <- list("du" = readRDS("cor_avg_daily_detector_uptime.rds"),
+               "cu" = readRDS("cor_daily_comm_uptime.rds"),
+               "cctv" = readRDS("cor_daily_cctv_uptime.rds"))
+cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
+               "vph" = readRDS("cor_weekly_vph.rds"),
+               "vphp" = readRDS("cor_weekly_vph_peak.rds"),
+               "tp" = readRDS("cor_weekly_throughput.rds"),
+               "aog" = readRDS("cor_weekly_aog_by_day.rds"),
+               "qs" = readRDS("cor_wqs.rds"),
+               "sf" = readRDS("cor_wsf.rds"),
+               "cu" = readRDS("cor_weekly_comm_uptime.rds"),
+               "cctv" =  readRDS("cor_weekly_cctv_uptime.rds"))
+cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
+               "vph" = readRDS("cor_monthly_vph.rds"),
+               "vphp" = readRDS("cor_monthly_vph_peak.rds"),
+               "tp" = readRDS("cor_monthly_throughput.rds"),
+               "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
+               "aogh" = readRDS("cor_monthly_aog_by_hr.rds"),
+               "qsd" = readRDS("cor_monthly_qsd.rds"),
+               "qsh" = readRDS("cor_mqsh.rds"),
+               "sfd" = readRDS("cor_monthly_sfd.rds"),
+               "sfh" = readRDS("cor_msfh.rds"),
+               "tti" = readRDS("cor_monthly_tti.rds"),
+               "ttih" = readRDS("cor_monthly_tti_by_hr.rds"),
+               "pti" = readRDS("cor_monthly_pti.rds"),
+               "ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
+               "du" = readRDS("cor_monthly_detector_uptime.rds"),
+               "cu" = readRDS("cor_monthly_comm_uptime.rds"),
+               "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
+               "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
+               "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
+               "events" = readRDS("cor_monthly_events.rds"))
+cor$qu <- list("vpd" = get_quarterly(cor$mo$vpd, "vpd"),
+               "vph" = data.frame(), #get_quarterly(cor$mo$vph, "vph"),
+               "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
+               "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
+               "tp" = get_quarterly(cor$mo$tp, "vph"),
+               "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
+               "qsd" = get_quarterly(cor$mo$qsd, "qs_freq"),
+               "sfd" = get_quarterly(cor$mo$sfd, "sf_freq"),
+               "tti" = get_quarterly(cor$mo$tti, "tti"),
+               "pti" = get_quarterly(cor$mo$pti, "pti"),
+               "du" = get_quarterly(cor$mo$du, "uptime.all"),
+               "cu" = get_quarterly(cor$mo$cu, "uptime"),
+               "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
+               "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
+               "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
+               "reported" = get_quarterly(cor$mo$events, "Reported"),
+               "resolved" =  get_quarterly(cor$mo$events, "Resolved"),
+               "outstanding" = get_quarterly(cor$mo$events, "Outstanding", operation = "sum"))
+
+sig <- list()
+sig$dy <- list("du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$dy$du, corridors),
+               "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors),
+               "cctv" = readRDS("daily_cctv_uptime.rds"))
+sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
+               "vph" = sigify(readRDS("weekly_vph.rds"), cor$wk$vph, corridors),
+               "vphp" = purrr::map2(readRDS("weekly_vph_peak.rds"), cor$wk$vphp,
+                                    function(x, y) { sigify(x, y, corridors) }),
+               "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors),
+               "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors),
+               "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors),
+               "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors),
+               "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors),
+               "cctv" = readRDS("weekly_cctv_uptime.rds"))
+sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors),
+               "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors),
+               "vphp" = purrr::map2(readRDS("monthly_vph_peak.rds"), cor$mo$vphp,
+                                    function(x, y) { sigify(x, y, corridors) }),
+               "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors),
+               "aogd" = sigify(readRDS("monthly_aog_by_day.rds"), cor$mo$aogd, corridors),
+               "aogh" = sigify(readRDS("monthly_aog_by_hr.rds"), cor$mo$aogh, corridors),
+               "qsd" = sigify(readRDS("monthly_qsd.rds"), cor$mo$qsd, corridors),
+               "qsh" = sigify(readRDS("mqsh.rds"), cor$mo$qsh, corridors),
+               "sfd" = sigify(readRDS("monthly_sfd.rds"), cor$mo$sfd, corridors),
+               "sfh" = sigify(readRDS("msfh.rds"), cor$mo$sfh, corridors),
+               "tti" = data.frame(),
+               "pti" = data.frame(),
+               "du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$mo$du, corridors),
+               "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
+               "cctv" = readRDS("monthly_cctv_uptime.rds"))
+
+saveRDS(cor, "cor.rds")
+saveRDS(sig, "sig.rds")
+
+
+# Bring April data back from April Report.
+#  Because the database went wonky.
+# ---- Loop through all filenames and cor/sig objects from April
+cor4 <- readRDS("2018-04 Report Files/cor.rds")
+sig4 <- readRDS("2018-04 Report Files/sig.rds")
+
+cor$dy$du <- patch_april(cor$dy$du, cor4$dy$du)
+cor$dy$cu <- patch_april(cor$dy$cu, cor4$dy$cu)
+cor$wk$vpd <- patch_april(cor$wk$vpd, cor4$wk$vpd)
+cor$wk$vph <- patch_april(cor$wk$vph, cor4$wk$vph)
+cor$wk$vphp <- patch_april(cor$wk$vphp, cor4$wk$vphp)
+cor$wk$tp <- patch_april(cor$wk$tp, cor4$wk$tp)
+cor$wk$aog <- patch_april(cor$wk$aog, cor4$wk$aog)
+cor$wk$qs <- patch_april(cor$wk$qs, cor4$wk$qs)
+cor$wk$sf <- patch_april(cor$wk$sf, cor4$wk$sf)
+cor$wk$cu <- patch_april(cor$wk$cu, cor4$wk$cu)
+sig$dy$du <- patch_april(sig$dy$du, sig4$dy$du)
+sig$dy$cu <- patch_april(sig$dy$cu, sig4$dy$cu)
+sig$wk$vpd <- patch_april(sig$wk$vpd, sig4$wk$vpd)
+sig$wk$vph <- patch_april(sig$wk$vph, sig4$wk$vph)
+sig$wk$vphp <- patch_april(sig$wk$vphp, sig4$wk$vphp)
+sig$wk$tp <- patch_april(sig$wk$tp, sig4$wk$tp)
+sig$wk$aog <- patch_april(sig$wk$aog, sig4$wk$aog)
+sig$wk$qs <- patch_april(sig$wk$qs, sig4$wk$qs)
+sig$wk$sf <- patch_april(sig$wk$sf, sig4$wk$sf)
+sig$wk$cu <- patch_april(sig$wk$cu, sig4$wk$cu)
+cor$mo$vpd <- patch_april(cor$mo$vpd, cor4$mo$vpd)
+cor$mo$vph <- patch_april(cor$mo$vph, cor4$mo$vph)
+cor$mo$vphp <- patch_april(cor$mo$vphp, cor4$mo$vphp)
+cor$mo$tp <- patch_april(cor$mo$tp, cor4$mo$tp)
+cor$mo$aogd <- patch_april(cor$mo$aogd, cor4$mo$aogd)
+cor$mo$aogh <- patch_april(cor$mo$aogh, cor4$mo$aogh)
+cor$mo$qsd <- patch_april(cor$mo$qsd, cor4$mo$qsd)
+cor$mo$qsh <- patch_april(cor$mo$qsh, cor4$mo$qsh)
+cor$mo$sfd <- patch_april(cor$mo$sfd, cor4$mo$sfd)
+cor$mo$sfh <- patch_april(cor$mo$sfh, cor4$mo$sfh)
+cor$mo$du <- patch_april(cor$mo$du, cor4$mo$du)
+cor$mo$cu <- patch_april(cor$mo$cu, cor4$mo$cu)
+sig$mo$vpd <- patch_april(sig$mo$vpd, sig4$mo$vpd)
+sig$mo$vph <- patch_april(sig$mo$vph, sig4$mo$vph)
+sig$mo$vphp <- patch_april(sig$mo$vphp, sig4$mo$vphp)
+sig$mo$tp <- patch_april(sig$mo$tp, sig4$mo$tp)
+sig$mo$aogd <- patch_april(sig$mo$aogd, sig4$mo$aogd)
+sig$mo$aogh <- patch_april(sig$mo$aogh, sig4$mo$aogh)
+sig$mo$qsd <- patch_april(sig$mo$qsd, sig4$mo$qsd)
+sig$mo$qsh <- patch_april(sig$mo$qsh, sig4$mo$qsh)
+sig$mo$sfd <- patch_april(sig$mo$sfd, sig4$mo$sfd)
+sig$mo$sfh <- patch_april(sig$mo$sfh, sig4$mo$sfh)
+sig$mo$du <- patch_april(sig$mo$du, sig4$mo$du)
+sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
+
+
+saveRDS(cor, "cor.rds")
+saveRDS(sig, "sig.rds")
