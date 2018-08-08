@@ -197,7 +197,8 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          x_bar_title = "___",
                                          x_line1_title = "___",
                                          x_line2_title = "___",
-                                         plot_title = "___ ") {
+                                         plot_title = "___ ",
+                                         goal = NA) {
     
     var_ <- as.name(var_)
     if (num_format == "percent") {
@@ -258,6 +259,15 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                 margin = list(pad = 4,
                               l = 100)
             )
+        if (!is.na(goal)) {
+            bar_chart <- bar_chart %>% 
+                add_lines(x = ~Date,
+                          y = goal,
+                          color = I(LIGHT_RED),
+                          name = "Goal (-%)",
+                          legendgroup = "Goal",
+                          showlegend = FALSE)
+        }
         
         # Weekly Data - historical trend
         wdf <- wdf %>%
@@ -279,6 +289,15 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                    showlegend = FALSE,
                    margin = list(t = 50)
             )
+        if (!is.na(goal)) {
+            weekly_line_chart <- weekly_line_chart %>% 
+                add_lines(x = ~Date,
+                          y = goal,
+                          color = I(LIGHT_RED),
+                          name = "Goal (-%)",
+                          legendgroup = "Goal",
+                          showlegend = TRUE)
+        }
         
         if (!is.null(cor_hourly)) {
             
