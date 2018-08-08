@@ -1,15 +1,13 @@
 
 # Monthly_Report config file (yaml format)
 
-start_date: 2018-07-22
-end_date: 2018-07-28
+start_date: 2018-07-01
+end_date: 2018-07-31
 
 report_start_date: 2017-07-01
 report_end_date: 2018-07-30
 
 corridors_filename: corridors.feather
-
-corridors_xlsx_filename: c:/Users/V0010894/Code/GDOT/Master RTOP Counts File_2018-06-29.xlsx
 
 
 xl_uptime:
@@ -22,6 +20,7 @@ xl_uptime:
         - April Vehicle and Ped Detector Info.xlsx
         - May Vehicle and Ped Detector Info.xlsx
         - June Vehicle and Ped Detector Info.xlsx
+        - July Vehicle and Ped Detector Info.xlsx
         
     months:
         - 2018-01-01
@@ -30,64 +29,33 @@ xl_uptime:
         - 2018-04-01
         - 2018-05-01
         - 2018-06-01
+        - 2018-07-01
 
 
+teams:
 
-rtop_teams:
-    path: TEAMS Reports
-    
-    filenames:
-        - Teams Tasks Reported July-November_simpl.csv
-        - Teams Tasks Reported December.csv
-        - January TEAMS Data.csv
-        - February TEAMS Data.csv
-        - March Teams Data.csv
-        - April 2018 Teams Data2.csv
-        - May Teams Tasks.csv
-        - June RTOP (1-6) Reported Teams Tasks.csv
-        #- June Zone 7 Reported Teams Tasks.csv
-    
-    months:
-        - 2017-11-01
-        - 2017-12-01
-        - 2018-01-01
-        - 2018-02-01
-        - 2018-03-01
-        - 2018-04-01
-        - 2018-05-01
-        - 2018-06-01
-        #- 2018-06-01
+    rtop:
+        path: TEAMS Reports
+        filenames:
+            - All Teams Tasks 7_1_17 to 7_31_18.csv
+        zone_group: All RTOP
+            
+    rtop_z7:
+        path: TEAMS Reports
+        filenames:
+            - All Teams Tasks Zone 7 6_1_18 to 7_31_18.csv
+        zone_group: Zone 7
+        months:
 
-
-rtso_teams:
-    path: TEAMS Reports
-
-    filenames:
-        - R1TSO_TEAMSReport_Feb2018.csv
+    rtso_d1:
+        path: TEAMS Reports
+        filenames:
+            - R1TSO__D1_TEAMSReport_Mar2018-July2018.csv
+        zone_group: D1
         
-        - R1TSO_D1_TEAMSReport_Mar2018.csv
-        - R1TSO_D6_TEAMSReport_Mar2018.csv
-        
-        - R1TSO_D1_TEAMSReport_Apr2018.csv
-        - R1TSO_D6_TEAMSReport_Apr2018.csv
-        
-        - R1TSO_D1_TEAMSReport_May2018.csv
-        - R1TSO_D6_TEAMSReport_May2018.csv
-        
-        - R1TSO_D1_TEAMSReport_June2018.csv
-        - R1TSO_D6_TEAMSReport_June2018.csv
-
-    months:
-        - 2018-02-01
-        
-        - 2018-03-01
-        - 2018-03-01
-        
-        - 2018-04-01
-        - 2018-04-01
-        
-        - 2018-05-01
-        - 2018-05-01
-        
-        - 2018-06-01
-        - 2018-06-01
+    rtso_d6:
+        path: TEAMS Reports
+        filenames:
+            - R1TSO__D6_TEAMSReport_Mar2018-July2018.csv
+        zone_group: D6
+        months:
