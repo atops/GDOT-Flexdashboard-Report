@@ -1253,19 +1253,20 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 
 renderPlotly({
-    get_cor_comm_uptime_plot(mr()$dy$cu, 
-                             mr()$mo$cu, 
-                             month_name = input$month,
-                             month_ = current_month(), 
-                             zone_group_ = zone_group())
+    # get_cor_comm_uptime_plot(mr()$dy$cu, 
+    #                          mr()$mo$cu, 
+    #                          month_name = input$month,
+    #                          month_ = current_month(), 
+    #                          zone_group_ = zone_group())
     
-    #get_bar_line_dashboard_plot(cor$dy$cu, 
-    #                        cor$mo$cu, NULL,
-    #                        "uptime", "percent", highlight_color = GDOT_BLUE,
-    #                         month_ = current_month(), zone_group_ = zone_group(),
-    #                        x_bar_title = "",
-    #                        x_line1_title = "",
-    #                        plot_title = "")
+    get_bar_line_dashboard_plot(cor$dy$cu, 
+                            cor$mo$cu, NULL,
+                            "uptime", "percent", highlight_color = GDOT_BLUE,
+                             month_ = current_month(), zone_group_ = zone_group(),
+                            x_bar_title = "",
+                            x_line1_title = "",
+                            plot_title = "",
+                            goal = 0.95)
 })
 ```
 
@@ -1378,7 +1379,8 @@ fillRow(
 [March 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-03.docx) | 
 [April 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-04.docx) | 
 May 2018 | 
-June 2018
+[June 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-06.docx) | 
+July 2018
 
 
 #### **Download Traffic Engineers' Activity Reports (pdf)**
