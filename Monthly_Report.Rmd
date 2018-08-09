@@ -1260,13 +1260,13 @@ renderPlotly({
     #                          zone_group_ = zone_group())
     
     get_bar_line_dashboard_plot(cor$dy$cu, 
-                            cor$mo$cu, NULL,
-                            "uptime", "percent", highlight_color = GDOT_BLUE,
-                             month_ = current_month(), zone_group_ = zone_group(),
-                            x_bar_title = "",
-                            x_line1_title = "",
-                            plot_title = "",
-                            goal = 0.95)
+                                cor$mo$cu, NULL,
+                                "uptime", "percent", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "",
+                                x_line1_title = "",
+                                plot_title = "",
+                                goal = 0.95)
 })
 ```
 
@@ -1330,13 +1330,15 @@ fillRow(
     fillCol(
         renderPlotly({ 
             data.set <- gather_outstanding_events(
-                filter(cor$mo$events, Zone_Group == zone_group() & Month <= current_month())
+                filter(cor$mo$events, Zone_Group == zone_group() & 
+                           Month <= current_month())
             )
             validate(need(nrow(data.set) > 0, "No Data"))
             cum_events_plot(data.set)
         }),
         renderPlotly({ 
-            data.set <- filter(teams_tables$type, Zone_Group == zone_group() & Month == current_month())
+            data.set <- filter(teams_tables$type, Zone_Group == zone_group() & 
+                                   Month == current_month())
             validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Type",
@@ -1344,7 +1346,8 @@ fillRow(
                              height_ = 200) 
         }), 
         renderPlotly({ 
-            data.set <- filter(teams_tables$source, Zone_Group == zone_group() & Month == current_month())
+            data.set <- filter(teams_tables$source, Zone_Group == zone_group() & 
+                                   Month == current_month())
             validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Source", 
@@ -1354,7 +1357,8 @@ fillRow(
         
     fillCol(
         renderPlotly({ 
-            data.set <- filter(teams_tables$subtype, Zone_Group == zone_group() & Month == current_month())
+            data.set <- filter(teams_tables$subtype, Zone_Group == zone_group() & 
+                                   Month == current_month())
             validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Subtype",

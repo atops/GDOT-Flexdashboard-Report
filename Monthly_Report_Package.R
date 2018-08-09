@@ -253,8 +253,18 @@ rm(sfs)
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-qs <- f("qs_", month_abbrs, combine = FALSE)
-wqs <- lapply(qs, get_weekly_qs_by_day)
+qs <- f("qs_", month_abbrs)
+sqs <- split(qs, qs$SignalID)
+tfs <- lapply(seq_along(sqs), function(x) tempfile())
+purrr::map2(.x = sqs, .y = tfs, function(.x, .y) {
+    print(.x$SignalID[1])
+    df <- get_weekly_qs_by_day(.x)
+    if (nrow(df) > 0) { write_fst(df, .y) }
+    gc()
+})
+wqs <- lapply(tfs, read_fst) %>% bind_rows()
+lapply(tfs, file.remove)
+
 cor_wqs <- get_cor_weekly_qs_by_day(wqs, corridors)
 
 monthly_qsd <- get_monthly_qs_by_day(qs)
