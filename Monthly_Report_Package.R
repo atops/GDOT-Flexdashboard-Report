@@ -14,11 +14,20 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # # ###########################################################################
 
 f <- function(prefix, month_abbrs, combine = TRUE) {
-    x <- purrr::map(paste0(prefix, month_abbrs, ".fst"), function(df) {
-        read_fst(df) %>%
-        mutate(SignalID = factor(SignalID)) %>%
-        as_tibble() 
+    
+    fns <- paste0(prefix, month_abbrs, ".fst")
+    
+    cl <- makeCluster(3)
+    x <- parLapply(cl, fns, function(fn) {
+        library(fst)
+        library(dplyr)
+        
+        read_fst(fn) %>%
+            mutate(SignalID = factor(SignalID)) %>%
+            as_tibble() 
     })
+    stopCluster(cl)
+    
     if (combine == TRUE) {
         x <- bind_rows(x)
     }
@@ -46,7 +55,8 @@ pti <- tt$pti
 write_fst(tti, "tti.fst")
 write_fst(pti, "pti.fst")
 
-
+rm(tt)
+gc()
 
 
 # # DETECTOR UPTIME ###########################################################
@@ -67,6 +77,12 @@ saveRDS(cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds")
 saveRDS(cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds")
 
 rm(ddu)
+rm(daily_detector_uptime)
+rm(avg_daily_detector_uptime)
+rm(monthly_detector_uptime)
+rm(cor_avg_daily_detector_uptime)
+rm(cor_monthly_detector_uptime)
+gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
@@ -91,6 +107,13 @@ saveRDS(monthly_comm_uptime, "monthly_comm_uptime.rds")
 saveRDS(cor_monthly_comm_uptime, "cor_monthly_comm_uptime.rds")
 
 rm(cu)
+rm(daily_comm_uptime)
+rm(cor_daily_comm_uptime)
+rm(weekly_comm_uptime)
+rm(cor_weekly_comm_uptime)
+rm(monthly_comm_uptime)
+rm(cor_monthly_comm_uptime)
+gc()
 
 # DAILY VOLUMES ###############################################################
 
@@ -113,6 +136,11 @@ saveRDS(cor_weekly_vpd, "cor_weekly_vpd.rds")
 saveRDS(cor_monthly_vpd, "cor_monthly_vpd.rds")
 
 rm(vpd)
+rm(weekly_vpd)
+rm(monthly_vpd)
+rm(cor_weekly_vpd)
+rm(cor_monthly_vpd)
+gc()
 
 # HOURLY VOLUMES ##############################################################
 
@@ -142,6 +170,15 @@ saveRDS(cor_weekly_vph_peak, "cor_weekly_vph_peak.rds")
 saveRDS(cor_monthly_vph_peak, "cor_monthly_vph_peak.rds")
 
 rm(vph)
+rm(weekly_vph)
+rm(monthly_vph)
+rm(cor_weekly_vph)
+rm(cor_monthly_vph)
+rm(weekly_vph_peak)
+rm(monthly_vph_peak)
+rm(cor_weekly_vph_peak)
+rm(cor_monthly_vph_peak)
+gc()
 
 # DAILY THROUGHPUT ############################################################
 
@@ -166,10 +203,15 @@ saveRDS(cor_weekly_throughput, "cor_weekly_throughput.rds")
 saveRDS(cor_monthly_throughput, "cor_monthly_throughput.rds")
 
 rm(throughput)
+rm(weekly_throughput)
+rm(cor_weekly_throughput)
+rm(monthly_throughput)
+rm(cor_monthly_throughput)
+gc()
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-aog <- f("aog_", month_abbrs)
+aog <- f("aog_", month_abbrs, combine = TRUE)
 daily_aog <- get_daily_aog(aog)
 
 weekly_aog_by_day <- get_weekly_aog_by_day(aog)
@@ -185,6 +227,13 @@ saveRDS(monthly_aog_by_day, "monthly_aog_by_day.rds")
 saveRDS(cor_weekly_aog_by_day, "cor_weekly_aog_by_day.rds")
 saveRDS(cor_monthly_aog_by_day, "cor_monthly_aog_by_day.rds")
 
+rm(daily_aog)
+rm(weekly_aog_by_day)
+rm(monthly_aog_by_day)
+rm(cor_weekly_aog_by_day)
+rm(cor_monthly_aog_by_day)
+gc()
+
 # HOURLY ARRIVALS ON GREEN ####################################################
 
 aog_by_hr <- get_aog_by_hr(aog)
@@ -199,6 +248,11 @@ saveRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds")
 saveRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds")
 
 rm(aog)
+rm(aog_by_hr)
+rm(cor_monthly_aog_peak)
+rm(monthly_aog_by_hr)
+rm(cor_monthly_aog_by_hr)
+gc()
 
 # DAILY SPLIT FAILURES #####################################################
 
@@ -206,22 +260,21 @@ sf_filenames <- list.files(pattern = "sf_201\\d-\\d{2}-\\d{2}\\.feather")
 wds <- wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames))
 twr <- sapply(wds, function(x) {x %in% c(TUE, WED, THU)})
 sf_filenames <- sf_filenames[twr]
-sf <- get_sf(bind_rows(lapply(sf_filenames, read_feather)))
-sfs <- split(sf, sf$SignalID)
 
-rm(sf)
+cl <- makeCluster(3)
+sf <- parLapply(cl, sf_filenames, read_feather) %>%
+    bind_rows() %>%
+    get_sf()
+stopCluster(cl)
 
-wsf <- lapply(sfs, get_weekly_sf_by_day) %>%
-    bind_rows() %>% ungroup() %>%
-    mutate(SignalID = factor(SignalID),
-           Week = factor(Week))
+
+wsf <- get_weekly_sf_by_day(sf)
+
 
 cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
 
+monthly_sfd <- get_monthly_sf_by_day(sf)
 
-monthly_sfd <- lapply(sfs, get_monthly_sf_by_day) %>%
-    bind_rows() %>% ungroup() %>%
-    mutate(SignalID = factor(SignalID))
 
 cor_monthly_sfd <- get_cor_monthly_sf_by_day(monthly_sfd, corridors)
 
@@ -231,14 +284,22 @@ saveRDS(cor_wsf, "cor_wsf.rds")
 saveRDS(cor_monthly_sfd, "cor_monthly_sfd.rds")
 
 
+rm(wsf)
+rm(monthly_sfd)
+rm(cor_wsf)
+rm(cor_monthly_sfd)
+gc()
+
 # HOURLY SPLIT FAILURES #######################################################
 
-sfh <- lapply(sfs, get_sf_by_hr) %>%
-    bind_rows() %>% ungroup() %>% as_tibble() %>%
-    mutate(SignalID = factor(SignalID),
-           CallPhase = factor(CallPhase),
-           Week = factor(Week),
-           DOW = factor(DOW))
+sfh <- get_sf_by_hr(sf)
+
+# sfh <- lapply(sfs, get_sf_by_hr) %>%
+#     bind_rows() %>% ungroup() %>% as_tibble() %>%
+#     mutate(SignalID = factor(SignalID),
+#            CallPhase = factor(CallPhase),
+#            Week = factor(Week),
+#            DOW = factor(DOW))
 
 msfh <- get_monthly_sf_by_hr(sfh)
 
@@ -248,23 +309,16 @@ cor_msfh <- get_cor_monthly_sf_by_hr(msfh, corridors)
 saveRDS(msfh, "msfh.rds")
 saveRDS(cor_msfh, "cor_msfh.rds")
 
-rm(sfs)
-
+rm(sf)
+rm(sfh)
+rm(msfh)
+rm(cor_msfh)
+gc()
 
 # DAILY QUEUE SPILLBACK #######################################################
 
 qs <- f("qs_", month_abbrs)
-sqs <- split(qs, qs$SignalID)
-tfs <- lapply(seq_along(sqs), function(x) tempfile())
-purrr::map2(.x = sqs, .y = tfs, function(.x, .y) {
-    print(.x$SignalID[1])
-    df <- get_weekly_qs_by_day(.x)
-    if (nrow(df) > 0) { write_fst(df, .y) }
-    gc()
-})
-wqs <- lapply(tfs, read_fst) %>% bind_rows()
-lapply(tfs, file.remove)
-
+wqs <- get_weekly_qs_by_day(qs)
 cor_wqs <- get_cor_weekly_qs_by_day(wqs, corridors)
 
 monthly_qsd <- get_monthly_qs_by_day(qs)
@@ -288,6 +342,14 @@ saveRDS(mqsh, "mqsh.rds")
 saveRDS(cor_mqsh, "cor_mqsh.rds")
 
 rm(qs)
+rm(wqs)
+rm(monthly_qsd)
+rm(cor_wqs)
+rm(cor_monthly_qsd)
+rm(qsh)
+rm(mqsh)
+rm(cor_mqsh)
+gc()
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
@@ -308,7 +370,10 @@ saveRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds")
 
 rm(tti)
 rm(pti)
-
+rm(cor_monthly_tti)
+rm(cor_monthly_tti_by_hr)
+rm(cor_monthly_pti)
+rm(cor_monthly_pti_by_hr)
 
 # DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
 
@@ -643,8 +708,8 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
                "cctv" = readRDS("monthly_cctv_uptime.rds"))
 
-saveRDS(cor, "cor.rds")
-saveRDS(sig, "sig.rds")
+#saveRDS(cor, "cor.rds")
+#saveRDS(sig, "sig.rds")
 
 
 # Bring April data back from April Report.
@@ -701,3 +766,35 @@ sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
 
 saveRDS(cor, "cor.rds")
 saveRDS(sig, "sig.rds")
+
+
+
+# cor4$wk$vpd <- mutate(cor4$wk$vpd, Week = week(Date))
+# cor4$wk$vph <- mutate(cor4$wk$vph, Week = week(Date))
+# cor4$wk$vphp <- mutate(cor4$wk$vphp, Week = week(Date))
+# cor4$wk$tp <- mutate(cor4$wk$tp, Week = week(Date))
+# cor4$wk$aog <- mutate(cor4$wk$aog, Week = week(Date))
+# cor4$wk$qs <- mutate(cor4$wk$qs, Week = week(Date),
+#                      Date = date(Date))
+# cor4$wk$sf <- mutate(cor4$wk$sf, Week = week(Date))
+# cor4$wk$cu <- mutate(cor4$wk$cu, Week = week(Date))
+# 
+# sig4$wk$vpd <- mutate(sig4$wk$vpd, Week = week(Date))
+# sig4$wk$vph <- mutate(sig4$wk$vph, Week = week(Date))
+# sig4$wk$vphp <- mutate(sig4$wk$vphp, Week = week(Date))
+# sig4$wk$tp <- mutate(sig4$wk$tp, Week = week(Date))
+# sig4$wk$aog <- mutate(sig4$wk$aog, Week = week(Date))
+# sig4$wk$qs <- mutate(sig4$wk$qs, Week = week(Date),
+#                      Date = date(Date))
+# sig4$wk$sf <- mutate(sig4$wk$sf, Week = week(Date))
+# sig4$wk$cu <- mutate(sig4$wk$cu, Week = week(Date))
+# 
+# cor4$mo$qsd <- mutate(cor4$mo$qsd, Month = date(Month))
+# sig4$mo$qsd <- mutate(sig4$mo$qsd, Month = date(Month))
+# 
+# 
+# 
+# saveRDS(cor4, "2018-04 Report Files/cor.rds")
+# saveRDS(sig4, "2018-04 Report Files/sig.rds")
+
+

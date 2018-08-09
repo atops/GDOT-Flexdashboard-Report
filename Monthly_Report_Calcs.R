@@ -334,6 +334,14 @@ get_aog_date_range <- function(start_date, end_date) {
 }
 get_aog_date_range(start_date, end_date)
 
+# aog_files <- list.files(pattern = "aog_201.*.fst")
+# lapply(aog_files, function(x) {
+#     read_fst(x) %>%
+#         mutate(Week = week(Date),
+#                DOW = as.integer(DOW)) %>%
+#         write_fst(x)
+# })
+
 # # GET QUEUE SPILLBACK #######################################################
 get_queue_spillback_date_range <- function(start_date, end_date) {
 

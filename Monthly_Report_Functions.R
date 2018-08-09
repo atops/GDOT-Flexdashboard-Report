@@ -38,6 +38,11 @@ SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
 
+week <- function(d) {
+    d0 <- ymd("2016-12-25")
+    as.integer(trunc((ymd(d) - d0)/dweeks(1)))
+}
+
 get_month_abbrs <- function(start_date, end_date) {
     sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
                       function(date_) { 
@@ -839,7 +844,7 @@ get_qs <- function(detection_events) {
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase),
                Date_Hour = ymd_hms(Hour),
-               Date = lubridate::floor_date(Date_Hour, unit="days"),
+               Date = date(lubridate::floor_date(Date_Hour, unit="days")),
                DOW = wday(Date_Hour),
                Week = week(Date_Hour),
                qs = as.integer(qs),
@@ -1011,7 +1016,7 @@ get_comm_uptime2 <- function(df, signals_list) {
 
 # -- Generic Aggregation Functions
 get_Tuesdays_ <- function(df) {
-    dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = 1)
+    dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = "days")
     tuesdays <- dates_[wday(dates_) == 3]
     
     tuesdays <- pmax(min(df$Date), tuesdays) # unsure of this. need to test

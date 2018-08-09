@@ -261,11 +261,12 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
             )
         if (!is.na(goal)) {
             bar_chart <- bar_chart %>% 
-                add_lines(x = ~Date,
-                          y = goal,
+                add_lines(x = ~0.95,
+                          y = ~Corridor,
+                          mode = "lines",
+                          marker = NULL,
                           color = I(LIGHT_RED),
-                          name = "Goal (-%)",
-                          legendgroup = "Goal",
+                          name = "Goal (95%)",
                           showlegend = FALSE)
         }
         
@@ -292,11 +293,11 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         if (!is.na(goal)) {
             weekly_line_chart <- weekly_line_chart %>% 
                 add_lines(x = ~Date,
-                          y = goal,
+                          y = 0.95,
                           color = I(LIGHT_RED),
-                          name = "Goal (-%)",
+                          name = "Goal (95%)",
                           legendgroup = "Goal",
-                          showlegend = TRUE)
+                          showlegend = FALSE)
         }
         
         if (!is.null(cor_hourly)) {
