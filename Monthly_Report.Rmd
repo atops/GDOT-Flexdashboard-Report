@@ -309,7 +309,7 @@ Device and Communications Uptime (% change from previous month)
 Row
 -------------------------------------
 
-### Vehicle Detector Availability \n[manually collected] {.value-box}
+### Vehicle Detector Availability [manually collected] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -322,7 +322,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability \n[manually collected] {.value-box}
+### Pedestrian Detector Availability [manually collected] {.value-box}
 
 ```{r}
 renderValueBox({
@@ -436,7 +436,7 @@ Row {data-height = 50}
 
 ### Performance
 
-Arterial performance measures (% change from previous month)
+Arterial performance measures (% change from previous quarter)
 
 Row
 -------------------------------------
@@ -537,7 +537,7 @@ Row {data-height = 50}
 
 ### Volume-Based Measures
 
-Corridor volumes (% change from previous month)
+Corridor volumes (% change from previous quarter)
 
 Row
 -------------------------------------
@@ -606,7 +606,7 @@ Row {data-height = 50}
 
 ### Equipment Measures
 
-Device and Communications Uptime (% change from previous month)
+Device and Communications Uptime (% change from previous quarter)
 
 Row
 -------------------------------------
@@ -678,12 +678,12 @@ Row {data-height = 50}
 
 ### Activity Measures
 
-Activity measures from TEAMS and as reported by Traffic Engineers (% change from previous month)
+Activity measures from TEAMS and as reported by Traffic Engineers (% change from previous quarter)
 
 Row
 -------------------------------------
 
-### TEAMS Tasks Reported This Month {.value-box}
+### TEAMS Tasks Reported This Quarter {.value-box}
 
 ```{r}
 renderValueBox({
@@ -698,7 +698,7 @@ renderValueBox({
 })
 ```
 
-### TEAMS Tasks Resolved This Month {.value-box}
+### TEAMS Tasks Resolved This Quarter {.value-box}
 
 ```{r}
 renderValueBox({
@@ -1259,10 +1259,14 @@ renderPlotly({
     #                          month_ = current_month(), 
     #                          zone_group_ = zone_group())
     
-    get_bar_line_dashboard_plot(cor$dy$cu, 
-                                cor$mo$cu, NULL,
-                                "uptime", "percent", highlight_color = GDOT_BLUE,
-                                month_ = current_month(), zone_group_ = zone_group(),
+    get_bar_line_dashboard_plot(mr()$wk$cu, 
+                                mr()$mo$cu, 
+                                NULL,
+                                "uptime", 
+                                "percent", 
+                                highlight_color = GDOT_BLUE,
+                                month_ = current_month(), 
+                                zone_group_ = zone_group(),
                                 x_bar_title = "",
                                 x_line1_title = "",
                                 plot_title = "",
@@ -1342,7 +1346,7 @@ fillRow(
             validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Type",
-                             title_ = "Incidents by Type (top), Source (bottom)", 
+                             title_ = "Incidents This Month by Type (top), Source (bottom)", 
                              height_ = 200) 
         }), 
         renderPlotly({ 
@@ -1362,7 +1366,7 @@ fillRow(
             validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Subtype",
-                             title = "Incidents by Subtype", 
+                             title = "Incidents This Month by Subtype", 
                              textpos = "outside", 
                              height_ = 700) 
         }),
@@ -1384,7 +1388,7 @@ fillRow(
 [April 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-04.docx) | 
 May 2018 | 
 [June 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-06.docx) | 
-July 2018
+[July 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-07.docx) | 
 
 
 #### **Download Traffic Engineers' Activity Reports (pdf)**
