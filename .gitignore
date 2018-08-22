@@ -25,3 +25,4 @@
 *.rds
 
 !corridors.feather
+Monthly_Report_AWS.yaml

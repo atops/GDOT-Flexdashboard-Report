@@ -32,7 +32,3 @@ zone_groups:
 
 corridors_filename: corridors.feather
 
-AWS_ACCESS_KEY_ID: "AKIAIPO6MEBCZDS6DZFQ"
-AWS_SECRET_ACCESS_KEY: "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"
-AWS_DEFAULT_REGION: "us-east-1"
-
