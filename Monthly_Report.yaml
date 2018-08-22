@@ -2,9 +2,10 @@
 # Monthly_Report config file (yaml format)
 
 
-selected_month: July 2018
+selected_month: August 2018
 
 report_months:
+    - August 2018
     - July 2018
     - June 2018
     - May 2018
@@ -30,4 +31,8 @@ zone_groups:
 
 
 corridors_filename: corridors.feather
+
+AWS_ACCESS_KEY_ID: "AKIAIPO6MEBCZDS6DZFQ"
+AWS_SECRET_ACCESS_KEY: "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"
+AWS_DEFAULT_REGION: "us-east-1"
 
