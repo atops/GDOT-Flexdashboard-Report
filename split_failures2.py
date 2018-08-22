@@ -8,10 +8,11 @@ Created on Sat Dec  2 13:27:20 2017
 import os
 import pandas as pd
 import numpy as np
-import sqlalchemy as sq
+#import sqlalchemy as sq
+from datetime import datetime, timedelta
 
 import yaml
-import feather
+#import feather
 from pandas.tseries.offsets import Day #, MonthEnd
 
 from dask import delayed, compute
@@ -107,10 +108,11 @@ def helper(date_):
     sf = get_split_failures(start_date, end_date, signals_string)
     
     # Moved into function since we're doing so many days. Reduce memory footprint
-    #sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
-    sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
-    sf = sf.reset_index(drop=True)
-    sf.to_feather('sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
+    if len(sf) > 0:
+        sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
+        sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
+        sf = sf.reset_index(drop=True)
+        sf.to_feather('sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
         
 if __name__=='__main__':
 
@@ -118,7 +120,11 @@ if __name__=='__main__':
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date']
+    if start_date == 'yesterday': 
+        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     end_date = conf['end_date']
+    if end_date == 'yesterday': 
+        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     """
     signals_file = sys.argv[3]
