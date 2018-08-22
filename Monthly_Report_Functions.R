@@ -15,7 +15,8 @@ library(feather)
 library(fst)
 library(parallel)
 library(pool)
-
+library(httr)
+library(aws.s3)
 
 library(plotly)
 library(crosstalk)
@@ -37,6 +38,11 @@ GDOT_BLUE = "#256194"
 SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
+
+set_config(
+    use_proxy("gdot-enterprise", port = 8080,
+              username = Sys.getenv("GDOT_USERNAME"),
+              password = Sys.getenv("GDOT_PASSWORD")))
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
@@ -180,120 +186,6 @@ get_corridor_name <- function(string) {
         # Catchall. Return itself.
         TRUE ~ string)
 }
-get_15min_counts_older <- function(start_date, end_date, signals_list) {
-    
-    conn <- dbConnect(odbc::odbc(), 
-                      dsn="sqlodbc", 
-                      uid=Sys.getenv("ATSPM_USERNAME"), 
-                      pwd=Sys.getenv("ATSPM_PASSWORD"))
-    
-    cel_query <- paste("SELECT *, DATEADD(minute, (DATEDIFF(minute, 0, TimeStamp)/15) * 15, 0) AS Timeperiod",
-                       "FROM Controller_Event_Log",
-                       "WHERE DATEPART(dw, TimeStamp) in (3,4,5)")
-    
-    cel <- tbl(conn, sql(cel_query)) 
-    
-    end_date1 <- as.character(ymd(end_date) + days(1))
-    
-    counts <- dplyr::filter(cel, Timeperiod >= start_date & Timeperiod < end_date1 &
-                                EventCode==82 & 
-                                SignalID %in% signals_list) %>%
-        rename(Detector = EventParam) %>% 
-        group_by(SignalID, Timeperiod, Detector) %>%
-        summarize(vol = n())
-    
-    det <- tbl(conn, "DetectorConfig") %>%
-        mutate(SignalID = as.character(SignalID))
-    
-    left_join(counts, select(det, Detector, CallPhase, SignalID)) %>% 
-        dplyr::filter(CallPhase %in% c(2,6)) %>% 
-        collect()
-    
-    # SignalID | CallPhase | Timeperiod | Detector | vol 
-}
-
-# counts base query
-get_counts <- function(start_date, end_date, signals_list, 
-                       interval = "1 hour", event_code = 82L, TWR_only = FALSE, mainline_only = FALSE) {
-    
-    conn <- dbConnect(odbc::odbc(), 
-                      dsn="sqlodbc", 
-                      uid=Sys.getenv("ATSPM_USERNAME"), 
-                      pwd=Sys.getenv("ATSPM_PASSWORD"))
-    
-    if (interval=="1 hour") {
-        query_select <- "SELECT DISTINCT SignalID, Timestamp, EventCode, EventParam, DATEADD(hour, DATEDIFF(hour, 0, Timestamp), 0) AS Timeperiod"
-    } else if (interval=="15 min") {
-        query_select <- "SELECT DISTINCT SignalID, Timestamp, EventCode, EventParam, DATEADD(minute, (DATEDIFF(minute, 0, Timestamp)/15) * 15, 0) AS Timeperiod"
-    } else {
-        print("no interval provided. defaulting to an hour")
-        query_select <- "SELECT DISTINCT SignalID, Timestamp, EventCode, EventParam, DATEADD(minute, DATEDIFF(minute, 0, Timestamp), 0) AS Timeperiod"
-    }
-    
-    if (TWR_only==TRUE) {
-        query_where <- "WHERE DATEPART(dw, Timestamp) in (3,4,5)"
-    } else {
-        query_where <- ""
-    }
-    
-    cel_query <- paste(query_select,
-                       "FROM Controller_Event_Log",
-                       query_where)
-    
-    print(cel_query)
-    
-    cel <- tbl(conn, sql(cel_query)) 
-    
-    end_date1 <- as.character(ymd(end_date) + days(1))
-    
-    counts <- dplyr::filter(cel, Timestamp >= start_date & Timestamp < end_date1 &
-                                EventCode==event_code) %>% 
-        rename(Detector = EventParam) %>% 
-        group_by(SignalID, Timeperiod, Detector) %>%
-        summarize(vol = n())
-    
-    if (event_code==82L) {
-        det <- tbl(conn, "DetectorConfig2")
-    } else if (event_code==90L) {
-        det <- tbl(conn, "PedestrianConfig")
-    } else {
-        print("no EventCode provided. assuming 82 (vehicles)")
-        det <- tbl(conn, "DetectorConfig2")
-    }
-
-    
-    ret_df <- left_join(counts, det)
-    
-    if (mainline_only == TRUE) {
-        ret_df <- ret_df %>% dplyr::filter(CallPhase %in% c(2,6))
-    } 
-    
-    ret_df %>% 
-        select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
-        arrange(SignalID, Detector, Timeperiod) %>%
-        collect() %>% 
-        ungroup() %>%
-        mutate(SignalID = factor(SignalID), 
-               Detector = factor(Detector), 
-               CallPhase = factor(CallPhase))
-
-    # SignalID | Timeperiod | Detector | CallPhase | vol 
-}
-# 15-minute counts for volumes and performance measures. TWR only, mainline phases (2,6) only
-get_15min_counts <- function(start_date, end_date, signals_list) {
-    get_counts(start_date, end_date, signals_list, 
-               interval = "15 min", TWR_only = TRUE, mainline_only = TRUE)
-}
-# 1-hour counts for equipment uptime calcs. All days, all phases
-get_1hr_counts <- function(start_date, end_date, signals_list) {
-    get_counts(start_date, end_date, signals_list, 
-               interval = "1 hour", TWR_only = FALSE, mainline_only = FALSE)
-}
-# 15-min counts over all dates, phases for QC plots
-get_qc_counts <- function(start_date, end_date, signals_list) {
-    get_counts(start_date, end_date, signals_list, 
-               interval = "15 min", TWR_only = FALSE, mainline_only = FALSE)
-}
 
 get_det_config <- function(date_) {
     
@@ -348,42 +240,103 @@ get_det_config <- function(date_) {
         filter(!(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime))) %>%
         mutate(CallPhase = ifelse(is.na(CallPhase.maxtime), CallPhase.atspm, CallPhase.maxtime)) %>%
         
-        mutate(SignalID = factor(SignalID), 
-               Detector = factor(Detector), 
-               CallPhase = factor(CallPhase))
+        mutate(SignalID = as.character(SignalID), 
+               Detector = as.integer(Detector), 
+               CallPhase = as.integer(CallPhase))
     
     det_config
+}
+
+
+get_unique_timestamps <- function(df) {
+    df %>% 
+        select(Timestamp) %>% 
+        
+        distinct() %>%
+        mutate(SignalID = 0) %>%
+        select(SignalID, Timestamp)
+}
+
+get_gaps <- function(df, signals_list) {
+    
+    start_date <- floor_date((df %>% 
+                                  arrange(Timestamp) %>% 
+                                  head(1))$Timestamp)
+    end_date <- floor_date((df %>% 
+                                arrange(Timestamp) %>% 
+                                tail(1))$Timestamp + days(1))
+    
+    bookends <- expand.grid(SignalID = signals_list, 
+                            Timestamp = c(start_date, start_date + days(1)))
+    
+    ts <- df %>% 
+        collect() %>%
+        distinct(SignalID, Timestamp) %>%
+        
+        bind_rows(., bookends) %>%
+        distinct() %>%
+        mutate(Date = date(Timestamp)) %>%
+        arrange(SignalID, Timestamp) %>%
+        
+        group_by(SignalID, Date) %>%
+        mutate(span = as.numeric(Timestamp - lag(Timestamp), units = "mins")) %>% 
+        drop_na() %>%
+        mutate(span = if_else(span > 15, span, 0)) %>%
+        
+        group_by(SignalID, Date) %>% 
+        summarize(uptime = 1 - sum(span)/(60 * 24)) %>%
+        ungroup()
+}
+
+get_counts5 <- function(df, det_config, units = "hours", TWR_only = FALSE) {
+    
+    if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu") || (TWR_only == FALSE)) {
+        
+        df %>%
+            filter(EventCode == 82) %>%
+            mutate(Timeperiod = floor_date(Timestamp, unit = units)) %>%
+            group_by(SignalID, Detector = EventParam, Timeperiod) %>%
+            summarize(vol = n()) %>%
+            ungroup() %>%
+            
+            left_join(det_config, by = c("SignalID", "Detector")) %>%
+            
+            select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+            mutate(SignalID = factor(SignalID),
+                   Detector = factor(Detector))
+    } else {
+        data.frame()
+    }
 }
 
 get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
 
-    distinct_filename <- tempfile()
-    counts_15min_filename <- tempfile()
-    counts_1hr_filename <- tempfile()
-    
-    if (uptime == TRUE) {
-        #cu_filename <- tempfile()
-        print(glue("distinct_filename: {distinct_filename}"))
-    }
-    if (counts == TRUE) {
-        print(glue("counts_15min_filename: {counts_15min_filename}"))
-        print(glue("counts_1hr_filename: {counts_1hr_filename}"))
-    }
-    
-    
     start_date <- date_
-    end_date <- format(date(date_) + days(1), "%Y-%m-%d")
+    end_date <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d")
     
-
-
     conn <- dbConnect(odbc::odbc(), 
-                          dsn="sqlodbc", 
-                          uid=Sys.getenv("ATSPM_USERNAME"), 
-                          pwd=Sys.getenv("ATSPM_PASSWORD"))
-
-            
-    lapply(split(signals_list, seq_len(100)), function(signals_sublist) {
+                      dsn="sqlodbc", 
+                      uid=Sys.getenv("ATSPM_USERNAME"), 
+                      pwd=Sys.getenv("ATSPM_PASSWORD"))
+    
+    if (counts == TRUE) {
+        det_config <- get_det_config(start_date) %>%
+            select(SignalID, Detector, CallPhase)
+    }
+    
+    
+    uptime_sig <- data.frame()
+    gaps_all <- data.frame()
+    
+    
+    n <- length(signals_list)
+    i <- 20
+    splits <- rep(1:ceiling(n/i), each=i, length.out=n)
+    
+    lapply(split(signals_list, splits), function(signals_sublist) {
+        
+        gc()
         
         print(signals_sublist)
         
@@ -392,100 +345,96 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         query = glue("SELECT * FROM Controller_Event_Log 
                      WHERE Timestamp BETWEEN '{start_date}' AND '{end_date}'
                      AND EventCode NOT IN (43,44) 
-                     AND SignalID in ({signals_string})
-                     ORDER BY SignalID, Timestamp")
-        
-        result <- DBI::dbSendQuery(conn, query)
+                     AND SignalID in ({signals_string})")
         
         
         
-        while (!dbHasCompleted(result)) {
-            df <- dbFetch(result, 1000000)
-            print(nrow(df))
-            print(head(df))
+        
+        df <- dbGetQuery(conn, query)
+        print(head(df))
+        
+        if (uptime == TRUE) {
+            uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
+            gaps_all <<- bind_rows(gaps_all, get_unique_timestamps(df)) %>% distinct()
+        }
+        if (counts == TRUE) {
             
-            if (uptime == TRUE) {
-                df %>% 
-                    distinct(SignalID, Timestamp) %>%
-                    write_csv(., distinct_filename, append = TRUE)
-            }
-            if (counts == TRUE) {
-
-                df %>%
-                    filter(EventCode == 82) %>%
-                    mutate(Timeperiod = floor_date(Timestamp, unit = "hours")) %>%
-                    group_by(SignalID, Detector = EventParam, Timeperiod) %>%
-                    summarize(vol = n()) %>%
-                    write_csv(., counts_1hr_filename, append = TRUE)
-
-                if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu")) {
-                    df %>%
-                        filter(EventCode == 82) %>%
-                        mutate(Timeperiod = floor_date(Timestamp, unit = "15 minutes")) %>%
-                        group_by(SignalID, Detector = EventParam, Timeperiod) %>%
-                        summarize(vol = n()) %>%
-                        write_csv(., counts_15min_filename, append = TRUE)
-                }
-                
+            # get 1hr counts
+            counts_1hr <- get_counts5(df, 
+                                      det_config, 
+                                      units = "hours",
+                                      TWR_only = FALSE)
+            write_csv(counts_1hr, 
+                      glue("counts_1hr_{start_date}.csv"), 
+                      append = TRUE)
+            
+            # get 15min counts
+            counts_15min <- get_counts5(df, 
+                                        det_config, 
+                                        units = "15 minutes",
+                                        TWR_only = TRUE)
+            if (nrow(counts_15min) > 0) {
+                write_csv(counts_15min, 
+                          glue("counts_15min_{start_date}.csv"), 
+                          append = TRUE)
             }
         }
     })
-
+    gc()
+    
     
     print("Reducing data. Second pass.")
     
     if (uptime == TRUE) {
         
         # Second pass on distinct data. Reduce to comm uptime for signals_sublist
-        read_csv(distinct_filename, col_names = c("SignalID","Timestamp")) %>%
-            distinct() %>%
-            arrange(SignalID, Timestamp) %>%
-            mutate(SignalID = factor(SignalID)) %>%
-            get_comm_uptime2(., signals_list) %>%
-            mutate(SignalID = factor(SignalID),
-                   CallPhase = factor(CallPhase)) %>%
-            write_fst(., glue("cu_{start_date}.fst"))
+        uptime_all <- get_gaps(gaps_all, signals_list = c(0)) %>%
+            select(-SignalID, uptime_all = uptime)
         
-        file.remove(distinct_filename)
+        uptime_sig %>%
+            ungroup() %>%
+            left_join(uptime_all) %>%
+            mutate(SignalID = factor(SignalID),
+                   CallPhase = factor(0),
+                   uptime = uptime + (1 - uptime_all),
+                   Date_Hour = ymd_hms(paste(start_date, "00:00:00")),
+                   Date = date(start_date),
+                   DOW = wday(start_date), 
+                   Week = week(start_date)) %>%
+            select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime) %>%
+            write_fst(., glue("cu_{start_date}.fst"))
     }
     
     if (counts == TRUE) {
         
-        det_config <- get_det_config(start_date) %>%
-            select(SignalID, Detector, CallPhase)
-
-        read_csv(counts_1hr_filename, col_names = c("SignalID", "Detector", "Timeperiod", "vol")) %>%
-            mutate(SignalID = factor(SignalID), Detector = factor(Detector)) %>%
-            group_by(SignalID, Detector, Timeperiod) %>%
-            summarize(vol = sum(vol)) %>%
-            left_join(det_config, by = c("SignalID", "Detector")) %>%
-            ungroup() %>%
-            select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+        read_csv(glue("counts_1hr_{start_date}.csv"),
+                 col_names = c("SignalID", "Timeperiod", "Detector", "CallPhase", "vol")) %>%
             mutate(SignalID = factor(SignalID),
-                   Detector = factor(Detector)) %>%
-            write_fst(., glue("counts_1hr_{start_date}.fst"))
-
-        if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu")) {
+                   Detector = factor(Detector),
+                   CallPhase = factor(CallPhase)) %>%
+        write_fst(., glue("counts_1hr_{start_date}.fst"))
+        
+        file.remove(glue("counts_1hr_{start_date}.csv"))
+        
+        
+        if (file.exists(glue("counts_15min_{start_date}.csv"))) {
             
-            read_csv(counts_15min_filename, col_names = c("SignalID", "Detector", "Timeperiod", "vol")) %>%
-                mutate(SignalID = factor(SignalID), Detector = factor(Detector)) %>%
-                group_by(SignalID, Detector, Timeperiod) %>%
-                summarize(vol = sum(vol)) %>%
-                left_join(det_config, by = c("SignalID", "Detector")) %>%
-                ungroup() %>%
-                select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+            read_csv(glue("counts_15min_{start_date}.csv"),
+                     col_names = c("SignalID", "Timeperiod", "Detector", "CallPhase", "vol")) %>%
                 mutate(SignalID = factor(SignalID),
-                       Detector = factor(Detector)) %>%
-                write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
+                       Detector = factor(Detector),
+                       CallPhase = factor(CallPhase)) %>%
+            write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
+            
+            file.remove(glue("counts_15min_{start_date}.csv"))
         }
-        
-        
-        file.remove(counts_15min_filename)
-        file.remove(counts_1hr_filename)
         
     }
 }
-# Query SPM Database - base query
+
+
+
+
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
     counts <- counts %>%
@@ -614,29 +563,7 @@ get_adjusted_counts <- function(filtered_counts) {
     # SignalID | CallPhase | Timeperiod | Detector | vol 
 }
 
-# Pivot Counts - for old monthly report
-get_pivot_counts <- function(filtered_counts, output_filename = NULL) {
-    
-    spread_volumes <- filtered_counts %>%
-        mutate(Timeperiod = floor_date(Timeperiod, unit = "1 hour")) %>%
-        group_by(SignalID, Detector, Timeperiod) %>%
-        summarize(Volume = sum(vol)) %>%
-        ungroup() %>%
-        
-        select(SignalID, Detector, Timeperiod, Volume) %>%
-        spread(Detector, Volume) %>%
-        mutate_at(vars(-(SignalID:Timeperiod)), funs(replace(., is.na(.), 0))) %>%
-        arrange(SignalID, Timeperiod)
-    
-    if (!is.null(output_filename)) {
-        write.csv(spread_volumes, output_filename)
-    }
-    spread_volumes
-}
-get_1hr_ped_counts <- function(start_date, end_date, signals_list) {
-    get_counts(start_date, end_date, signals_list,
-               interval = "1 hour", event_code = 90, TWR = FALSE, mainline_only = FALSE)
-}
+
 get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
     
     conn <- dbConnect(odbc::odbc(), 
@@ -693,8 +620,6 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only
 													  
     df <- tbl(conn, sql(query))
     
-    #start_date<- as.character(start_date)
-    #end_date1 <- as.character(ymd(end_date) + days(1))
     end_date1 <- ymd(end_date) + days(1)
     
     signals_list <- as.integer(signals_list)
@@ -737,7 +662,7 @@ get_vpd <- function(counts) {
     counts %>%
         filter(CallPhase %in% c(2,6)) %>% # sum over Phases 2,6 # added 4/24/18
         mutate(DOW = wday(Timeperiod), 
-               Week = week(Timeperiod),
+               Week = week(date(Timeperiod)),
                Date = date(Timeperiod)) %>% 
         group_by(SignalID, CallPhase, Week, DOW, Date) %>% 
         summarize(vpd = sum(vol, na.rm = TRUE))
@@ -752,9 +677,11 @@ get_thruput <- function(counts) {
                Week = week(Date)) %>%
         group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
         summarize(vph = sum(vol)) %>%
+        
         group_by(SignalID, Week, DOW, Date) %>%
         summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4) %>%
         ungroup() %>%
+        
         arrange(SignalID, Date) %>%
         mutate(CallPhase = 0) %>%
         select(SignalID, CallPhase, Date, Week, DOW, vph)
@@ -780,17 +707,17 @@ get_aog <- function(cycle_data) {
                  Hour = date_trunc('hour', CycleStart)) %>%
         summarize(vol = sum(Total_Volume),
                   aog = sum(Volume)/sum(Total_Volume)) %>%
-        collect %>% ungroup() %>%
+        collect %>% 
+        ungroup() %>%
+        
         mutate(SignalID = factor(SignalID),
                vol = as.integer(vol),
-																  
-				   
                CallPhase = factor(CallPhase),
                Date_Hour = lubridate::ymd_hms(Hour),
                Date = date(Date_Hour),
                DOW = wday(Date), 
                Week = week(Date)) %>%
-        ungroup() %>%
+        #ungroup() %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, vol)
 
     # SignalID | CallPhase | Date_Hour | Date | Hour | aog | vol
@@ -846,7 +773,7 @@ get_qs <- function(detection_events) {
                Date_Hour = ymd_hms(Hour),
                Date = date(lubridate::floor_date(Date_Hour, unit="days")),
                DOW = wday(Date_Hour),
-               Week = week(Date_Hour),
+               Week = week(Date),
                qs = as.integer(qs),
                cycles = as.integer(cycles),
                qs_freq = as.double(qs)/as.double(cycles)) %>%
@@ -876,38 +803,6 @@ get_tt_xl <- function(fns, rts) {
                   bti = quantile(travel_time_seconds, c(0.90))/mean(ref_sec)) %>% 
         tidyr::gather(idx, value, tti, bti) %>% 
         as_tibble()
-    
-    # Corridor | hour | idx | value
-}
-get_tt_csv_older <- function(fns) {
-    
-    dfs <- lapply(fns, function(f) {
-        data.table::fread(f) %>% 
-            mutate(measurement_tstamp = ymd_hms(measurement_tstamp),
-                   travel_time_seconds = travel_time_minutes * 60,
-                   Corridor = get_corridor_name(f)) %>%
-            filter(wday(measurement_tstamp) %in% c(TUE,WED,THU)) %>%
-            mutate(miles = speed /3600 * travel_time_seconds, 
-                   ref_sec = miles/reference_speed * 3600) %>%
-            group_by(Corridor = factor(Corridor), measurement_tstamp) %>%
-            summarize(travel_time_seconds = sum(travel_time_seconds, na.rm = TRUE),
-                      ref_sec = sum(ref_sec),
-                      miles = sum(miles)) %>%
-            ungroup() %>%
-            mutate(tti = travel_time_seconds/ref_sec, 
-                   date_hour = floor_date(measurement_tstamp, "hours"),
-                   hour = date_hour - days(day(date_hour) - 1)) %>%
-            group_by(Corridor, hour) %>%
-            summarize(tti = mean(travel_time_seconds/ref_sec),
-                      pti = quantile(travel_time_seconds, c(0.90))/mean(ref_sec)) %>%
-            ungroup()
-    })
-    df <- bind_rows(dfs) %>% mutate(Corridor = factor(Corridor))
-
-    tti <- select(df, Corridor, Hour = hour, tti) %>% as_tibble()
-    pti <- select(df, Corridor, Hour = hour, pti) %>% as_tibble()
-    
-    list("tti" = tti, "pti" = pti)
     
     # Corridor | hour | idx | value
 }
@@ -950,72 +845,10 @@ get_tt_csv <- function(fns) {
     # Corridor | hour | idx | value
 }
 
-# Comm Uptime from detector data. Needs all phases, all days
-get_comm_uptime <- function(filtered_counts) {
-    filtered_counts %>%
-        group_by(SignalID, Timeperiod) %>% 
-        summarize(total_comm = n(),
-                  bad_comm = sum(is.na(vol))) %>%
-        ungroup() %>%
-        mutate(uptime = ifelse(bad_comm != total_comm, TRUE, FALSE),
-               SignalID = factor(SignalID),
-               CallPhase = factor(0),
-               Date_Hour = lubridate::ymd_hms(Timeperiod),
-               Date = date(Date_Hour),
-               DOW = wday(Date), 
-               Week = week(Date)) %>%
-        select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
-}
-
-get_comm_uptime2 <- function(df, signals_list) {
-
-    start_date <- floor_date(min(df$Timestamp))
-    end_date <- floor_date(max(df$Timestamp)) + days(1)
-
-    bookends <- expand.grid(SignalID = signals_list, 
-                            Timestamp = c(start_date, start_date + days(1)))
-    
-    ts <- df %>% 
-        bind_rows(., bookends) %>%
-        distinct() %>%
-        arrange(SignalID, Timestamp)
-    
-    all_spans <- ts %>%
-        mutate(SignalID = 0) %>%
-        distinct() %>%
-        arrange(Timestamp) %>%
-        mutate(span = as.numeric(Timestamp - lag(Timestamp), units = "mins")) %>%
-        drop_na()
-    
-    global_downtime <- all_spans %>%
-        mutate(span = if_else(span > 15, span, 0)) %>%
-        summarize(downtime = sum(span)/(60 * 24 * length(signals_list)))
-    
-    
-    signal_spans <- ts %>%
-        group_by(SignalID) %>%
-        mutate(span = as.numeric(Timestamp - lag(Timestamp), units = "mins"))
-    
-    signal_spans %>% 
-        drop_na() %>%
-        mutate(span = if_else(span > 15, span, 0)) %>%
-        group_by(SignalID) %>% 
-        summarize(uptime = 1 - sum(span)/(60 * 24) - global_downtime$downtime) %>%
-        
-        ungroup() %>%
-        mutate(SignalID = factor(SignalID),
-               CallPhase = factor(0),
-               Date_Hour = date(start_date),
-               Date = date(start_date),
-               DOW = wday(start_date), 
-               Week = week(start_date)) %>%
-        select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
-    
-}
 
 
 # -- Generic Aggregation Functions
-get_Tuesdays_ <- function(df) {
+get_Tuesdays <- function(df) {
     dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = "days")
     tuesdays <- dates_[wday(dates_) == 3]
     
@@ -1096,7 +929,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         mutate(Corridor = factor(Corridor))
 }
 
-get_daily_avg <- function(df, var_, wt_="ones") {
+get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
     var_ <- as.name(var_)
     if (wt_ == "ones") {
@@ -1104,6 +937,11 @@ get_daily_avg <- function(df, var_, wt_="ones") {
         df <- mutate(df, !!wt_ := 1)
     } else {
         wt_ <- as.name(wt_)
+    }
+    
+    if (peak_only == TRUE) {
+        df <- df %>%
+            filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
     }
     
     df %>%
@@ -1132,7 +970,7 @@ get_weekly_sum_by_day <- function(df, var_) {
     
     var_ <- as.name(var_)
     
-    Tuesdays <- get_Tuesdays_(df)
+    Tuesdays <- get_Tuesdays(df)
     
     df %>%
         group_by(SignalID, CallPhase, Week) %>% 
@@ -1147,7 +985,7 @@ get_weekly_sum_by_day <- function(df, var_) {
     
     # SignalID | Date | var_
 }
-get_weekly_avg_by_day <- function(df, var_, wt_="ones") {
+get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
     
     var_ <- as.name(var_)
     if (wt_ == "ones") {
@@ -1157,11 +995,14 @@ get_weekly_avg_by_day <- function(df, var_, wt_="ones") {
         wt_ <- as.name(wt_)
     }
     
-    Tuesdays <- get_Tuesdays_(df)
+    Tuesdays <- get_Tuesdays(df)
+    
+    if (peak_only == TRUE) {
+        df <- df %>%
+            filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
+    }
     
     df %>%
-        filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        
         group_by(SignalID, CallPhase, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
                   !!wt_ := sum(!!wt_)) %>% # Mean over 3 days in the week
@@ -1176,7 +1017,7 @@ get_weekly_avg_by_day <- function(df, var_, wt_="ones") {
     
     # SignalID | Date | vpd
 }
-get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
+get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
     
     if (wt_ == "ones") {
         wt_ <- as.name(wt_)
@@ -1192,9 +1033,14 @@ get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
     # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
     group_corridors_(cor_df_out, "Date", var_, wt_)
 }
-get_monthly_avg_by_day <- function(df, var_, wt_=NULL) {
+get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     
     var_ <- as.name(var_)
+    
+    if (peak_only == TRUE) {
+        df <- df %>%
+            filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
+    }
     
     gdf <- df %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
@@ -1234,13 +1080,13 @@ get_cor_monthly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
     group_corridors_(cor_df_out, "Month", var_, wt_)
 }
 
-get_weekly_avg_by_hr <- function(df, var_, wt_=NULL) {
+get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
     var_ <- as.name(var_)
     
     Tuesdays <- df %>% 
         mutate(Date = date(Hour)) %>%
-        get_Tuesdays_()
+        get_Tuesdays()
     
     df_ <- left_join(df, Tuesdays) %>%
         filter(!is.na(Date))
@@ -1292,7 +1138,7 @@ get_sum_by_hr <- function(df, var_) {
 
     df %>%  
         mutate(DOW = wday(Timeperiod),
-               Week = week(Timeperiod),
+               Week = week(date(Timeperiod)),
                Hour = floor_date(Timeperiod, unit = '1 hour')) %>%
         group_by(SignalID, CallPhase, Week, DOW, Hour) %>%
         summarize(!!var_ := sum(!!var_)) %>%
@@ -1307,7 +1153,7 @@ get_avg_by_hr <- function(df, var_, wt_=NULL) {
     df_ <- as.data.table(df)
 
     df_[, c("DOW", "Week", "Hour") := list(wday(Date_Hour), 
-                                           week(Date_Hour), 
+                                           week(date(Date_Hour)), 
                                            floor_date(Date_Hour, unit = '1 hour'))]
     if (is.null(wt_)) {
         ret <- df_[, .(mean(get(var_)), 1), 
@@ -1323,29 +1169,7 @@ get_avg_by_hr <- function(df, var_, wt_=NULL) {
     ret
 }
 
-get_avg_by_hr_older <- function(df, var_, wt_=NULL) {
-  
-    var_ <- as.name(var_)
-    
-    gdf <- df %>%  
-        mutate(DOW = wday(Date_Hour),
-               Week = week(Date_Hour),
-               Hour = floor_date(Date_Hour, unit = '1 hour')) %>%
-        group_by(SignalID, CallPhase, Week, DOW, Hour)
-    
-    if (is.null(wt_)) {
-        gdf %>% summarize(!!var_ := mean(!!var_)) %>%
-            mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_))
-    } else {
-        wt_ <- as.name(wt_)
-        gdf %>% summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
-                          !!wt_ := sum(!!wt_)) %>%
-            mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_))
-    }
-    
-    # SignalID | CallPhase | Week | DOW | Hour | var_ | wt_
-} 
-get_monthly_avg_by_hr <- function(df, var_, wt_="ones") {
+get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
     
     if (wt_ == "ones") {
         wt_ <- as.name(wt_)
@@ -1367,7 +1191,7 @@ get_monthly_avg_by_hr <- function(df, var_, wt_="ones") {
     
     # SignalID | CallPhase | Hour | vph
 }
-get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
+get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_ = "ones") {
     
     if (wt_ == "ones") {
         wt_ <- as.name(wt_)
@@ -1441,8 +1265,8 @@ get_daily_detector_uptime <- function(filtered_counts) {
 }
 get_avg_daily_detector_uptime <- function(daily_detector_uptime) {
     
-    sb_daily_uptime <- get_daily_avg(daily_detector_uptime$Setback, "uptime", "all")
-    pr_daily_uptime <- get_daily_avg(daily_detector_uptime$Presence, "uptime", "all")
+    sb_daily_uptime <- get_daily_avg(daily_detector_uptime$Setback, "uptime", "all", peak_only = FALSE)
+    pr_daily_uptime <- get_daily_avg(daily_detector_uptime$Presence, "uptime", "all", peak_only = FALSE)
     
     full_join(sb_daily_uptime, pr_daily_uptime, 
               by = c("SignalID", "Date"), 
@@ -1451,15 +1275,19 @@ get_avg_daily_detector_uptime <- function(daily_detector_uptime) {
         select(-starts_with("delta"))
 }
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
+    
     cor_daily_sb_uptime <- avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.sb)) %>%
         get_cor_weekly_avg_by_day(corridors, "uptime.sb", "all.sb")
+    
     cor_daily_pr_uptime <- avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.pr)) %>%
         get_cor_weekly_avg_by_day(corridors, "uptime.pr", "all.pr")
+    
     cor_daily_all_uptime <- avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.all)) %>%
         get_cor_weekly_avg_by_day(corridors, "uptime.all", "ones")
+    
     
     full_join(select(cor_daily_sb_uptime, -c(all.sb, delta)),
               select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
@@ -1475,13 +1303,13 @@ get_weekly_thruput <- function(throughput) {
     get_weekly_sum_by_day(throughput, "vph")
 }
 get_weekly_aog_by_day <- function(daily_aog) {
-    get_weekly_avg_by_day(daily_aog, "aog", "vol")
+    get_weekly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
 get_weekly_sf_by_day <- function(sf) {
-    get_weekly_avg_by_day(sf, "sf_freq", "cycles")
+    get_weekly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
 get_weekly_qs_by_day <- function(qs) {
-    get_weekly_avg_by_day(qs, "qs_freq", "cycles")
+    get_weekly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
 
 get_cor_weekly_vpd <- function(weekly_vpd, corridors) {
@@ -1502,19 +1330,19 @@ get_cor_weekly_qs_by_day <- function(weekly_qs, corridors) {
 
 get_monthly_vpd <- function(vpd) {
     vpd <- filter(vpd, DOW %in% c(TUE,WED,THU)) 
-    get_monthly_avg_by_day(vpd, "vpd")
+    get_monthly_avg_by_day(vpd, "vpd", peak_only = FALSE)
 }
 get_monthly_thruput <- function(throughput) {
-    get_monthly_avg_by_day(throughput, "vph")
+    get_monthly_avg_by_day(throughput, "vph", peak_only = FALSE)
 }
 get_monthly_aog_by_day <- function(daily_aog) {
-    get_monthly_avg_by_day(daily_aog, "aog", "vol")
+    get_monthly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
 get_monthly_sf_by_day <- function(sf) {
-    get_monthly_avg_by_day(sf, "sf_freq", "cycles")
+    get_monthly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
 get_monthly_qs_by_day <- function(qs) {
-    get_monthly_avg_by_day(qs, "qs_freq", "cycles")
+    get_monthly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
 
 get_cor_monthly_vpd <- function(monthly_vpd, corridors) {
@@ -1814,7 +1642,7 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
         mutate(DOW = wday(Date), 
                Week = week(Date))
     
-    Tuesdays <- get_Tuesdays_(df)
+    Tuesdays <- get_Tuesdays(df)
     
     df %>% 
         select(-Date) %>% 
@@ -1990,28 +1818,41 @@ get_vph_peak_plot <- function(df, group_name, chart_title, bar_subtitle, mo) {
 
 # Convert Monthly data to quarterly for Quarterly Report ####
 get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
-  
-  if (wt_ == "ones" & !"ones" %in% names(monthly_df)) {
-    monthly_df <- monthly_df %>% mutate(ones = 1)
-  }
-  
-  var_ <- as.name(var_)
-  wt_ <- as.name(wt_)
-  
-  monthly_df <- monthly_df %>% 
-    group_by(Corridor, 
-             Zone_Group,
-             Quarter = as.character(lubridate::quarter(Month, with_year = TRUE)))
-  if (operation == "avg") {
-    monthly_df <- monthly_df %>%
-      summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
-                !!wt_ := sum(!!wt_))
-  } else if (operation == "sum") {
-    monthly_df <- monthly_df %>%
-      summarize(!!var_ := sum(!!var_))
-  }
-  monthly_df %>%
-    mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_))
+    
+    if (wt_ == "ones" & !"ones" %in% names(monthly_df)) {
+        monthly_df <- monthly_df %>% mutate(ones = 1)
+    }
+    
+    var_ <- as.name(var_)
+    wt_ <- as.name(wt_)
+    
+    quarterly_df <- monthly_df %>% 
+        group_by(Corridor, 
+                 Zone_Group,
+                 Quarter = as.character(lubridate::quarter(Month, with_year = TRUE)))
+    if (operation == "avg") {
+        quarterly_df <- quarterly_df %>%
+            summarize(!!var_ := weighted.mean(!!var_, !!wt_), 
+                      !!wt_ := sum(!!wt_))
+    } else if (operation == "sum") {
+        quarterly_df <- quarterly_df %>%
+            summarize(!!var_ := sum(!!var_))
+    } else if (operation == "latest") {
+        quarterly_df <- monthly_df %>% 
+            group_by(Corridor, 
+                     Zone_Group,
+                     Quarter = as.character(lubridate::quarter(Month, with_year = TRUE))) %>%
+            filter(Month == max(Month)) %>%
+            select(Corridor, 
+                   Zone_Group,
+                   Quarter,
+                   !!var_,
+                   !!wt_) %>%
+            group_by(Corridor, Zone_Group) %>% arrange(Zone_Group, Corridor, Quarter)
+    }
+    
+    quarterly_df %>%
+        mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_))
 }
 
 # Activities
