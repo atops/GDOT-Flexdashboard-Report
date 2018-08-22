@@ -9,10 +9,10 @@ conf <- read_yaml("Monthly_Report_calcs.yaml")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 start_date <- ifelse(conf$start_date == "yesterday", 
-                     today() - days(1), 
+                     format(today() - days(1), "%Y-%m-%d"),
                      conf$start_date)
 end_date <- ifelse(conf$end_date == "yesterday",
-                   today() - days(1),
+                   format(today() - days(1), "%Y-%m-%d"),
                    conf$end_date)
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
@@ -28,29 +28,31 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 # corridors <- get_corridors(conf$corridors_xlsx_filename)
 # write_feather(corridors, "corridors.feather")
 
-# conn <- dbConnect(odbc::odbc(),
-#                  dsn = "sqlodbc",
-#                  uid = Sys.getenv("ATSPM_USERNAME"),
-#                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+conn <- dbConnect(odbc::odbc(),
+                 dsn = "sqlodbc",
+                 uid = Sys.getenv("ATSPM_USERNAME"),
+                 pwd = Sys.getenv("ATSPM_PASSWORD"))
 # dbWriteTable(conn, "Corridors", corridors, overwrite = TRUE)
 # dbSendQuery(conn, "CREATE CLUSTERED INDEX Corridors_Idx0 on Corridors(SignalID)")
 
 # -- ----------------------------------------------------
 
 corridors <- feather::read_feather(conf$corridors_filename) 
-signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
-
 # -- This could be used. Some differences between factors and chars that would 
 #    need to be tested.
-
 #corridors <- dbReadTable(conn, "Corridors")
-#signals_list <- corridors$SignalID
 
+
+#signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # -- If we want to run calcs on all signals in ATSPM database
+sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() %>% mutate(SignalID = factor(SignalID))
+signals_list <- filter(sig_df, SignalID != "null")$SignalID
 
-#sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() 
-#signals_list <- sig_df$SignalID
 
+
+
+
+#signals_list <- corridors$SignalID
 
 
 #Signals to exclude in June 2018 (and months prior):
@@ -160,7 +162,7 @@ get_counts2_date_range <- function(start_date, end_date) {
     
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
-    lapply(start_dates, function(x) get_counts2(x, uptime = TRUE, counts = FALSE)) # Temporary. Change to TRUE, TRUE
+    lapply(start_dates, function(x) get_counts2(x, uptime = TRUE, counts = TRUE))
 }
 get_counts2_date_range(start_date, end_date)
 
@@ -297,7 +299,7 @@ py_run_file("etl_dashboard.py") # python script
 # # GET ARRIVALS ON GREEN #####################################################
 get_aog_date_range <- function(start_date, end_date) {
 
-    start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month") #by = "1 day")
+    start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
     cl <- makeCluster(4)
     clusterExport(cl, c("get_cycle_data",
                         "get_spm_data",
@@ -305,7 +307,8 @@ get_aog_date_range <- function(start_date, end_date) {
                         "write_fst_",
                         "get_aog",
                         "signals_list",
-                        "end_date"))
+                        "end_date",
+                        "week"))
     parLapply(cl, start_dates, function(start_date) {
         library(DBI)
         library(RJDBC)
@@ -316,8 +319,6 @@ get_aog_date_range <- function(start_date, end_date) {
         library(purrr)
         library(fst)
 
-        #start_date <- as.character(ymd(start_date) - days(day(ymd(start_date)) - 1))
-        #end_date <- as.character(ymd(start_date) + months(1) - days(1))
         
         start_date <- floor_date(start_date, "months")
         end_date <- start_date + months(1) - days(1)
@@ -334,13 +335,6 @@ get_aog_date_range <- function(start_date, end_date) {
 }
 get_aog_date_range(start_date, end_date)
 
-# aog_files <- list.files(pattern = "aog_201.*.fst")
-# lapply(aog_files, function(x) {
-#     read_fst(x) %>%
-#         mutate(Week = week(Date),
-#                DOW = as.integer(DOW)) %>%
-#         write_fst(x)
-# })
 
 # # GET QUEUE SPILLBACK #######################################################
 get_queue_spillback_date_range <- function(start_date, end_date) {
@@ -353,7 +347,8 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
                         "write_fst_",
                         "get_qs",
                         "signals_list",
-                        "end_date"))
+                        "end_date",
+                        "week"))
     parLapply(cl, start_dates, function(start_date) {
         library(DBI)
         library(RJDBC)
@@ -362,10 +357,8 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
         library(lubridate)
         library(fst)
 
-        #end_date <- start_date
-        start_date <- as.character(ymd(start_date) - days(day(ymd(start_date)) - 1))
-        
-        end_date <- as.character(ymd(start_date) + months(1) - days(1))
+        start_date <- floor_date(start_date, "months")
+        end_date <- start_date + months(1) - days(1)
 
         detection_events <- get_detection_events(start_date, end_date, signals_list)
         if (nrow(collect(head(detection_events))) > 0) {
