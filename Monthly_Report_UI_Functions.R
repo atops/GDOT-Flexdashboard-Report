@@ -4,6 +4,7 @@
 library(flexdashboard)
 library(shiny)
 library(yaml)
+library(httr)
 
 library(data.table)
 library(dplyr)
@@ -44,8 +45,25 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN,
 
 conf <- read_yaml("Monthly_Report.yaml")
 
+
+if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
+    set_config(
+        use_proxy("gdot-enterprise", port = 8080,
+                  username = Sys.getenv("GDOT_USERNAME"),
+                  password = Sys.getenv("GDOT_PASSWORD")))
+} else { # shinyapps.io
+    Sys.setenv(TZ="America/New_York")
+    
+    Sys.setenv("AWS_ACCESS_KEY_ID" = conf$AWS_ACCESS_KEY_ID,
+               "AWS_SECRET_ACCESS_KEY" = conf$AWS_SECRET_ACCESS_KEY,
+               "AWS_DEFAULT_REGION" = conf$AWS_DEFAULT_REGION)
+}
+
 corridors <- read_feather("corridors.feather")
 teams_tables <- readRDS("teams_tables.rds")
+
+aws.s3::save_object("cor.rds", "gdot-devices", file = "cor.rds")
+aws.s3::save_object("sig.rds", "gdot-devices", file = "sig.rds")
 
 cor <- readRDS("cor.rds")
 sig <- readRDS("sig.rds")
@@ -120,8 +138,9 @@ perf_plot <- function(data_, value_, name_, color_,
                   line = list(color = color_), 
                   mode = 'lines+markers',
                   marker = list(size = 8,
+                                color = color_,
                                 line = list(width = 1,
-                                            color = 'rgba(255, 255, 255, 255.8)'))) %>%
+                                            color = 'rgba(255, 255, 255, 255, .8)'))) %>%
         add_annotations(x = first$Month,
                         y = first$value,
                         text = format_func(first$value),
@@ -198,7 +217,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          x_line1_title = "___",
                                          x_line2_title = "___",
                                          plot_title = "___ ",
-                                         goal = NA) {
+                                         goal = NULL) {
     
     var_ <- as.name(var_)
     if (num_format == "percent") {
@@ -259,13 +278,13 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                 margin = list(pad = 4,
                               l = 100)
             )
-        if (!is.na(goal)) {
+        if (!is.null(goal)) {
             bar_chart <- bar_chart %>% 
-                add_lines(x = ~0.95,
+                add_lines(x = goal,
                           y = ~Corridor,
                           mode = "lines",
                           marker = NULL,
-                          color = I(LIGHT_RED),
+                          line = list(color = LIGHT_RED),
                           name = "Goal (95%)",
                           showlegend = FALSE)
         }
@@ -278,11 +297,13 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         
         sdw <- SharedData$new(wdf, ~Corridor, group = "grp")
         
-        weekly_line_chart <- plot_ly(sdw) %>%
-            add_lines(x = ~Date, 
-                      y = ~var, 
-                      color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
-                      alpha = 0.6) %>%
+        weekly_line_chart <- plot_ly(sdw,
+                                     type = "scatter",
+                                     mode = "lines",
+                                     x = ~Date, 
+                                     y = ~var, 
+                                     color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
+                                     alpha = 0.6) %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(tickformat = tickformat_,
                                 hoverformat = tickformat_),
@@ -290,15 +311,13 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                    showlegend = FALSE,
                    margin = list(t = 50)
             )
-        if (!is.na(goal)) {
-            weekly_line_chart <- weekly_line_chart %>% 
-                add_lines(x = ~Date,
-                          y = 0.95,
-                          color = I(LIGHT_RED),
-                          name = "Goal (95%)",
-                          legendgroup = "Goal",
-                          showlegend = FALSE)
-        }
+        # if (!is.null(goal)) {
+        #     weekly_line_chart <- weekly_line_chart  %>% 
+        #         add_lines(x = ~Date,
+        #                   y = goal,
+        #                   color = I(LIGHT_RED),
+        #                   name = "Goal (95%)")
+        # }
         
         if (!is.null(cor_hourly)) {
             
@@ -1010,7 +1029,7 @@ plot_teams_tasks_ <- function(tab, var_,
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
-               xaxis = list(title = "Reported this Month",
+               xaxis = list(title = "Reported",
                             zeroline = FALSE),
                margin = list(pad = 4))
     p2 <- plot_ly(data = tab) %>%
@@ -1025,7 +1044,7 @@ plot_teams_tasks_ <- function(tab, var_,
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
-               xaxis = list(title = "Resolved this Month",
+               xaxis = list(title = "Resolved",
                             zeroline = FALSE),
                margin = list(pad = 4))
     p3 <- plot_ly(data = tab) %>% 
@@ -1040,7 +1059,7 @@ plot_teams_tasks_ <- function(tab, var_,
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
-               xaxis = list(title = "Cumulative Tasks Outstanding",
+               xaxis = list(title = "Cum. Outstanding",
                             zeroline = FALSE),
                margin = list(pad = 4))
     subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
