@@ -1,11 +1,11 @@
 
 # Monthly_Report config file (yaml format)
 
-start_date: 2018-07-09
-end_date: 2018-07-31
+start_date: yesterday
+end_date: yesterday
 
-report_start_date: 2017-07-01
-report_end_date: 2018-07-30
+report_start_date: 2017-08-01
+report_end_date: 2018-08-31
 
 corridors_filename: corridors.feather
 
@@ -35,27 +35,29 @@ xl_uptime:
 teams:
 
     rtop:
+        zone_group: All RTOP
+
         path: TEAMS Reports
         filenames:
             - All Teams Tasks 7_1_17 to 7_31_18.csv
-        zone_group: All RTOP
             
     rtop_z7:
+        zone_group: Zone 7
+
         path: TEAMS Reports
         filenames:
             - All Teams Tasks Zone 7 6_1_18 to 7_31_18.csv
-        zone_group: Zone 7
-        months:
 
     rtso_d1:
+        zone_group: D1
+
         path: TEAMS Reports
         filenames:
             - R1TSO__D1_TEAMSReport_Mar2018-July2018.csv
-        zone_group: D1
         
     rtso_d6:
+        zone_group: D6
+
         path: TEAMS Reports
         filenames:
             - R1TSO__D6_TEAMSReport_Mar2018-July2018.csv
-        zone_group: D6
-        months:
