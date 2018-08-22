@@ -4,6 +4,7 @@ Created on Mon Nov 27 16:27:29 2017
 
 @author: Alan.Toppen
 """
+from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool
 import pandas as pd
 import sqlalchemy as sq
@@ -125,7 +126,11 @@ if __name__=='__main__':
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date']
+    if start_date == 'yesterday': 
+        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     end_date = conf['end_date']
+    if end_date == 'yesterday': 
+        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     dates = pd.date_range(start_date, end_date, freq='1D')
     
