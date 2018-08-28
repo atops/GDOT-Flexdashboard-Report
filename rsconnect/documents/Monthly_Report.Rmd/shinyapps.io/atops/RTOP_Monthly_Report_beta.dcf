@@ -5,8 +5,9 @@ account: atops
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 318992
-bundleId: 1526820
+bundleId: 1550674
 url: https://atops.shinyapps.io/RTOP_Monthly_Report_beta/
-when: 1533838330.31449
+when: 1535033097.18015
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: cor.rds|cor_s3.rds|sig.rds|sig_s3.rds

@@ -28,6 +28,7 @@ zone_groups:
     - D5
     - D6
     - Zone 7
+    - Cobb County
 
 
 corridors_filename: corridors.feather

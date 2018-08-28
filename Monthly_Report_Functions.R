@@ -84,8 +84,9 @@ get_corridors <- function(corr_fn) {
                   Zone_Group = District,
                   Corridor = as.factor(Group),
                   Milepost = as.numeric(Milepost),
+                  Agency = Agency,
                   Name = Name) %>% 
-        #filter(!is.na(SignalID)) %>% 
+        filter(grepl("^\\d.*", SignalID)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
 get_corridor_name <- function(string) {
@@ -216,33 +217,21 @@ get_det_config <- function(date_) {
                CallPhase.atspm, 
                CallPhase.maxtime, 
                TimeFromStopBar.atspm) %>% 
-        #IPAddress) %>%
-        #full_join(corridors, by = "SignalID") %>%
         filter(!(is.na(SignalID) | is.na(Detector))) %>% # | 
-        #(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime)))) %>%
-        
-        #mutate(Check = is.na(CallPhase.maxtime) | 
-        #           is.na(CallPhase.atspm) | 
-        #           as.character(CallPhase.atspm) != as.character(CallPhase.maxtime)) %>% 
-        select(#Zone, 
-            #Corridor, 
-            #Name, 
-            #IPAddress, 
+        select(
             SignalID, 
             Detector, 
             CallPhase.atspm, 
             CallPhase.maxtime, 
             TimeFromStopBar.atspm) %>%
-        #Check) %>%
-        #mutate(SignalID = as.integer(SignalID),
-        #       Detector = as.integer(Detector)) %>%
-        #arrange(SignalID, Detector, CallPhase.atspm) %>%
         filter(!(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime))) %>%
         mutate(CallPhase = ifelse(is.na(CallPhase.maxtime), CallPhase.atspm, CallPhase.maxtime)) %>%
         
         mutate(SignalID = as.character(SignalID), 
                Detector = as.integer(Detector), 
                CallPhase = as.integer(CallPhase))
+    
+    write_feather(det_config, glue("../ATSPM_Det_Config_Good_{date_}.feather"))
     
     det_config
 }
@@ -313,7 +302,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
 
     start_date <- date_
-    end_date <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d")
+    end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
     conn <- dbConnect(odbc::odbc(), 
                       dsn="sqlodbc", 
@@ -343,7 +332,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         signals_string <- paste(glue("'{signals_sublist}'"), collapse = ",")
         
         query = glue("SELECT * FROM Controller_Event_Log 
-                     WHERE Timestamp BETWEEN '{start_date}' AND '{end_date}'
+                     WHERE Timestamp BETWEEN '{start_date}' AND '{end_time}'
                      AND EventCode NOT IN (43,44) 
                      AND SignalID in ({signals_string})")
         
@@ -914,7 +903,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
     
-    zgs <- lapply(c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7"), function(zg) {
+    zgs <- lapply(c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7", "Cobb County"), function(zg) {
         df %>%
             filter(Zone_Group == zg) %>%
             gr_(per_, var_, wt_, zg)
