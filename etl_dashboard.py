@@ -37,6 +37,12 @@ ath = boto3.client('athena')
 
 def etl2(s, date_):
     
+    dc_fn = '../ATSPM_Det_Config_Good_{}.feather'.format(date_.strftime('%Y-%m-%d'))
+    det_config = (pd.read_feather(dc_fn)
+                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))
+                    .assign(Detector = lambda x: x.Detector.astype('int64'))
+                    .rename(columns={'CallPhase':'Call Phase'}))
+    
     left = det_config[det_config.SignalID==s]
     right = bad_detectors[(bad_detectors.SignalID==s) & (bad_detectors.Date==date_)]
         
@@ -109,8 +115,8 @@ if __name__=='__main__':
     
     with engine.connect() as conn:
 
-        det_config = pd.read_sql_table('DetectorConfig', con=conn)
-        det_config = det_config.rename(columns={'CallPhase':'Call Phase'})
+        #det_config = pd.read_sql_table('DetectorConfig', con=conn)
+        #det_config = det_config.rename(columns={'CallPhase':'Call Phase'})
         
         bad_detectors = (pd.read_sql_table('BadDetectors', con=conn)
                             .assign(SignalID = lambda x: x.SignalID.astype('int64'),
@@ -137,6 +143,7 @@ if __name__=='__main__':
     corridors_filename = conf['corridors_filename']
     corridors = pd.read_feather(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]
+    
     signalids = list(corridors.SignalID.astype('int').values)
     
     pool = Pool(24) #24

@@ -94,6 +94,14 @@ conditionalPanel("input.zone_group == 'Zone 7'",
                                          ))),
                              selected = "All Corridors"))
 
+conditionalPanel("input.zone_group == 'Cobb County'",
+                 selectInput("corridor_cb", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "Cobb County")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
 current_month <- reactive(lubridate::dmy(paste(1, input$month)))
 current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
 
@@ -110,6 +118,8 @@ corridor <- reactive(
         input$corridor_d5
     } else if (input$zone_group == "Zone 7") {
         input$corridor_z7
+    } else if (input$zone_group == "Cobb County") {
+        input$corridor_cb
     } else {
         "All Corridors"
     })
@@ -122,8 +132,6 @@ zone_group <- reactive(
     }
 )
 
-#renderText({"Selected Corridor"})
-#renderPrint({corridor()})
 
 mr <- reactive(
     if (corridor() == "All Corridors") {
@@ -133,14 +141,14 @@ mr <- reactive(
     }
 )
 
-#renderText({"\nSelected Month"})
-#renderPrint({current_month()})
+renderText({"\nSelected Month"})
+renderPrint({current_month()})
 
-#renderText({"Selected Zone Group"})
-#renderPrint({zone_group()})
+renderText({"Selected Zone Group"})
+renderPrint({zone_group()})
 
-#renderText({"Selected Corridor"})
-#renderPrint({corridor()})
+renderText({"Selected Corridor"})
+renderPrint({corridor()})
 ```
 
 
@@ -751,9 +759,6 @@ Row
 
 ### Performance
 
-```{r performance plot, cache = TRUE, warning = FALSE}
-
-```
 
 ```{r summary_left, eval = TRUE, warning = FALSE}
 fillCol(

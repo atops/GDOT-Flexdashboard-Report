@@ -74,13 +74,30 @@ get_daily_throughput <- function(month_abbrs) {
         fns <- list.files(pattern = month_pattern)
         
         print(fns)
-        print("raw counts")
-        raw_counts_15min <- bind_rows(lapply(fns, read_fst))
+        #print("raw counts")
+        #raw_counts_15min <- bind_rows(lapply(fns, read_fst))
         
-        # Filter and Adjust (interpolate) 15 min Counts
         print("filtered counts")
-        filtered_counts_15min <- get_filtered_counts(raw_counts_15min, interval = "15 min")
-        rm(raw_counts_15min)
+        
+        cl <- makeCluster(4)
+        clusterExport(cl, c("get_filtered_counts",
+                            "week"))
+        fcs <- parLapply(cl, fns, function(fn) {
+            library(fst)
+            library(dplyr)
+            library(tidyr)
+            library(lubridate)
+            
+            # Filter and Adjust (interpolate) 15 min Counts
+            read_fst(fn) %>%
+                get_filtered_counts(., interval = "15 min")
+            
+        })
+        stopCluster(cl)
+        
+        filtered_counts_15min <- bind_rows(fcs)
+        rm(fcs)
+        #rm(raw_counts_15min)
         
         print("adjusted counts")
         adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
@@ -108,13 +125,32 @@ get_filtered_adjusted_bad_detectors <- function(month_abbrs) {
         
         print(fns)
         print("raw counts")
-        raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
-            read_fst(x) %>% filter(SignalID %in% signals_list)}))
+        # raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
+        #     read_fst(x) %>% filter(SignalID %in% signals_list)}))
         
         print("filtered counts")
-        filtered_counts_1hr <- get_filtered_counts(raw_counts_1hr, interval = "1 hour")
+
+        cl <- makeCluster(4)
+        clusterExport(cl, c("get_filtered_counts",
+                            "week",
+                            "signals_list"))
+        fcs <- parLapply(cl, fns, function(fn) {
+            library(fst)
+            library(dplyr)
+            library(tidyr)
+            library(lubridate)
+            
+
+            read_fst(fn) %>% 
+                filter(SignalID %in% signals_list) %>%
+                get_filtered_counts(., interval = "1 hour")
+            
+        })
+        stopCluster(cl)
+        
+        filtered_counts_1hr <- bind_rows(fcs)
         write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-        rm(raw_counts_1hr)
+        rm(fcs)
         
         print("adjusted counts")
         adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
@@ -159,10 +195,12 @@ get_vpd_vph_ddu_cu <- function(month_abbrs) {
         adjusted_counts_1hr <- read_fst(paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
         
         # VPD
+        print("vpd")
         vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
         write_fst(vpd, paste0("vpd_", yyyy_mm, ".fst"))
         
         # VPH
+        print("vph")
         vph <- get_vph(adjusted_counts_1hr)
         write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
         
@@ -170,6 +208,7 @@ get_vpd_vph_ddu_cu <- function(month_abbrs) {
         filtered_counts_1hr <- read_fst(paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
         
         # DAILY DETECTOR UPTIME
+        print("ddu")
         daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
         ddu <- bind_rows(daily_detector_uptime)
         write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))

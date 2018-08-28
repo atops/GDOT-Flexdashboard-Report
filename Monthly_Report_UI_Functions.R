@@ -63,11 +63,11 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
 corridors <- read_feather("corridors.feather")
 teams_tables <- readRDS("teams_tables.rds")
 
-aws.s3::save_object("cor.rds", "gdot-devices", file = "cor.rds")
-aws.s3::save_object("sig.rds", "gdot-devices", file = "sig.rds")
+aws.s3::save_object("cor.rds", "gdot-devices", file = "cor_s3.rds")
+aws.s3::save_object("sig.rds", "gdot-devices", file = "sig_s3.rds")
 
-cor <- readRDS("cor.rds")
-sig <- readRDS("sig.rds")
+cor <- readRDS("cor_s3.rds")
+sig <- readRDS("sig_s3.rds")
 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
@@ -168,7 +168,7 @@ perf_plot <- function(data_, value_, name_, color_,
                showlegend = FALSE,
                margin = list(l = 120,
                              r = 40)) %>% 
-        config(displayModeBar = F)
+        plotly::config(displayModeBar = F)
 }
 
 no_data_plot_ <- function(name_) {
@@ -197,7 +197,7 @@ no_data_plot_ <- function(name_) {
                
                margin = list(l = 180,
                              r = 100)) %>% 
-        config(displayModeBar = F)
+        plotly::config(displayModeBar = F)
     
 }
 no_data_plot <- memoise(no_data_plot_)
@@ -683,7 +683,7 @@ get_minmax_hourly_plot_ <- function(cor_monthly_vph,
     
     if (zone_group_ == "All RTOP") {
         df <- cor_monthly_vph %>% 
-            filter(!Corridor %in% c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7") & date(Hour) <= month_)
+            filter(!Corridor %in% c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7", "Cobb County") & date(Hour) <= month_)
     } else {
         df <- cor_monthly_vph %>% 
             filter(Zone_Group == zone_group_ & date(Hour) <= month_)
