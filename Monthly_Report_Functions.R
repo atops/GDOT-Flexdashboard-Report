@@ -277,9 +277,9 @@ get_gaps <- function(df, signals_list) {
         ungroup()
 }
 
-get_counts5 <- function(df, det_config, units = "hours", TWR_only = FALSE) {
+get_counts5 <- function(df, det_config, units = "hours", date_, TWR_only = FALSE) {
     
-    if (lubridate::wday(start_date, label = TRUE) %in% c("Tue", "Wed", "Thu") || (TWR_only == FALSE)) {
+    if (lubridate::wday(date_, label = TRUE) %in% c("Tue", "Wed", "Thu") || (TWR_only == FALSE)) {
         
         df %>%
             filter(EventCode == 82) %>%
@@ -352,6 +352,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
             counts_1hr <- get_counts5(df, 
                                       det_config, 
                                       units = "hours",
+                                      date_ = date_,
                                       TWR_only = FALSE)
             write_csv(counts_1hr, 
                       glue("counts_1hr_{start_date}.csv"), 
@@ -361,6 +362,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
             counts_15min <- get_counts5(df, 
                                         det_config, 
                                         units = "15 minutes",
+                                        date_ = date_,
                                         TWR_only = TRUE)
             if (nrow(counts_15min) > 0) {
                 write_csv(counts_15min, 
