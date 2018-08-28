@@ -27,8 +27,14 @@ def parse_cctvlog(fn):
             .drop_duplicates())
     
     return df
-    
+
 filenames = glob('../cctvlogs/cctvlog_*.json')
+
+today_ = datetime.today().strftime('%Y-%m-%d')
+today_fn = '../cctvlogs/cctvlog_{}.json'.format(today_)
+
+if today_fn in filenames:
+    filenames.remove(today_fn)
 
 results = []
 for fn in filenames:
