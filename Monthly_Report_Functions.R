@@ -332,7 +332,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
     n <- length(signals_list)
     i <- 20
-    splits <- rep(1:ceiling(n/i), each=i, length.out=n)
+    splits <- rep(1:ceiling(n/i), each = i, length.out = n)
     
     lapply(split(signals_list, splits), function(signals_sublist) {
         
