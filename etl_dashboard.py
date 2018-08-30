@@ -146,7 +146,7 @@ if __name__=='__main__':
     
     signalids = list(corridors.SignalID.astype('int').values)
     
-    pool = Pool(12) #24
+    pool = Pool(24) #24
     asyncres = pool.starmap(etl2, list(itertools.product(signalids, dates)))
     pool.close()
     pool.join()

@@ -64,7 +64,6 @@ get_counts2_date_range(start_date, end_date)
 
 # --- Everything up to here needs the ATSPM Database ---
 
-signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
@@ -82,8 +81,7 @@ get_daily_throughput <- function(month_abbrs) {
         
         cl <- makeCluster(4)
         clusterExport(cl, c("get_filtered_counts",
-                            "week",
-                            "signals_list"))
+                            "week"))
         fcs <- parLapply(cl, fns, function(fn) {
             library(fst)
             library(dplyr)
@@ -92,7 +90,6 @@ get_daily_throughput <- function(month_abbrs) {
             
             # Filter and Adjust (interpolate) 15 min Counts
             read_fst(fn) %>%
-                filter(SignalID %in% signals_list) %>%
                 get_filtered_counts(., interval = "15 min")
             
         })
