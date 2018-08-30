@@ -60,7 +60,8 @@ def etl2(s, date_):
     
     
     t0 = time.time()
-    print('{} | {} Starting...'.format(s, start_date))
+    date_str = date_.strftime('%Y-%m-%d') #str(date_)[:10]
+    print('{} | {} Starting...'.format(s, date_str))
 
     try:
         print('|{} reading from database...'.format(s))
@@ -68,36 +69,41 @@ def etl2(s, date_):
             df = pd.read_sql(sql=query.format(s, str(start_date)[:-3], str(end_date)[:-3]), con=conn)
             df = (df.rename(columns={'Timestamp':'TimeStamp'})
                     .assign(SignalID = df.SignalID.astype('int')))
-    
-        print('|{} creating cycles and detection events...'.format(s))
-        c, d = etl_main(df, det_config_good)
         
-        print('writing to files...')
-        date_str = str(start_date)[:10]
-        if not os.path.exists('../CycleData/' + date_str):
-            os.mkdir('../CycleData/' + date_str)
-        if not os.path.exists('../DetectionEvents/' + date_str):
-            os.mkdir('../DetectionEvents/' + date_str)
-            
-        
-        cd_file = '../CycleData/{}/cd_{}_{}.parquet'.format(date_str, s, date_str)
-        de_file = '../DetectionEvents/{}/de_{}_{}.parquet'.format(date_str, s, date_str)
-        
-        c.to_parquet(cd_file) 
-        d.to_parquet(de_file) 
-        
-        s3.upload_file(Filename=cd_file, 
-                       Bucket='gdot-spm-cycles', 
-                       Key='date={}/cd_{}_{}.parquet'.format(date_str, s, date_str))
-        s3.upload_file(Filename=de_file, 
-                       Bucket='gdot-spm-detections', 
-                       Key='date={}/de_{}_{}.parquet'.format(date_str, s, date_str))
-        
-        os.remove(cd_file)
-        os.remove(de_file)
-        
+        if len(df)==0:
+            print('|{} no event data for this signal on {}.'.format(s, date_str))
 
-        print('{}: {} seconds'.format(s, int(time.time()-t0)))
+        else:
+    
+            print('|{} creating cycles and detection events...'.format(s))
+            c, d = etl_main(df, det_config_good)
+            
+            print('writing to files...')
+            
+            if not os.path.exists('../CycleData/' + date_str):
+                os.mkdir('../CycleData/' + date_str)
+            if not os.path.exists('../DetectionEvents/' + date_str):
+                os.mkdir('../DetectionEvents/' + date_str)
+                
+            
+            cd_file = '../CycleData/{}/cd_{}_{}.parquet'.format(date_str, s, date_str)
+            de_file = '../DetectionEvents/{}/de_{}_{}.parquet'.format(date_str, s, date_str)
+            
+            c.to_parquet(cd_file) 
+            d.to_parquet(de_file) 
+            
+            s3.upload_file(Filename=cd_file, 
+                           Bucket='gdot-spm-cycles', 
+                           Key='date={}/cd_{}_{}.parquet'.format(date_str, s, date_str))
+            s3.upload_file(Filename=de_file, 
+                           Bucket='gdot-spm-detections', 
+                           Key='date={}/de_{}_{}.parquet'.format(date_str, s, date_str))
+            
+            os.remove(cd_file)
+            os.remove(de_file)
+            
+    
+            print('{}: {} seconds'.format(s, int(time.time()-t0)))
         
     
     except Exception as e:
@@ -146,21 +152,23 @@ if __name__=='__main__':
     
     signalids = list(corridors.SignalID.astype('int').values)
     
-    pool = Pool(12) #24
-    asyncres = pool.starmap(etl2, list(itertools.product(signalids, dates)))
-    pool.close()
-    pool.join()
+    for date_ in dates:
+
+        pool = Pool(12) #24
+        asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
+        pool.close()
+        pool.join()
     
 
     
-    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
-    
-    response = ath.start_query_execution(QueryString='MSCK REPAIR TABLE cycledata', 
-                                         QueryExecutionContext={'Database': 'gdot_spm'},
-                                         ResultConfiguration={'OutputLocation': 's3://aws-athena-query-results-322643905670-us-east-1'})
-    response = ath.start_query_execution(QueryString='MSCK REPAIR TABLE detectionevents', 
-                                         QueryExecutionContext={'Database': 'gdot_spm'},
-                                         ResultConfiguration={'OutputLocation': 's3://aws-athena-query-results-322643905670-us-east-1'})
-    
-    print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len(dates), int((time.time()-t0)/60)))
+        os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+        
+        response = ath.start_query_execution(QueryString='MSCK REPAIR TABLE cycledata', 
+                                             QueryExecutionContext={'Database': 'gdot_spm'},
+                                             ResultConfiguration={'OutputLocation': 's3://aws-athena-query-results-322643905670-us-east-1'})
+        response = ath.start_query_execution(QueryString='MSCK REPAIR TABLE detectionevents', 
+                                             QueryExecutionContext={'Database': 'gdot_spm'},
+                                             ResultConfiguration={'OutputLocation': 's3://aws-athena-query-results-322643905670-us-east-1'})
+        
+        print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len([date_]), int((time.time()-t0)/60)))
 
