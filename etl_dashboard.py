@@ -154,7 +154,7 @@ if __name__=='__main__':
     
     for date_ in dates:
 
-        pool = Pool(12) #24
+        pool = Pool(18) #24
         asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
         pool.close()
         pool.join()

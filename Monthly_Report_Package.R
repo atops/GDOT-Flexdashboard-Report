@@ -69,6 +69,10 @@ daily_detector_uptime <- split(ddu, ddu$setback)
 avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
 monthly_detector_uptime <- get_monthly_detector_uptime(avg_daily_detector_uptime)
 
+# mdu_all <- get_monthly_avg_by_day(ddu, "uptime", "all")
+# mdu_sb <- get_monthly_avg_by_day(filter(ddu, setback == "Setback"), "uptime", "all")
+# mdu_pr <- get_monthly_avg_by_day(filter(ddu, setback == "Presence"), "uptime", "all")
+
 cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
 cor_monthly_detector_uptime <- get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
 
@@ -717,7 +721,7 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "sfh" = sigify(readRDS("msfh.rds"), cor$mo$sfh, corridors),
                "tti" = data.frame(),
                "pti" = data.frame(),
-               "du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$mo$du, corridors),
+               "du" = sigify(readRDS("monthly_detector_uptime.rds"), cor$mo$du, corridors),
                "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
                "cctv" = readRDS("monthly_cctv_uptime.rds"))
 
@@ -773,7 +777,7 @@ sig$mo$qsd <- patch_april(sig$mo$qsd, sig4$mo$qsd)
 sig$mo$qsh <- patch_april(sig$mo$qsh, sig4$mo$qsh)
 sig$mo$sfd <- patch_april(sig$mo$sfd, sig4$mo$sfd)
 sig$mo$sfh <- patch_april(sig$mo$sfh, sig4$mo$sfh)
-sig$mo$du <- patch_april(sig$mo$du, sig4$mo$du)
+#sig$mo$du <- patch_april(sig$mo$du, sig4$mo$du)
 sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
 
 

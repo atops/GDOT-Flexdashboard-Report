@@ -141,14 +141,14 @@ mr <- reactive(
     }
 )
 
-renderText({"\nSelected Month"})
-renderPrint({current_month()})
+# renderText({"\nSelected Month"})
+# renderPrint({current_month()})
 
-renderText({"Selected Zone Group"})
-renderPrint({zone_group()})
+# renderText({"Selected Zone Group"})
+# renderPrint({zone_group()})
 
-renderText({"Selected Corridor"})
-renderPrint({corridor()})
+# renderText({"Selected Corridor"})
+# renderPrint({corridor()})
 ```
 
 
@@ -1191,9 +1191,41 @@ Row {.tabset .tabset-fade}
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 
 renderPlotly({
-    get_cor_det_uptime_plot(mr()$dy$du, month_name = input$month,
-                            month_ = current_month(), 
-                            zone_group_ = zone_group())
+    
+    if (corridor() == "All Corridors") {
+
+        get_cor_det_uptime_plot(mr()$dy$du, 
+                                month_name = input$month,
+                                month_ = current_month(), 
+                                zone_group_ = zone_group())
+        
+    } else {
+        
+        get_detector_uptime_plot(sig$dy$du, 
+                                 sig$mo$du, 
+                                 var_ = "uptime.all", 
+                                 num_format = "percent", 
+                                 month_ = current_month(), 
+                                 zone_group_ = zone_group(),
+                                 x_bar_title = "Current Month Uptime",
+                                 x_line1_title = "Daily Uptime",
+                                 plot_title = "",
+                                 goal = NULL)
+        
+        #get_bar_line_dashboard_plot(mr()$dy$du,
+        #                            mr()$mo$du, 
+        #                            NULL,
+        #                            "uptime.all", 
+        #                            "percent", 
+        #                            highlight_color = GDOT_BLUE,
+        #                            month_ = current_month(), 
+        #                            zone_group_ = zone_group(),
+        #                            x_bar_title = "",
+        #                            x_line1_title = "",
+        #                            plot_title = "",
+        #                            goal = 0.95)
+        
+    }
 })
 ```
 
@@ -1258,24 +1290,30 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 
 renderPlotly({
-    # get_cor_comm_uptime_plot(mr()$dy$cu, 
-    #                          mr()$mo$cu, 
-    #                          month_name = input$month,
-    #                          month_ = current_month(), 
-    #                          zone_group_ = zone_group())
+
+    if (corridor() == "All Corridors") {
+        
+        get_cor_comm_uptime_plot(mr()$dy$cu,
+                                 mr()$mo$cu,
+                                 month_name = input$month,
+                                 month_ = current_month(),
+                                 zone_group_ = zone_group())
+    } else {
+
+        get_bar_line_dashboard_plot(mr()$wk$cu, 
+                                    mr()$mo$cu, 
+                                    NULL,
+                                    "uptime", 
+                                    "percent", 
+                                    highlight_color = GDOT_BLUE,
+                                    month_ = current_month(), 
+                                    zone_group_ = zone_group(),
+                                    x_bar_title = "",
+                                    x_line1_title = "",
+                                    plot_title = "",
+                                    goal = 0.95)
+    }
     
-    get_bar_line_dashboard_plot(mr()$wk$cu, 
-                                mr()$mo$cu, 
-                                NULL,
-                                "uptime", 
-                                "percent", 
-                                highlight_color = GDOT_BLUE,
-                                month_ = current_month(), 
-                                zone_group_ = zone_group(),
-                                x_bar_title = "",
-                                x_line1_title = "",
-                                plot_title = "",
-                                goal = 0.95)
 })
 ```
 
@@ -1394,6 +1432,7 @@ fillRow(
 May 2018 | 
 [June 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-06.docx) | 
 [July 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-07.docx) | 
+August 2018
 
 
 #### **Download Traffic Engineers' Activity Reports (pdf)**
@@ -1592,8 +1631,8 @@ number of side street and left turn phases.
 Travel Time Index (TTI) is a measure of delay on the corridor. It is the
 ratio of travel time to free flow travel time.
 
-Hourly Inrix travel time data are queried from RITIS. Free flow travel
-times are based on the "reference speed" value from Inrix for each
+Hourly travel time data from HERE queried from RITIS. Free flow travel
+times are based on the "reference speed" value from HERE for each
 segment. Travel time and free flow travel time are calculated for each
 corridor by summing over all segments in the corridor for every hour in
 the month.
@@ -1612,8 +1651,8 @@ Travel Time Index. However, instead of taking the average travel times
 for each hour of the day, it takes the 90^th^ percentile for each hour,
 over the days of the month. These 90^th^ percentile travel times are
 then averaged over the day, weighted by the average hourly volume from
-the main street through phases  (from ATSPM) to get a PTI for the month (this gives more
-weight to peak periods than off-peak periods).
+the main street through phases  (from ATSPM) to get a PTI for the month 
+(this gives more weight to peak periods than off-peak periods).
 
 
 
@@ -1633,7 +1672,8 @@ compared with the previous month.
 #### **Peak Hour Volumes**
 
 The AM and PM average peak hour volumes are the average hourly volume
-for the month over the AM and PM peak hours, respectively. Peak hours are 6am-10am, 3pm-7pm.
+for the month over the AM and PM peak hours, respectively. 
+Peak hours are 6am-10am, 3pm-7pm.
 
 #### **Hourly Volumes**
 
