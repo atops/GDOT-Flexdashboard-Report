@@ -59,6 +59,27 @@ get_month_abbrs <- function(start_date, end_date) {
                       })
 }
 
+match_type <- function(val, val_type_to_match) {
+    eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
+}
+
+expand_values <- function(df, time_unit) {
+    
+    tu <- as.name(time_unit)
+    si_cp_df <- distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase)
+    si_cp_list <- si_cp_df$si_cp
+    
+    e <- expand.grid(si_cp = si_cp_list,
+                     val = unique(df[[time_unit]])) %>%
+        tidyr::separate(si_cp, c("SignalID", "CallPhase")) %>%
+        mutate(SignalID = match_type(SignalID, df$SignalID),
+            CallPhase = match_type(CallPhase, df$CallPhase)) %>%
+        rename(!!tu := val) %>%
+        as_tibble()
+    left_join(e) %>%
+        mutate(SignalID = factor(SignalID),
+               CallPhase = factor(CallPhase))
+}
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
@@ -934,8 +955,10 @@ get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
         df <- df %>%
             filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
     }
-    
+
     df %>%
+        #complete(nesting(SignalID, CallPhase), Date = full_seq(Date, 1)) %>%
+        #expand_values("Date") %>%
         group_by(SignalID, Date) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
                   !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
@@ -951,6 +974,8 @@ get_daily_sum <- function(df, var_, per_) {
     
     
     df %>%
+        complete(nesting(SignalID, CallPhase), !!var_ := full_seq(!!var_, 1)) %>%
+        #expand_values(per_) %>%
         group_by(SignalID, !!per_) %>% 
         summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
@@ -993,7 +1018,14 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
             filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
     }
     
+    # e <- expand.grid(si_cp = (distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase))$si_cp,
+    #                  Week = unique(df$Week)) %>%
+    #     tidyr::separate(si_cp, c("SignalID", "CallPhase")) 
+    # df <- bind_rows(df, e)
+    
     df %>%
+        complete(nesting(SignalID, CallPhase), Week = full_seq(Week, 1)) %>%
+        #expand_values("Week") %>%
         group_by(SignalID, CallPhase, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
                   !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
@@ -1033,8 +1065,18 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
             filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
     }
     
+    # df <- df %>% 
+    #     mutate(Month = Date - days(day(Date) - 1))
+    # e <- expand.grid(si_cp = (distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase))$si_cp,
+    #                  Month = unique(df$Month)) %>%
+    #     tidyr::separate(si_cp, c("SignalID", "CallPhase")) 
+    # df <- bind_rows(df, e)
+    
+    
     gdf <- df %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
+        complete(nesting(SignalID, CallPhase), Month = unique(Month)) %>%
+        #expand_values("Month") %>%
         group_by(SignalID, CallPhase, Month)
         
     if (is.null(wt_)) {
@@ -1151,7 +1193,7 @@ get_avg_by_hr <- function(df, var_, wt_=NULL) {
                    by = .(SignalID, CallPhase, Week, DOW, Hour)]
     } else {
         ret <- df_[, .(weighted.mean(get(var_), get(wt_), na.rm = TRUE),
-                       sum(get(wt_, na.rm = TRUE))), 
+                       sum(get(wt_), na.rm = TRUE)), 
                    by = .(SignalID, CallPhase, Week, DOW, Hour)]
         ret <- ret[, c((var_), (wt_)) := .(V1, V2)][, -(V1:V2)]
         ret <- ret[, delta := (get(var_) - shift(get(var_), 1, type = "lag"))/shift(get(var_), 1, type = "lag"),
@@ -1369,9 +1411,9 @@ get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
         ungroup() %>%
         rowwise() %>%
-        mutate(num.all = sum(all.sb, all.pr, na.rm = TRUE),
-               CallPhase = 0) %>%
+        mutate(num.all = sum(all.sb, all.pr, na.rm = TRUE)) %>%
         ungroup() %>%
+        mutate(CallPhase = 0) %>%
         get_monthly_avg_by_day("uptime.all", "num.all") %>%
         arrange(SignalID, Month)
 }
@@ -1858,17 +1900,26 @@ tidy_teams <- function(df) {
     df$id <- as.numeric(mdy_hms(df$`Created on`))/1e8 + df$cdn + abs(df$Latitude) + abs(df$Longitude)
     
     df %>% distinct() %>%
-        unite(Location, `Location Groups`, County, sep = "-") %>%
+        
+
+        mutate(`Task Type` = ifelse(`Task Type` == "- Preventative Maintenance", "04 - Preventative Maintenance", `Task Type`),
+               `Task Source` = ifelse(`Task Source` == "P Program", "RTOP Program", `Task Source`),
+               `Task Subtype` = ifelse(`Task Subtype` == "ection Check", "Detection Check", `Task Subtype`),
+               Priority = ifelse(Priority == "mal", "Normal", Priority)) %>%
+
+                
+        #unite(Location, `Location Groups`, County, sep = "-") %>%
         transmute(Id = id,
                   Task_Type = factor(`Task Type`),
                   Task_Subtype = factor(`Task Subtype`),
                   Task_Source = factor(`Task Source`),
                   Priority = factor(Priority),
                   Status = factor(Status),
-                  Corridor = get_corridor_name(Location),
-                  Location = factor(Location),
-                  `Date Reported` = mdy(`Date Reported`),
-                  `Date Resolved` = mdy(`Date Resolved`),
+                  #Corridor = get_corridor_name(Location),
+                  #Location = factor(Location),
+                  `Created on` = `Created on`,
+                  `Date Reported` = `Date Reported`,
+                  `Date Resolved` = `Date Resolved`,
                   `Time To Resolve In Days` = `Time To Resolve In Days`,
                   Maintained_by = ifelse(
                       grepl(pattern = "District 1", `Maintained by`), "D1",
@@ -1876,22 +1927,63 @@ tidy_teams <- function(df) {
                              ifelse(grepl(pattern = "Consultant|GDOT", `Maintained by`), "D6",
                                     as.character(`Maintained by`))))) %>%
         filter(!is.na(`Date Reported`)) %>% as_tibble()
+    
 }
 read_teams_csv <- function(csv_fn) {
-    df <- read.csv(csv_fn)
+    df <- read_csv(csv_fn) %>%
+        mutate(`Task Type` = as.character(`Task Type`),
+               `Due Date` = mdy(`Due Date`),
+               `Date Reported` = mdy(`Date Reported`),
+               `Date Resolved` = mdy(`Date Resolved`),
+               `Time To Resolve In Days` = as.integer(`Time To Resolve In Days`),
+               `Time To Resolve In Hours` = as.integer(`Time To Resolve In Hours`),
+               `Overdue In Days` = as.integer(`Overdue In Days`),
+               `Overdue In Hours` = as.integer(`Overdue In Hours`),
+               `Created on` = mdy_hms(`Created on`),
+               `Modified on` = mdy_hms(`Modified on`),
+               `Latitude` = as.numeric(`Latitude`),
+               `Longitude` = as.numeric(`Longitude`)) %>%
+        
+        select(`Due Date`,
+            `Task Type`,
+            `Task Subtype`,
+            `Task Source`,
+            `Priority`,
+            `Status`,
+            `Date Reported`,
+            `Date Resolved`,
+            `Time To Resolve In Days`,
+            `Time To Resolve In Hours`,
+            `Overdue In Days`,
+            `Overdue In Hours`,
+            `Maintained by`,
+            `Owned by`,
+            `County`,
+            `City`,
+            `Custom Identifier`,
+            `Primary Route`,
+            `Secondary Route`,
+            `Created on`,
+            `Created by`,
+            `Modified on`,
+            `Modified by`,
+            `Latitude`,
+            `Longitude`)
+    
     names(df) <- gsub("\\.", " ", names(df))
     
-    routes <- c("SR 10","SR 12","SR 120","SR 124","SR 13","SR 138E","SR 138S","SR 13N",
-                "SR 13S","SR 140","SR 141","SR 154","SR 155N","SR 155S","SR 20","SR 237",
-                "SR 280","SR 3","SR 314","SR 331","SR 360","SR 42","SR 5","SR 6","SR 8",
-                "SR 8/US 278","SR 85","SR 9","SR 92","US 278")
-    df2 <- mutate(df, `Location Groups` = "",
-                  `Overdue In Hours` = as.integer(`Overdue In Hours`))
-    for (rt in routes) {
-        df2 <- dplyr::mutate(df2, `Location Groups` = ifelse(grepl(rt, `Custom Identifier`), rt, `Location Groups`))
-    }
+    # routes <- c("SR 10","SR 12","SR 120","SR 124","SR 13","SR 138E","SR 138S","SR 13N",
+    #             "SR 13S","SR 140","SR 141","SR 154","SR 155N","SR 155S","SR 20","SR 237",
+    #             "SR 280","SR 3","SR 314","SR 331","SR 360","SR 42","SR 5","SR 6","SR 8",
+    #             "SR 8/US 278","SR 85","SR 9","SR 92","US 278")
+    # df2 <- mutate(df, `Location Groups` = "",
+    #               `Overdue In Hours` = as.integer(`Overdue In Hours`))
+    # for (rt in routes) {
+    #     df2 <- dplyr::mutate(df2, `Location Groups` = ifelse(grepl(rt, `Custom Identifier`), rt, `Location Groups`))
+    # }
     #tidy_teams(df2)
-    as_tibble(df2)
+    #as_tibble(df2)
+    as_tibble(df)
 }
 get_outstanding_events <- function(teams, group_var) {
     
