@@ -5,7 +5,7 @@ start_date: yesterday
 end_date: yesterday
 
 report_start_date: 2017-08-01
-report_end_date: 2018-08-31
+report_end_date: 2018-09-30
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: ../Master RTOP Counts File_2018-08-24.xlsx
@@ -40,25 +40,27 @@ teams:
 
         path: TEAMS Reports
         filenames:
-            - All Teams Tasks 7_1_17 to 7_31_18.csv
+            - 2017 Teams Tasks Zones 1-6.csv
+            - 2018 Teams Tasks Zones 1-6 - August.csv
             
     rtop_z7:
         zone_group: Zone 7
 
         path: TEAMS Reports
         filenames:
-            - All Teams Tasks Zone 7 6_1_18 to 7_31_18.csv
+            # 2017 - no data
+            - 2018 Teams Tasks Zones 7 - August.csv
 
     rtso_d1:
         zone_group: D1
 
         path: TEAMS Reports
         filenames:
-            - R1TSO__D1_TEAMSReport_Mar2018-July2018.csv
+            - R1TSO__D1_TEAMSReport_Aug2018_ALL.csv
         
     rtso_d6:
         zone_group: D6
 
         path: TEAMS Reports
         filenames:
-            - R1TSO__D6_TEAMSReport_Mar2018-July2018.csv
+            - R1TSO__D6_TEAMSReport_Aug2018_ALL.csv

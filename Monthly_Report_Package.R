@@ -67,13 +67,13 @@ ddu <- f("ddu_", month_abbrs)
 daily_detector_uptime <- split(ddu, ddu$setback)
 
 avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
-monthly_detector_uptime <- get_monthly_detector_uptime(avg_daily_detector_uptime)
+cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
 
 # mdu_all <- get_monthly_avg_by_day(ddu, "uptime", "all")
 # mdu_sb <- get_monthly_avg_by_day(filter(ddu, setback == "Setback"), "uptime", "all")
 # mdu_pr <- get_monthly_avg_by_day(filter(ddu, setback == "Presence"), "uptime", "all")
 
-cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
+monthly_detector_uptime <- get_monthly_detector_uptime(avg_daily_detector_uptime)
 cor_monthly_detector_uptime <- get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
 
 saveRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds")
@@ -92,15 +92,6 @@ gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-# combine daily (cu_yyyy-mm-dd.fst) into monthly (cu_yyyy-mm.fst)
-lapply(month_abbrs, function(month_abbr) {
-    fns <- list.files(pattern = paste0("cu_", month_abbr, "-\\d{2}.fst"))
-    if (length(fns) > 0) {
-        lapply(fns, read_fst) %>%
-            bind_rows() %>% 
-            write_fst(., paste0("cu_", month_abbr, ".fst"))
-    }
-})
 
 # # Update Week variables to start at one at 12/25/16
 # lapply(month_abbrs, function(month_abbr) {
@@ -280,16 +271,23 @@ gc()
 
 # DAILY SPLIT FAILURES #####################################################
 
-sf_filenames <- list.files(pattern = "sf_\\d{4}-\\d{2}-\\d{2}\\.feather")
-wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames), label = TRUE)
-twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
-sf_filenames <- sf_filenames[twr]
+# sf_filenames <- list.files(pattern = "sf_\\d{4}-\\d{2}-\\d{2}\\.feather")
+# wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames), label = TRUE)
+# twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
+# sf_filenames <- sf_filenames[twr]
+# 
+# cl <- makeCluster(3)
+# sf <- parLapply(cl, sf_filenames, read_feather) %>%
+#     bind_rows() %>%
+#     get_sf()
+# stopCluster(cl)
 
-cl <- makeCluster(3)
-sf <- parLapply(cl, sf_filenames, read_feather) %>%
-    bind_rows() %>%
-    get_sf()
-stopCluster(cl)
+sf <- f("sf_", month_abbrs) %>% 
+    mutate(Date = date(Hour),
+           Week = week(Date),
+           DOW = wday(Date)) %>%
+    rename(Date_Hour = Hour,
+           CallPhase = Phase)
 
 
 wsf <- get_weekly_sf_by_day(sf)
@@ -565,25 +563,35 @@ teams <- readRDS("teams.rds")
 type_table <- get_outstanding_events(teams, "Task_Type") %>%
     mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
     group_by(Zone_Group, Task_Type, Month) %>%
-    summarize_all(sum)
+    summarize_all(sum) %>%
+    ungroup() %>%
+    mutate(Task_Type = factor(Task_Type))
 
 subtype_table <- get_outstanding_events(teams, "Task_Subtype") %>%
     mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
     group_by(Zone_Group, Task_Subtype, Month) %>%
-    summarize_all(sum)
+    summarize_all(sum) %>%
+    ungroup() %>%
+    mutate(Task_Subtype = factor(Task_Subtype))
 
 source_table <- get_outstanding_events(teams, "Task_Source") %>%
     mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
     group_by(Zone_Group, Task_Source, Month) %>%
-    summarize_all(sum)
+    summarize_all(sum) %>%
+    ungroup() %>%
+    mutate(Task_Source = factor(Task_Source))
 
 priority_table <- get_outstanding_events(teams, "Priority") %>%
     group_by(Zone_Group, Priority, Month) %>%
-    summarize_all(sum)
+    summarize_all(sum) %>%
+    ungroup() %>%
+    mutate(Priority = factor(Priority))
 
 all_teams_table <- get_outstanding_events(teams, "All") %>%
     group_by(Zone_Group, All, Month) %>%
-    summarize_all(sum)
+    summarize_all(sum) %>%
+    ungroup() %>%
+    mutate(All = factor(All))
 
 teams_tables <- list("type" = type_table,
                      "subtype" = subtype_table,
@@ -785,6 +793,13 @@ saveRDS(cor, "cor.rds")
 saveRDS(sig, "sig.rds")
 
 
-aws.s3::put_object(file = "cor.rds", object = "cor.rds", bucket = "gdot-devices")
-aws.s3::put_object(file = "sig.rds", object = "sig.rds", bucket = "gdot-devices")
+aws.s3::put_object(file = "cor.rds", 
+                   object = "cor.rds", 
+                   bucket = "gdot-devices")
+aws.s3::put_object(file = "sig.rds", 
+                   object = "sig.rds", 
+                   bucket = "gdot-devices")
+aws.s3::put_object(file = "teams_tables.rds", 
+                   object = "teams_tables.rds", 
+                   bucket = "gdot-devices")
 

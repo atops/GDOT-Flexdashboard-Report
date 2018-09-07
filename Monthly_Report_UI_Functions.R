@@ -63,11 +63,9 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
 corridors <- read_feather("corridors.feather")
 teams_tables <- readRDS("teams_tables.rds")
 
-aws.s3::save_object("cor.rds", "gdot-devices", file = "cor_s3.rds")
-aws.s3::save_object("sig.rds", "gdot-devices", file = "sig_s3.rds")
 
-cor <- readRDS("cor_s3.rds")
-sig <- readRDS("sig_s3.rds")
+cor <- readRDS("cor.rds")
+sig <- readRDS("sig.rds")
 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
@@ -387,8 +385,10 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
     mott <- full_join(cor_monthly_tti, cor_monthly_pti,
                       by = c("Corridor", "Zone_Group", "Month"),
                       suffix = c(".tti", ".pti"))  %>%
-        filter(!is.na(Corridor)) %>% #,
+        filter(!is.na(Corridor)) %>%
         mutate(bti = pti - tti) %>%
+        ungroup() %>%
+        filter(Month < month_ + months(1)) %>%
         select(Corridor, Zone_Group, Month, tti, pti, bti)
     
     hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
@@ -396,6 +396,8 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       suffix = c(".tti", ".pti"))  %>%
         filter(!is.na(Corridor)) %>%#,
         mutate(bti = pti - tti) %>%
+        ungroup() %>%
+        filter(Month < month_ + months(1)) %>%
         select(Corridor, Zone_Group, Hour, tti, pti, bti)
     
     if (zone_group_ == "All RTOP") {
@@ -1016,7 +1018,8 @@ plot_teams_tasks_ <- function(tab, var_,
     
     tab <- tab %>% 
         arrange(!!var_) %>% 
-        mutate(var = fct_rev(factor(!!var_, levels = !!var_)))
+        #mutate(var = fct_rev(factor(!!var_, levels = !!var_)))
+        mutate(var = fct_rev(fct_drop(!!var_)))
     
     p1 <- plot_ly(data = tab, height = height_) %>%
         add_bars(x = ~Rep, 
@@ -1076,7 +1079,7 @@ plot_tasks_ <- function(type_plot, source_plot, priority_plot,
         layout(paper_bgcolor = "#f0f0f0", 
                annotations = list(
                    list(text = paste("Tasks by Type -", month_name), 
-                        font = list(size = 12), 
+                        font = list(size = 11), 
                         xref = "paper", 
                         yref = "paper", 
                         yanchor = "bottom",
@@ -1086,7 +1089,7 @@ plot_tasks_ <- function(type_plot, source_plot, priority_plot,
                         showarrow = FALSE,
                         showlegend = FALSE), 
                    list(text = paste("Tasks by Source -", month_name), 
-                        font = list(size = 12), 
+                        font = list(size = 11), 
                         xref = "paper", 
                         yref = "paper", 
                         yanchor = "top",
@@ -1096,7 +1099,7 @@ plot_tasks_ <- function(type_plot, source_plot, priority_plot,
                         showarrow = FALSE,
                         showlegend = FALSE), 
                    list(text = paste("Tasks by Priority -", month_name), 
-                        font = list(size = 12), 
+                        font = list(size = 11), 
                         xref = "paper", 
                         yref = "paper", 
                         yanchor = "top",
@@ -1108,7 +1111,7 @@ plot_tasks_ <- function(type_plot, source_plot, priority_plot,
     
     p2 <- subtype_plot %>% 
         layout(annotations = list(text = paste("Tasks by Subtype -", month_name), 
-                                  font = list(size = 12), 
+                                  font = list(size = 11), 
                                   xref = "paper", 
                                   yref = "paper", 
                                   yanchor = "bottom",
@@ -1199,25 +1202,28 @@ plot_individual_cctvs <- memoise(plot_individual_cctvs_)
 
 
 uptime_heatmap <- function(df_,
-                            month_ = current_month(), 
-                            zone_group_ = zone_group()) {
+                           var_,
+                           month_ = current_month(), 
+                           zone_group_ = zone_group()) {
     
+    var <- as.name(var_)
     df <- filter(df_, Date < month_ + months(1)) %>%
         filter(Zone_Group == zone_group_) %>%
-        select(SignalID = Corridor, Date, uptime.all) %>%
+        select(SignalID = Corridor, Date, !!var) %>%
         distinct()
     
     start_date <- floor_date(min(df_$Date), "month")
     end_date <- ceiling_date(max(df_$Date), "month") - days(1)
     e <- expand.grid(SignalID = unique(df$SignalID), 
                      Date = seq(start_date, end_date, by = "days"), 
-                     uptime.all = 0)
+                     var = 0) %>%
+        rename(!!var := var)
     
     spr <- bind_rows(df, e) %>% 
         group_by(SignalID, Date) %>% 
-        summarize(uptime.all = sum(uptime.all)) %>% 
+        summarize(!!var := sum(!!var)) %>% 
         ungroup() %>%
-        spread(Date, uptime.all, fill = 0) %>%
+        spread(Date, !!var, fill = 0) %>% 
         arrange(desc(SignalID))
     
     m <- as.matrix(spr %>% select(-SignalID))
@@ -1237,17 +1243,17 @@ uptime_heatmap <- function(df_,
 }
 
 
-get_detector_uptime_plot_ <- function(daily_df, 
-                                      monthly_df, 
-                                      var_,
-                                      num_format, # percent, integer, decimal
-                                      month_, 
-                                      zone_group_, 
-                                      x_bar_title = "___",
-                                      x_line1_title = "___",
-                                      x_line2_title = "___",
-                                      plot_title = "___ ",
-                                      goal = NULL) {
+get_uptime_plot_ <- function(daily_df,
+                             monthly_df,
+                             var_,
+                             num_format, # percent, integer, decimal
+                             month_, 
+                             zone_group_, 
+                             x_bar_title = "___",
+                             x_line1_title = "___",
+                             x_line2_title = "___",
+                             plot_title = "___ ",
+                             goal = NULL) {
     
     var <- as.name(var_)
     if (num_format == "percent") {
@@ -1267,17 +1273,17 @@ get_detector_uptime_plot_ <- function(daily_df,
             filter(Month == month_,
                    Zone_Group == zone_group_) %>%
             arrange(desc(Corridor)) %>%
-            mutate(var = !!var_,
+            mutate(var = !!var,
                    col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
         
         # Current Month Data
         bar_chart <- plot_ly(monthly_df_,
                              type = "bar",
-                             x = ~uptime.all, 
+                             x = ~var, #uptime.all, 
                              y = ~Corridor,
                              marker = list(color = ~col),
-                             text = ~var_fmt(uptime.all),
+                             text = ~var_fmt(var),
                              textposition = "auto",
                              insidetextfont = list(color = "black")) %>%#,
                              #hoverinfo = "none") %>%
@@ -1291,21 +1297,18 @@ get_detector_uptime_plot_ <- function(daily_df,
                 font = list(size = 11),
                 margin = list(pad = 4,
                               l = 100,
-                              r = 50)
+                              r = 50),
+                shapes=list(type = 'line', 
+                            x0 = goal/0.2, 
+                            x1 = goal/0.2, 
+                            y0 = min(levels(monthly_df_$Corridor)), 
+                            y1 = max(levels(monthly_df_$Corridor)), 
+                            line = list(dash = 'dot', width = 1, color = RED))
             )
-        if (!is.null(goal)) {
-            bar_chart <- bar_chart %>% 
-                add_lines(x = goal,
-                          y = ~Corridor,
-                          mode = "lines",
-                          marker = NULL,
-                          line = list(color = LIGHT_RED),
-                          name = "Goal (95%)",
-                          showlegend = FALSE)
-        }
         
         # Daily Heatmap
         daily_heatmap <- uptime_heatmap(daily_df, 
+                                        var,
                                         month_,
                                         zone_group_)
         
@@ -1318,7 +1321,7 @@ get_detector_uptime_plot_ <- function(daily_df,
         no_data_plot("")
     }
 }
-get_detector_uptime_plot <- memoise(get_detector_uptime_plot_)
+get_uptime_plot <- memoise(get_uptime_plot_)
 
 # No longer used
 plot_cctvs <- function(df, month_) {

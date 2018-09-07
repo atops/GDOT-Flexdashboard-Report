@@ -61,6 +61,16 @@ get_counts2_date_range <- function(start_date, end_date) {
 get_counts2_date_range(start_date, end_date)
 
 
+# combine daily (cu_yyyy-mm-dd.fst) into monthly (cu_yyyy-mm.fst)
+lapply(month_abbrs, function(month_abbr) {
+    fns <- list.files(pattern = paste0("cu_", month_abbr, "-\\d{2}.fst"))
+    if (length(fns) > 0) {
+        lapply(fns, read_fst) %>%
+            bind_rows() %>% 
+            write_fst(., paste0("cu_", month_abbr, ".fst"))
+    }
+})
+
 
 # --- Everything up to here needs the ATSPM Database ---
 
@@ -74,44 +84,50 @@ get_daily_throughput <- function(month_abbrs) {
         month_pattern <- paste0("counts_15min_TWR_", x, "-\\d\\d?\\.fst")
         fns <- list.files(pattern = month_pattern)
         
-        print(fns)
-        #print("raw counts")
-        #raw_counts_15min <- bind_rows(lapply(fns, read_fst))
-        
-        print("filtered counts")
-        
-        cl <- makeCluster(4)
-        clusterExport(cl, c("get_filtered_counts",
-                            "week",
-                            "signals_list"))
-        fcs <- parLapply(cl, fns, function(fn) {
-            library(fst)
-            library(dplyr)
-            library(tidyr)
-            library(lubridate)
+        if (length(fns) > 0) {
             
-            # Filter and Adjust (interpolate) 15 min Counts
-            read_fst(fn) %>%
-                filter(SignalID %in% signals_list) %>%
-                get_filtered_counts(., interval = "15 min")
+            print(fns)
+            #print("raw counts")
+            #raw_counts_15min <- bind_rows(lapply(fns, read_fst))
             
-        })
-        stopCluster(cl)
-        
-        filtered_counts_15min <- bind_rows(fcs)
-        rm(fcs)
-        #rm(raw_counts_15min)
-        
-        print("adjusted counts")
-        adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
-        rm(filtered_counts_15min)
-        
-        # Calculate and write Throughput
-        print("throughput")
-        throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
-        rm(adjusted_counts_15min)
-        
-        write_fst(throughput, paste0("tp_", x, ".fst"))
+            print("filtered counts")
+            
+            cl <- makeCluster(4)
+            clusterExport(cl, c("get_filtered_counts",
+                                "week",
+                                "signals_list"))
+            fcs <- parLapply(cl, fns, function(fn) {
+                library(fst)
+                library(dplyr)
+                library(tidyr)
+                library(lubridate)
+                
+                # Filter and Adjust (interpolate) 15 min Counts
+                read_fst(fn) %>%
+                    filter(SignalID %in% signals_list) %>%
+                    get_filtered_counts(., interval = "15 min")
+                
+            })
+            stopCluster(cl)
+            
+            filtered_counts_15min <- bind_rows(fcs)
+            rm(fcs)
+            #rm(raw_counts_15min)
+            
+            print("adjusted counts")
+            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
+            rm(filtered_counts_15min)
+            
+            # Calculate and write Throughput
+            print("throughput")
+            throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
+            rm(adjusted_counts_15min)
+            
+            write_fst(throughput, paste0("tp_", x, ".fst"))
+
+        } else {
+            print("No 15-minute count files in date range.")
+        }
     })
 }
 get_daily_throughput(month_abbrs)
@@ -312,6 +328,20 @@ get_queue_spillback_date_range(start_date, end_date)
 
 py_run_file("split_failures2.py") # python script
 
+lapply(month_abbrs, function(month_abbr) {
+    fns <- list.files(pattern = paste0("sf_", month_abbr, "-\\d{2}.feather"))
+    
+    wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", fns), label = TRUE)
+    twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
+    fns <- fns[twr]
+    
+    print(fns)
+    if (length(fns) > 0) {
+        lapply(fns, read_feather) %>%
+            bind_rows() %>% 
+            write_fst(., paste0("sf_", month_abbr, ".fst"))
+    }
+})
 # # GET CAMERA UPTIMES ########################################################
 
 py_run_file("parse_cctvlog.py") # Run python script
