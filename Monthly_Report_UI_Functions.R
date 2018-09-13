@@ -62,11 +62,24 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
 
 corridors <- read_feather("corridors.feather")
 
-
-# cor <- readRDS("cor.rds")
-# sig <- readRDS("sig.rds")
-# teams_tables <- readRDS("teams_tables.rds")
-
+if (conf$mode == "production") {
+    
+    cor <- readRDS("cor.rds")
+    sig <- readRDS("sig.rds")
+    teams_tables <- readRDS("teams_tables.rds")
+    
+} else if (conf$mode == "beta") {
+    
+    aws.s3::save_object("cor.rds", "gdot-devices", file = "cor_s3.rds")
+    aws.s3::save_object("sig.rds", "gdot-devices", file = "sig_s3.rds")
+    aws.s3::save_object("teams_tables.rds", "gdot-devices", file = "teams_tables_s3.rds")
+    
+    cor <- readRDS("cor_s3.rds")
+    sig <- readRDS("sig_s3.rds")
+    teams_tables <- readRDS("teams_tables_s3.rds")
+} else {
+    stop("mode defined in configuration yaml file must be either production or beta")
+}
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
