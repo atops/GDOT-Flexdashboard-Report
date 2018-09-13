@@ -47,6 +47,8 @@ print(month_abbrs)
 
 # # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
 
+print("Travel Times")
+
 fs <- list.files(path = "Inrix/For_Monthly_Report", recursive = TRUE, full.names = TRUE)
 fns <- fs[grepl("TWTh.csv", fs)]
 tt <- get_tt_csv(fns)
@@ -62,6 +64,8 @@ gc()
 
 
 # # DETECTOR UPTIME ###########################################################
+
+print("Detector Uptime")
 
 ddu <- f("ddu_", month_abbrs)
 daily_detector_uptime <- split(ddu, ddu$setback)
@@ -92,14 +96,7 @@ gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-
-# # Update Week variables to start at one at 12/25/16
-# lapply(month_abbrs, function(month_abbr) {
-#     fn <- glue("vpd_{month_abbr}.fst")
-#     read_fst(fn) %>%
-#         mutate(Week = week(Date)) %>%
-#         as_tibble() %>% write_fst(., fn)
-# })
+print("Communication Uptime")
 
 cu <- f("cu_", month_abbrs)
 daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
@@ -132,6 +129,8 @@ gc()
 
 # DAILY VOLUMES ###############################################################
 
+print("Daily Volumes")
+
 vpd <- f("vpd_", month_abbrs)
 weekly_vpd <- get_weekly_vpd(vpd)
 
@@ -158,6 +157,8 @@ rm(cor_monthly_vpd)
 gc()
 
 # HOURLY VOLUMES ##############################################################
+
+print("Hourly Volumes")
 
 vph <- f("vph_", month_abbrs)
 weekly_vph <- get_weekly_vph(mutate(vph, CallPhase = 2)) # Hack because next function needs a CallPhase
@@ -197,6 +198,8 @@ gc()
 
 # DAILY THROUGHPUT ############################################################
 
+print("Daily Throughput")
+
 throughput <- f("tp_", month_abbrs)
 weekly_throughput <- get_weekly_thruput(throughput)
 
@@ -226,6 +229,8 @@ gc()
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
+print("Daily AOG")
+
 aog <- f("aog_", month_abbrs, combine = TRUE)
 daily_aog <- get_daily_aog(aog)
 
@@ -250,6 +255,8 @@ rm(cor_monthly_aog_by_day)
 gc()
 
 # HOURLY ARRIVALS ON GREEN ####################################################
+
+print("Hourly AOG")
 
 aog_by_hr <- get_aog_by_hr(aog)
 monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
@@ -282,6 +289,8 @@ gc()
 #     get_sf()
 # stopCluster(cl)
 
+print("Daily Split Failures")
+
 sf <- f("sf_", month_abbrs) %>% 
     mutate(Date = date(Hour),
            Week = week(Date),
@@ -291,13 +300,9 @@ sf <- f("sf_", month_abbrs) %>%
 
 
 wsf <- get_weekly_sf_by_day(sf)
-
-
 cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
 
 monthly_sfd <- get_monthly_sf_by_day(sf)
-
-
 cor_monthly_sfd <- get_cor_monthly_sf_by_day(monthly_sfd, corridors)
 
 saveRDS(wsf, "wsf.rds")
@@ -313,6 +318,8 @@ rm(cor_monthly_sfd)
 gc()
 
 # HOURLY SPLIT FAILURES #######################################################
+
+print("Hourly Split Failures")
 
 sfh <- get_sf_by_hr(sf)
 
@@ -332,6 +339,8 @@ gc()
 
 # DAILY QUEUE SPILLBACK #######################################################
 
+print("Daily Queue Spillback")
+
 qs <- f("qs_", month_abbrs)
 wqs <- get_weekly_qs_by_day(qs)
 cor_wqs <- get_cor_weekly_qs_by_day(wqs, corridors)
@@ -346,6 +355,8 @@ saveRDS(cor_monthly_qsd, "cor_monthly_qsd.rds")
 
 
 # HOURLY QUEUE SPILLBACK ######################################################
+
+print("Hourly Queue Spillback")
 
 qsh <- get_qs_by_hr(qs)
 mqsh <- get_monthly_qs_by_hr(qsh)
@@ -391,6 +402,8 @@ rm(cor_monthly_pti)
 rm(cor_monthly_pti_by_hr)
 
 # DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
+
+print("Uptimes")
 
 # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
@@ -438,27 +451,25 @@ cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
 
 # CCTV image size variance by CameraID and Date
 #  -> reduce to 1 for Size > 0, 0 otherwise
-cctv_511 <- read_feather("parsed_cctv.feather") %>%
-    filter(Date > "2018-02-02" & Size > 0) %>%
-    mutate(up = 1, num = 1) %>%
-    select(-Size) %>%
-    distinct()
-
-e <- expand.grid(CameraID = unique(cctv_511$CameraID), 
-                 Date = seq(min(cctv_511$Date), max(cctv_511$Date), by = "1 day"), 
-                 up = 0, num = 1)
 
 # Expanded out to include all available cameras on all days
 #  up/uptime is 0 if no data
-daily_cctv_uptime_511 <- bind_rows(cctv_511, e) %>% 
-    group_by(CameraID, Date) %>% 
-    summarize(up = max(up),
-              num = 1,
-              uptime = up) %>%
-    ungroup() %>%
+daily_cctv_uptime_511 <- read_feather("parsed_cctv.feather") %>%
+    filter(Date > "2018-02-02" & Size > 0) %>%
+    mutate(up = 1, num = 1) %>%
+    select(-Size) %>%
+    distinct() %>%
+    
+    # Expanded out to include all available cameras on all days
+    complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
+    
+    mutate(uptime = up/num) %>%
+    
     left_join(select(cam_config, -Location)) %>% 
     filter(Date >= As_of_Date & Corridor != "") %>%
-    select(-As_of_Date)
+    select(-As_of_Date) %>%
+    mutate(CameraID = factor(CameraID))
+
 
 # Find the days where uptime across the board is very low (close to 0)
 #  This is symptomatic of a problem with the acquisition rather than the camreras themselves
@@ -538,6 +549,8 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 
 
 # ACTIVITIES ##############################
+
+print("TEAMS")
 
 # reduced so it leverages config file structure
 teams <- lapply(conf$teams, function(x) {
@@ -624,6 +637,8 @@ saveRDS(cor_monthly_events, "cor_monthly_events.rds")
 
 
 # Package up for Flexdashboard
+
+print("Package for Monthly Report")
 
 sigify <- function(df, cor_df, corridors) {
     
