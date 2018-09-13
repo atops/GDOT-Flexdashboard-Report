@@ -61,11 +61,11 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
 }
 
 corridors <- read_feather("corridors.feather")
-teams_tables <- readRDS("teams_tables.rds")
 
 
-cor <- readRDS("cor.rds")
-sig <- readRDS("sig.rds")
+# cor <- readRDS("cor.rds")
+# sig <- readRDS("sig.rds")
+# teams_tables <- readRDS("teams_tables.rds")
 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
