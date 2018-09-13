@@ -22,6 +22,7 @@ xl_uptime:
         - May Vehicle and Ped Detector Info.xlsx
         - June Vehicle and Ped Detector Info.xlsx
         - July Vehicle and Ped Detector Info.xlsx
+        - August Vehicle and Ped Detector Info.xlsx
         
     months:
         - 2018-01-01
@@ -31,6 +32,7 @@ xl_uptime:
         - 2018-05-01
         - 2018-06-01
         - 2018-07-01
+        - 2018-08-01
 
 
 teams:
