@@ -23,7 +23,15 @@ library(plotly)
 library(crosstalk)
 
 library(reticulate)
-use_python(file.path(dirname(path.expand("~")), "Anaconda3", "python.exe"))
+if (Sys.info()["sysname"] == "Windows") {
+    python_path <- file.path(dirname(path.expand("~")), "Anaconda3", "python.exe")
+    
+} else if (Sys.info()["sysname"] == "Linux") {
+    python_path <- file.path("~", "miniconda3", "bin", "python")
+} else {
+    stop("Unknown operating system.")
+}
+use_python(python_path)
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
@@ -446,6 +454,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
 }
 
 # revised version of get_filtered_counts. Needs more testing.
+# bad_days2 calc adds no value. Remove.
 get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
     counts <- counts %>%
@@ -507,6 +516,33 @@ get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g.
         # manually calibrated
         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 60 & mean_abs_delta < 200, 1, 0))) %>%
         select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
+    
+    # conn <- dbConnect(odbc::odbc(), 
+    #                   dsn="sqlodbc", 
+    #                   uid=Sys.getenv("ATSPM_USERNAME"), 
+    #                   pwd=Sys.getenv("ATSPM_PASSWORD")
+    min_ts <- min(counts$Timeperiod)
+    max_ts <- max(counts$Timeperiod)
+    
+    bad_days2 <- lapply(as.character(unique(counts$SignalID)), function(s) {
+        tbl(conn, "Controller_Event_Log") %>% 
+            filter(between(Timestamp, min_ts, max_ts) & 
+                       EventCode %in% c(81,82) & 
+                       SignalID == s) %>% 
+            group_by(SignalID, Detector = EventParam, EventCode) %>% 
+            count() %>% 
+            collect() %>% 
+            spread(EventCode, n) %>% 
+            ungroup()
+    }) %>% bind_rows() %>% 
+        replace_na(list(`81` = 0, `82` = 0)) %>% 
+        mutate(diff = abs(`81` - `82`)) %>%
+        mutate(sddiff = sd(diff)) %>%
+        filter(diff > sddiff) %>%
+        transmute(SignalID = factor(SignalID),
+                  Detector = factor(Detector),
+                  gd = 0) %>%
+        full_join(bad_days)
     
     # counts with the bad days taken out
     filtered_counts <- left_join(expanded_counts, bad_days) %>%
