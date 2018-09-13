@@ -7,6 +7,7 @@ library(readxl)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(stringr)
 library(purrr)
 library(lubridate)
 library(glue)
@@ -59,27 +60,27 @@ get_month_abbrs <- function(start_date, end_date) {
                       })
 }
 
-match_type <- function(val, val_type_to_match) {
-    eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
-}
-
-expand_values <- function(df, time_unit) {
-    
-    tu <- as.name(time_unit)
-    si_cp_df <- distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase)
-    si_cp_list <- si_cp_df$si_cp
-    
-    e <- expand.grid(si_cp = si_cp_list,
-                     val = unique(df[[time_unit]])) %>%
-        tidyr::separate(si_cp, c("SignalID", "CallPhase")) %>%
-        mutate(SignalID = match_type(SignalID, df$SignalID),
-            CallPhase = match_type(CallPhase, df$CallPhase)) %>%
-        rename(!!tu := val) %>%
-        as_tibble()
-    left_join(e) %>%
-        mutate(SignalID = factor(SignalID),
-               CallPhase = factor(CallPhase))
-}
+# match_type <- function(val, val_type_to_match) {
+#     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
+# }
+# 
+# expand_values <- function(df, time_unit) { # this was replaced with "complete"
+#     
+#     tu <- as.name(time_unit)
+#     si_cp_df <- distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase)
+#     si_cp_list <- si_cp_df$si_cp
+#     
+#     e <- expand.grid(si_cp = si_cp_list,
+#                      val = unique(df[[time_unit]])) %>%
+#         tidyr::separate(si_cp, c("SignalID", "CallPhase")) %>%
+#         mutate(SignalID = match_type(SignalID, df$SignalID),
+#             CallPhase = match_type(CallPhase, df$CallPhase)) %>%
+#         rename(!!tu := val) %>%
+#         as_tibble()
+#     left_join(e) %>%
+#         mutate(SignalID = factor(SignalID),
+#                CallPhase = factor(CallPhase))
+# }
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
@@ -444,8 +445,80 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     }
 }
 
-
-
+# revised version of get_filtered_counts. Needs more testing.
+get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+    
+    counts <- counts %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase)) %>%
+        filter(!is.na(CallPhase))
+    
+    
+    # define included periods. Only include dates in the counts data
+    all_periods <- seq(min(counts$Timeperiod), max(counts$Timeperiod), by = interval)
+    all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
+    
+    
+    # define excluded detectors
+    num_days <- length(unique(date(counts$Timeperiod)))
+    
+    excluded_detectors <- counts %>%
+        group_by(SignalID, CallPhase, Detector) %>% 
+        summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
+        dplyr::filter(Total_Volume < (100 * num_days)) %>%
+        select(-Total_Volume)
+    
+    # Expand over all SignalID, Detector, CallPhase, Timeperiods
+    expanded_counts <- counts %>% 
+        
+        complete(nesting(SignalID, Detector, CallPhase), Timeperiod = all_periods) %>%
+        
+        mutate(Date = date(Timeperiod),
+               vol = replace_na(vol, 0)) %>%
+        anti_join(excluded_detectors) %>%
+        
+        mutate(SignalID = factor(SignalID), 
+               Detector = factor(Detector), 
+               CallPhase = factor(CallPhase),
+               vol0 = ifelse(is.na(vol), 0, vol)) %>%
+        group_by(SignalID, CallPhase, Detector) %>% 
+        arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
+        mutate(delta_vol = vol0 - lag(vol0),
+               Good = ifelse(is.na(vol) | 
+                                 vol > 1000 | 
+                                 is.na(delta_vol) | 
+                                 abs(delta_vol) > 500 | 
+                                 abs(delta_vol) == 0,
+                             0, 1)) %>%
+        select(-vol0)
+    
+    # bad day = any of the following:
+    #    too many bad hours (60%) based on the above criteria
+    #    mean absolute change in hourly volume > 200 
+    bad_days <- expanded_counts %>% 
+        filter(hour(Timeperiod) > 5) %>%
+        group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
+        summarize(Good = sum(Good, na.rm = TRUE), 
+                  All = n(), 
+                  Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
+                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
+        
+        # manually calibrated
+        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 60 & mean_abs_delta < 200, 1, 0))) %>%
+        select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
+    
+    # counts with the bad days taken out
+    filtered_counts <- left_join(expanded_counts, bad_days) %>%
+        mutate(vol = ifelse(Good_Day==1, vol, NA),
+               Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
+               Hour = Month_Hour - months(month(Month_Hour) - 1))
+    
+    filtered_counts
+    
+    # -------------------------------------------------------------------
+    
+}
 
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
