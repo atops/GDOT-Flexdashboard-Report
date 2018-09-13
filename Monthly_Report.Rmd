@@ -14,13 +14,13 @@ runtime: shiny
 
 source("Monthly_Report_UI_Functions.R")
 
-#aws.s3::save_object("cor.rds", "gdot-devices", file = "cor_s3.rds")
-#aws.s3::save_object("sig.rds", "gdot-devices", file = "sig_s3.rds")
-#aws.s3::save_object("teams_tables.rds", "gdot-devices", file = "teams_tables_s3.rds")
+aws.s3::save_object("cor.rds", "gdot-devices", file = "cor_s3.rds")
+aws.s3::save_object("sig.rds", "gdot-devices", file = "sig_s3.rds")
+aws.s3::save_object("teams_tables.rds", "gdot-devices", file = "teams_tables_s3.rds")
 
-#cor <- readRDS("cor_s3.rds")
-#sig <- readRDS("sig_s3.rds")
-#teams_tables <- readRDS("teams_tables_s3.rds")
+cor <- readRDS("cor_s3.rds")
+sig <- readRDS("sig_s3.rds")
+teams_tables <- readRDS("teams_tables_s3.rds")
 
 
 FIG_WIDTH = 14
@@ -1755,10 +1755,12 @@ working as of its "last modified" timestamp from the website.
 
 #### **Communications Uptime**
 
-This is calculated from detector volumes. Any hour with no volume on all
-detectors in an intersection is considered to have failed
-communications. In the future, this will be generalized to not be 
-dependent on detectors.
+This is calculated from gaps in the ATSPM high resolution data. Any gaps
+in subsequent events greater than 15 minutes are considered to be due to 
+communication loss. The sum of these gaps converted to a percent is the
+daily communication uptime for that controller. If comms are lost for all
+intersections, it is considered a system failure and that time is excluded
+from the uptime calculation.
 
 #### **Events Reported, Resolved, Outstanding**
 
