@@ -79,17 +79,26 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
 
-get_daily_throughput <- function(month_abbrs) {
-    lapply(month_abbrs, function(x) {
-        month_pattern <- paste0("counts_15min_TWR_", x, "-\\d\\d?\\.fst")
+
+# Read Raw Counts for a month from files and output:
+#   filtered_counts_1hr
+#   adjusted_counts_1hr
+#   BadDetectors
+
+get_counts_based_measures <- function(month_abbrs) {
+    lapply(month_abbrs, function(yyyy_mm) {
+        
+        gc()
+        
+        #-----------------------------------------------
+        # 1-hour counts, filtered, adjusted, bad detectors
+        
+        month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
         fns <- list.files(pattern = month_pattern)
         
+        print(fns)
+        
         if (length(fns) > 0) {
-            
-            print(fns)
-            #print("raw counts")
-            #raw_counts_15min <- bind_rows(lapply(fns, read_fst))
-            
             print("filtered counts")
             
             cl <- makeCluster(4)
@@ -102,88 +111,112 @@ get_daily_throughput <- function(month_abbrs) {
                 library(tidyr)
                 library(lubridate)
                 
-                # Filter and Adjust (interpolate) 15 min Counts
-                read_fst(fn) %>%
+                read_fst(fn) %>% 
                     filter(SignalID %in% signals_list) %>%
-                    get_filtered_counts(., interval = "15 min")
+                    get_filtered_counts(., interval = "1 hour")
                 
             })
             stopCluster(cl)
             
-            filtered_counts_15min <- bind_rows(fcs)
+            filtered_counts_1hr <- bind_rows(fcs)
+            write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
             rm(fcs)
-            #rm(raw_counts_15min)
             
             print("adjusted counts")
-            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min)
+            adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
+            write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
+            #rm(adjusted_counts_1hr)
+            
+            print("bad detectors")
+            bad_detectors <- get_bad_detectors(filtered_counts_1hr)
+            #rm(filtered_counts_1hr)
+            
+            write_fst(bad_detectors, paste0("bad_detectors_", yyyy_mm, ".fst"))
+            
+            
+            
+            # VPD
+            print("vpd")
+            vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
+            write_fst(vpd, paste0("vpd_", yyyy_mm, ".fst"))
+            
+            
+            # VPH
+            print("vph")
+            vph <- get_vph(adjusted_counts_1hr)
+            write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
+            
+            
+            # DAILY DETECTOR UPTIME
+            print("ddu")
+            daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
+            ddu <- bind_rows(daily_detector_uptime)
+            write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
+            
+        }
+        
+        
+        
+        
+        
+        #-----------------------------------------------
+        # 15-minute counts and throughput
+        
+        month_pattern <- paste0("counts_15min_TWR_", yyyy_mm, "-\\d\\d?\\.fst")
+        fns <- list.files(pattern = month_pattern)
+        
+        if (length(fns) > 0) {
+            
+            print(fns)
+            
+            print("15-min filtered counts")
+            
+            cl <- makeCluster(4)
+            clusterExport(cl, c("get_filtered_counts",
+                                "week",
+                                "signals_list",
+                                "bad_detectors"),
+                          envir = environment())
+            fcs <- parLapply(cl, fns, function(fn) {
+                library(fst)
+                library(dplyr)
+                library(tidyr)
+                library(lubridate)
+                
+                # Filter and Adjust (interpolate) 15 min Counts
+                df <- read_fst(fn) %>%
+                    as_tibble() %>%
+                    filter(SignalID %in% signals_list) %>%
+                    mutate(Date = date(Timeperiod))
+                
+                bd <- bad_detectors %>%
+                    filter(Date %in% unique(df$Date))
+                
+                anti_join(df, bd)
+                
+            })
+            stopCluster(cl)
+            
+            filtered_counts_15min <- bind_rows(fcs) %>%
+                mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1))
+            rm(fcs)
+            
+            print("adjusted counts")
+            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+                mutate(Date = date(Timeperiod))
             rm(filtered_counts_15min)
             
             # Calculate and write Throughput
             print("throughput")
-            throughput <- get_thruput(mutate(adjusted_counts_15min, Date = date(Timeperiod)))
+            throughput <- get_thruput(adjusted_counts_15min)
             rm(adjusted_counts_15min)
             
-            write_fst(throughput, paste0("tp_", x, ".fst"))
-
-        } else {
-            print("No 15-minute count files in date range.")
+            write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
         }
     })
 }
-get_daily_throughput(month_abbrs)
+get_counts_based_measures(month_abbrs)
 
-# Read Raw Counts for a month from files and output:
-#   filtered_counts_1hr
-#   adjusted_counts_1hr
-#   BadDetectors
-
-get_filtered_adjusted_bad_detectors <- function(month_abbrs) {
-    lapply(month_abbrs, function(yyyy_mm) {
-        month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
-        fns <- list.files(pattern = month_pattern)
-        
-        print(fns)
-        print("raw counts")
-        # raw_counts_1hr <- bind_rows(lapply(fns, function(x) {
-        #     read_fst(x) %>% filter(SignalID %in% signals_list)}))
-        
-        print("filtered counts")
-
-        cl <- makeCluster(4)
-        clusterExport(cl, c("get_filtered_counts",
-                            "week",
-                            "signals_list"))
-        fcs <- parLapply(cl, fns, function(fn) {
-            library(fst)
-            library(dplyr)
-            library(tidyr)
-            library(lubridate)
-            
-
-            read_fst(fn) %>% 
-                filter(SignalID %in% signals_list) %>%
-                get_filtered_counts(., interval = "1 hour")
-            
-        })
-        stopCluster(cl)
-        
-        filtered_counts_1hr <- bind_rows(fcs)
-        write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-        rm(fcs)
-        
-        print("adjusted counts")
-        adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
-        write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
-        rm(adjusted_counts_1hr)
-        
-        print("bad detectors")
-        bad_detectors <- get_bad_detectors(filtered_counts_1hr)
-        rm(filtered_counts_1hr)
-        
-        write_fst(bad_detectors, paste0("bad_detectors_", yyyy_mm, ".fst"))
-    })
-}
-get_filtered_adjusted_bad_detectors(month_abbrs)
 
 # --- This needs the ATSPM database ---
 upload_bad_detectors_to_db <- function(month_abbrs) {
@@ -206,39 +239,6 @@ upload_bad_detectors_to_db <- function(month_abbrs) {
 upload_bad_detectors_to_db(month_abbrs)
 
 
-get_vpd_vph_ddu_cu <- function(month_abbrs) {
-    lapply(month_abbrs, function(yyyy_mm) {
-        
-        print(yyyy_mm)
-        
-        adjusted_counts_1hr <- read_fst(paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
-        
-        # VPD
-        print("vpd")
-        vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
-        write_fst(vpd, paste0("vpd_", yyyy_mm, ".fst"))
-        
-        # VPH
-        print("vph")
-        vph <- get_vph(adjusted_counts_1hr)
-        write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
-        
-        
-        filtered_counts_1hr <- read_fst(paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-        
-        # DAILY DETECTOR UPTIME
-        print("ddu")
-        daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
-        ddu <- bind_rows(daily_detector_uptime)
-        write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
-        
-        # COMMUNICATIONS UPTIME
-        #comm_uptime <- get_comm_uptime(filtered_counts_1hr)
-        #write_fst(comm_uptime, paste0("cu_", yyyy_mm, ".fst"))
-        
-    })
-}
-get_vpd_vph_ddu_cu(month_abbrs)
 
 
 # -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
