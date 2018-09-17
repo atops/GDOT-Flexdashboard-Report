@@ -1402,7 +1402,8 @@ get_daily_detector_uptime <- function(filtered_counts) {
                setback = factor(setback),
                SignalID = factor(SignalID)) %>%
         group_by(SignalID, CallPhase, Date, Date_Hour, setback) %>%
-        summarize(uptime = as.double(sum(Good_Day, na.rm = TRUE))/as.double(n()), all = as.double(n()))
+        summarize(uptime = as.double(sum(Good_Day, na.rm = TRUE))/as.double(n()), 
+                  all = as.double(n()))
     split(ddu, ddu$setback)
 }
 get_avg_daily_detector_uptime <- function(daily_detector_uptime) {
