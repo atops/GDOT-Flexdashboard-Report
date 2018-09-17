@@ -410,7 +410,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         filter(!is.na(Corridor)) %>%#,
         mutate(bti = pti - tti) %>%
         ungroup() %>%
-        filter(Month < month_ + months(1)) %>%
+        #filter(Month < month_ + months(1)) %>%
         select(Corridor, Zone_Group, Hour, tti, pti, bti)
     
     if (zone_group_ == "All RTOP") {
@@ -428,11 +428,11 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
     }
     
     if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
-        sdb <- SharedData$new(dplyr::filter(mott, Month==month_), 
+        sdb <- SharedData$new(dplyr::filter(mott, Month == month_), 
                               ~Corridor, group = "grp")
         sdm <- SharedData$new(mott, 
                               ~Corridor, group = "grp")
-        sdh <- SharedData$new(dplyr::filter(hrtt, date(Hour)==month_), 
+        sdh <- SharedData$new(dplyr::filter(hrtt, date(Hour) == month_), 
                               ~Corridor, group = "grp")
         
         highlight_color_ <- RED2 # Colorbrewer red
