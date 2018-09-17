@@ -65,17 +65,29 @@ get_counts2_date_range <- function(start_date, end_date) {
     
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
-    lapply(start_dates, function(x) get_counts2(x, uptime = TRUE, counts = TRUE))
+    lapply(start_dates, function(x) get_counts2(x, uptime = TRUE, counts = TRUE)) # counts = TRUE
 }
 get_counts2_date_range(start_date, end_date)
 
 
 # combine daily (cu_yyyy-mm-dd.fst) into monthly (cu_yyyy-mm.fst)
 lapply(month_abbrs, function(month_abbr) {
+    
+    ma <- ymd_hms(paste(month_abbr, 1, "00:00:00"))
+    date_hours <- seq(min(ma), max(ma) + months(1) - days(1), by = "1 day")
+    
+    
     fns <- list.files(pattern = paste0("cu_", month_abbr, "-\\d{2}.fst"))
     if (length(fns) > 0) {
         lapply(fns, read_fst) %>%
             bind_rows() %>% 
+            complete(SignalID = signals_list, 
+                     CallPhase, 
+                     Date_Hour = date_hours, 
+                     fill = list(uptime = 0)) %>%
+            mutate(Date = date(Date_Hour),
+                   DOW = lubridate::wday(Date),
+                   Week = week(Date)) %>%
             write_fst(., paste0("cu_", month_abbr, ".fst"))
     }
 })
