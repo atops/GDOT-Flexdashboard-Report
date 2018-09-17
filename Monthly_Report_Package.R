@@ -15,16 +15,34 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 
 f <- function(prefix, month_abbrs, combine = TRUE) {
     
-    fns <- paste0(prefix, month_abbrs, ".fst")
-    
     cl <- makeCluster(3)
-    x <- parLapply(cl, fns, function(fn) {
+    clusterExport(cl, c("prefix"),
+                  envir = environment())
+    x <- parLapply(cl, month_abbrs, function(month_abbr) {
         library(fst)
         library(dplyr)
+        library(tidyr)
+        library(lubridate)
+        
+        fn <- paste0(prefix, month_abbr, ".fst")
         
         read_fst(fn) %>%
             mutate(SignalID = factor(SignalID)) %>%
             as_tibble() 
+        
+        # # Fill in missing values. 
+        # if (prefix == "ddu_") { # detector uptime
+        # 
+        #         # Set all = max(all) for Signal|CallPhase|Setback (# detectors)
+        #         # Set uptime for missing values = 0
+        #         df %>% group_by(SignalID, CallPhase, setback) %>% 
+        #             mutate(all = max(all)) %>% 
+        #             ungroup() %>%
+        #             complete(nesting(SignalID, CallPhase, setback, all), 
+        #                      Date_Hour = date_hours, 
+        #                      fill = list(uptime = 0)) %>%
+        #             mutate(Date = date(Date_Hour))
+        # }
     })
     stopCluster(cl)
     
@@ -42,7 +60,6 @@ dates <- seq(ymd(conf$report_start_date), ymd(conf$report_end_date), by = "1 mon
 month_abbrs <- get_month_abbrs(conf$report_start_date,conf$report_end_date)
 
 print(month_abbrs)
-
 
 
 # # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
@@ -67,7 +84,7 @@ gc()
 
 print("Detector Uptime")
 
-ddu <- f("ddu_", month_abbrs)
+ddu <- f("ddu_", month_abbrs) %>% 
 daily_detector_uptime <- split(ddu, ddu$setback)
 
 avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
@@ -98,7 +115,8 @@ gc()
 
 print("Communication Uptime")
 
-cu <- f("cu_", month_abbrs)
+cu <- f("cu_", month_abbrs) 
+
 daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
 cor_daily_comm_uptime <- get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
 
@@ -759,7 +777,7 @@ cor4 <- readRDS("2018-04 Report Files/cor.rds")
 sig4 <- readRDS("2018-04 Report Files/sig.rds")
 
 cor$dy$du <- patch_april(cor$dy$du, cor4$dy$du)
-cor$dy$cu <- patch_april(cor$dy$cu, cor4$dy$cu)
+#cor$dy$cu <- patch_april(cor$dy$cu, cor4$dy$cu)
 cor$wk$vpd <- patch_april(cor$wk$vpd, cor4$wk$vpd)
 cor$wk$vph <- patch_april(cor$wk$vph, cor4$wk$vph)
 cor$wk$vphp <- patch_april(cor$wk$vphp, cor4$wk$vphp)
@@ -769,7 +787,7 @@ cor$wk$qs <- patch_april(cor$wk$qs, cor4$wk$qs)
 cor$wk$sf <- patch_april(cor$wk$sf, cor4$wk$sf)
 cor$wk$cu <- patch_april(cor$wk$cu, cor4$wk$cu)
 sig$dy$du <- patch_april(sig$dy$du, sig4$dy$du)
-sig$dy$cu <- patch_april(sig$dy$cu, sig4$dy$cu)
+#sig$dy$cu <- patch_april(sig$dy$cu, sig4$dy$cu)
 sig$wk$vpd <- patch_april(sig$wk$vpd, sig4$wk$vpd)
 sig$wk$vph <- patch_april(sig$wk$vph, sig4$wk$vph)
 sig$wk$vphp <- patch_april(sig$wk$vphp, sig4$wk$vphp)
@@ -777,7 +795,7 @@ sig$wk$tp <- patch_april(sig$wk$tp, sig4$wk$tp)
 sig$wk$aog <- patch_april(sig$wk$aog, sig4$wk$aog)
 sig$wk$qs <- patch_april(sig$wk$qs, sig4$wk$qs)
 sig$wk$sf <- patch_april(sig$wk$sf, sig4$wk$sf)
-sig$wk$cu <- patch_april(sig$wk$cu, sig4$wk$cu)
+#sig$wk$cu <- patch_april(sig$wk$cu, sig4$wk$cu)
 cor$mo$vpd <- patch_april(cor$mo$vpd, cor4$mo$vpd)
 cor$mo$vph <- patch_april(cor$mo$vph, cor4$mo$vph)
 cor$mo$vphp <- patch_april(cor$mo$vphp, cor4$mo$vphp)
@@ -789,7 +807,7 @@ cor$mo$qsh <- patch_april(cor$mo$qsh, cor4$mo$qsh)
 cor$mo$sfd <- patch_april(cor$mo$sfd, cor4$mo$sfd)
 cor$mo$sfh <- patch_april(cor$mo$sfh, cor4$mo$sfh)
 cor$mo$du <- patch_april(cor$mo$du, cor4$mo$du)
-cor$mo$cu <- patch_april(cor$mo$cu, cor4$mo$cu)
+#cor$mo$cu <- patch_april(cor$mo$cu, cor4$mo$cu)
 sig$mo$vpd <- patch_april(sig$mo$vpd, sig4$mo$vpd)
 sig$mo$vph <- patch_april(sig$mo$vph, sig4$mo$vph)
 sig$mo$vphp <- patch_april(sig$mo$vphp, sig4$mo$vphp)
