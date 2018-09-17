@@ -1,6 +1,8 @@
 
 # Monthly_Report config file (yaml format)
 
+mode: production
+#mode: beta
 
 selected_month: August 2018
 
