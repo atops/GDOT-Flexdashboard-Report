@@ -117,7 +117,7 @@ print("Communication Uptime")
 
 cu <- f("cu_", month_abbrs) 
 
-daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
+daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE) 
 cor_daily_comm_uptime <- get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
 
 weekly_comm_uptime <- get_weekly_avg_by_day(cu, "uptime", peak_only = FALSE)
