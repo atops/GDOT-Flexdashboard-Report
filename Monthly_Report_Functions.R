@@ -115,10 +115,12 @@ get_corridors <- function(corr_fn) {
                   Corridor = as.factor(Group),
                   Milepost = as.numeric(Milepost),
                   Agency = Agency,
-                  Name = Name) %>% 
+                  Name = Name,
+                  Asof = date(Asof)) %>% 
         filter(grepl("^\\d.*", SignalID)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
+
 get_corridor_name <- function(string) {
     dplyr::case_when(
         
@@ -1181,10 +1183,12 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     #     tidyr::separate(si_cp, c("SignalID", "CallPhase")) 
     # df <- bind_rows(df, e)
     
+    current_month <- max(df$Date)
     
     gdf <- df %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        complete(nesting(SignalID, CallPhase), Month = unique(Month)) %>%
+        group_by(SignalID, CallPhase) %>%
+        complete(nesting(SignalID, CallPhase), Month = seq(min(Month), current_month, by = "1 month")) %>%
         #expand_values("Month") %>%
         group_by(SignalID, CallPhase, Month)
         
