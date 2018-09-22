@@ -1,13 +1,44 @@
 ---
-title: "Monthly Report - BETA"
+title: "MARK 1 (beta)"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: scroll
-    logo: favicon_rtop.png
-    favicon: favicon_rtop.png
+    logo: GDOTLogo.svg #favicon_rtop.png
+    favicon: GDOTLogo.svg #favicon_rtop.png
 runtime: shiny
 ---
+<style>                     
+.navbar {
+  background-color:#045594; /*#256194;*/
+  border-color:white;
+}
+.navbar-logo {
+  height:48px;
+  padding-top:5px;
+}
+.navbar-brand {
+color:white!important;
+}
+<style>
+.navbar-inverse .navbar-nav>li>a:focus{
+    color:#ffffff;
+    background-color:#2d6797
+}
+.navbar-inverse .navbar-nav>li>a:hover{
+    color:#ffffff;
+    background-color:#2d6797
+}
+.navbar-inverse .navbar-nav>.active>a { 
+    color:#ffffff;
+    background-color:#2d6797;
+}
+.navbar-inverse .navbar-nav>.active>a:focus { 
+    color:#ffffff;
+    background-color:#2d6797;
+}
+</style>
+           
 
 ```{r global, cache = TRUE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT_-_BETA
@@ -25,7 +56,7 @@ FIG_HEIGHT = 7
 Inputs {.sidebar}
 =====================================
 
-This is the New RTOP Monthly Report.
+Measurement, Accuracy, and Reliability Kit (MARK 1) 
 
 Past month reports can be viewed back to `r tail(conf$report_months, 1)`.
 
