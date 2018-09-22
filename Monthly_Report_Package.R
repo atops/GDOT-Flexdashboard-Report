@@ -1,6 +1,8 @@
 
 # Monthly_Report_Package.R
 
+print(Sys.time())
+
 library(yaml)
 
 setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report"))
@@ -84,7 +86,7 @@ gc()
 
 print("Detector Uptime")
 
-ddu <- f("ddu_", month_abbrs) %>% 
+ddu <- f("ddu_", month_abbrs)
 daily_detector_uptime <- split(ddu, ddu$setback)
 
 avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
