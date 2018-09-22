@@ -60,7 +60,10 @@ signals_list <- filter(sig_df, SignalID != "null")$SignalID
 
 
 
-# This replaces the above. Much simpler. And one pass through the database.
+# And one pass through the database to get all counts and comm uptime
+print(Sys.time())
+print("\ncounts\n")
+
 get_counts2_date_range <- function(start_date, end_date) {
     
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
@@ -90,12 +93,18 @@ lapply(month_abbrs, function(month_abbr) {
                    DOW = lubridate::wday(Date),
                    Week = week(Date)) %>% 
             
-            # filter out leading zeros (months before the signal came online)
-            group_by(SignalID) %>% 
-            arrange(SignalID, Date) %>% 
-            mutate(cumsum = cumsum(uptime)) %>% 
-            filter(cumsum > uptime) %>%
-            select(-cumsum) %>%
+            # filter out days before the signal came online
+            left_join(select(corridors, SignalID, Asof)) %>% 
+            filter(Date >= Asof) %>%
+            select(-Asof) %>%
+            
+            # # filter out leading zeros (months before the signal came online)
+            # group_by(SignalID) %>% 
+            # arrange(SignalID, Date) %>% 
+            # mutate(cumsum = cumsum(uptime)) %>% 
+            # ungroup() %>%
+            # filter(cumsum >= uptime) %>%
+            # select(-cumsum) %>%
             
             write_fst(., paste0("cu_", month_abbr, ".fst"))
     }
