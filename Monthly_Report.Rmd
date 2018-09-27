@@ -4,40 +4,12 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: scroll
-    logo: GDOTLogo.svg #favicon_rtop.png
-    favicon: GDOTLogo.svg #favicon_rtop.png
+    logo: GDOTLogo.svg
+    favicon: GDOTLogo.svg 
+    css: style.css
 runtime: shiny
 ---
-<style>                     
-.navbar {
-  background-color:#045594; /*#256194;*/
-  border-color:white;
-}
-.navbar-logo {
-  height:48px;
-  padding-top:5px;
-}
-.navbar-brand {
-color:white!important;
-}
-<style>
-.navbar-inverse .navbar-nav>li>a:focus{
-    color:#ffffff;
-    background-color:#2d6797
-}
-.navbar-inverse .navbar-nav>li>a:hover{
-    color:#ffffff;
-    background-color:#2d6797
-}
-.navbar-inverse .navbar-nav>.active>a { 
-    color:#ffffff;
-    background-color:#2d6797;
-}
-.navbar-inverse .navbar-nav>.active>a:focus { 
-    color:#ffffff;
-    background-color:#2d6797;
-}
-</style>
+
            
 
 ```{r global, cache = TRUE, include = FALSE, warning = FALSE}
