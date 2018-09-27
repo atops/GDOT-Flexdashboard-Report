@@ -220,6 +220,17 @@ get_corridor_name <- function(string) {
         TRUE ~ string)
 }
 
+get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-03/") {
+
+    fns <- list.files(pth, pattern = "*.zip", recursive = TRUE)
+    
+    df <- lapply(fns, function(fn) {
+        read_csv(unz(file.path(pth, fn), "TMC_Identification.csv")) %>% 
+            mutate(Corridor = get_corridor_name(fn))
+    }) %>% bind_rows()
+    df
+}
+
 get_det_config <- function(date_) {
     
     adc_ <- read_csv(glue("../ATSPM_Det_Config_{date_}.csv"))

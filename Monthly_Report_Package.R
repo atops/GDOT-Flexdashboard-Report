@@ -31,20 +31,6 @@ f <- function(prefix, month_abbrs, combine = TRUE) {
         read_fst(fn) %>%
             mutate(SignalID = factor(SignalID)) %>%
             as_tibble() 
-        
-        # # Fill in missing values. 
-        # if (prefix == "ddu_") { # detector uptime
-        # 
-        #         # Set all = max(all) for Signal|CallPhase|Setback (# detectors)
-        #         # Set uptime for missing values = 0
-        #         df %>% group_by(SignalID, CallPhase, setback) %>% 
-        #             mutate(all = max(all)) %>% 
-        #             ungroup() %>%
-        #             complete(nesting(SignalID, CallPhase, setback, all), 
-        #                      Date_Hour = date_hours, 
-        #                      fill = list(uptime = 0)) %>%
-        #             mutate(Date = date(Date_Hour))
-        # }
     })
     stopCluster(cl)
     
@@ -68,11 +54,40 @@ print(month_abbrs)
 
 print("Travel Times")
 
-fs <- list.files(path = "Inrix/For_Monthly_Report", recursive = TRUE, full.names = TRUE)
-fns <- fs[grepl("TWTh.csv", fs)]
+# Eventually (soon) this will be replaced to get tti and pti from summary tables
+# calculated from RITIS API
+fs <- list.files(path = "Inrix/For_Monthly_Report", 
+                 pattern = "TWTh.csv$",
+                 recursive = TRUE, 
+                 full.names = TRUE)
+fns <- fs[fs < "Inrix/For_Monthly_Report/2018-01"] # old format: files before 2018-01
 tt <- get_tt_csv(fns)
-tti <- tt$tti
-pti <- tt$pti
+tti <- tt$tti 
+pti <- tt$pti 
+
+fns2 <- list.files(path = "Inrix/For_Monthly_Report",
+                   pattern = "tt_.*_summary.csv",
+                   recursive = FALSE,
+                   full.names = TRUE)
+
+tt2 <- lapply(fns2, read_csv) %>% bind_rows()
+#tt <- lapply(fns, read_csv) %>% bind_rows() %>% mutate(Corridor = factor(Corridor))
+#tti <- tt %>% select(-pti)
+#pti <- tt %>% select(-tti)
+
+tti <- tt2 %>% 
+    select(-pti) %>% 
+    bind_rows(tti) %>% 
+    mutate(Corridor = factor(Corridor)) %>%
+    arrange(Corridor, Hour)
+    
+
+pti <- tt2 %>% 
+    select(-tti) %>% 
+    bind_rows(pti) %>% 
+    mutate(Corridor = factor(Corridor)) %>%
+    arrange(Corridor, Hour)
+
 
 
 write_fst(tti, "tti.fst")

@@ -26,10 +26,6 @@ end_date <- ifelse(conf$end_date == "yesterday",
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
 
-
-#sl_fn <- "../SIGNALS_LIST_all_RTOP.txt"
-#signals_list <- read.csv(sl_fn, col.names = "SignalID", colClasses = c("character"))$SignalID
-
 # # GET CORRIDORS #############################################################
 
 # -- Code to update corridors file/table from Excel file
@@ -57,8 +53,9 @@ corridors <- feather::read_feather(conf$corridors_filename)
 sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() %>% mutate(SignalID = factor(SignalID))
 signals_list <- filter(sig_df, SignalID != "null")$SignalID
 
-
-
+# -- TMC Codes for Corridors
+#tmc_routes <- get_tmc_routes()
+#write_feather(tmc_routes, "tmc_routes.feather")
 
 # And one pass through the database to get all counts and comm uptime
 print(Sys.time())
@@ -97,14 +94,6 @@ lapply(month_abbrs, function(month_abbr) {
             left_join(select(corridors, SignalID, Asof)) %>% 
             filter(Date >= Asof) %>%
             select(-Asof) %>%
-            
-            # # filter out leading zeros (months before the signal came online)
-            # group_by(SignalID) %>% 
-            # arrange(SignalID, Date) %>% 
-            # mutate(cumsum = cumsum(uptime)) %>% 
-            # ungroup() %>%
-            # filter(cumsum >= uptime) %>%
-            # select(-cumsum) %>%
             
             write_fst(., paste0("cu_", month_abbr, ".fst"))
     }
@@ -381,10 +370,14 @@ lapply(month_abbrs, function(month_abbr) {
             write_fst(., paste0("sf_", month_abbr, ".fst"))
     }
 })
+
 # # GET CAMERA UPTIMES ########################################################
 
 py_run_file("parse_cctvlog.py") # Run python script
 
+# # TRAVEL TIMES FROM RITIS API ###############################################
+
+py_run_file("get_travel_times.py") # Run python script
 
 
 
