@@ -1162,7 +1162,8 @@ get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
         filter(!is.nan(!!var_))
     
     # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
-    group_corridors_(cor_df_out, "Date", var_, wt_)
+    group_corridors_(cor_df_out, "Date", var_, wt_) %>%
+        mutate(Week = week(Date))
 }
 get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     
