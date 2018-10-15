@@ -18,6 +18,8 @@ library(parallel)
 library(pool)
 library(httr)
 library(aws.s3)
+library(sf)
+
 
 library(plotly)
 library(crosstalk)
@@ -72,23 +74,7 @@ get_month_abbrs <- function(start_date, end_date) {
 #     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
 # }
 # 
-# expand_values <- function(df, time_unit) { # this was replaced with "complete"
-#     
-#     tu <- as.name(time_unit)
-#     si_cp_df <- distinct(df, SignalID, CallPhase) %>% tidyr::unite(si_cp, SignalID, CallPhase)
-#     si_cp_list <- si_cp_df$si_cp
-#     
-#     e <- expand.grid(si_cp = si_cp_list,
-#                      val = unique(df[[time_unit]])) %>%
-#         tidyr::separate(si_cp, c("SignalID", "CallPhase")) %>%
-#         mutate(SignalID = match_type(SignalID, df$SignalID),
-#             CallPhase = match_type(CallPhase, df$CallPhase)) %>%
-#         rename(!!tu := val) %>%
-#         as_tibble()
-#     left_join(e) %>%
-#         mutate(SignalID = factor(SignalID),
-#                CallPhase = factor(CallPhase))
-# }
+
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
@@ -220,7 +206,7 @@ get_corridor_name <- function(string) {
         TRUE ~ string)
 }
 
-get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-03/") {
+get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-09/") {
 
     fns <- list.files(pth, pattern = "*.zip", recursive = TRUE)
     
@@ -2110,6 +2096,159 @@ read_teams_csv <- function(csv_fn) {
     #as_tibble(df2)
     as_tibble(df)
 }
+
+
+
+
+get_teams_tasks <- function(tasks_fn = "TEAMS Reports/all_tasks.csv",
+                            locations_fn = "TEAMS Reports/TEAMS_Locations_Report.csv") {
+    
+    conn <- dbConnect(odbc::odbc(), 
+                      dsn="sqlodbc", 
+                      uid=Sys.getenv("ATSPM_USERNAME"), 
+                      pwd=Sys.getenv("ATSPM_PASSWORD"))
+    
+    
+    
+    
+    # Data Frames
+    locs <- readr::read_csv(locations_fn)
+    sigs <- dbReadTable(conn, "Signals") %>%
+        as_tibble() %>%
+        mutate(SignalID = factor(SignalID),
+               Latitude = as.numeric(Latitude),
+               Longitude = as.numeric(Longitude)) %>%
+        filter(Latitude != 0)
+    
+    corridors <- read_feather("corridors.feather")
+    
+    # sf (spatial - point) objects
+    locs.sp <- sf::st_as_sf(locs, coords = c("Latitude", "Longitude")) %>%
+        sf::st_set_crs(4326)
+    sigs.sp <- sf::st_as_sf(sigs, coords = c("Latitude", "Longitude")) %>%
+        sf::st_set_crs(4326)
+    
+    # Join TEAMS Locations to Tasks via lat/long -- get closest, only if within 100 m
+    
+    # Get the row index in locs.sp that is closest to each row in ints.sp
+    idx <- apply(st_distance(sigs.sp, locs.sp, byid = TRUE), 1, which.min)
+    # Reorder locs.sp so each row is the one corresponding to each ints.sp row
+    locs.sp <- locs.sp[idx,]
+    
+    # Get vector of distances between closest items (row-wise)
+    dist_vector <- sf::st_distance(sigs.sp, locs.sp, by_element = TRUE)
+    # Make into a data frame
+    dist_dataframe <- data.frame(m = as.integer(dist_vector))
+    
+    # Bind data frames to map Locationid (TEAMS) to SignalID (ATSPM) with distance
+    locations <- bind_cols(sigs.sp, locs.sp, dist_dataframe) %>% 
+        select(LocationId = `DB Id`, SignalID, m, `Maintained By`, City, County) %>%
+        filter(m < 100)
+    
+    # Get tasks and join locations, corridors
+    tasks <- readr::read_csv(tasks_fn) %>% 
+        select(-`Maintained by`) %>%
+        left_join(locations) %>%
+        filter(!is.na(m)) %>%
+        mutate(SignalID = factor(SignalID)) %>%
+        left_join(corridors)
+    
+    all_tasks <- tasks %>% 
+        mutate(Zone_Group = if_else(`Maintained By` == "District 1", 
+                                  "D1", 
+                                  Zone_Group),
+               Zone_Group = if_else(`Maintained By` == "District 6", 
+                                  "D6", 
+                                  Zone_Group),
+               `Task Type` = as.character(`Task Type`),
+               `Due Date` = mdy_hms(`Due Date`),
+               `Date Reported` = mdy_hms(`Date Reported`),
+               `Date Resolved` = mdy_hms(`Date Resolved`),
+               `Time To Resolve In Days` = floor((`Date Resolved` - `Date Reported`)/ddays(1)),
+               `Time To Resolve In Hours` = floor((`Date Resolved` - `Date Reported`)/dhours(1)),
+               #`Overdue In Days` = as.integer(`Overdue In Days`),
+               #`Overdue In Hours` = as.integer(`Overdue In Hours`),
+               `Created on` = mdy_hms(`Created on`),
+               `Modified on` = mdy_hms(`Modified on`),
+               `Latitude` = as.numeric(`Latitude`),
+               `Longitude` = as.numeric(`Longitude`),
+               
+               `Task Type` = ifelse(`Task Type` == "- Preventative Maintenance", "04 - Preventative Maintenance", `Task Type`),
+               `Task Source` = ifelse(`Task Source` == "P Program", "RTOP Program", `Task Source`),
+               `Task Subtype` = ifelse(`Task Subtype` == "ection Check", "Detection Check", `Task Subtype`),
+               Priority = ifelse(Priority == "mal", "Normal", Priority),
+               
+               # Maintained_by = ifelse(
+               #     grepl(pattern = "District 1", `Maintained By`), "D1",
+               #     ifelse(grepl(pattern = "District 6", `Maintained By`), "D6",
+               #            ifelse(grepl(pattern = "Consultant|GDOT", `Maintained By`), "D6",
+               #                   as.character(`Maintained by`)))),
+               
+               Zone_Group = 
+                   dplyr::case_when(
+                       
+                       `Maintained By` == "District 1" ~ "D1",
+                       `Maintained By` == "District 6" ~ "D6",
+                       
+                       TRUE ~ Zone_Group),
+               
+               Task_Type = factor(`Task Type`),
+               Task_Subtype = factor(`Task Subtype`),
+               Task_Source = factor(`Task Source`),
+               Priority = factor(Priority),
+               Status = factor(Status),
+               
+               `Date Reported` = date(`Date Reported`),
+               `Date Resolved` = date(`Date Resolved`),
+               
+               All = factor("all")) %>%
+        
+        select(Due_Date = `Due Date`,
+               Task_Type = `Task Type`,
+               Task_Subtype = `Task Subtype`,
+               Task_Source = `Task Source`,
+               Priority,
+               Status,
+               `Date Reported`,
+               `Date Resolved`,
+               `Time To Resolve In Days`,
+               `Time To Resolve In Hours`,
+               #`Overdue In Days`,
+               #`Overdue In Hours`,
+               Maintained_by = `Maintained By`,
+               Owned_by = `Owned by`,
+               #`County`,
+               #`City`,
+               `Custom Identifier`,
+               `Primary Route`,
+               `Secondary Route`,
+               Created_on = `Created on`,
+               Created_by = `Created by`,
+               Modified_on = `Modified on`,
+               Modified_by = `Modified by`,
+               Latitude,
+               Longitude,
+               SignalID,
+               Zone,
+               Zone_Group,
+               Corridor,
+               All) %>%
+
+        filter(!is.na(`Date Reported`),
+               !(Zone_Group == "Zone 7" & `Date Reported` < "2018-05-01"))
+    
+    # Dupicate RTOP1 and RTOP2 as "All RTOP" and add to tasks
+    all_tasks %>% 
+        bind_rows(all_tasks %>% 
+                      filter(Zone_Group == "RTOP1") %>% 
+                      mutate(Zone_Group = "All RTOP"), 
+                  all_tasks %>% 
+                      filter(Zone_Group == "RTOP2") %>% 
+                      mutate(Zone_Group = "All RTOP"))
+}
+
+
+
 get_outstanding_events <- function(teams, group_var) {
     
     rep <- teams %>% 

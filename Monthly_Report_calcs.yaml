@@ -5,7 +5,7 @@ start_date: yesterday
 end_date: yesterday
 
 report_start_date: 2017-09-01
-report_end_date: 2018-09-30
+report_end_date: yesterday
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: ../Master RTOP Counts File_2018-08-24.xlsx

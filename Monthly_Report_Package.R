@@ -44,8 +44,14 @@ f <- function(prefix, month_abbrs, combine = TRUE) {
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
-dates <- seq(ymd(conf$report_start_date), ymd(conf$report_end_date), by = "1 month")
-month_abbrs <- get_month_abbrs(conf$report_start_date,conf$report_end_date)
+report_start_date <- conf$report_start_date
+if (conf$report_end_date == "yesterday") {
+    report_end_date <- Sys.Date() - days(1)
+} else {
+    report_end_date <- conf$report_end_date
+}
+dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
+month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
 
 print(month_abbrs)
 
@@ -588,24 +594,30 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 print("TEAMS")
 
 # reduced so it leverages config file structure
-teams <- lapply(conf$teams, function(x) {
+# teams <- lapply(conf$teams, function(x) {
+#     
+#     csv_fns <- file.path(x$path, x$filenames)
+#     
+#     lapply(csv_fns, read_teams_csv) %>%
+#         bind_rows() %>%
+#         tidy_teams() %>%
+#         filter(`Date Reported` >= ymd(report_start_date) &
+#                    `Date Reported` <= ymd(report_end_date)) %>%
+#         mutate(All = factor("all"),
+#                Zone_Group = x$zone_group)
+#     
+# }) %>% bind_rows()
+
+# New version from API result
+teams <- get_teams_tasks() %>%
     
-    csv_fns <- file.path(x$path, x$filenames)
-    
-    lapply(csv_fns, read_teams_csv) %>%
-        bind_rows() %>%
-        tidy_teams() %>%
-        filter(`Date Reported` >= ymd(conf$report_start_date) &
-                   `Date Reported` <= ymd(conf$report_end_date)) %>%
-        mutate(All = factor("all"),
-               Zone_Group = x$zone_group)
-    
-}) %>% bind_rows()
+    filter(`Date Reported` >= ymd(report_start_date) &
+               `Date Reported` <= ymd(report_end_date))
 
 
 saveRDS(teams, "teams.rds")
 #------------------------------------------------------------------------------
-teams <- readRDS("teams.rds")
+#teams <- readRDS("teams.rds")
 
 
 type_table <- get_outstanding_events(teams, "Task_Type") %>%
