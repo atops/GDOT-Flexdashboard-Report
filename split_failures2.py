@@ -126,6 +126,8 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
+    #start_date = '2018-10-01'
+    #end_date = '2018-10-04'
     """
     signals_file = sys.argv[3]
 

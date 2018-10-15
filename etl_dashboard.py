@@ -144,6 +144,10 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
+    # Placeholder for manual override of start/end dates
+    #start_date = '2018-10-01'
+    #end_date = '2018-10-04'
+    
     dates = pd.date_range(start_date, end_date, freq='1D')
     
     corridors_filename = conf['corridors_filename']

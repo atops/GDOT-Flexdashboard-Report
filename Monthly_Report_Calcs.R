@@ -50,7 +50,9 @@ corridors <- feather::read_feather(conf$corridors_filename)
 
 #signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # -- If we want to run calcs on all signals in ATSPM database
-sig_df <- dbReadTable(conn, "Signals") %>% as_tibble() %>% mutate(SignalID = factor(SignalID))
+sig_df <- dbReadTable(conn, "Signals") %>% 
+    as_tibble() %>% 
+    mutate(SignalID = factor(SignalID))
 signals_list <- filter(sig_df, SignalID != "null")$SignalID
 
 # -- TMC Codes for Corridors
@@ -379,7 +381,7 @@ py_run_file("parse_cctvlog.py") # Run python script
 
 py_run_file("get_travel_times.py") # Run python script
 
-
+print("--------------------- End Monthly Report calcs -----------------------")
 
 
 
