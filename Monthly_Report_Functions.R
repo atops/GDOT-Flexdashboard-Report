@@ -1418,7 +1418,8 @@ get_avg_daily_detector_uptime <- function(daily_detector_uptime) {
         rowwise() %>%
         mutate(uptime.all = weighted.mean(c(uptime.sb, uptime.pr), c(all.sb, all.pr), na.rm = TRUE)) %>%
         #mutate(uptime.all = (uptime.sb * all.sb + uptime.pr * all.pr)/(all.sb + all.pr)) %>% 
-        select(-starts_with("delta"))
+        select(-starts_with("delta")) %>% 
+        ungroup()
 }
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
