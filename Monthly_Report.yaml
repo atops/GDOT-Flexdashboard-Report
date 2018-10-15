@@ -4,7 +4,7 @@
 #mode: production
 mode: beta
 
-selected_month: September 2018
+selected_month: October 2018
 
 report_months:
     - October 2018
