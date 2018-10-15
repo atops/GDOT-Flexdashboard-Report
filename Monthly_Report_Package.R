@@ -319,25 +319,29 @@ gc()
 
 # DAILY SPLIT FAILURES #####################################################
 
-# sf_filenames <- list.files(pattern = "sf_\\d{4}-\\d{2}-\\d{2}\\.feather")
-# wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames), label = TRUE)
-# twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
-# sf_filenames <- sf_filenames[twr]
-# 
-# cl <- makeCluster(3)
-# sf <- parLapply(cl, sf_filenames, read_feather) %>%
-#     bind_rows() %>%
-#     get_sf()
-# stopCluster(cl)
-
 print("Daily Split Failures")
 
-sf <- f("sf_", month_abbrs) %>% 
-    mutate(Date = date(Hour),
-           Week = week(Date),
-           DOW = wday(Date)) %>%
-    rename(Date_Hour = Hour,
-           CallPhase = Phase)
+#sf_filenames <- list.files(pattern = "sf_\\d{4}-\\d{2}-\\d{2}\\.feather")
+
+sf_filenames <- lapply(month_abbrs, function(month_abbr) {
+    list.files(pattern = paste0("sf_", month_abbr, "-\\d{2}\\.feather"))
+    }) %>% unlist()
+
+wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", sf_filenames), label = TRUE)
+twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
+sf_filenames <- sf_filenames[twr]
+
+cl <- makeCluster(3)
+clusterExport(cl, c("get_sf", "week"),
+              envir = environment())
+sf <- parLapply(cl, sf_filenames, function(fn) { 
+    library(feather)
+    library(dplyr)
+    library(lubridate)
+    
+    get_sf(read_feather(fn)) %>% mutate(Week = week(Date))
+    }) %>% bind_rows()
+stopCluster(cl)
 
 
 wsf <- get_weekly_sf_by_day(sf)
