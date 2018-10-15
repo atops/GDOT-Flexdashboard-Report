@@ -114,7 +114,7 @@ if __name__=='__main__':
 
     start_date = conf['start_date']
     # -----
-    #start_date = '2018-01-01'
+    #start_date = '2018-09-01'
     # -----
     if start_date == 'yesterday': 
         # Make start_date the start of the month
@@ -122,7 +122,7 @@ if __name__=='__main__':
         start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
     end_date = conf['end_date']
     # -----
-    #end_date = '2018-03-31'
+    #end_date = '2018-09-30'
     # -----
     if end_date == 'yesterday': 
         end_date = datetime.today().strftime('%Y-%m-%d')
@@ -139,7 +139,7 @@ if __name__=='__main__':
     df = pd.DataFrame()
     for corridor in tmc_dict.keys():
         print('\n' + corridor)
-        tt_df = get_tmc_data(start_date, end_date, cred['RITIS_KEY'], tmc_dict[corridor], 10)
+        tt_df = get_tmc_data(start_date, end_date, tmc_dict[corridor], cred['RITIS_KEY'], 10)
     
         if len(tt_df) > 0:
             df_ = (pd.merge(tt_df, tmc_df[['tmc','miles']], left_on=['tmc_code'], right_on=['tmc'])
