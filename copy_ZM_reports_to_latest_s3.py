@@ -10,7 +10,7 @@ import re
 
 s3 = boto3.client('s3')
 
-current_month = '2018-08'
+current_month = '2018-09'
 
 
 rtop1_keys = [k['Key'] for k in s3.list_objects(Bucket='gdot-devices', Prefix='RTOP1/{}'.format(current_month))['Contents']]
