@@ -1558,11 +1558,11 @@ renderDataTable({
     if (corridor() == "All Corridors") {
         corr <- corridors %>%
             filter(Zone_Group %in% zg_) %>%
-            select(-Description)
+            select(-Description, -Asof)
     } else {
         corr <- corridors %>%
             filter(Corridor == corridor()) %>%
-            select(-Description)
+            select(-Description, -Asof)
     }
     
     datatable(corr, 
