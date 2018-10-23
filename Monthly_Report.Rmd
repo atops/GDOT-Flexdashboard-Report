@@ -7,13 +7,15 @@ output:
     logo: GDOTLogo.svg
     favicon: GDOTLogo.svg 
     css: style.css
+    includes:
+        in_header: google-analytics.html
 runtime: shiny
 ---
 
 
-
 ```{r global, cache = TRUE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT_-_BETA
+
 
 source("Monthly_Report_UI_Functions.R")
 
@@ -144,6 +146,28 @@ mr <- reactive(
         sig
     }
 )
+
+
+filtered_corridors <- reactive({
+    if (input$zone_group == "All RTOP") {
+        zg_ <- c("RTOP1", "RTOP2")
+    } else {
+        zg_ <- input$zone_group
+    }
+
+    if (corridor() == "All Corridors") {
+        corridors %>%
+            filter(Zone_Group %in% zg_) %>%
+            select(-Description, -Asof)
+    } else {
+        corridors %>%
+            filter(Corridor == corridor()) %>%
+            select(-Description, -Asof)
+    }
+})
+
+filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
+                                      filtered_corridors()$Name))
 
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
@@ -1549,23 +1573,8 @@ Row {data-height = 800}
 ```{r}
 renderDataTable({
     
-    if (zone_group() == "All RTOP") {
-        zg_ <- c("RTOP1", "RTOP2")
-    } else {
-        zg_ <- zone_group()
-    }
 
-    if (corridor() == "All Corridors") {
-        corr <- corridors %>%
-            filter(Zone_Group %in% zg_) %>%
-            select(-Description, -Asof)
-    } else {
-        corr <- corridors %>%
-            filter(Corridor == corridor()) %>%
-            select(-Description, -Asof)
-    }
-    
-    datatable(corr, 
+    datatable(filtered_corridors(),  #corr, 
               escape = FALSE,
               extensions = 'Scroller', 
               options = list(
@@ -1576,6 +1585,32 @@ renderDataTable({
     )
 })
 ```
+
+
+Signal Details
+=====================================
+
+```{r signal_detail}
+fillCol(height = 100,
+renderUI({
+    selectInput("signalid", "SignalID:",
+                choices = c("", filtered_signalids()),
+                selected = "",
+                width = "600px")
+}))
+
+
+fillCol(height = 700,
+withProgress(
+    expr = 
+        renderPlotly({
+            sid <- stringr::str_extract(input$signalid, "^(\\d+)(?=:)")
+            #signal_dashboard_cached_plot(sid)
+            signal_dashboard(sid)
+        }),
+    message = "Preparing plot..."))
+```
+
 
 Explanation of Calcs
 =====================================
