@@ -23,6 +23,11 @@ start_date <- ifelse(conf$start_date == "yesterday",
 end_date <- ifelse(conf$end_date == "yesterday",
                    format(today() - days(1), "%Y-%m-%d"),
                    conf$end_date)
+
+# Manual overrides
+#start_date <- "2018-10-01"
+#end_date <- 
+
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
 
@@ -71,6 +76,7 @@ get_counts2_date_range <- function(start_date, end_date) {
 }
 get_counts2_date_range(start_date, end_date)
 
+print("\n---------------------- Finished counts ---------------------------\n")
 
 # combine daily (cu_yyyy-mm-dd.fst) into monthly (cu_yyyy-mm.fst)
 lapply(month_abbrs, function(month_abbr) {
@@ -191,7 +197,7 @@ get_counts_based_measures <- function(month_abbrs) {
         
         #-----------------------------------------------
         # 15-minute counts and throughput
-        
+        print("15-minute counts and throughput")
         month_pattern <- paste0("counts_15min_TWR_", yyyy_mm, "-\\d\\d?\\.fst")
         fns <- list.files(pattern = month_pattern)
         
@@ -249,6 +255,7 @@ get_counts_based_measures(month_abbrs)
 
 
 # --- This needs the ATSPM database ---
+print("Upload bad detectors to DB")
 upload_bad_detectors_to_db <- function(month_abbrs) {
     conn <- dbConnect(odbc::odbc(),
                       dsn = "sqlodbc",
@@ -381,7 +388,7 @@ py_run_file("parse_cctvlog.py") # Run python script
 
 py_run_file("get_travel_times.py") # Run python script
 
-print("--------------------- End Monthly Report calcs -----------------------")
+print("\n--------------------- End Monthly Report calcs -----------------------\n")
 
 
 

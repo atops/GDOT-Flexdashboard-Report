@@ -38,6 +38,7 @@ xl_uptime:
         - 2018-09-01
 
 
+# These are not used anymore. We use the TEAMS API.
 teams:
 
     rtop:
