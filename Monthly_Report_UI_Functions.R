@@ -11,6 +11,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(lubridate)
+library(glue)
 library(feather)
 library(forcats)
 library(plotly)
@@ -1383,4 +1384,274 @@ plot_cctvs <- function(df, month_) {
         }
         p
     }
+}
+
+volplot_plotly <- function(df, title = "title") {
+    
+    # Works but colors and labeling are not fully complete.
+    pl <- function(dfi) {
+        plot_ly(data = dfi) %>% 
+            add_ribbons(x = ~Timeperiod, 
+                        ymin = 0,
+                        ymax = ~vol,
+                        color = ~CallPhase,
+                        colors = colrs,
+                        name = paste('Phase', dfi$CallPhase[1])) %>%
+            layout(yaxis = list(range = c(0,1000),
+                                tickformat = ",.0"),
+                   annotations = list(x = -.05,
+                                      y = 0.5,
+                                      xref = "paper",
+                                      yref = "paper",
+                                      xanchor = "right",
+                                      text = paste0("[", dfi$Detector[1], "]"),
+                                      font = list(size = 12),
+                                      showarrow = FALSE)
+            )
+    }
+    
+    # num_days <- length(unique(date(df$Timeperiod)))
+    # 
+    # included_detectors <- df %>% 
+    #     filter(!is.na(CallPhase)) %>%
+    #     group_by(SignalID, CallPhase, Detector) %>% 
+    #     summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
+    #     dplyr::filter(Total_Volume > (100 * num_days)) %>%
+    #     select(-Total_Volume) %>%
+    #     mutate(Keep = TRUE)
+    
+    df <- df %>%  #left_join(df, included_detectors) %>% 
+        #filter(Keep == TRUE) %>%
+        mutate(Detector = factor(as.integer(Detector)),
+               CallPhase = factor(as.integer(CallPhase)))
+    
+    dfs <- split(df, df$Detector)
+    
+    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
+    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
+        layout(annotations = list(text = title,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1,
+                                  showarrow = FALSE))
+}
+
+perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%", title = "title") {
+    
+    per_ <- as.name(per_)
+    var_ <- as.name(var_)
+    df <- rename(df, per = !!per_, var = !!var_)
+    
+    plot_ly(data = df) %>% 
+        add_ribbons(x = ~per, 
+                    ymin = 0,
+                    ymax = ~var, 
+                    color = I(DARK_GRAY)) %>%
+        layout(yaxis = list(range = c(0, range_max),
+                            tickformat = number_format),
+               annotations = list(text = title,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1.1,
+                                  showarrow = FALSE))
+}
+
+perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format = ".0%", title = "title") {
+    
+    # Works but colors and labeling are not fully complete.
+    pl <- function(dfi) {
+        plot_ly(data = dfi) %>% 
+            add_ribbons(x = ~per, 
+                        ymin = 0,
+                        ymax = ~var,
+                        color = ~CallPhase,
+                        colors = colrs,
+                        name = paste('Phase', dfi$CallPhase[1])) %>%
+            layout(yaxis = list(range = c(0, range_max),
+                                tickformat = number_format))
+    }
+    
+    per__ <- as.name(per_)
+    var__ <- as.name(var_)
+    df <- rename(df, per = !!per__, var = !!var__) %>%
+        mutate(CallPhase = factor(as.integer(CallPhase)))
+    
+    dfs <- split(df, df$CallPhase)
+    
+    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
+    subplot(plts, nrows = length(plts), shareX = TRUE, margin = 0.03) %>%
+        layout(annotations = list(text = title,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1,
+                                  showarrow = FALSE))
+}
+
+signal_dashboard <- function(sigid, pth = "s3") {
+    
+    if (pth == "s3") {
+        fn <- glue("signal_dashboards/{sigid}.rds")
+        aws.s3::save_object(fn, "gdot-devices", file = fn)
+        data <- readRDS(fn)
+        file.remove(fn)
+    } else {
+        fn <- file.path(pth, glue("{sigid}.rds"))
+        data <- readRDS(fn)
+    }
+
+    
+    p_rc <- tryCatch({
+        volplot_plotly(data$rc %>% mutate(vol = ifelse(is.na(vol), 0, vol)),
+                       title = "Raw 1 hr Aggregated Counts") %>% 
+            layout(showlegend = FALSE)
+    },
+    error = function(cond) {
+        plot_ly()
+    })
+    
+    p_fc <- tryCatch({
+        volplot_plotly(data$fc %>% mutate(vol = ifelse(is.na(vol), 0, vol)),
+                       title = "Filtered 1 hr Aggregated Counts") %>% 
+            layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    p_vpd <- tryCatch({
+        perf_plotly_by_phase(data$vpd %>% filter(!is.na(vpd)),
+                             "Date", "vpd", 
+                             range_max = max(data$vpd$vpd), 
+                             number_format = ",.0",
+                             title = "Daily Volume by Phase") %>% layout(showlegend = TRUE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    p_ddu <- tryCatch({
+        perf_plotly_by_phase(data$ddu %>% filter(!is.na(uptime)), 
+                             "Date", "uptime",
+                             title = "Daily Detector Uptime") %>% 
+            layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    sr1a <- subplot(list(p_rc, p_vpd), 
+                    nrows = 2, 
+                    margin = 0.04, 
+                    heights = c(0.6, 0.4), 
+                    shareX = TRUE)
+    sr1b <- subplot(list(p_fc, p_ddu), 
+                    nrows = 2, 
+                    margin = 0.04, 
+                    heights = c(0.6, 0.4), 
+                    shareX = TRUE)
+    
+    p_com <- tryCatch({
+        perf_plotly(data$cu, 
+                         "Date", "uptime", 
+                         title = "Daily Communications Uptime") %>% 
+        layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    p_aog <- tryCatch({
+        aog <- data$aog %>% 
+            complete(nesting(SignalID, CallPhase), 
+                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                     fill = list("aog" = 0)) %>% 
+            arrange(SignalID, CallPhase, Date_Hour)
+        perf_plotly_by_phase(aog,
+                             "Date_Hour", "aog", 
+                             title = "Arrivals on Green") %>% 
+            layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    p_qs <- tryCatch({
+        qs <-  data$qs %>% 
+            complete(nesting(SignalID, CallPhase), 
+                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                     fill = list("qs_freq" = 0)) %>% 
+            arrange(SignalID, CallPhase, Date_Hour)
+        perf_plotly_by_phase(qs,
+                             "Date_Hour", "qs_freq", 
+                             range_max = 0.5, 
+                             title = "Queue Spillback Rate") %>% 
+            layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    p_sf <- tryCatch({
+        sf <- data$sf %>% 
+            rename(CallPhase = Phase,
+                   Date_Hour = Hour) %>%
+            mutate(CallPhase = factor(CallPhase)) %>%
+            complete(nesting(SignalID, CallPhase), 
+                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                     fill = list("sf_freq" = 0)) %>% 
+            arrange(SignalID, CallPhase, Date_Hour)
+        
+        perf_plotly_by_phase(sf,
+                             "Date_Hour", "sf_freq", 
+                             range_max = 0.5, 
+                             title = "Split Failure Rate") %>% 
+            layout(showlegend = FALSE)
+    }, error = function(cond) {
+        plot_ly()
+    })
+    
+    sr2 <- subplot(list(p_com, p_aog, p_qs, p_sf), 
+                   nrows = 4, 
+                   margin = 0.04, 
+                   heights = c(0.1, 0.2, 0.2, 0.5), 
+                   shareX = TRUE)
+    
+    subplot(sr1a, sr1b, sr2)
+}
+
+signal_dashboard_cached_plot <- function(sigid) {
+    if (sigid != "") {
+        fn <- glue("plot_{sigid}.rds")
+        aws.s3::save_object(object = glue("signal_dashboards/plots/plot_{sigid}.rds"), 
+                            bucket = "gdot-devices", 
+                            file = fn)
+        plt <- readRDS(fn)
+        file.remove(fn)
+        plt
+    } else {
+        no_data_plot()
+    }
+}
+
+cache_plots <- function(pth, upload_to_s3 = TRUE) {
+    fns <- list.files(pth, pattern = "*.rds")
+    sigids <- sub(pattern = "(\\d+)\\.rds", replacement = "\\1", fns)
+    
+    lapply(sigids, function(s) { 
+        print(s)
+        plt <- signal_dashboard(s, pth)
+        plot_fn <- file.path(pth, "cached_plots", glue("plot_{s}.rds"))
+        saveRDS(plt, plot_fn)
+        if (upload_to_s3 == TRUE) {
+            aws.s3::put_object(file = plot_fn, 
+                               object = glue("signal_dashboards/plots/plot_{s}.rds"), 
+                               bucket = "gdot-devices")
+        }
+    })
 }

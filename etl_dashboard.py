@@ -149,7 +149,7 @@ if __name__=='__main__':
     #end_date = '2018-10-04'
     
     dates = pd.date_range(start_date, end_date, freq='1D')
-    
+                                        
     corridors_filename = conf['corridors_filename']
     corridors = pd.read_feather(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]

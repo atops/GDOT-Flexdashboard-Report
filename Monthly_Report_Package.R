@@ -15,7 +15,7 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 
 # # ###########################################################################
 
-f <- function(prefix, month_abbrs, combine = TRUE) {
+f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE) {
     
     cl <- makeCluster(3)
     clusterExport(cl, c("prefix"),
@@ -26,11 +26,19 @@ f <- function(prefix, month_abbrs, combine = TRUE) {
         library(tidyr)
         library(lubridate)
         
-        fn <- paste0(prefix, month_abbr, ".fst")
-        
-        read_fst(fn) %>%
-            mutate(SignalID = factor(SignalID)) %>%
-            as_tibble() 
+        if (daily == TRUE) {
+            fns <- list.files(pattern = paste0(prefix, month_abbr, "-\\d{2}.fst"))
+            df <- lapply(fns, read_fst) %>% 
+                bind_rows() %>% 
+                mutate(SignalID = factor(SignalID)) %>% 
+                as_tibble()
+        } else {
+            fn <- paste0(prefix, month_abbr, ".fst")
+            df <- read_fst(fn) %>%
+                mutate(SignalID = factor(SignalID)) %>%
+                as_tibble() 
+        }
+        df
     })
     stopCluster(cl)
     
