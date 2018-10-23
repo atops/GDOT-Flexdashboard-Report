@@ -19,7 +19,7 @@ library(pool)
 library(httr)
 library(aws.s3)
 library(sf)
-
+library(multidplyr)
 
 library(plotly)
 library(crosstalk)
@@ -453,8 +453,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
 }
 
 # revised version of get_filtered_counts. Needs more testing.
-# bad_days2 calc adds no value. Remove.
-get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
     counts <- counts %>%
         mutate(SignalID = factor(SignalID),
@@ -484,7 +483,7 @@ get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g.
         
         mutate(Date = date(Timeperiod),
                vol = replace_na(vol, 0)) %>%
-        anti_join(excluded_detectors) %>%
+        #anti_join(excluded_detectors) %>%
         
         mutate(SignalID = factor(SignalID), 
                Detector = factor(Detector), 
@@ -516,33 +515,6 @@ get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g.
         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 60 & mean_abs_delta < 200, 1, 0))) %>%
         select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
     
-    # conn <- dbConnect(odbc::odbc(), 
-    #                   dsn="sqlodbc", 
-    #                   uid=Sys.getenv("ATSPM_USERNAME"), 
-    #                   pwd=Sys.getenv("ATSPM_PASSWORD")
-    min_ts <- min(counts$Timeperiod)
-    max_ts <- max(counts$Timeperiod)
-    
-    bad_days2 <- lapply(as.character(unique(counts$SignalID)), function(s) {
-        tbl(conn, "Controller_Event_Log") %>% 
-            filter(between(Timestamp, min_ts, max_ts) & 
-                       EventCode %in% c(81,82) & 
-                       SignalID == s) %>% 
-            group_by(SignalID, Detector = EventParam, EventCode) %>% 
-            count() %>% 
-            collect() %>% 
-            spread(EventCode, n) %>% 
-            ungroup()
-    }) %>% bind_rows() %>% 
-        replace_na(list(`81` = 0, `82` = 0)) %>% 
-        mutate(diff = abs(`81` - `82`)) %>%
-        mutate(sddiff = sd(diff)) %>%
-        filter(diff > sddiff) %>%
-        transmute(SignalID = factor(SignalID),
-                  Detector = factor(Detector),
-                  gd = 0) %>%
-        full_join(bad_days)
-    
     # counts with the bad days taken out
     filtered_counts <- left_join(expanded_counts, bad_days) %>%
         mutate(vol = ifelse(Good_Day==1, vol, NA),
@@ -555,7 +527,7 @@ get_filtered_counts2 <- function(counts, interval = "1 hour") { # interval (e.g.
     
 }
 
-get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+get_filtered_counts_older <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
     counts <- counts %>%
         mutate(SignalID = factor(SignalID),
@@ -674,7 +646,7 @@ get_adjusted_counts <- function(filtered_counts) {
     # fill in missing detectors by hour and day of week volume in the month
     left_join(fc_phc, mo_hrly_vols) %>%
         ungroup() %>%
-        mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), vol)) %>%
+        mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
         
         select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
         
@@ -1395,7 +1367,7 @@ get_daily_detector_uptime <- function(filtered_counts) {
     fc <- anti_join(filtered_counts, bad_comms)
     
     ddu <- fc %>% 
-        filter(!wday(Timeperiod) %in% c(1,7)) %>%
+        #filter(!wday(Timeperiod) %in% c(1,7)) %>%
         mutate(Date_Hour = Timeperiod,
                                       Date = date(Date_Hour)) %>%
         select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
@@ -2102,16 +2074,14 @@ read_teams_csv <- function(csv_fn) {
 
 
 
-get_teams_tasks <- function(tasks_fn = "TEAMS Reports/all_tasks.csv",
+get_teams_tasks <- function(tasks_fn = "TEAMS Reports/tasks.csv.zip",
                             locations_fn = "TEAMS Reports/TEAMS_Locations_Report.csv") {
     
     conn <- dbConnect(odbc::odbc(), 
                       dsn="sqlodbc", 
                       uid=Sys.getenv("ATSPM_USERNAME"), 
                       pwd=Sys.getenv("ATSPM_PASSWORD"))
-    
-    
-    
+
     
     # Data Frames
     locs <- readr::read_csv(locations_fn)
@@ -2286,181 +2256,123 @@ readRDS_multiple <- function(pattern) {
     bind_rows(lapply(lf, readRDS))
 }
 
-volplot_plotly <- function(df, title = "title") {
+
+build_data_for_signal_dashboard <- function(month_abbrs, 
+                                            corridors, 
+                                            pth = ".", 
+                                            upload_to_s3 = FALSE) {
     
-    # Works but colors and labeling are not fully complete.
-    pl <- function(dfi) {
-        plot_ly(data = dfi) %>% 
-            add_ribbons(x = ~Timeperiod, 
-                        ymin = 0,
-                        ymax = ~vol,
-                        color = ~CallPhase,
-                        colors = colrs,
-                        name = paste('Phase', dfi$CallPhase[1])) %>%
-            layout(yaxis = list(range = c(0,1000),
-                                tickformat = ",.0"),
-                   annotations = list(x = -.05,
-                                      y = 0.5,
-                                      xref = "paper",
-                                      yref = "paper",
-                                      xanchor = "right",
-                                      text = paste0("[", dfi$Detector[1], "]"),
-                                      font = list(size = 12),
-                                      showarrow = FALSE)
-            )
+    write_signal_data <- function(df, data_name) {
+        
+        df$SignalID <- factor(df$SignalID)
+        sid <- levels(df$SignalID)[1]
+        fn <- file.path(pth, glue("{sid}.rds"))
+        if (file.exists(fn)) {
+            data <- readRDS(fn)
+        } else {
+            data <- list()
+        }
+        if (!data_name %in% names(data)) {
+            data[[data_name]] <- data.frame()
+            print(glue("{sid} {data_name} is new"))
+        }
+        data[[data_name]] <- rbind(data[[data_name]], df)
+        saveRDS(data, fn)
+        return(head(df,1))
     }
     
-    num_days <- length(unique(date(df$Timeperiod)))
     
-    included_detectors <- df %>% 
-        filter(!is.na(CallPhase)) %>%
-        group_by(SignalID, CallPhase, Detector) %>% 
-        summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
-        dplyr::filter(Total_Volume > (100 * num_days)) %>%
-        select(-Total_Volume) %>%
-        mutate(Keep = TRUE)
     
-    df <- left_join(df, included_detectors) %>% filter(Keep == TRUE)
-    
-    dfs <- split(df, df$Detector)
-    
-    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
-    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
-        layout(annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1,
-                                  showarrow = FALSE))
-}
-
-perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%", title = "title") {
-    
-    per_ <- as.name(per_)
-    var_ <- as.name(var_)
-    df <- rename(df, per = !!per_, var = !!var_)
-    
-    plot_ly(data = df) %>% 
-        add_ribbons(x = ~per, 
-                    ymin = 0,
-                    ymax = ~var, 
-                    color = I(DARK_GRAY)) %>%
-        layout(yaxis = list(range = c(0, range_max),
-                            tickformat = number_format),
-               annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1.1,
-                                  showarrow = FALSE))
-}
-
-perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format = ".0%", title = "title") {
-    
-    # Works but colors and labeling are not fully complete.
-    pl <- function(dfi) {
-        plot_ly(data = dfi) %>% 
-            add_ribbons(x = ~per, 
-                        ymin = 0,
-                        ymax = ~var,
-                        color = ~CallPhase,
-                        colors = colrs,
-                        name = paste('Phase', dfi$CallPhase[1])) %>%
-            layout(yaxis = list(range = c(0, range_max),
-                                tickformat = number_format))
+    lapply(month_abbrs, function(month_abbr) { 
+        
+        print(month_abbr)
+        
+        result <- tryCatch({
+            rc <- f("counts_1hr_", month_abbr, daily = TRUE) %>% 
+                filter(SignalID %in% levels(corridors$SignalID))
+            rc %>% group_by(SignalID) %>% do(write_signal_data(., "rc"))
+            rm(rc); gc()
+        }, error = function(e) {
+            print(e)
+            print(glue("No data for raw counts for {month_abbr}"))
+        }, finally = {
+        })
+        
+        result <- tryCatch({
+            fc <- f("filtered_counts_1hr_", month_abbr)
+            fc %>% group_by(SignalID) %>% do(write_signal_data(., "fc"))
+            rm(fc); gc()
+        }, error = function(e) {
+            print(e)
+            print(glue("No data for filtered counts for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            ddu <- f("ddu_", month_abbr)
+            ddu %>% group_by(SignalID) %>% do(write_signal_data(., "ddu"))
+            rm(ddu); gc()
+        }, error = function(e) {
+            print(glue("No data for detector uptime for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            cu <- f("cu_", month_abbr)
+            cu %>% group_by(SignalID) %>% do(write_signal_data(., "cu"))
+            rm(cu); gc()
+        }, error = function(e) {
+            print(glue("No data for comm uptime for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            vpd <- f("vpd_", month_abbr)
+            vpd %>% group_by(SignalID) %>% do(write_signal_data(., "vpd"))
+            rm(vpd); gc()
+        }, error = function(e) {
+            print(glue("No data for raw_counts for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            tp <- f("tp_", month_abbr)
+            tp %>% group_by(SignalID) %>% do(write_signal_data(., "tp"))
+            rm(tp); gc()
+        }, error = function(e) {
+            print(glue("No data for throughput for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            aog <- f("aog_", month_abbr)
+            aog %>% group_by(SignalID) %>% do(write_signal_data(., "aog"))
+            rm(aog); gc()
+        }, error = function(e) {
+            print(glue("No data for arrivals on green for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            sf <- f("sf_", month_abbr)
+            sf %>% group_by(SignalID) %>% do(write_signal_data(., "sf"))
+            rm(sf); gc()
+        }, error = function(e) {
+            print(glue("No data for split failures for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            qs <- f("qs_", month_abbr)
+            qs %>% group_by(SignalID) %>% do(write_signal_data(., "qs"))
+            rm(qs); gc()
+        }, error = function(e) {
+            print(glue("No data for queue spillback for {month_abbr}"))
+        })
+    })
+    if (upload_to_s3 == TRUE) {
+        lapply(list.files(pth, pattern = "*.rds"), function(fn) {
+            aws.s3::put_object(file = file.path(pth, fn), 
+                               object = glue("signal_dashboards/{fn}"), 
+                               bucket = "gdot-devices")
+        })
     }
-    
-    per__ <- as.name(per_)
-    var__ <- as.name(var_)
-    df <- rename(df, per = !!per__, var = !!var__)
-    
-    dfs <- split(df, df$CallPhase)
-    
-    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
-    subplot(plts, nrows = length(plts), shareX = TRUE, margin = 0.03) %>%
-        layout(annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1,
-                                  showarrow = FALSE))
 }
 
-signal_dashboard <- function(sigid,
-                             raw_counts_1hr = raw_counts_1hr_,
-                             filtered_counts_1hr = filtered_counts_1hr_,
-                             vpd = vpd_,
-                             avg_daily_detector_uptime = avg_daily_detector_uptime_,
-                             daily_comm_uptime = daily_comm_uptime_,
-                             aog = aog_,
-                             qs = qs_,
-                             sf = sf_) {
-    
-    p_rc <- tryCatch({
-        volplot_plotly(raw_counts_1hr %>% filter(SignalID == sigid) %>% mutate(vol = ifelse(is.na(vol), 0, vol)),
-                       title = "Raw 1 hr Aggregated Counts") %>% 
-            layout(showlegend = FALSE)
-    },
-    error = function(cond) {
-        plot_ly()
-    })
-    
-    p_fc <- tryCatch({
-        volplot_plotly(filtered_counts_1hr %>% filter(SignalID == sigid) %>% mutate(vol = ifelse(is.na(vol), 0, vol)),
-                       title = "Filtered 1 hr Aggregated Counts") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
 
-    p_vpd <- tryCatch({
-        perf_plotly_by_phase(vpd %>% filter(SignalID==sigid & !is.na(vpd)), 
-                             "Date", "vpd", 
-                             range_max = max(vpd$vpd), 
-                             number_format = ",.0",
-                             title = "Daily Volume by Phase") %>% layout(showlegend = TRUE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_ddu <- tryCatch({
-        perf_plotly_by_phase(avg_daily_detector_uptime %>% filter(SignalID==sigid & !is.na(uptime)), 
-                             "Date", "uptime",
-                             title = "Daily Detector Uptime") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    sr1a <- subplot(list(p_rc, p_vpd), nrows = 2, margin = 0.04, heights = c(0.6, 0.4), shareX = TRUE)
-    sr1b <- subplot(list(p_fc, p_ddu), nrows = 2, margin = 0.04, heights = c(0.6, 0.4), shareX = TRUE)
-    
-    p_com <- perf_plotly(daily_comm_uptime %>% filter(SignalID==sigid), 
-                         "Date", "uptime", title = "Daily Communications Uptime") %>% 
-        layout(showlegend = FALSE)
-    p_aog <- perf_plotly_by_phase(aog %>% filter(SignalID==sigid), 
-                                  "Date", "aog", title = "Arrivals on Green") %>% 
-        layout(showlegend = FALSE)
-    p_qs <- perf_plotly_by_phase(qs %>% filter(SignalID==sigid), 
-                                 "Date", "qs_freq", range_max = 0.5, title = "Queue Spillback Rate") %>% 
-        layout(showlegend = FALSE)
-    p_sf <- perf_plotly_by_phase(sf %>% filter(SignalID==sigid), 
-                                 "Date", "sf_freq", range_max = 0.5, title = "Split Failure Rate") %>% 
-        layout(showlegend = FALSE)
-    
-    sr2 <- subplot(list(p_com, p_aog, p_qs, p_sf), nrows = 4, margin = 0.04, heights = c(0.1, 0.2, 0.2, 0.5), shareX = TRUE)
-    
-    subplot(sr1a, sr1b, sr2)
-}
 
 
 patch_april <- function(df, df4) {
