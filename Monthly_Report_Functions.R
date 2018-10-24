@@ -2317,8 +2317,9 @@ build_data_for_signal_dashboard <- function(month_abbrs,
     
     write_signal_data <- function(df, data_name) {
         
-        df$SignalID <- factor(df$SignalID)
-        sid <- levels(df$SignalID)[1]
+        #df$SignalID <- factor(df$SignalID)
+        #sid <- levels(df$SignalID)[1]
+        sid <- as.character(df$SignalID[1])
         fn <- file.path(pth, glue("{sid}.rds"))
         if (file.exists(fn)) {
             data <- readRDS(fn)
@@ -2343,6 +2344,9 @@ build_data_for_signal_dashboard <- function(month_abbrs,
         result <- tryCatch({
             rc <- f("counts_1hr_", month_abbr, daily = TRUE) %>% 
                 filter(SignalID %in% levels(corridors$SignalID))
+            #lapply(levels(rc$SignalID), function(x) { 
+            #    write_signal_data(filter(rc, SignalID == x), "rc") 
+            #})
             rc %>% group_by(SignalID) %>% do(write_signal_data(., "rc"))
             rm(rc); gc()
         }, error = function(e) {
