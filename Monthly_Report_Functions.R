@@ -107,6 +107,7 @@ get_corridors <- function(corr_fn) {
                   Name = Name,
                   Asof = date(Asof)) %>% 
         filter(grepl("^\\d.*", SignalID)) %>%
+        filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
 
