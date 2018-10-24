@@ -8,7 +8,7 @@ report_start_date: 2017-09-01
 report_end_date: yesterday
 
 corridors_filename: corridors.feather
-corridors_xlsx_filename: ../Master RTOP Counts File_2018-08-24.xlsx
+corridors_xlsx_filename: ../Master RTOP Counts File_2018-10-23.xlsx
 
 tmc_filename: tmc_routes.feather
 

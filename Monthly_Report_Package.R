@@ -5,7 +5,17 @@ print(Sys.time())
 
 library(yaml)
 
-setwd(file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report"))
+if (Sys.info()["sysname"] == "Windows") {
+    working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
+    
+} else if (Sys.info()["sysname"] == "Linux") {
+    working_directory <- file.path("~", "Code", "GDOT", "GDOT-Flexdashboard-Report")
+    
+} else {
+    stop("Unknown operating system.")
+}
+setwd(working_directory)
+
 source("Monthly_Report_Functions.R")
 conf <- read_yaml("Monthly_Report_calcs.yaml")
 

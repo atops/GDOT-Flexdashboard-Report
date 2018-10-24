@@ -8,6 +8,7 @@ if (Sys.info()["sysname"] == "Windows") {
     
 } else if (Sys.info()["sysname"] == "Linux") {
     working_directory <- file.path("~", "Code", "GDOT", "GDOT-Flexdashboard-Report")
+    
 } else {
     stop("Unknown operating system.")
 }
@@ -38,10 +39,23 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 # corridors <- get_corridors(conf$corridors_xlsx_filename)
 # write_feather(corridors, "corridors.feather")
 
-conn <- dbConnect(odbc::odbc(),
-                 dsn = "sqlodbc",
-                 uid = Sys.getenv("ATSPM_USERNAME"),
-                 pwd = Sys.getenv("ATSPM_PASSWORD"))
+if (Sys.info()["sysname"] == "Windows") {
+
+    conn <- dbConnect(odbc::odbc(),
+                      dsn = "sqlodbc",
+                      uid = Sys.getenv("ATSPM_USERNAME"),
+                      pwd = Sys.getenv("ATSPM_PASSWORD"))
+
+} else if (Sys.info()["sysname"] == "Linux") {
+    
+    conn <- dbConnect(odbc::odbc(),
+                      driver = "FreeTDS",
+                      server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
+                      database = Sys.getenv("ATSPM_DB"),
+                      uid = Sys.getenv("ATSPM_USERNAME"),
+                      pwd = Sys.getenv("ATSPM_PASSWORD"))
+}
+
 # dbWriteTable(conn, "Corridors", corridors, overwrite = TRUE)
 # dbSendQuery(conn, "CREATE CLUSTERED INDEX Corridors_Idx0 on Corridors(SignalID)")
 

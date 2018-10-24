@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool
 import pandas as pd
 import sqlalchemy as sq
+import pyodbc
 import time
 import os
 import itertools
@@ -117,7 +118,27 @@ if __name__=='__main__':
 
     t0 = time.time()
     
-    engine = sq.create_engine('mssql+pyodbc://{}:{}@sqlodbc'.format(os.environ['ATSPM_USERNAME'], os.environ['ATSPM_PASSWORD']), pool_size=20)
+    if os.name=='nt':
+        
+        uid = os.environ['ATSPM_USERNAME']
+        pwd = os.environ['ATSPM_PASSWORD']
+        
+        engine = sq.create_engine('mssql+pyodbc://{}:{}@sqlodbc'.format(uid, pwd),
+                                  pool_size=20)
+    
+    elif os.name=='posix':
+
+        def connect():
+            return pyodbc.connect(
+                'DRIVER=FreeTDS;' + 
+                'SERVER={};'.format(os.environ["ATSPM_SERVER_INSTANCE"]) +
+                'DATABASE={};'.format(os.environ["ATSPM_DB"]) +
+                'UID={};'.format(os.environ['ATSPM_USERNAME']) +
+                'PWD={};'.format(os.environ['ATSPM_PASSWORD']) +
+                'TDS_Version=8.0;')
+        
+        engine = sq.create_engine('mssql://', creator=connect)
+        
     
     with engine.connect() as conn:
 

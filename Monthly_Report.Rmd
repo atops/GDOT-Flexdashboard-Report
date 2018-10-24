@@ -1573,7 +1573,6 @@ Row {data-height = 800}
 ```{r}
 renderDataTable({
     
-
     datatable(filtered_corridors(),  #corr, 
               escape = FALSE,
               extensions = 'Scroller', 
