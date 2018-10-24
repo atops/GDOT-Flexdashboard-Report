@@ -1593,21 +1593,24 @@ Signal Details
 fillCol(height = 100,
 renderUI({
     selectInput("signalid", "SignalID:",
-                choices = c("", filtered_signalids()),
+                choices = c("Select", filtered_signalids()),
                 selected = "",
                 width = "600px")
 }))
 
 
 fillCol(height = 700,
-withProgress(
-    expr = 
-        renderPlotly({
+
+    renderPlotly({
+        if (input$signalid == "Select") {
+            no_data_plot("")
+        } else {
             sid <- stringr::str_extract(input$signalid, "^(\\d+)(?=:)")
             #signal_dashboard_cached_plot(sid)
             signal_dashboard(sid)
-        }),
-    message = "Preparing plot..."))
+        }
+    })
+)
 ```
 
 
