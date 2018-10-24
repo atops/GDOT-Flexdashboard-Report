@@ -1598,9 +1598,13 @@ fillCol(height = 700,
         if (input$signalid == "Select") {
             no_data_plot("")
         } else {
-            sid <- stringr::str_extract(input$signalid, "^(\\d+)(?=:)")
-            #signal_dashboard_cached_plot(sid)
-            signal_dashboard(sid)
+            tryCatch({
+                sid <- stringr::str_extract(input$signalid, "^(\\d+)(?=:)")
+                #signal_dashboard_cached_plot(sid)
+                signal_dashboard(sid)
+            }, error = function(e) {
+                no_data_plot("")
+            })
         }
     })
 )
