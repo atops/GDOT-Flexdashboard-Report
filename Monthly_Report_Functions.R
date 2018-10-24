@@ -19,7 +19,7 @@ library(pool)
 library(httr)
 library(aws.s3)
 library(sf)
-library(multidplyr)
+#library(multidplyr)
 
 library(plotly)
 library(crosstalk)
@@ -53,10 +53,16 @@ SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
 
-set_config(
-    use_proxy("gdot-enterprise", port = 8080,
-              username = Sys.getenv("GDOT_USERNAME"),
-              password = Sys.getenv("GDOT_PASSWORD")))
+if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
+    set_config(
+        use_proxy("gdot-enterprise", port = 8080,
+                  username = Sys.getenv("GDOT_USERNAME"),
+                  password = Sys.getenv("GDOT_PASSWORD")))
+}
+# set_config(
+#     use_proxy("gdot-enterprise", port = 8080,
+#               username = Sys.getenv("GDOT_USERNAME"),
+#               password = Sys.getenv("GDOT_PASSWORD")))
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
@@ -225,7 +231,7 @@ get_det_config <- function(date_) {
     
     fn <- glue("../ATSPM_Det_Config_{date_}.csv")
     if (!file.exists(fn)) {
-        aws.s3::save_object(object = "atspm_det_config/date={date_}/ATSPM_Det_Config.csv",
+        aws.s3::save_object(object = glue("atspm_det_config/date={date_}/ATSPM_Det_Config.csv"),
                            bucket = "gdot-devices", 
                            file = fn)}
     adc_ <- read_csv(fn)
@@ -239,7 +245,7 @@ get_det_config <- function(date_) {
     
     fn <- glue("../MaxTime_Det_Plans_{date_}.csv")
     if (!file.exists(fn)) {
-        aws.s3::save_object(object = "maxtim_det_plans/date={date_}/MaxTime_Det_Plans.csv",
+        aws.s3::save_object(object = glue("maxtim_det_plans/date={date_}/MaxTime_Det_Plans.csv"),
                             bucket = "gdot-devices", 
                             file = fn)}
     mdp_ <- read_csv(fn)
