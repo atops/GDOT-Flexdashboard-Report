@@ -615,21 +615,6 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 
 print("TEAMS")
 
-# reduced so it leverages config file structure
-# teams <- lapply(conf$teams, function(x) {
-#     
-#     csv_fns <- file.path(x$path, x$filenames)
-#     
-#     lapply(csv_fns, read_teams_csv) %>%
-#         bind_rows() %>%
-#         tidy_teams() %>%
-#         filter(`Date Reported` >= ymd(report_start_date) &
-#                    `Date Reported` <= ymd(report_end_date)) %>%
-#         mutate(All = factor("all"),
-#                Zone_Group = x$zone_group)
-#     
-# }) %>% bind_rows()
-
 # New version from API result
 teams <- get_teams_tasks() %>%
     
@@ -639,7 +624,6 @@ teams <- get_teams_tasks() %>%
 
 saveRDS(teams, "teams.rds")
 #------------------------------------------------------------------------------
-#teams <- readRDS("teams.rds")
 
 
 type_table <- get_outstanding_events(teams, "Task_Type") %>%
