@@ -223,7 +223,12 @@ get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-09/") {
 
 get_det_config <- function(date_) {
     
-    adc_ <- read_csv(glue("../ATSPM_Det_Config_{date_}.csv"))
+    fn <- glue("../ATSPM_Det_Config_{date_}.csv")
+    if (!file.exists(fn)) {
+        aws.s3::save_object(object = "atspm_det_config/date={date_}/ATSPM_Det_Config.csv",
+                           bucket = "gdot-devices", 
+                           file = fn)}
+    adc_ <- read_csv(fn)
     adc <- adc_ %>% 
         select(SignalID, Detector, CallPhase = ProtectedPhaseNumber, TimeFromStopBar, IPAddress) %>% 
         replace_na(list(TimeFromStopBar = 0)) %>% 
@@ -232,7 +237,12 @@ get_det_config <- function(date_) {
                CallPhase = factor(CallPhase)) %>%
         filter(SignalID %in% signals_list)
     
-    mdp_ <- read_csv(glue("../MaxTime_Det_Plans_{date_}.csv"))
+    fn <- glue("../MaxTime_Det_Plans_{date_}.csv")
+    if (!file.exists(fn)) {
+        aws.s3::save_object(object = "maxtim_det_plans/date={date_}/MaxTime_Det_Plans.csv",
+                            bucket = "gdot-devices", 
+                            file = fn)}
+    mdp_ <- read_csv(fn)
     mdp <- mdp_ %>%
         select(SignalID, Detector, CallPhase) %>% 
         mutate(SignalID = factor(SignalID),
