@@ -89,17 +89,6 @@ as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
 
 
-#raw_counts_1hr_ <- read_feather("sig_raw_counts_1hr.feather")
-#filtered_counts_1hr_ <- read_feather("sig_filtered_counts_1hr.feather")
-#adjusted_counts_1hr_ <- read_feather("sig_adjusted_counts_1hr.feather")
-#vpd_ <- read_feather("sig_vpd.feather")
-#aog_ <- read_feather("sig_aog.feather")
-#sf_ <- read_feather("sig_sf.feather")
-#qs_ <- read_feather("sig_qs.feather")
-#avg_daily_detector_uptime_ <- read_feather("sig_avg_daily_detector_uptime.feather")
-#daily_comm_uptime_ <- read_feather("sig_daily_comm_uptime.feather")
-
-
 
 get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
                           zone, mo, qu = NULL) {

@@ -403,8 +403,3 @@ py_run_file("parse_cctvlog.py") # Run python script
 py_run_file("get_travel_times.py") # Run python script
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")
-
-
-
-
-

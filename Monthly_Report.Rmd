@@ -27,6 +27,12 @@ FIG_HEIGHT = 7
 
 
 
+
+
+
+
+
+
 Inputs {.sidebar}
 =====================================
 
@@ -68,6 +74,14 @@ conditionalPanel("input.zone_group == 'RTOP2'",
                                          ))),
                              selected = "All Corridors"))
 
+conditionalPanel("input.zone_group == 'D1'",
+                 selectInput("corridor_d1", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D1")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
 conditionalPanel("input.zone_group == 'D3'",
                  selectInput("corridor_d3", "Corridor:",
                              choices = c("All Corridors", 
@@ -92,6 +106,14 @@ conditionalPanel("input.zone_group == 'D5'",
                                          ))),
                              selected = "All Corridors"))
 
+conditionalPanel("input.zone_group == 'D6'",
+                 selectInput("corridor_d6", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D6")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
 conditionalPanel("input.zone_group == 'Zone 7'",
                  selectInput("corridor_z7", "Corridor:",
                              choices = c("All Corridors", 
@@ -111,17 +133,22 @@ conditionalPanel("input.zone_group == 'Cobb County'",
 current_month <- reactive(lubridate::dmy(paste(1, input$month)))
 current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
 
+
 corridor <- reactive(
     if (input$zone_group == "RTOP1") {
         input$corridor_rtop1
     } else if (input$zone_group == "RTOP2") {
         input$corridor_rtop2
+    } else if (input$zone_group == "D1") {
+        input$corridor_d1
     } else if (input$zone_group == "D3") {
         input$corridor_d3
     } else if (input$zone_group == "D4") {
         input$corridor_d4
     } else if (input$zone_group == "D5") {
         input$corridor_d5
+    } else if (input$zone_group == "D6") {
+        input$corridor_d6
     } else if (input$zone_group == "Zone 7") {
         input$corridor_z7
     } else if (input$zone_group == "Cobb County") {
@@ -130,6 +157,7 @@ corridor <- reactive(
         "All Corridors"
     })
 
+    
 zone_group <- reactive(
     if (corridor() == "All Corridors") {
         input$zone_group
@@ -178,6 +206,12 @@ filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
 # renderText({"Selected Corridor"})
 # renderPrint({corridor()})
 ```
+
+
+
+
+
+
 
 
 
@@ -458,6 +492,9 @@ renderValueBox({
   )
 })
 ```
+
+
+
 
 
 
@@ -779,6 +816,11 @@ renderValueBox({
 
 
 
+
+
+
+
+
 Summary Trend
 =====================================
 
@@ -960,9 +1002,6 @@ renderValueBox({
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-```{r,}
-
-```
 
 ### Throughput
 
@@ -1239,20 +1278,6 @@ renderPlotly({
                                  x_line1_title = "Daily Uptime",
                                  plot_title = "",
                                  goal = NULL)
-        
-        #get_bar_line_dashboard_plot(mr()$dy$du,
-        #                            mr()$mo$du, 
-        #                            NULL,
-        #                            "uptime.all", 
-        #                            "percent", 
-        #                            highlight_color = GDOT_BLUE,
-        #                            month_ = current_month(), 
-        #                            zone_group_ = zone_group(),
-        #                            x_bar_title = "",
-        #                            x_line1_title = "",
-        #                            plot_title = "",
-        #                            goal = 0.95)
-        
     }
 })
 ```
@@ -1338,23 +1363,12 @@ renderPlotly({
                                  x_line1_title = "Daily Uptime",
                                  plot_title = "",
                                  goal = NULL)
-
-        #get_bar_line_dashboard_plot(mr()$wk$cu, 
-        #                            mr()$mo$cu, 
-        #                            NULL,
-        #                            "uptime", 
-        #                            "percent", 
-        #                            highlight_color = GDOT_BLUE,
-        #                            month_ = current_month(), 
-        #                            zone_group_ = zone_group(),
-        #                            x_bar_title = "",
-        #                            x_line1_title = "",
-        #                            plot_title = "",
-        #                            goal = 0.95)
     }
     
 })
 ```
+
+
 
 
 
@@ -1536,34 +1550,6 @@ Zone 7:
 
 
 
-```{r, cache = FALSE, eval = FALSE}
-
-##### This will go here When we add it.
-
-#Signal Data
-#=====================================
-
-
-```
-
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE}
-
-selectInput("signalid", "Signal:",
-            choices =  filter(corridors, SignalID %in% unique(daily_comm_uptime_$SignalID))$Description,
-            width = "50%")
-
-signalid <- reactive(filter(corridors, Description == input$signalid)$SignalID)
-```
-
-Row {data-height = 800}
--------------------------------------
-
-```{r, eval = FALSE, warning = FALSE}
-renderPlotly({ signal_dashboard(signalid()) })
-
-```
-
 Signals List
 =====================================
 
@@ -1584,6 +1570,13 @@ renderDataTable({
     )
 })
 ```
+
+
+
+
+
+
+
 
 
 Signal Details
@@ -1612,6 +1605,14 @@ fillCol(height = 700,
     })
 )
 ```
+
+
+
+
+
+
+
+
 
 
 Explanation of Calcs
