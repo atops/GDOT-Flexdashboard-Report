@@ -53,7 +53,7 @@ SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
 
-if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
+if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     set_config(
         use_proxy("gdot-enterprise", port = 8080,
                   username = Sys.getenv("GDOT_USERNAME"),
