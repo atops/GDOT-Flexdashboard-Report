@@ -73,19 +73,19 @@ get_atspm_connection <- function() {
     
     if (Sys.info()["sysname"] == "Windows") {
         
-        conn <- dbConnect(odbc::odbc(),
-                          dsn = "sqlodbc",
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
+        dbConnect(odbc::odbc(),
+                  dsn = "sqlodbc",
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
-        conn <- dbConnect(odbc::odbc(),
-                          driver = "FreeTDS",
-                          server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                          database = Sys.getenv("ATSPM_DB"),
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
+        dbConnect(odbc::odbc(),
+                  driver = "FreeTDS",
+                  server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
+                  database = Sys.getenv("ATSPM_DB"),
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
     }
 } 
 
@@ -385,14 +385,11 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
-    conn <- get_atspm_connection()
-    
     if (counts == TRUE) {
         det_config <- get_det_config(start_date) %>%
             select(SignalID, Detector, CallPhase)
     }
-    
-    
+
     uptime_sig <- data.frame()
     gaps_all <- data.frame()
     
@@ -416,9 +413,12 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         
         
+        conn <- get_atspm_connection()
         
         df <- dbGetQuery(conn, query)
         print(head(df))
+        
+        dbDisconnect(conn)
         
         if (uptime == TRUE) {
             uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
@@ -783,6 +783,10 @@ get_detector_count <- function(signals_list) {
         collect() %>%
         group_by(SignalID, CallPhase) %>%
         summarize(Detectors = n())
+    
+    dbDisconnect(conn)
+    
+    det
 }
 
 get_bad_detectors <- function(filtered_counts_1hr) {
@@ -2132,6 +2136,8 @@ get_teams_tasks <- function(tasks_fn = "TEAMS Reports/tasks.csv.zip",
                Latitude = as.numeric(Latitude),
                Longitude = as.numeric(Longitude)) %>%
         filter(Latitude != 0)
+    
+    dbDisconnect(conn)
     
     corridors <- read_feather("corridors.feather")
     
