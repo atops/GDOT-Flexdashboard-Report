@@ -39,22 +39,7 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 # corridors <- get_corridors(conf$corridors_xlsx_filename)
 # write_feather(corridors, "corridors.feather")
 
-if (Sys.info()["sysname"] == "Windows") {
-
-    conn <- dbConnect(odbc::odbc(),
-                      dsn = "sqlodbc",
-                      uid = Sys.getenv("ATSPM_USERNAME"),
-                      pwd = Sys.getenv("ATSPM_PASSWORD"))
-
-} else if (Sys.info()["sysname"] == "Linux") {
-    
-    conn <- dbConnect(odbc::odbc(),
-                      driver = "FreeTDS",
-                      server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                      database = Sys.getenv("ATSPM_DB"),
-                      uid = Sys.getenv("ATSPM_USERNAME"),
-                      pwd = Sys.getenv("ATSPM_PASSWORD"))
-}
+conn <- get_atspm_connection()
 
 # dbWriteTable(conn, "Corridors", corridors, overwrite = TRUE)
 # dbSendQuery(conn, "CREATE CLUSTERED INDEX Corridors_Idx0 on Corridors(SignalID)")
@@ -271,10 +256,9 @@ get_counts_based_measures(month_abbrs)
 # --- This needs the ATSPM database ---
 print("Upload bad detectors to DB")
 upload_bad_detectors_to_db <- function(month_abbrs) {
-    conn <- dbConnect(odbc::odbc(),
-                      dsn = "sqlodbc",
-                      uid = Sys.getenv("ATSPM_USERNAME"),
-                      pwd = Sys.getenv("ATSPM_PASSWORD"))
+    
+    conn <- get_atspm_connection()
+    
     lapply(month_abbrs, function(yyyy_mm) {
         print(yyyy_mm)
         bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
