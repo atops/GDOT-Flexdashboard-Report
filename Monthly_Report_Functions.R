@@ -249,7 +249,7 @@ get_det_config <- function(date_) {
     
     fn <- glue("../MaxTime_Det_Plans_{date_}.csv")
     if (!file.exists(fn)) {
-        aws.s3::save_object(object = glue("maxtim_det_plans/date={date_}/MaxTime_Det_Plans.csv"),
+        aws.s3::save_object(object = glue("maxtime_det_plans/date={date_}/MaxTime_Det_Plans.csv"),
                             bucket = "gdot-devices", 
                             file = fn)}
     mdp_ <- read_csv(fn)
