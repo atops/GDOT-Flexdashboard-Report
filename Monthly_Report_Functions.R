@@ -53,31 +53,20 @@ SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
 
+aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
+           "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
+           "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+
 if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     set_config(
         use_proxy("gdot-enterprise", port = 8080,
                   username = Sys.getenv("GDOT_USERNAME"),
                   password = Sys.getenv("GDOT_PASSWORD")))
     
-} else if (Sys.info()["nodename"] == "Larry") { # Linux workstation
-    aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-    Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-               "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
-    
 } else { # shinyapps.io
     Sys.setenv(TZ="America/New_York")
-    
-    aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-    Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-               "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
 }
-
-# set_config(
-#     use_proxy("gdot-enterprise", port = 8080,
-#               username = Sys.getenv("GDOT_USERNAME"),
-#               password = Sys.getenv("GDOT_PASSWORD")))
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
