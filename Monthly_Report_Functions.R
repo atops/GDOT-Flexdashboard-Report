@@ -19,7 +19,7 @@ library(pool)
 library(httr)
 library(aws.s3)
 library(sf)
-#library(multidplyr)
+library(yaml)
 
 library(plotly)
 library(crosstalk)
