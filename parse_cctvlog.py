@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from glob import glob
+import re
 
 from dask import delayed, compute
 
@@ -22,7 +23,9 @@ def parse_cctvlog(fn):
                                'Last-Modified': 'Timestamp', 
                                'Content-Length': 'Size'})
             .assign(Timestamp = lambda x: pd.to_datetime(x.Timestamp, 
-                                                         format ='%a, %d %b %Y %H:%M:%S %Z'))
+                                                         format ='%a, %d %b %Y %H:%M:%S %Z')
+                                          .dt.tz_localize('UTC')
+                                          .dt.tz_convert('America/New_York'))
             .assign(Date = lambda x: x.Timestamp.dt.date)
             .drop_duplicates())
     
@@ -31,10 +34,12 @@ def parse_cctvlog(fn):
 filenames = glob('../cctvlogs/cctvlog_*.json')
 
 today_ = datetime.today().strftime('%Y-%m-%d')
-today_fn = '../cctvlogs/cctvlog_{}.json'.format(today_)
+filenames = [fn for fn in filenames if re.search(today_, fn) == None]
 
-if today_fn in filenames:
-    filenames.remove(today_fn)
+#today_fn = '../cctvlogs/cctvlog_{}.json'.format(today_)
+
+#if today_fn in filenames:
+#    filenames.remove(today_fn)
 
 results = []
 for fn in filenames:
