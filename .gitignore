@@ -25,10 +25,12 @@
 *.rds
 *.log
 *.exe
+*.pyc
 
 !corridors.feather
 Monthly_Report_AWS.yaml
 google-analytics*
 
 DocumentClient*
+DocumentClient.exe
 SharedDataContracts*
