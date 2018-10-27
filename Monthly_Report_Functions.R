@@ -19,7 +19,7 @@ library(pool)
 library(httr)
 library(aws.s3)
 library(sf)
-library(multidplyr)
+library(yaml)
 
 library(plotly)
 library(crosstalk)
@@ -53,10 +53,48 @@ SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
 
-set_config(
-    use_proxy("gdot-enterprise", port = 8080,
-              username = Sys.getenv("GDOT_USERNAME"),
-              password = Sys.getenv("GDOT_PASSWORD")))
+aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
+           "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
+           "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+
+if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
+    set_config(
+        use_proxy("gdot-enterprise", port = 8080,
+                  username = Sys.getenv("GDOT_USERNAME"),
+                  password = Sys.getenv("GDOT_PASSWORD")))
+    
+} else { # shinyapps.io
+    Sys.setenv(TZ="America/New_York")
+}
+
+
+get_atspm_connection <- function() {
+    
+    if (Sys.info()["sysname"] == "Windows") {
+        
+        dbConnect(odbc::odbc(),
+                  dsn = "sqlodbc",
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+        
+    } else if (Sys.info()["sysname"] == "Linux") {
+        
+        dbConnect(odbc::odbc(),
+                  driver = "FreeTDS",
+                  server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
+                  database = Sys.getenv("ATSPM_DB"),
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+    }
+} 
+
+
+
+# set_config(
+#     use_proxy("gdot-enterprise", port = 8080,
+#               username = Sys.getenv("GDOT_USERNAME"),
+#               password = Sys.getenv("GDOT_PASSWORD")))
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
@@ -223,7 +261,12 @@ get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-09/") {
 
 get_det_config <- function(date_) {
     
-    adc_ <- read_csv(glue("../ATSPM_Det_Config_{date_}.csv"))
+    fn <- glue("../ATSPM_Det_Config_{date_}.csv")
+    if (!file.exists(fn)) {
+        aws.s3::save_object(object = glue("atspm_det_config/date={date_}/ATSPM_Det_Config.csv"),
+                           bucket = "gdot-devices", 
+                           file = fn)}
+    adc_ <- read_csv(fn)
     adc <- adc_ %>% 
         select(SignalID, Detector, CallPhase = ProtectedPhaseNumber, TimeFromStopBar, IPAddress) %>% 
         replace_na(list(TimeFromStopBar = 0)) %>% 
@@ -232,7 +275,12 @@ get_det_config <- function(date_) {
                CallPhase = factor(CallPhase)) %>%
         filter(SignalID %in% signals_list)
     
-    mdp_ <- read_csv(glue("../MaxTime_Det_Plans_{date_}.csv"))
+    fn <- glue("../MaxTime_Det_Plans_{date_}.csv")
+    if (!file.exists(fn)) {
+        aws.s3::save_object(object = glue("maxtime_det_plans/date={date_}/MaxTime_Det_Plans.csv"),
+                            bucket = "gdot-devices", 
+                            file = fn)}
+    mdp_ <- read_csv(fn)
     mdp <- mdp_ %>%
         select(SignalID, Detector, CallPhase) %>% 
         mutate(SignalID = factor(SignalID),
@@ -337,29 +385,11 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          dsn = "sqlodbc",
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          driver = "FreeTDS",
-                          server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                          database = Sys.getenv("ATSPM_DB"),
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-    }
-    
     if (counts == TRUE) {
         det_config <- get_det_config(start_date) %>%
             select(SignalID, Detector, CallPhase)
     }
-    
-    
+
     uptime_sig <- data.frame()
     gaps_all <- data.frame()
     
@@ -383,9 +413,12 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         
         
+        conn <- get_atspm_connection()
         
         df <- dbGetQuery(conn, query)
         print(head(df))
+        
+        dbDisconnect(conn)
         
         if (uptime == TRUE) {
             uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
@@ -674,22 +707,7 @@ get_adjusted_counts <- function(filtered_counts) {
 
 get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
     
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          dsn = "sqlodbc",
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          driver = "FreeTDS",
-                          server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                          database = Sys.getenv("ATSPM_DB"),
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-    }
+    conn <- get_atspm_connection()
     
     if (TWR_only==TRUE) {
         query_where <- "WHERE DATEPART(dw, CycleStart) in (3,4,5)"
@@ -757,22 +775,7 @@ get_detection_events <- function(start_date, end_date, signals_list) {
 }
 get_detector_count <- function(signals_list) {
     
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          dsn = "sqlodbc",
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          driver = "FreeTDS",
-                          server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                          database = Sys.getenv("ATSPM_DB"),
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-    }
+    conn <- get_atspm_connection()
     
     det <- tbl(conn, "DetectorConfig") %>%
         dplyr::filter(SignalID %in% signals_list & CallPhase %in% c(2,6)) %>%
@@ -780,6 +783,10 @@ get_detector_count <- function(signals_list) {
         collect() %>%
         group_by(SignalID, CallPhase) %>%
         summarize(Detectors = n())
+    
+    dbDisconnect(conn)
+    
+    det
 }
 
 get_bad_detectors <- function(filtered_counts_1hr) {
@@ -2119,22 +2126,7 @@ read_teams_csv <- function(csv_fn) {
 get_teams_tasks <- function(tasks_fn = "TEAMS Reports/tasks.csv.zip",
                             locations_fn = "TEAMS Reports/TEAMS_Locations_Report.csv") {
     
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          dsn = "sqlodbc",
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        conn <- dbConnect(odbc::odbc(),
-                          driver = "FreeTDS",
-                          server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                          database = Sys.getenv("ATSPM_DB"),
-                          uid = Sys.getenv("ATSPM_USERNAME"),
-                          pwd = Sys.getenv("ATSPM_PASSWORD"))
-    }
+    conn <- get_atspm_connection()
     
     # Data Frames
     locs <- readr::read_csv(locations_fn)
@@ -2144,6 +2136,8 @@ get_teams_tasks <- function(tasks_fn = "TEAMS Reports/tasks.csv.zip",
                Latitude = as.numeric(Latitude),
                Longitude = as.numeric(Longitude)) %>%
         filter(Latitude != 0)
+    
+    dbDisconnect(conn)
     
     corridors <- read_feather("corridors.feather")
     
