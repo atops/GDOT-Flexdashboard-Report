@@ -82,21 +82,28 @@ def get_detector_pairs(df, det_config):
     # df is what comes from Event Table
     # det_config is what comes from MaxTime Detector Plans
     dc = (det_config.rename(columns = {'Detector': 'EventParam'})
-                    .set_index(['SignalID','EventParam']))['Call Phase']
+                    .fillna(value = {'TimeFromStopBar': 0})
+                    .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar']]
 
     df = get_pairs(df, 82, 81).join(dc).dropna() # map detector ID to phase
     
     df['Call Phase'] = df['Call Phase'].astype('int64')
     df['EventCode'] = df['EventCode'].astype('int64')
 
+    df.StartTimeStamp = df.StartTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
+    #df.EndTimeStamp = df.EndTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
+
     # Add 5 seconds to account for detector setback distance.
     # TODO: This is a hack. Need actual setback distances, as this
     # assumes phases 2,6 are setback detectors and all others are stop bar.
-    df.StartTimeStamp = (np.where(df['Call Phase'].isin([2,6]), 
-                                  df.StartTimeStamp + pd.to_timedelta(5, 's'), 
-                                  df.StartTimeStamp))
+    
+    
+    #df.StartTimeStamp = (np.where(df['Call Phase'].isin([2,6]), 
+    #                              df.StartTimeStamp + pd.to_timedelta(5, 's'), 
+    #                              df.StartTimeStamp))
     #df = (df.assign(StartTimeStamp = df.StartTimeStamp + pd.Timedelta(5, 's'),
     #                EndTimeStamp = df.EndTimeStamp + pd.Timedelta(5, 's'))
+    
     df = (df.reset_index(level=1, drop=False)
             .rename(columns={'EventParam':'Detector'})
             .rename(columns={'Call Phase':'Phase'})
