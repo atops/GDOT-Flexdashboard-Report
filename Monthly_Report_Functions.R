@@ -268,7 +268,13 @@ get_det_config <- function(date_) {
                            file = fn)}
     adc_ <- read_csv(fn)
     adc <- adc_ %>% 
-        select(SignalID, Detector, CallPhase = ProtectedPhaseNumber, TimeFromStopBar, IPAddress) %>% 
+        select(SignalID, 
+               Detector, 
+               ProtPhase = ProtectedPhaseNumber, 
+               PermPhase = PermissivePhaseNumber, 
+               TimeFromStopBar, 
+               IPAddress) %>% 
+        mutate(CallPhase = if_else(ProtPhase > 0, ProtPhase, PermPhase)) %>%
         replace_na(list(TimeFromStopBar = 0)) %>% 
         mutate(SignalID = factor(SignalID), 
                Detector = factor(Detector), 
@@ -297,15 +303,8 @@ get_det_config <- function(date_) {
                Detector, 
                CallPhase.atspm, 
                CallPhase.maxtime, 
-               TimeFromStopBar.atspm) %>% 
-        filter(!(is.na(SignalID) | is.na(Detector))) %>% # | 
-        select(
-            SignalID, 
-            Detector, 
-            CallPhase.atspm, 
-            CallPhase.maxtime, 
-            TimeFromStopBar.atspm) %>%
-        filter(!(is.na(CallPhase.atspm) & is.na(CallPhase.maxtime))) %>%
+               TimeFromStopBar = TimeFromStopBar.atspm) %>% 
+        filter(!(is.na(SignalID) | is.na(Detector) | is.na(CallPhase.atspm))) %>%
         mutate(CallPhase = ifelse(is.na(CallPhase.maxtime), CallPhase.atspm, CallPhase.maxtime)) %>%
         
         mutate(SignalID = as.character(SignalID), 
@@ -516,14 +515,14 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
     
     
-    # define excluded detectors
-    num_days <- length(unique(date(counts$Timeperiod)))
-    
-    excluded_detectors <- counts %>%
-        group_by(SignalID, CallPhase, Detector) %>% 
-        summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
-        dplyr::filter(Total_Volume < (100 * num_days)) %>%
-        select(-Total_Volume)
+    # # define excluded detectors
+    # num_days <- length(unique(date(counts$Timeperiod)))
+    # 
+    # excluded_detectors <- counts %>%
+    #     group_by(SignalID, CallPhase, Detector) %>% 
+    #     summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
+    #     dplyr::filter(Total_Volume < (100 * num_days)) %>%
+    #     select(-Total_Volume)
     
     # Expand over all SignalID, Detector, CallPhase, Timeperiods
     expanded_counts <- counts %>% 
