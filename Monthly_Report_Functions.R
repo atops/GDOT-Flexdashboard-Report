@@ -80,12 +80,15 @@ get_atspm_connection <- function() {
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
-        dbConnect(odbc::odbc(),
-                  driver = "FreeTDS",
-                  server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                  database = Sys.getenv("ATSPM_DB"),
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+        dbConnect(RODBCDBI::ODBC(),#  odbc::odbc(),
+                  dsn = "sqlodbc",
+		  user = Sys.getenv("ATSPM_USERNAME"),
+		  password = Sys.getenv("ATSPM_PASSWORD"))
+		  #driver = "FreeTDS",
+                  #server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
+                  #database = Sys.getenv("ATSPM_DB"),
+		  #uid = Sys.getenv("ATSPM_USERNAME"),
+                  #pwd = Sys.getenv("ATSPM_PASSWORD"))
     }
 } 
 
@@ -342,6 +345,7 @@ get_gaps <- function(df, signals_list) {
     ts <- df %>% 
         collect() %>%
         distinct(SignalID, Timestamp) %>%
+	mutate(SignalID = factor(SignalID)) %>%
         
         bind_rows(., bookends) %>%
         distinct() %>%
@@ -415,17 +419,19 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         conn <- get_atspm_connection()
         
-        df <- dbGetQuery(conn, query)
+        df <- dbGetQuery(conn, query) %>% mutate(SignalID = as.character(SignalID))
         print(head(df))
         
         dbDisconnect(conn)
         
         if (uptime == TRUE) {
+
             uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
             gaps_all <<- bind_rows(gaps_all, get_unique_timestamps(df)) %>% distinct()
         }
-        if (counts == TRUE) {
-            
+        
+	if (counts == TRUE) {
+             
             # get 1hr counts
             counts_1hr <- get_counts5(df, 
                                       det_config, 
