@@ -13,7 +13,7 @@ corridors_xlsx_filename: ../Master RTOP Counts File_2018-10-23.xlsx
 cctv_config_filename: ../camera_ids_2018-10-22.csv
 cctv_parsed_filename: parsed_cctv.feather
 
-teams_tasks_filename: Monthly Reports/tasks.csv
+teams_tasks_filename: TEAMS Reports/tasks.csv
 
 tmc_filename: tmc_routes.feather
 
