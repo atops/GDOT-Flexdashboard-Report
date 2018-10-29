@@ -507,7 +507,7 @@ man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle
               uptime = uptime)
 
 
-cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
+cam_config <- read.csv(conf$cctv_config_filename) %>% as_tibble() %>% #"../camera_ids_2018-10-22.csv"
     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ") %>%
     mutate(As_of_Date = ymd(As_of_Date))
 
@@ -517,7 +517,7 @@ cam_config <- read.csv("../camera_ids.csv") %>% as_tibble() %>%
 
 # Expanded out to include all available cameras on all days
 #  up/uptime is 0 if no data
-daily_cctv_uptime_511 <- read_feather("parsed_cctv.feather") %>%
+daily_cctv_uptime_511 <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
     filter(Date > "2018-02-02" & Size > 0) %>%
     mutate(up = 1, num = 1) %>%
     select(-Size) %>%
@@ -616,7 +616,7 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 print("TEAMS")
 
 # New version from API result
-teams <- get_teams_tasks() %>%
+teams <- get_teams_tasks(conf$teams_tasks_filename) %>%
     
     filter(`Date Reported` >= ymd(report_start_date) &
                `Date Reported` <= ymd(report_end_date))
