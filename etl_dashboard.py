@@ -51,6 +51,8 @@ def etl2(s, date_):
                          .loc[lambda x: x._merge=='left_only']
                          .drop(['Date','_merge'], axis=1))
     
+    #sum(~pd.isnull(det_config_good['CallPhase.atspm']))
+    
     query = """SELECT * FROM Controller_Event_Log 
                WHERE SignalID = '{}'
                AND EventCode in (1,4,5,6,8,9,31,81,82) 
