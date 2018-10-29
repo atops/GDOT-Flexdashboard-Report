@@ -256,27 +256,27 @@ get_counts_based_measures(month_abbrs)
 
 
 # --- This needs the ATSPM database ---
-print("Upload bad detectors to DB")
-upload_bad_detectors_to_db <- function(month_abbrs) {
-    
-    lapply(month_abbrs, function(yyyy_mm) {
-        print(yyyy_mm)
-
-        conn <- get_atspm_connection()
-        
-        bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
-        # Need to be carefule with this to prevent duplicates
-        lapply(strsplit(yyyy_mm, "-"), 
-               function(x) { 
-                   dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
-               }
-        )
-        dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
-
-        dbDisconnect(conn)
-    })
-}
-upload_bad_detectors_to_db(month_abbrs)
+# print("Upload bad detectors to DB")
+# upload_bad_detectors_to_db <- function(month_abbrs) {
+#     
+#     lapply(month_abbrs, function(yyyy_mm) {
+#         print(yyyy_mm)
+# 
+#         conn <- get_atspm_connection()
+#         
+#         bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
+#         # Need to be carefule with this to prevent duplicates
+#         lapply(strsplit(yyyy_mm, "-"), 
+#                function(x) { 
+#                    dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
+#                }
+#         )
+#         dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
+# 
+#         dbDisconnect(conn)
+#     })
+# }
+# upload_bad_detectors_to_db(month_abbrs)
 
 
 
