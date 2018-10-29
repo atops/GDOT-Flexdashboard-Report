@@ -80,24 +80,19 @@ get_atspm_connection <- function() {
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
-        dbConnect(RODBCDBI::ODBC(),#  odbc::odbc(),
-                  dsn = "sqlodbc",
-		  user = Sys.getenv("ATSPM_USERNAME"),
-		  password = Sys.getenv("ATSPM_PASSWORD"))
-		  #driver = "FreeTDS",
-                  #server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                  #database = Sys.getenv("ATSPM_DB"),
-		  #uid = Sys.getenv("ATSPM_USERNAME"),
-                  #pwd = Sys.getenv("ATSPM_PASSWORD"))
+        dbConnect(odbc::odbc(),  # RODBCDBI::ODBC(),#  
+                  #dsn = "sqlodbc",
+                  #user = Sys.getenv("ATSPM_USERNAME"),
+                  #password = Sys.getenv("ATSPM_PASSWORD"))
+		          
+                  driver = "FreeTDS",
+                  server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
+                  database = Sys.getenv("ATSPM_DB"),
+		          uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
     }
 } 
 
-
-
-# set_config(
-#     use_proxy("gdot-enterprise", port = 8080,
-#               username = Sys.getenv("GDOT_USERNAME"),
-#               password = Sys.getenv("GDOT_PASSWORD")))
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
