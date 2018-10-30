@@ -302,7 +302,7 @@ get_det_config <- function(date_) {
                CallPhase.atspm, 
                CallPhase.maxtime, 
                TimeFromStopBar = TimeFromStopBar.atspm) %>% 
-        filter(!(is.na(SignalID) | is.na(Detector) | is.na(CallPhase.atspm))) %>%
+        filter(!(is.na(SignalID) | is.na(Detector))) %>% # | is.na(CallPhase.atspm))) %>%
         mutate(CallPhase = ifelse(is.na(CallPhase.maxtime), CallPhase.atspm, CallPhase.maxtime)) %>%
         
         mutate(SignalID = as.character(SignalID), 
