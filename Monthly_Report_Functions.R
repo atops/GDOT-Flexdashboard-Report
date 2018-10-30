@@ -341,7 +341,7 @@ get_gaps <- function(df, signals_list) {
     ts <- df %>% 
         collect() %>%
         distinct(SignalID, Timestamp) %>%
-	mutate(SignalID = factor(SignalID)) %>%
+	    #mutate(SignalID = factor(SignalID)) %>%
         
         bind_rows(., bookends) %>%
         distinct() %>%
