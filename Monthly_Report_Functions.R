@@ -413,7 +413,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         conn <- get_atspm_connection()
         
-        df <- dbGetQuery(conn, query) %>% mutate(SignalID = as.character(SignalID))
+        df <- dbGetQuery(conn, query)
         print(head(df))
         
         dbDisconnect(conn)
