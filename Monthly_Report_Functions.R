@@ -897,7 +897,7 @@ get_sf <- function(df) {
 # SPM Queue Spillback
 get_qs <- function(detection_events) {
     
-    detection_events %>% 
+    qs <- detection_events %>% 
         filter(Phase %in% c(2,6)) %>%
         
         group_by(SignalID,
@@ -922,6 +922,20 @@ get_qs <- function(detection_events) {
                cycles = as.integer(cycles),
                qs_freq = as.double(qs)/as.double(cycles)) %>%
         select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, qs, cycles, qs_freq)
+    
+    dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
+    
+    dc <- lapply(dates, function(d) {
+        fn <- glue("../ATSPM_Det_Config_Good_{d}.feather")
+        read_feather(fn) %>% mutate(Date = ymd(d))
+    }) %>% 
+        bind_rows %>% 
+        as_tibble() %>% 
+        select(Date, SignalID, CallPhase, TimeFromStopBar = TimeFromStopBar.atspm) %>%
+        mutate(SignalID = factor(SignalID),
+               CallPhase = factor(CallPhase))
+    
+    qs %>% left_join(dc) %>% filter(TimeFromStopBar > 0)
     
     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
 }
