@@ -387,9 +387,9 @@ lapply(month_abbrs, function(month_abbr) {
 # # GET TEAMS TASKS ###########################################################
 
 # Download all TEAMS tasks via API. Shell command. Windows only.
-if (Sys.info()["sysname"] == "Windows") {
-    system('DocumentClient.exe "TEAMS Reports/tasks.csv"') 
-}
+# if (Sys.info()["sysname"] == "Windows") {
+#     system('"DocumentClient.exe" TEAMS_Reports/tasks.csv') 
+# }
 
 # # GET CAMERA UPTIMES ########################################################
 
