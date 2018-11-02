@@ -36,10 +36,6 @@ filenames = glob('../cctvlogs/cctvlog_*.json')
 today_ = datetime.today().strftime('%Y-%m-%d')
 filenames = [fn for fn in filenames if re.search(today_, fn) == None]
 
-#today_fn = '../cctvlogs/cctvlog_{}.json'.format(today_)
-
-#if today_fn in filenames:
-#    filenames.remove(today_fn)
 
 results = []
 for fn in filenames:
