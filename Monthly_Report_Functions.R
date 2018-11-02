@@ -393,6 +393,12 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     uptime_sig <- data.frame()
     gaps_all <- data.frame()
     
+    counts_1hr_csv_fn <- glue("counts_1hr_{start_date}.csv")
+    counts_15min_csv_fn <- glue("counts_15min_{start_date}.csv")
+    
+    file.remove(counts_1hr_csv_fn)
+    file.remove(counts_15min_csv_fn)
+    
     
     n <- length(signals_list)
     i <- 20
@@ -426,7 +432,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
             gaps_all <<- bind_rows(gaps_all, get_unique_timestamps(df)) %>% distinct()
         }
         
-	if (counts == TRUE) {
+	    if (counts == TRUE) {
              
             # get 1hr counts
             counts_1hr <- get_counts5(df, 
@@ -435,7 +441,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
                                       date_ = date_,
                                       TWR_only = FALSE)
             write_csv(counts_1hr, 
-                      glue("counts_1hr_{start_date}.csv"), 
+                      counts_1hr_csv_fn, #glue("counts_1hr_{start_date}.csv"), 
                       append = TRUE)
             
             # get 15min counts
@@ -446,7 +452,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
                                         TWR_only = TRUE)
             if (nrow(counts_15min) > 0) {
                 write_csv(counts_15min, 
-                          glue("counts_15min_{start_date}.csv"), 
+                          counts_15min_csv_fn, #glue("counts_15min_{start_date}.csv"), 
                           append = TRUE)
             }
         }
@@ -485,19 +491,19 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
                    CallPhase = factor(CallPhase)) %>%
         write_fst(., glue("counts_1hr_{start_date}.fst"))
         
-        file.remove(glue("counts_1hr_{start_date}.csv"))
+        file.remove(counts_1hr_csv_fn) #glue("counts_1hr_{start_date}.csv"))
         
         
-        if (file.exists(glue("counts_15min_{start_date}.csv"))) {
+        if (file.exists(counts_15min_csv_fn)) { #glue("counts_15min_{start_date}.csv"))) {
             
-            read_csv(glue("counts_15min_{start_date}.csv"),
+            read_csv(counts_15min_csv_fn, #glue("counts_15min_{start_date}.csv"),
                      col_names = c("SignalID", "Timeperiod", "Detector", "CallPhase", "vol")) %>%
                 mutate(SignalID = factor(SignalID),
                        Detector = factor(Detector),
                        CallPhase = factor(CallPhase)) %>%
             write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
             
-            file.remove(glue("counts_15min_{start_date}.csv"))
+            file.remove(counts_15min_csv_fn) #glue("counts_15min_{start_date}.csv"))
         }
         
     }
