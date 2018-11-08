@@ -26,8 +26,8 @@ end_date <- ifelse(conf$end_date == "yesterday",
                    conf$end_date)
 
 # Manual overrides
-#start_date <- "2018-10-01"
-#end_date <- 
+#start_date <- "2018-10-31"
+#end_date <- "2018-11-02"
 
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
@@ -139,7 +139,8 @@ get_counts_based_measures <- function(month_abbrs) {
             print("filtered counts")
             
             cl <- makeCluster(4)
-            clusterExport(cl, c("get_filtered_counts",
+            clusterExport(cl, c("glue",
+                                "get_filtered_counts",
                                 "week",
                                 "signals_list"))
             fcs <- parLapply(cl, fns, function(fn) {
@@ -168,8 +169,12 @@ get_counts_based_measures <- function(month_abbrs) {
             bad_detectors <- get_bad_detectors(filtered_counts_1hr)
             #rm(filtered_counts_1hr)
             
-            write_fst(bad_detectors, paste0("bad_detectors_", yyyy_mm, ".fst"))
+            bd_fn <- glue("bad_detectors_{yyyy_mm}.fst")
+            write_fst(bad_detectors, bd_fn)
             
+            aws.s3::put_object(file = bd_fn, 
+                               object = glue("bad_detectors/{bd_fn}"), 
+                               bucket = "gdot-devices")
             
             
             # VPD
@@ -253,7 +258,7 @@ get_counts_based_measures <- function(month_abbrs) {
     })
 }
 get_counts_based_measures(month_abbrs)
-
+print("--- Finished counts-based measures ---")
 
 # --- This needs the ATSPM database ---
 # print("Upload bad detectors to DB")
@@ -325,6 +330,7 @@ get_aog_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
+print("aog")
 get_aog_date_range(start_date, end_date)
 
 
@@ -333,7 +339,9 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
 
     start_dates <- seq(ymd(start_date), ymd(end_date), by = "1 month")
     cl <- makeCluster(4)
-    clusterExport(cl, c("get_detection_events",
+    clusterExport(cl, c("glue",
+                        "read_feather",
+                        "get_detection_events",
                         "get_spm_data",
                         "get_spm_data_aws",
                         "write_fst_",
@@ -360,12 +368,14 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
+print("queue spillback")
 get_queue_spillback_date_range(start_date, end_date)
 
 
 
 # # GET SPLIT FAILURES ########################################################
 
+print("split failurs")
 py_run_file("split_failures2.py") # python script
 
 lapply(month_abbrs, function(month_abbr) {
@@ -379,6 +389,15 @@ lapply(month_abbrs, function(month_abbr) {
     if (length(fns) > 0) {
         lapply(fns, read_feather) %>%
             bind_rows() %>% 
+            transmute(SignalID = factor(SignalID),
+                      CallPhase = factor(Phase),
+                      Date = date(Hour),
+                      Date_Hour = Hour,
+                      DOW = wday(Hour),
+                      Week = week(Date),
+                      sf = sf,
+                      cycles = cycles,
+                      sf_freq = sf_freq) %>%
             write_fst(., paste0("sf_", month_abbr, ".fst"))
     }
 })
