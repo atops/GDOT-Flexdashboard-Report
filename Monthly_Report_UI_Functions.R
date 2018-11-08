@@ -9,7 +9,6 @@ library(httr)
 library(data.table)
 library(dplyr)
 library(tidyr)
-library(lubridate)
 library(stringr)
 library(lubridate)
 library(glue)
@@ -1383,7 +1382,7 @@ plot_cctvs <- function(df, month_) {
     }
 }
 
-volplot_plotly <- function(df, title = "title", ymax = 1000) {
+volplot_plotly <- function(df, title = "title") {
     
     # Works but colors and labeling are not fully complete.
     pl <- function(dfi) {
@@ -1394,7 +1393,7 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                         color = ~CallPhase,
                         colors = colrs,
                         name = paste('Phase', dfi$CallPhase[1])) %>%
-            layout(yaxis = list(range = c(0, ymax),
+            layout(yaxis = list(range = c(0,1000),
                                 tickformat = ",.0"),
                    annotations = list(x = -.05,
                                       y = 0.5,
@@ -1417,10 +1416,10 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
     #     select(-Total_Volume) %>%
     #     mutate(Keep = TRUE)
     
-    #df <- df %>%  #left_join(df, included_detectors) %>% 
-    #    #filter(Keep == TRUE) %>%
-    #    mutate(Detector = factor(as.integer(Detector)),
-    #           CallPhase = factor(as.integer(CallPhase)))
+    df <- df %>%  #left_join(df, included_detectors) %>% 
+        #filter(Keep == TRUE) %>%
+        mutate(Detector = factor(as.integer(Detector)),
+               CallPhase = factor(as.integer(CallPhase)))
     
     dfs <- split(df, df$Detector)
     
@@ -1478,8 +1477,8 @@ perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format 
     
     per__ <- as.name(per_)
     var__ <- as.name(var_)
-    df <- rename(df, per = !!per__, var = !!var__) #%>%
-        #mutate(CallPhase = factor(as.integer(CallPhase)))
+    df <- rename(df, per = !!per__, var = !!var__) %>%
+        mutate(CallPhase = factor(as.integer(CallPhase)))
     
     dfs <- split(df, df$CallPhase)
     
@@ -1499,177 +1498,18 @@ perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format 
 signal_dashboard <- function(sigid, pth = "s3") {
     
     if (pth == "s3") {
-        fn <- glue("signal_dashboards/{sigid}.db") #rds")
+        fn <- glue("signal_dashboards/{sigid}.rds")
         aws.s3::save_object(fn, "gdot-devices", file = fn)
-        conn <- dbConnect(RSQLite::SQLite(), fn)
-        file.remove(fn)
-    } else {
-        fn <- file.path(pth, glue("{sigid}.db"))
-        conn <- dbConnect(RSQLite::SQLite(), fn)
-    }
-    
-    
-    p_rc <- tryCatch({
-        df <- dbReadTable(conn, "rc") %>% 
-            mutate(vol = ifelse(is.na(vol), 0, vol),
-                   SignalID = factor(SignalID),
-                   CallPhase = factor(CallPhase),
-                   Timeperiod = as_datetime(Timeperiod))
-        volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
-            layout(showlegend = FALSE)
-    },
-    error = function(cond) {
-        plot_ly()
-    })
-    
-    p_fc <- tryCatch({
-        df <- dbReadTable(conn, "fc") %>% 
-            mutate(vol = ifelse(is.na(vol), 0, vol),
-                   SignalID = factor(SignalID),
-                   Detector = factor(Detector),
-                   CallPhase = factor(CallPhase),
-                   Timeperiod = as_datetime(Timeperiod))
-        volplot_plotly(df, title = "Filtered 1 hr Aggregated Counts") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_vpd <- tryCatch({
-        df <- dbReadTable(conn, "vpd") %>% 
-            filter(!is.na(vpd)) %>%
-            mutate(SignalID = factor(SignalID),
-                   Date = as_date(Date))
-        perf_plotly_by_phase(df, "Date", "vpd", 
-                             range_max = max(df$vpd), 
-                             number_format = ",.0",
-                             title = "Daily Volume by Phase") %>% layout(showlegend = TRUE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_ddu <- tryCatch({
-        df <- dbReadTable(conn, "fc") %>% 
-            select(-vol) %>% 
-            mutate(vol = Good_Day,
-                   SignalID = factor(SignalID),
-                   Detector = factor(Detector),
-                   CallPhase = factor(CallPhase),
-                   Timeperiod = as_datetime(Timeperiod))
-        volplot_plotly(df, title = "Daily Detector Uptime", ymax = 1.1) %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    sr1a <- subplot(list(p_rc, p_vpd), 
-                    nrows = 2, 
-                    margin = 0.04, 
-                    heights = c(0.6, 0.4), 
-                    shareX = TRUE)
-    sr1b <- subplot(list(p_fc, p_ddu), 
-                    nrows = 2, 
-                    margin = 0.04, 
-                    heights = c(0.6, 0.4), 
-                    shareX = TRUE)
-    
-    p_com <- tryCatch({
-        df <- dbReadTable(conn, "cu") %>%
-            mutate(SignalID = factor(SignalID),
-                   CallPhase = factor(CallPhase),
-                   Date_Hour = as_datetime(Date_Hour),
-                   Date = as_date(Date))
-        perf_plotly(df, 
-                    "Date", "uptime", 
-                    title = "Daily Communications Uptime") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_aog <- tryCatch({
-        aog <- dbReadTable(conn, "aog") %>%
-            mutate(SignalID = factor(SignalID),
-                   CallPhase = factor(CallPhase),
-                   Date_Hour = as_datetime(Date_Hour),
-                   Date = as_date(Date)) %>% 
-            complete(nesting(SignalID, CallPhase), 
-                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                     fill = list("aog" = 0)) %>% 
-            arrange(SignalID, CallPhase, Date_Hour)
-        perf_plotly_by_phase(aog,
-                             "Date_Hour", "aog", 
-                             title = "Arrivals on Green") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_qs <- tryCatch({
-        qs <-  dbReadTable(conn, "qs") %>%
-            mutate(SignalID = factor(SignalID),
-                   CallPhase = factor(CallPhase),
-                   Date_Hour = as_datetime(Date_Hour),
-                   Date = as_date(Date)) %>% 
-            complete(nesting(SignalID, CallPhase), 
-                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                     fill = list("qs_freq" = 0)) %>% 
-            arrange(SignalID, CallPhase, Date_Hour)
-        perf_plotly_by_phase(qs,
-                             "Date_Hour", "qs_freq", 
-                             range_max = 0.5, 
-                             title = "Queue Spillback Rate") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    p_sf <- tryCatch({
-        sf <- dbReadTable(conn, "sf") %>% 
-            rename(CallPhase = Phase,
-                   Date_Hour = Hour) %>%
-            mutate(CallPhase = factor(CallPhase)) %>%
-            complete(nesting(SignalID, CallPhase), 
-                     Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                     fill = list("sf_freq" = 0)) %>% 
-            arrange(SignalID, CallPhase, Date_Hour)
-        
-        perf_plotly_by_phase(sf,
-                             "Date_Hour", "sf_freq", 
-                             range_max = 0.5, 
-                             title = "Split Failure Rate") %>% 
-            layout(showlegend = FALSE)
-    }, error = function(cond) {
-        plot_ly()
-    })
-    
-    sr2 <- subplot(list(p_com, p_aog, p_qs, p_sf), 
-                   nrows = 4, 
-                   margin = 0.04, 
-                   heights = c(0.1, 0.2, 0.2, 0.5), 
-                   shareX = TRUE)
-    
-    subplot(sr1a, sr1b, sr2)
-}
-
-
-signal_dashboard_older <- function(sigid, pth = "s3") {
-    
-    if (pth == "s3") {
-        fn <- glue("signal_dashboards/{sigid}.db") #rds")
-        aws.s3::save_object(fn, "gdot-devices", file = fn)
-        #data <- readRDS(fn)
-        conn <- dbConnect(RSQLite::SQLite(), fn)
+        data <- readRDS(fn)
         file.remove(fn)
     } else {
         fn <- file.path(pth, glue("{sigid}.rds"))
-        #data <- readRDS(fn)
-        conn <- dbConnect(RSQLite::SQLite(), fn)
+        data <- readRDS(fn)
     }
 
     
     p_rc <- tryCatch({
-        volplot_plotly(dbReadTable(conn, "rc") %>% mutate(vol = ifelse(is.na(vol), 0, vol)), #data$rc
+        volplot_plotly(data$rc %>% mutate(vol = ifelse(is.na(vol), 0, vol)),
                        title = "Raw 1 hr Aggregated Counts") %>% 
             layout(showlegend = FALSE)
     },

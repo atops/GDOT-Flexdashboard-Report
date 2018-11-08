@@ -109,20 +109,10 @@ get_month_abbrs <- function(start_date, end_date) {
                       })
 }
 
-bind_rows_keep_factors <- function(dfs) {
-    ## Identify all factors
-    factors <- unique(unlist(
-        map(list(...), ~ select_if(..., is.factor) %>% names())
-    ))
-    ## Bind dataframes, convert characters back to factors
-    suppressWarnings(bind_rows(...)) %>% 
-        mutate_at(vars(one_of(factors)), factor)  
-}
-
-match_type <- function(val, val_type_to_match) {
-    eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
-}
-
+# match_type <- function(val, val_type_to_match) {
+#     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
+# }
+# 
 
 
 write_fst_ <- function(df, fn, append = FALSE) {
@@ -267,18 +257,7 @@ get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-09/") {
     df
 }
 
-# New as of 11/8/18
 get_det_config <- function(date_) {
-    read_feather(glue('../ATSPM_Det_Config_Good_{date_}.feather')) %>%
-        transmute(SignalID = as.character(SignalID), 
-                  Detector = as.integer(Detector), 
-                  CallPhase = as.integer(CallPhase),
-                  CallPhase.atspm = as.integer(CallPhase_atspm),
-                  CallPhase.maxtime = as.integer(CallPhase_maxtime),
-                  TimeFromStopBar = TimeFromStopBar)
-}
-# this has been rewritten in Python and runs daily where it makes more sense
-get_det_config_older <- function(date_) {
     
     fn <- glue("../ATSPM_Det_Config_{date_}.csv")
     if (!file.exists(fn)) {
@@ -321,7 +300,7 @@ get_det_config_older <- function(date_) {
         select(SignalID, 
                Detector, 
                CallPhase.atspm, 
-               CallPhase.maxtime, #) %>% #, 
+               CallPhase.maxtime, 
                TimeFromStopBar = TimeFromStopBar.atspm) %>% 
         filter(!(is.na(SignalID) | is.na(Detector))) %>% # | is.na(CallPhase.atspm))) %>%
         
@@ -330,8 +309,7 @@ get_det_config_older <- function(date_) {
                                   as.integer(as.character(CallPhase.maxtime)))) %>%
         mutate(SignalID = as.character(SignalID), 
                Detector = as.integer(Detector), 
-               CallPhase = as.integer(CallPhase),
-               TimeFromStopBar = round(TimeFromStopBar, 1))
+               CallPhase = as.integer(CallPhase))
     
     write_feather(det_config, glue("../ATSPM_Det_Config_Good_{date_}.feather"))
     
@@ -421,8 +399,6 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     file.remove(counts_1hr_csv_fn)
     file.remove(counts_15min_csv_fn)
     
-    #file.remove( list.files(pattern = glue("counts_1hr_{start_date}_*.csv")) )
-    #file.remove( list.files(pattern = glue("counts_15min_{start_date}_*.csv")) )
     
     n <- length(signals_list)
     i <- 20
@@ -525,7 +501,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
                 mutate(SignalID = factor(SignalID),
                        Detector = factor(Detector),
                        CallPhase = factor(CallPhase)) %>%
-                write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
+            write_fst(., glue("counts_15min_TWR_{start_date}.fst"))
             
             file.remove(counts_15min_csv_fn) #glue("counts_15min_{start_date}.csv"))
         }
@@ -541,32 +517,35 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                Detector = factor(Detector),
                CallPhase = factor(CallPhase)) %>%
         filter(!is.na(CallPhase))
-
-    # -- New Method ---------------- --
-    
-    # Identify detectors/phases from detector config file. Expand.
-    #  This ensures all detectors are included in the bad detectors calculation.
-    all_days <- unique(date(counts$Timeperiod))
-    det_config <- lapply(all_days, function(d) {
-        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = "1 hour")
-        read_feather(glue("../ATSPM_Det_Config_Good_{d}.feather")) %>% 
-            transmute(SignalID = factor(SignalID), Detector = factor(Detector), CallPhase = factor(CallPhase)) %>% 
-            expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods)
-    }) %>% bind_rows() %>%
-        transmute(SignalID = factor(SignalID),
-                  Timeperiod = Timeperiod,
-                  Detector = factor(Detector),
-                  CallPhase = factor(CallPhase)) 
     
     
-    expanded_counts <- full_join(det_config, counts) %>%
-        transmute(SignalID = factor(SignalID), 
-                  Date = date(Timeperiod),
-                  Timeperiod = Timeperiod,
-                  Detector = factor(Detector), 
-                  CallPhase = factor(CallPhase),
-                  vol = vol,
-                  vol0 = ifelse(is.na(vol), 0, vol)) %>%
+    # define included periods. Only include dates in the counts data
+    all_periods <- seq(min(counts$Timeperiod), max(counts$Timeperiod), by = interval)
+    all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
+    
+    
+    # # define excluded detectors
+    # num_days <- length(unique(date(counts$Timeperiod)))
+    # 
+    # excluded_detectors <- counts %>%
+    #     group_by(SignalID, CallPhase, Detector) %>% 
+    #     summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
+    #     dplyr::filter(Total_Volume < (100 * num_days)) %>%
+    #     select(-Total_Volume)
+    
+    # Expand over all SignalID, Detector, CallPhase, Timeperiods
+    expanded_counts <- counts %>% 
+        
+        complete(nesting(SignalID, Detector, CallPhase), Timeperiod = all_periods) %>%
+        
+        mutate(Date = date(Timeperiod),
+               vol = replace_na(vol, 0)) %>%
+        #anti_join(excluded_detectors) %>%
+        
+        mutate(SignalID = factor(SignalID), 
+               Detector = factor(Detector), 
+               CallPhase = factor(CallPhase),
+               vol0 = ifelse(is.na(vol), 0, vol)) %>%
         group_by(SignalID, CallPhase, Detector) %>% 
         arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
         mutate(delta_vol = vol0 - lag(vol0),
@@ -577,47 +556,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                                  abs(delta_vol) == 0,
                              0, 1)) %>%
         select(-vol0)
-    # -- End New Method ------------ --
-    
-    
-    # # define included periods. Only include dates in the counts data. Only include DOW in counts data.
-    # all_periods <- seq(min(counts$Timeperiod), max(counts$Timeperiod), by = interval)
-    # all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
-    # 
-    # 
-    # # # define excluded detectors
-    # # num_days <- length(unique(date(counts$Timeperiod)))
-    # # 
-    # # excluded_detectors <- counts %>%
-    # #     group_by(SignalID, CallPhase, Detector) %>% 
-    # #     summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
-    # #     dplyr::filter(Total_Volume < (100 * num_days)) %>%
-    # #     select(-Total_Volume)
-    # 
-    # # Expand over all SignalID, Detector, CallPhase, Timeperiods
-    # expanded_counts <- counts %>% 
-    #     
-    #     complete(nesting(SignalID, Detector, CallPhase), Timeperiod = all_periods) %>%
-    #     
-    #     mutate(Date = date(Timeperiod),
-    #            vol = replace_na(vol, 0)) %>%
-    #     #anti_join(excluded_detectors) %>%
-    #     
-    #     mutate(SignalID = factor(SignalID), 
-    #            Detector = factor(Detector), 
-    #            CallPhase = factor(CallPhase),
-    #            vol0 = ifelse(is.na(vol), 0, vol)) %>%
-    #     group_by(SignalID, CallPhase, Detector) %>% 
-    #     arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
-    #     mutate(delta_vol = vol0 - lag(vol0),
-    #            Good = ifelse(is.na(vol) | 
-    #                              vol > 1000 | 
-    #                              is.na(delta_vol) | 
-    #                              abs(delta_vol) > 500 | 
-    #                              abs(delta_vol) == 0,
-    #                          0, 1)) %>%
-    #     select(-vol0)
-    
     
     # bad day = any of the following:
     #    too many bad hours (60%) based on the above criteria
@@ -860,28 +798,13 @@ get_detection_events <- function(start_date, end_date, signals_list) {
 #     det
 # }
 
-# get_bad_detectors <- function(filtered_counts_1hr) {
-#     filtered_counts_1hr %>% 
-#         ungroup() %>% 
-#         filter(Good_Day == 0) %>% 
-#         distinct(Date, SignalID, Detector) %>% 
-#         arrange(Date, SignalID, Detector)
-# }
-
-get_detector_uptime <- function(filtered_counts_1hr) {
-    filtered_counts_1hr %>%
-        ungroup() %>%
-        distinct(Date, SignalID, Detector, Good_Day) %>%
-        complete(nesting(SignalID, Detector), Date = seq(min(Date), max(Date), by="day")) %>%
+get_bad_detectors <- function(filtered_counts_1hr) {
+    filtered_counts_1hr %>% 
+        ungroup() %>% 
+        filter(Good_Day==0) %>% 
+        distinct(Date, SignalID, Detector) %>% 
         arrange(Date, SignalID, Detector)
 }
-
-get_bad_detectors <- function(filtered_counts_1hr) {
-    get_detector_uptime(filtered_counts_1hr) %>%
-        filter(Good_Day == 0)
-}
-
-
 
 # Volume VPD
 get_vpd <- function(counts) {
@@ -1014,7 +937,7 @@ get_qs <- function(detection_events) {
     }) %>% 
         bind_rows %>% 
         as_tibble() %>% 
-        select(Date, SignalID, CallPhase, TimeFromStopBar) %>% # = TimeFromStopBar.atspm) %>%
+        select(Date, SignalID, CallPhase, TimeFromStopBar = TimeFromStopBar.atspm) %>%
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase))
     
@@ -2208,8 +2131,8 @@ tidy_teams <- function(df) {
 
 
 
-get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip",
-                            locations_fn = "TEAMS_Reports/TEAMS_Locations_Report.csv") {
+get_teams_tasks <- function(tasks_fn = "TEAMS Reports/tasks.csv.zip",
+                            locations_fn = "TEAMS Reports/TEAMS_Locations_Report.csv") {
     
     conn <- get_atspm_connection()
     
@@ -2383,158 +2306,119 @@ readRDS_multiple <- function(pattern) {
 }
 
 
-db_build_data_for_signal_dashboard <- function(month_abbrs, corridors, pth = '.', 
-                                               upload_to_s3 = FALSE) {
+build_data_for_signal_dashboard <- function(month_abbrs, 
+                                            corridors, 
+                                            pth = ".", 
+                                            upload_to_s3 = FALSE) {
     
-    insert_to_db <- function(prefix, month_abbr, dbtable, signalids, daily) {
-        result <- tryCatch({
-            df <- f(prefix, month_abbr, daily = daily)
-            
-            lapply(signalids, function(sid) {
-                fn <- file.path(pth, glue("{sid}.db"))
-                print(c(prefix, fn))
-                conn <- dbConnect(RSQLite::SQLite(), fn)
-                dbWriteTable(conn, dbtable, filter(df, SignalID == sid), append = TRUE)
-                dbDisconnect(conn)
-            })
-            
-        }, error = function(e) {
-            print(e)
-            print(glue("No data for {prefix}{month_abbr}"))
-        })
+    write_signal_data <- function(df, data_name) {
+        
+        sid <- as.character(df$SignalID[1])
+        fn <- file.path(pth, glue("{sid}.rds"))
+        if (file.exists(fn)) {
+            data <- readRDS(fn)
+        } else {
+            data <- list()
+        }
+        if (!data_name %in% names(data)) {
+            data[[data_name]] <- data.frame()
+            print(glue("{sid} {data_name} is new"))
+        }
+        data[[data_name]] <- rbind(data[[data_name]], df)
+        saveRDS(data, fn)
+        return(head(df,1))
     }
-
-    lapply(month_abbrs, function(month_abbr) {
+    
+    
+    
+    lapply(month_abbrs, function(month_abbr) { 
         
         print(month_abbr)
-        signalids <- levels(corridors$SignalID)
         
-        insert_to_db(prefix = "counts_1hr_", month_abbr, dbtable = "rc", signalids, daily = TRUE)
-        insert_to_db(prefix = "filtered_counts_1hr_", month_abbr, dbtable = "fc", signalids, daily = FALSE)
-        insert_to_db(prefix = "ddu_", month_abbr, dbtable = "ddu", signalids, daily = FALSE)
-        insert_to_db(prefix = "cu_", month_abbr, dbtable = "cu", signalids, daily = FALSE)
-        insert_to_db(prefix = "vpd_", month_abbr, dbtable = "vpd", signalids, daily = FALSE)
-        insert_to_db(prefix = "vph_", month_abbr, dbtable = "vph", signalids, daily = FALSE)
-        insert_to_db(prefix = "tp_", month_abbr, dbtable = "tp", signalids, daily = FALSE)
-        insert_to_db(prefix = "aog_", month_abbr, dbtable = "aog", signalids, daily = FALSE)
-        insert_to_db(prefix = "sf_", month_abbr, dbtable = "sf", signalids, daily = FALSE)
-        insert_to_db(prefix = "qs_", month_abbr, dbtable = "qs", signalids, daily = FALSE)
+        result <- tryCatch({
+            rc <- f("counts_1hr_", month_abbr, daily = TRUE) %>% 
+                filter(SignalID %in% levels(corridors$SignalID))
+            rc %>% group_by(SignalID) %>% do(write_signal_data(., "rc"))
+            rm(rc); gc()
+        }, error = function(e) {
+            print(e)
+            print(glue("No data for raw counts for {month_abbr}"))
+        }, finally = {
+        })
+        
+        result <- tryCatch({
+            fc <- f("filtered_counts_1hr_", month_abbr)
+            fc %>% group_by(SignalID) %>% do(write_signal_data(., "fc"))
+            rm(fc); gc()
+        }, error = function(e) {
+            print(e)
+            print(glue("No data for filtered counts for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            ddu <- f("ddu_", month_abbr)
+            ddu %>% group_by(SignalID) %>% do(write_signal_data(., "ddu"))
+            rm(ddu); gc()
+        }, error = function(e) {
+            print(glue("No data for detector uptime for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            cu <- f("cu_", month_abbr)
+            cu %>% group_by(SignalID) %>% do(write_signal_data(., "cu"))
+            rm(cu); gc()
+        }, error = function(e) {
+            print(glue("No data for comm uptime for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            vpd <- f("vpd_", month_abbr)
+            vpd %>% group_by(SignalID) %>% do(write_signal_data(., "vpd"))
+            rm(vpd); gc()
+        }, error = function(e) {
+            print(glue("No data for raw_counts for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            tp <- f("tp_", month_abbr)
+            tp %>% group_by(SignalID) %>% do(write_signal_data(., "tp"))
+            rm(tp); gc()
+        }, error = function(e) {
+            print(glue("No data for throughput for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            aog <- f("aog_", month_abbr)
+            aog %>% group_by(SignalID) %>% do(write_signal_data(., "aog"))
+            rm(aog); gc()
+        }, error = function(e) {
+            print(glue("No data for arrivals on green for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            sf <- f("sf_", month_abbr)
+            sf %>% group_by(SignalID) %>% do(write_signal_data(., "sf"))
+            rm(sf); gc()
+        }, error = function(e) {
+            print(glue("No data for split failures for {month_abbr}"))
+        })
+        
+        result <- tryCatch({
+            qs <- f("qs_", month_abbr)
+            qs %>% group_by(SignalID) %>% do(write_signal_data(., "qs"))
+            rm(qs); gc()
+        }, error = function(e) {
+            print(glue("No data for queue spillback for {month_abbr}"))
+        })
     })
+    if (upload_to_s3 == TRUE) {
+        lapply(list.files(pth, pattern = "*.rds"), function(fn) {
+            aws.s3::put_object(file = file.path(pth, fn), 
+                               object = glue("signal_dashboards/{fn}"), 
+                               bucket = "gdot-devices")
+        })
+    }
 }
-
-# build_data_for_signal_dashboard <- function(month_abbrs, 
-#                                             corridors, 
-#                                             pth = ".", 
-#                                             upload_to_s3 = FALSE) {
-#     
-#     write_signal_data <- function(df, data_name) {
-#         
-#         sid <- as.character(df$SignalID[1])
-#         fn <- file.path(pth, glue("{sid}.rds"))
-#         if (file.exists(fn)) {
-#             data <- readRDS(fn)
-#         } else {
-#             data <- list()
-#         }
-#         if (!data_name %in% names(data)) {
-#             data[[data_name]] <- data.frame()
-#             print(glue("{sid} {data_name} is new"))
-#         }
-#         data[[data_name]] <- rbind(data[[data_name]], df)
-#         saveRDS(data, fn)
-#         return(head(df,1))
-#     }
-#     
-#     
-#     
-#     lapply(month_abbrs, function(month_abbr) { 
-#         
-#         print(month_abbr)
-#         
-#         result <- tryCatch({
-#             rc <- f("counts_1hr_", month_abbr, daily = TRUE) %>% 
-#                 filter(SignalID %in% levels(corridors$SignalID))
-#             rc %>% group_by(SignalID) %>% do(write_signal_data(., "rc"))
-#             rm(rc); gc()
-#         }, error = function(e) {
-#             print(e)
-#             print(glue("No data for raw counts for {month_abbr}"))
-#         }, finally = {
-#         })
-#         
-#         result <- tryCatch({
-#             fc <- f("filtered_counts_1hr_", month_abbr)
-#             fc %>% group_by(SignalID) %>% do(write_signal_data(., "fc"))
-#             rm(fc); gc()
-#         }, error = function(e) {
-#             print(e)
-#             print(glue("No data for filtered counts for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             ddu <- f("ddu_", month_abbr)
-#             ddu %>% group_by(SignalID) %>% do(write_signal_data(., "ddu"))
-#             rm(ddu); gc()
-#         }, error = function(e) {
-#             print(glue("No data for detector uptime for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             cu <- f("cu_", month_abbr)
-#             cu %>% group_by(SignalID) %>% do(write_signal_data(., "cu"))
-#             rm(cu); gc()
-#         }, error = function(e) {
-#             print(glue("No data for comm uptime for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             vpd <- f("vpd_", month_abbr)
-#             vpd %>% group_by(SignalID) %>% do(write_signal_data(., "vpd"))
-#             rm(vpd); gc()
-#         }, error = function(e) {
-#             print(glue("No data for raw_counts for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             tp <- f("tp_", month_abbr)
-#             tp %>% group_by(SignalID) %>% do(write_signal_data(., "tp"))
-#             rm(tp); gc()
-#         }, error = function(e) {
-#             print(glue("No data for throughput for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             aog <- f("aog_", month_abbr)
-#             aog %>% group_by(SignalID) %>% do(write_signal_data(., "aog"))
-#             rm(aog); gc()
-#         }, error = function(e) {
-#             print(glue("No data for arrivals on green for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             sf <- f("sf_", month_abbr)
-#             sf %>% group_by(SignalID) %>% do(write_signal_data(., "sf"))
-#             rm(sf); gc()
-#         }, error = function(e) {
-#             print(glue("No data for split failures for {month_abbr}"))
-#         })
-#         
-#         result <- tryCatch({
-#             qs <- f("qs_", month_abbr)
-#             qs %>% group_by(SignalID) %>% do(write_signal_data(., "qs"))
-#             rm(qs); gc()
-#         }, error = function(e) {
-#             print(glue("No data for queue spillback for {month_abbr}"))
-#         })
-#     })
-#     if (upload_to_s3 == TRUE) {
-#         lapply(list.files(pth, pattern = "*.rds"), function(fn) {
-#             aws.s3::put_object(file = file.path(pth, fn), 
-#                                object = glue("signal_dashboards/{fn}"), 
-#                                bucket = "gdot-devices")
-#         })
-#     }
-# }
 
 
 
