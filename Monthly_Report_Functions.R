@@ -550,7 +550,9 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     det_config <- lapply(all_days, function(d) {
         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = "1 hour")
         read_feather(glue("../ATSPM_Det_Config_Good_{d}.feather")) %>% 
-            transmute(SignalID = factor(SignalID), Detector = factor(Detector), CallPhase = factor(CallPhase)) %>% 
+            transmute(SignalID = factor(SignalID), 
+                      Detector = factor(Detector), 
+                      CallPhase = factor(CallPhase)) %>% 
             expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods)
     }) %>% bind_rows() %>%
         transmute(SignalID = factor(SignalID),

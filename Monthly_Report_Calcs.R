@@ -139,8 +139,7 @@ get_counts_based_measures <- function(month_abbrs) {
             print("filtered counts")
             
             cl <- makeCluster(4)
-            clusterExport(cl, c("glue",
-                                "get_filtered_counts",
+            clusterExport(cl, c("get_filtered_counts",
                                 "week",
                                 "signals_list"))
             fcs <- parLapply(cl, fns, function(fn) {
@@ -148,6 +147,8 @@ get_counts_based_measures <- function(month_abbrs) {
                 library(dplyr)
                 library(tidyr)
                 library(lubridate)
+                library(glue)
+                library(feather)
                 
                 read_fst(fn) %>% 
                     filter(SignalID %in% signals_list) %>%
