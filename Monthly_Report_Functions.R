@@ -625,7 +625,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     #    too many bad hours (60%) based on the above criteria
     #    mean absolute change in hourly volume > 200 
     bad_days <- expanded_counts %>% 
-        filter(hour(Timeperiod) > 5) %>%
+        filter(hour(Timeperiod) >= 5) %>%
         group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
         summarize(Good = sum(Good, na.rm = TRUE), 
                   All = n(), 
@@ -633,7 +633,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                   mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
         
         # manually calibrated
-        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 60 & mean_abs_delta < 200, 1, 0))) %>%
+        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < 200, 1, 0))) %>%
         select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
     
     # counts with the bad days taken out
@@ -1506,7 +1506,7 @@ get_daily_detector_uptime <- function(filtered_counts) {
     ddu <- fc %>% 
         #filter(!wday(Timeperiod) %in% c(1,7)) %>%
         mutate(Date_Hour = Timeperiod,
-                                      Date = date(Date_Hour)) %>%
+               Date = date(Date_Hour)) %>%
         select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
         ungroup() %>%
         mutate(setback = ifelse(CallPhase %in% c(2,6), "Setback", "Presence"),
@@ -2406,10 +2406,15 @@ db_build_data_for_signal_dashboard <- function(month_abbrs, corridors, pth = '.'
         })
     }
 
+    signalids <- levels(corridors$SignalID)
+    
+    lapply(signalids, function(sid) { 
+        file.remove(file.path(pth, glue("{sid}.db"))) 
+    })
+    
     lapply(month_abbrs, function(month_abbr) {
         
         print(month_abbr)
-        signalids <- levels(corridors$SignalID)
         
         insert_to_db(prefix = "counts_1hr_", month_abbr, dbtable = "rc", signalids, daily = TRUE)
         insert_to_db(prefix = "filtered_counts_1hr_", month_abbr, dbtable = "fc", signalids, daily = FALSE)
@@ -2421,6 +2426,12 @@ db_build_data_for_signal_dashboard <- function(month_abbrs, corridors, pth = '.'
         insert_to_db(prefix = "aog_", month_abbr, dbtable = "aog", signalids, daily = FALSE)
         insert_to_db(prefix = "sf_", month_abbr, dbtable = "sf", signalids, daily = FALSE)
         insert_to_db(prefix = "qs_", month_abbr, dbtable = "qs", signalids, daily = FALSE)
+    })
+    
+    lapply(signalids, function(sid) {
+        aws.s3::put_object(file = file.path(pth, glue("{sid}.db")),
+                           object = glue("signal_dashboards/{sid}.db"),
+                           bucket = "gdot-devices")
     })
 }
 

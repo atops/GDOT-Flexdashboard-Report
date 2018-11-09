@@ -876,3 +876,7 @@ aws.s3::put_object(file = "teams_tables.rds",
                    object = "teams_tables.rds", 
                    bucket = "gdot-devices")
 
+db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
+                                   corridors = corridors, 
+                                   pth = 'Signal_Dashboards', 
+                                   upload_to_s3 = TRUE)
