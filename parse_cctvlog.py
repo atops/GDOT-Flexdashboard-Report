@@ -25,7 +25,8 @@ def parse_cctvlog(fn):
             .assign(Timestamp = lambda x: pd.to_datetime(x.Timestamp, 
                                                          format ='%a, %d %b %Y %H:%M:%S %Z')
                                           .dt.tz_localize('UTC')
-                                          .dt.tz_convert('America/New_York'))
+                                          .dt.tz_convert('America/New_York')
+                                          .dt.tz_localize(None))
             .assign(Date = lambda x: x.Timestamp.dt.date)
             .drop_duplicates())
     
