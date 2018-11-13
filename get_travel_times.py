@@ -112,7 +112,7 @@ if __name__=='__main__':
     with open('Monthly_Report_calcs.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
-    start_date = conf['start_date']
+    start_date = conf['start_date'] #.strftime('%Y-%m-%d')
     # -----
     #start_date = '2018-09-01'
     # -----
@@ -120,7 +120,7 @@ if __name__=='__main__':
         # Make start_date the start of the month
         start_date = datetime.today() - timedelta(days=1)
         start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
-    end_date = conf['end_date']
+    end_date = conf['end_date'] #.strftime('%Y-%m-%d')
     # -----
     #end_date = '2018-09-30'
     # -----

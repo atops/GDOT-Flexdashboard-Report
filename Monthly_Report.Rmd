@@ -1513,6 +1513,10 @@ Zone 3:
 [SR 3S](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+3S.pdf) | 
 [SR 85](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+85.pdf)
 
+Zone 8:
+[Dunwoody-Brookhaven](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/Zone+8+-+Dunwoody-Brookhaven.pdf) | 
+[Sandy Springs](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/Zone+8+-+Sandy+Springs.pdf)
+
 
 **RTOP 2**
 
