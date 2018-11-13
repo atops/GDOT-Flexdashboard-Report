@@ -728,26 +728,28 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
 }
 get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
     
-    #conn <- DBI::dbConnect(odbc::odbc(), dsn = "GDOT_SPM_Athena")#,
-    #                        ProxyHost = "gdot-enterprise",
-    #                        ProxyPort = "8080",
-    #                        ProxyUid = Sys.getenv("GDOT_USERNAME"),
-    #                        ProxyPwd = Sys.getenv("GDOT_PASSWORD"),
-    #                        UseProxy = 1
-    # )
-    # 
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
                 classPath = "../../AthenaJDBC42_2.0.2.jar",
                 identifier.quote = "'")
+    
+    if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
 
-    conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                      s3_staging_dir = 's3://gdot-spm-athena',
-                      user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                      password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                      ProxyHost = "gdot-enterprise",
-                      ProxyPort = "8080",
-                      ProxyUID = Sys.getenv("GDOT_USERNAME"),
-                      ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
+        conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+                          s3_staging_dir = 's3://gdot-spm-athena',
+                          user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                          password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                          ProxyHost = "gdot-enterprise",
+                          ProxyPort = "8080",
+                          ProxyUID = Sys.getenv("GDOT_USERNAME"),
+                          ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
+    } else {
+        
+        conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+                          s3_staging_dir = 's3://gdot-spm-athena',
+                          user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                          password = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    }
+
 
     
     if (TWR_only == TRUE) {
