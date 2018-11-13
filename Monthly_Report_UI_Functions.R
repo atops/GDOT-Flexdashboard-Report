@@ -1490,7 +1490,6 @@ signal_dashboard <- function(sigid, pth = "s3") {
         fn <- glue("{sigid}.db")
         aws.s3::save_object(ky, "gdot-devices", file = fn)
         conn <- dbConnect(RSQLite::SQLite(), fn)
-        file.remove(fn)
     } else {
         fn <- file.path(pth, glue("{sigid}.db"))
         conn <- dbConnect(RSQLite::SQLite(), fn)
@@ -1641,6 +1640,9 @@ signal_dashboard <- function(sigid, pth = "s3") {
     }, error = function(cond) {
         plot_ly()
     })
+    
+    dbDisconnect(conn)
+    file.remove(fn)
     
     sr2 <- subplot(list(p_com, p_aog, p_qs, p_sf), 
                    nrows = 4, 
