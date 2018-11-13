@@ -259,6 +259,12 @@ get_counts_based_measures <- function(month_abbrs) {
     })
 }
 get_counts_based_measures(month_abbrs)
+
+bd_fns <- list.files(pattern = "bad_detectors.*\\.fst")
+lapply(bd_fns, read_fst) %>% bind_rows() %>% 
+    select(-Good_Day) %>%
+    write_feather("bad_detectors.feather")
+
 print("--- Finished counts-based measures ---")
 
 # --- This needs the ATSPM database ---
@@ -376,7 +382,7 @@ get_queue_spillback_date_range(start_date, end_date)
 
 # # GET SPLIT FAILURES ########################################################
 
-print("split failurs")
+print("split failures")
 py_run_file("split_failures2.py") # python script
 
 lapply(month_abbrs, function(month_abbr) {
