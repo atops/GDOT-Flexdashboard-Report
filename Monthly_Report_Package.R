@@ -555,6 +555,7 @@ cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
     summarize(up = sum(up),
               num = sum(num)) %>%
     mutate(uptime = up/num) %>%
+    ungroup() %>%
     left_join(distinct(corridors, Corridor, Zone_Group))
 
 # this output doesn't filter bad days because we want it to display all days
@@ -572,7 +573,9 @@ cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl,
                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
     get_cor_monthly_xl_uptime() %>%
     rename(Date = Month) %>%
-    mutate(Zone_Group = factor(Zone_Group),
+    select(-Zone_Group) %>%
+    left_join(distinct(corridors, Corridor, Zone_Group)) %>%
+    mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, Zone_Group)),
            Corridor = factor(Corridor))
 
 

@@ -1910,7 +1910,8 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
         group_by(Date, Corridor, Zone_Group) %>% 
         summarize(up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE),
-                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE))
+                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE)) %>%
+        ungroup()
 }
 get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
     
