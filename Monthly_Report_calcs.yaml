@@ -1,7 +1,7 @@
 
 # Monthly_Report config file (yaml format)
 
-start_date: yesterday
+start_date: 2018-11-15
 end_date: yesterday
 
 report_start_date: 2017-10-01

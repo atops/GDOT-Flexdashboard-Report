@@ -366,6 +366,8 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
 
         start_date <- floor_date(start_date, "months")
         end_date <- start_date + months(1) - days(1)
+        
+        print(start_date)
 
         detection_events <- get_detection_events(start_date, end_date, signals_list)
         if (nrow(collect(head(detection_events))) > 0) {
