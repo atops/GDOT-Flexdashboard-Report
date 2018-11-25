@@ -418,12 +418,13 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     counts_1hr_csv_fn <- glue("counts_1hr_{start_date}.csv")
     counts_15min_csv_fn <- glue("counts_15min_{start_date}.csv")
     
-    file.remove(counts_1hr_csv_fn)
-    file.remove(counts_15min_csv_fn)
-    
-    #file.remove( list.files(pattern = glue("counts_1hr_{start_date}_*.csv")) )
-    #file.remove( list.files(pattern = glue("counts_15min_{start_date}_*.csv")) )
-    
+    if (file.exists(counts_1hr_csv_fn)) {
+        file.remove(counts_1hr_csv_fn)
+    }
+    if (file.exists(counts_15min_csv_fn)) {
+        file.remove(counts_15min_csv_fn)
+    }
+
     n <- length(signals_list)
     i <- 20
     splits <- rep(1:ceiling(n/i), each = i, length.out = n)
