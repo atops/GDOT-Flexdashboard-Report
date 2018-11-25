@@ -18,6 +18,7 @@ library(forcats)
 library(plotly)
 library(crosstalk)
 library(memoise)
+library(RSQLite)
 
 library(DT)
 
