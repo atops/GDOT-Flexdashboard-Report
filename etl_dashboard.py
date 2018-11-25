@@ -15,6 +15,7 @@ import itertools
 from spm_events import etl_main
 import boto3
 import yaml
+import feather
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
@@ -39,7 +40,7 @@ ath = boto3.client('athena')
 def etl2(s, date_):
     
     dc_fn = '../ATSPM_Det_Config_Good_{}.feather'.format(date_.strftime('%Y-%m-%d'))
-    det_config = (pd.read_feather(dc_fn)
+    det_config = (feather.read_dataframe(dc_fn)
                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))
                     .assign(Detector = lambda x: x.Detector.astype('int64'))
                     .rename(columns={'CallPhase':'Call Phase'}))
@@ -142,17 +143,19 @@ if __name__=='__main__':
         engine = sq.create_engine('mssql://', creator=connect)
         
     
-    with engine.connect() as conn:
-
-        #det_config = pd.read_sql_table('DetectorConfig', con=conn)
-        #det_config = det_config.rename(columns={'CallPhase':'Call Phase'})
-        
-        bad_detectors = (pd.read_sql_table('BadDetectors', con=conn)
-                            .assign(SignalID = lambda x: x.SignalID.astype('int64'),
-                                    Detector = lambda x: x.Detector.astype('int64')))
-        
+    #with engine.connect() as conn:
+    #
+    #    #det_config = pd.read_sql_table('DetectorConfig', con=conn)
+    #    #det_config = det_config.rename(columns={'CallPhase':'Call Phase'})
+    #    
+    #    bad_detectors = (pd.read_sql_table('BadDetectors', con=conn)
+    #                        .assign(SignalID = lambda x: x.SignalID.astype('int64'),
+    #                                Detector = lambda x: x.Detector.astype('int64')))
     
-
+    #bad_detectors = pd.read_feather('bad_detectors.feather')
+    bad_detectors = (feather.read_dataframe('bad_detectors.feather')
+                        .assign(SignalID = lambda x: x.SignalID.astype('int64'),
+                                Detector = lambda x: x.Detector.astype('int64')))
     
     #corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
     #signalids = list(corridors.SignalID.astype('int').values)
@@ -174,7 +177,7 @@ if __name__=='__main__':
     dates = pd.date_range(start_date, end_date, freq='1D')
                                         
     corridors_filename = conf['corridors_filename']
-    corridors = pd.read_feather(corridors_filename)
+    corridors = feather.read_dataframe(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]
     
     signalids = list(corridors.SignalID.astype('int').values)
