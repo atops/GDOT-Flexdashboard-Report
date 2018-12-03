@@ -27,6 +27,7 @@
 *.log
 *.exe
 *.pyc
+*.db
 
 !corridors.feather
 Monthly_Report_AWS.yaml
