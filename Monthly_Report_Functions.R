@@ -144,10 +144,10 @@ write_fst_ <- function(df, fn, append = FALSE) {
 get_corridors <- function(corr_fn) {
     readxl::read_xlsx(corr_fn) %>% 
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
-        transmute(SignalID=factor(`GDOT MaxView Device ID`), 
+        transmute(SignalID = factor(SignalID), #SignalID=factor(`GDOT MaxView Device ID`), 
                   Zone = as.factor(Zone), 
-                  Zone_Group = District,
-                  Corridor = as.factor(Group),
+                  Zone_Group = factor(Zone_Group),
+                  Corridor = as.factor(Corridor),
                   Milepost = as.numeric(Milepost),
                   Agency = Agency,
                   Name = Name,
@@ -1507,7 +1507,6 @@ get_daily_detector_uptime <- function(filtered_counts) {
     fc <- anti_join(filtered_counts, bad_comms)
     
     ddu <- fc %>% 
-        #filter(!wday(Timeperiod) %in% c(1,7)) %>%
         mutate(Date_Hour = Timeperiod,
                Date = date(Date_Hour)) %>%
         select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
@@ -1520,19 +1519,32 @@ get_daily_detector_uptime <- function(filtered_counts) {
                   all = as.double(n()))
     split(ddu, ddu$setback)
 }
-get_avg_daily_detector_uptime <- function(daily_detector_uptime) {
+
+get_avg_daily_detector_uptime <- function(ddu) {
     
-    sb_daily_uptime <- get_daily_avg(daily_detector_uptime$Setback, "uptime", "all", peak_only = FALSE)
-    pr_daily_uptime <- get_daily_avg(daily_detector_uptime$Presence, "uptime", "all", peak_only = FALSE)
+    sb_daily_uptime <- get_daily_avg(filter(ddu, setback == "Setback"), 
+                                     "uptime", "all", 
+                                     peak_only = FALSE)
+    pr_daily_uptime <- get_daily_avg(filter(ddu, setback == "Presence"), 
+                                     "uptime", "all", 
+                                     peak_only = FALSE)
+    all_daily_uptime <- ddu %>%
+        group_by(SignalID, CallPhase, Date, Date_Hour) %>%
+        summarize(uptime = weighted.mean(uptime, all, na.rm = TRUE),
+                  all = sum(all)) %>%
+        ungroup() %>%
+        get_daily_avg(., "uptime", "all", peak_only = FALSE)
     
-    full_join(sb_daily_uptime, pr_daily_uptime, 
-              by = c("SignalID", "Date"), 
-              suffix = c(".sb", ".pr")) %>%
-        rowwise() %>%
-        mutate(uptime.all = weighted.mean(c(uptime.sb, uptime.pr), c(all.sb, all.pr), na.rm = TRUE)) %>%
-        select(-starts_with("delta")) %>% 
-        ungroup()
+    sb_pr <- full_join(sb_daily_uptime, pr_daily_uptime, 
+                       by = c("SignalID", "Date"), 
+                       suffix = c(".sb", ".pr"))
+    
+    full_join(all_daily_uptime, sb_pr,
+              by = c("SignalID", "Date")) %>%
+        select(-starts_with("delta.")) %>%
+        rename(uptime.all = uptime)
 }
+
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
     cor_daily_sb_uptime <- avg_daily_detector_uptime %>% 
