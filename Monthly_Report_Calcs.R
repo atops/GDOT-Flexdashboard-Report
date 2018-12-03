@@ -15,7 +15,7 @@ if (Sys.info()["sysname"] == "Windows") {
 setwd(working_directory)
 
 source("Monthly_Report_Functions.R")
-conf <- read_yaml("Monthly_Report_calcs.yaml")
+conf <- read_yaml("Monthly_Report.yaml")
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 start_date <- ifelse(conf$start_date == "yesterday", 
@@ -41,16 +41,9 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 conn <- get_atspm_connection()
 
-# dbWriteTable(conn, "Corridors", corridors, overwrite = TRUE)
-# dbSendQuery(conn, "CREATE CLUSTERED INDEX Corridors_Idx0 on Corridors(SignalID)")
-
 # -- ----------------------------------------------------
 
 corridors <- feather::read_feather(conf$corridors_filename) 
-# -- This could be used. Some differences between factors and chars that would 
-#    need to be tested.
-#corridors <- dbReadTable(conn, "Corridors")
-
 
 #signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # -- If we want to run calcs on all signals in ATSPM database
