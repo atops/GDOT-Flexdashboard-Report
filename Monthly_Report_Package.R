@@ -17,7 +17,7 @@ if (Sys.info()["sysname"] == "Windows") {
 setwd(working_directory)
 
 source("Monthly_Report_Functions.R")
-conf <- read_yaml("Monthly_Report_calcs.yaml")
+conf <- read_yaml("Monthly_Report.yaml")
 
 
 corridors <- feather::read_feather(conf$corridors_filename) 
@@ -127,14 +127,9 @@ gc()
 print("Detector Uptime")
 
 ddu <- f("ddu_", month_abbrs)
-daily_detector_uptime <- split(ddu, ddu$setback)
 
-avg_daily_detector_uptime <- get_avg_daily_detector_uptime(daily_detector_uptime)
+avg_daily_detector_uptime <- get_avg_daily_detector_uptime(ddu)
 cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
-
-# mdu_all <- get_monthly_avg_by_day(ddu, "uptime", "all")
-# mdu_sb <- get_monthly_avg_by_day(filter(ddu, setback == "Setback"), "uptime", "all")
-# mdu_pr <- get_monthly_avg_by_day(filter(ddu, setback == "Presence"), "uptime", "all")
 
 monthly_detector_uptime <- get_monthly_detector_uptime(avg_daily_detector_uptime)
 cor_monthly_detector_uptime <- get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
