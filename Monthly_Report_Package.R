@@ -38,17 +38,17 @@ f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE) {
         
         if (daily == TRUE) {
             fns <- list.files(pattern = paste0(prefix, month_abbr, "-\\d{2}.fst"))
-            df <- lapply(fns, read_fst) %>% 
-                bind_rows() %>% 
-                mutate(SignalID = factor(SignalID)) %>% 
-                as_tibble()
         } else {
-            fn <- paste0(prefix, month_abbr, ".fst")
-            df <- read_fst(fn) %>%
-                mutate(SignalID = factor(SignalID)) %>%
-                as_tibble() 
+            fns <- list.files(pattern = paste0(prefix, month_abbr, ".fst"))
         }
-        df
+        if (length(fns) > 0) {
+		    lapply(fns, read_fst) %>%
+		        bind_rows() %>% 
+		        mutate(SignalID = factor(SignalID)) %>% 
+		        as_tibble()
+		} else {
+		    data.frame()
+		}
     })
     stopCluster(cl)
     
