@@ -119,8 +119,6 @@ def etl2(s, date_):
     
 if __name__=='__main__':
 
-    t0 = time.time()
-    
     if os.name=='nt':
         
         uid = os.environ['ATSPM_USERNAME']
@@ -184,6 +182,8 @@ if __name__=='__main__':
     
     for date_ in dates:
 
+        t0 = time.time()
+
         pool = Pool(18) #24
         asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
         pool.close()
@@ -200,5 +200,5 @@ if __name__=='__main__':
                                              QueryExecutionContext={'Database': 'gdot_spm'},
                                              ResultConfiguration={'OutputLocation': 's3://aws-athena-query-results-322643905670-us-east-1'})
         
-        print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len([date_]), int((time.time()-t0)/60)))
+    print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len([date_]), int((time.time()-t0)/60)))
 
