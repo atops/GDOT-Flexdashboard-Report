@@ -45,7 +45,6 @@ conn <- get_atspm_connection()
 
 corridors <- feather::read_feather(conf$corridors_filename) 
 
-#signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 # -- If we want to run calcs on all signals in ATSPM database
 sig_df <- dbReadTable(conn, "Signals") %>% 
     as_tibble() %>% 

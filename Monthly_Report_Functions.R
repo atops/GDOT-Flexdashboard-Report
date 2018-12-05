@@ -80,11 +80,7 @@ get_atspm_connection <- function() {
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
-        dbConnect(odbc::odbc(),  # RODBCDBI::ODBC(),#  
-                  #dsn = "sqlodbc",
-                  #user = Sys.getenv("ATSPM_USERNAME"),
-                  #password = Sys.getenv("ATSPM_PASSWORD"))
-		          
+        dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
                   server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
                   database = Sys.getenv("ATSPM_DB"),
@@ -100,13 +96,11 @@ week <- function(d) {
 }
 
 get_month_abbrs <- function(start_date, end_date) {
-    sapply(seq(ymd(start_date), ymd(end_date), by = "1 month"),
-                      function(date_) { 
-                          d <- ymd(date_)
-                          y <- year(d)
-                          m <- month(d)
-                          s <- paste(y, sprintf("%02d", m), sep = "-")
-                      })
+    start_date <- ymd(start_date)
+    day(start_date) <- 1
+    end_date <- ymd(end_date)
+    
+    sapply(seq(start_date, end_date, by = "1 month"), function(d) { format(d, "%Y-%m")} )
 }
 
 bind_rows_keep_factors <- function(dfs) {
@@ -144,7 +138,7 @@ write_fst_ <- function(df, fn, append = FALSE) {
 get_corridors <- function(corr_fn) {
     readxl::read_xlsx(corr_fn) %>% 
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
-        transmute(SignalID = factor(SignalID), #SignalID=factor(`GDOT MaxView Device ID`), 
+        transmute(SignalID = factor(SignalID), 
                   Zone = as.factor(Zone), 
                   Zone_Group = factor(Zone_Group),
                   Corridor = as.factor(Corridor),
@@ -363,7 +357,7 @@ get_gaps <- function(df, signals_list) {
     ts <- df %>% 
         collect() %>%
         distinct(SignalID, Timestamp) %>%
-	    #mutate(SignalID = factor(SignalID)) %>%
+	    
         
         bind_rows(., bookends) %>%
         distinct() %>%
@@ -543,8 +537,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                CallPhase = factor(CallPhase)) %>%
         filter(!is.na(CallPhase))
 
-    # -- New Method ---------------- --
-    
     # Identify detectors/phases from detector config file. Expand.
     #  This ensures all detectors are included in the bad detectors calculation.
     all_days <- unique(date(counts$Timeperiod))
@@ -580,47 +572,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                                  abs(delta_vol) == 0,
                              0, 1)) %>%
         select(-vol0)
-    # -- End New Method ------------ --
-    
-    
-    # # define included periods. Only include dates in the counts data. Only include DOW in counts data.
-    # all_periods <- seq(min(counts$Timeperiod), max(counts$Timeperiod), by = interval)
-    # all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
-    # 
-    # 
-    # # # define excluded detectors
-    # # num_days <- length(unique(date(counts$Timeperiod)))
-    # # 
-    # # excluded_detectors <- counts %>%
-    # #     group_by(SignalID, CallPhase, Detector) %>% 
-    # #     summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
-    # #     dplyr::filter(Total_Volume < (100 * num_days)) %>%
-    # #     select(-Total_Volume)
-    # 
-    # # Expand over all SignalID, Detector, CallPhase, Timeperiods
-    # expanded_counts <- counts %>% 
-    #     
-    #     complete(nesting(SignalID, Detector, CallPhase), Timeperiod = all_periods) %>%
-    #     
-    #     mutate(Date = date(Timeperiod),
-    #            vol = replace_na(vol, 0)) %>%
-    #     #anti_join(excluded_detectors) %>%
-    #     
-    #     mutate(SignalID = factor(SignalID), 
-    #            Detector = factor(Detector), 
-    #            CallPhase = factor(CallPhase),
-    #            vol0 = ifelse(is.na(vol), 0, vol)) %>%
-    #     group_by(SignalID, CallPhase, Detector) %>% 
-    #     arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
-    #     mutate(delta_vol = vol0 - lag(vol0),
-    #            Good = ifelse(is.na(vol) | 
-    #                              vol > 1000 | 
-    #                              is.na(delta_vol) | 
-    #                              abs(delta_vol) > 500 | 
-    #                              abs(delta_vol) == 0,
-    #                          0, 1)) %>%
-    #     select(-vol0)
-    
     
     # bad day = any of the following:
     #    too many bad hours (60%) based on the above criteria
@@ -644,88 +595,8 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                Hour = Month_Hour - months(month(Month_Hour) - 1))
     
     filtered_counts
-    
-    # -------------------------------------------------------------------
-    
 }
 
-get_filtered_counts_older <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
-    
-    counts <- counts %>%
-        mutate(SignalID = factor(SignalID),
-               Detector = factor(Detector),
-               CallPhase = factor(CallPhase))
-    
-    # define included detectors
-    all_periods <- seq(min(counts$Timeperiod), max(counts$Timeperiod), by = interval)
-    
-    num_days <- length(unique(date(counts$Timeperiod)))
-    all_periods <- all_periods[wday(all_periods) %in% unique(wday(counts$Timeperiod))]
-    
-    included_detectors <- counts %>% 
-        filter(!is.na(CallPhase)) %>%
-        group_by(SignalID, CallPhase, Detector) %>% 
-        summarize(Total_Volume = sum(vol, na.rm = TRUE)) %>% 
-        dplyr::filter(Total_Volume > (100 * num_days)) %>%
-        select(-Total_Volume)
-    
-    dtlevels <- as.character(sort(as.integer(levels(included_detectors$Detector))))
-    cplevels <- as.character(sort(as.integer(levels(included_detectors$CallPhase))))
-    
-    #  expand to all detectors and time periods
-    e <- expand.grid(temp = unique(mutate(included_detectors, 
-                                          new = paste(SignalID, CallPhase, Detector, sep = '|'))$new),
-                     Timeperiod = all_periods) %>%
-        separate(temp, c("SignalID","CallPhase","Detector")) %>%
-        mutate(SignalID = factor(SignalID), 
-               Detector = factor(Detector, levels = dtlevels), 
-               CallPhase = factor(CallPhase, levels = cplevels))
-    
-    # Bad hour = any of the following:
-    #    missing data (NA)
-    #    volume > 1000
-    #    absolute change in volume from previous hour > 500
-    #    change in volume from previous hour = 0
-    expanded_counts <- left_join(e, counts) %>% 
-        mutate(SignalID = factor(SignalID), 
-               Detector = factor(Detector), 
-               CallPhase = factor(CallPhase),
-               vol0 = ifelse(is.na(vol), 0, vol)) %>%
-        group_by(SignalID, CallPhase, Detector) %>% 
-        arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
-        mutate(delta_vol = vol0 - lag(vol0),
-               Good = ifelse(is.na(vol) | 
-                                 vol > 1000 | 
-                                 is.na(delta_vol) | 
-                                 abs(delta_vol) > 500 | 
-                                 abs(delta_vol) == 0,
-                             0, 1)) %>%
-        select(-vol0)
-
-    # bad day = any of the following:
-    #    too many bad hours (60%) based on the above criteria
-    #    mean absolute change in hourly volume > 200 
-    bad_days <- expanded_counts %>% 
-        filter(hour(Timeperiod) > 5) %>%
-        group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
-        summarize(Good = sum(Good, na.rm = TRUE), 
-                  All = n(), 
-                  Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
-        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 60 & mean_abs_delta < 200, 1, 0))) # manually calibrated
-    
-    # counts with the bad days taken out
-    filtered_counts <- left_join(mutate(expanded_counts, Date=date(Timeperiod)), 
-                                 select(bad_days, SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)) %>%
-        mutate(vol = ifelse(Good_Day==1, vol, NA),
-               Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
-               Hour = Month_Hour - months(month(Month_Hour) - 1))
-    
-    filtered_counts
-
-    # -------------------------------------------------------------------
-
-}
 get_adjusted_counts <- function(filtered_counts) {
     
     filtered_counts <- mutate(filtered_counts, DOW = wday(Timeperiod))
@@ -1028,30 +899,6 @@ get_qs <- function(detection_events) {
     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
 }
 
-# SPM Travel Time Index, Buffer Time Index
-# get_tt_xl <- function(fns, rts) {
-#     
-#     dfs <- mapply(function(f,r) {
-#         df <- readxl::read_excel(f) %>% mutate(Corridor = r)
-#     }, fns, rts, SIMPLIFY = FALSE)
-#     
-#     rbindlist(dfs) %>% 
-#         mutate(miles = speed /3600 * travel_time_seconds, 
-#                ref_sec = miles/reference_speed * 3600) %>%
-#         group_by(Corridor = factor(Corridor), measurement_tstamp) %>%
-#         summarize(travel_time_seconds = sum(travel_time_seconds, na.rm = TRUE),
-#                   ref_sec = sum(ref_sec, na.rm = TRUE)) %>%
-#         ungroup() %>%
-#         mutate(tti = travel_time_seconds/ref_sec, 
-#                hour = measurement_tstamp - days(day(measurement_tstamp) - 1)) %>%
-#         group_by(Corridor, hour) %>%
-#         summarize(tti = mean(travel_time_seconds/ref_sec, na.rm = TRUE),
-#                   bti = quantile(travel_time_seconds, c(0.90))/mean(ref_sec, na.rm = TRUE)) %>% 
-#         tidyr::gather(idx, value, tti, bti) %>% 
-#         as_tibble()
-#     
-#     # Corridor | hour | idx | value
-# }
 get_tt_csv <- function(fns) {
 
     dfs <- lapply(fns, function(f) {
@@ -1103,7 +950,7 @@ get_Tuesdays <- function(df) {
     data.frame(Week = week(tuesdays), Date = tuesdays)
 }
 
-weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_=NULL) {
+weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     
     per_ <- as.name(per_)
     
@@ -1191,8 +1038,6 @@ get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     }
 
     df %>%
-        #complete(nesting(SignalID, CallPhase), Date = full_seq(Date, 1)) %>%
-        #expand_values("Date") %>%
         group_by(SignalID, Date) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
                   !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
@@ -1209,7 +1054,6 @@ get_daily_sum <- function(df, var_, per_) {
     
     df %>%
         complete(nesting(SignalID, CallPhase), !!var_ := full_seq(!!var_, 1)) %>%
-        #expand_values(per_) %>%
         group_by(SignalID, !!per_) %>% 
         summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>%
         mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
@@ -1281,7 +1125,6 @@ get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
     cor_df_out <- weighted_mean_by_corridor_(df, "Date", corridors, var_, wt_) %>%
         filter(!is.nan(!!var_))
     
-    # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
     group_corridors_(cor_df_out, "Date", var_, wt_) %>%
         mutate(Week = week(Date))
 }
@@ -1384,7 +1227,6 @@ get_cor_weekly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
     
     cor_df_out <- weighted_mean_by_corridor_(df, "Hour", corridors, var_, wt_)
     
-    # refactored averaging by RTOP1, RTOP2, All RTOP -- this is new
     group_corridors_(cor_df_out, "Hour", var_, wt_)
 }
 
@@ -1645,12 +1487,8 @@ get_cor_monthly_pti <- function(cor_monthly_pti_by_hr, corridors) {
 
 get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
-        ungroup() %>%
-        rowwise() %>%
-        mutate(num.all = sum(all.sb, all.pr, na.rm = TRUE)) %>%
-        ungroup() %>%
         mutate(CallPhase = 0) %>%
-        get_monthly_avg_by_day("uptime.all", "num.all") %>%
+        get_monthly_avg_by_day("uptime.all", "all") %>%
         arrange(SignalID, Month)
 }
 
@@ -1666,11 +1504,11 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
     cor_daily_all_uptime <- avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.all)) %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        get_cor_monthly_avg_by_day(corridors, "uptime.all", "ones")
+        get_cor_monthly_avg_by_day(corridors, "uptime.all", "all")
     
     full_join(select(cor_daily_sb_uptime, -c(all.sb, delta)),
               select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
-        left_join(select(cor_daily_all_uptime, -c(ones, delta))) %>%
+        left_join(select(cor_daily_all_uptime, -c(all))) %>%
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }
