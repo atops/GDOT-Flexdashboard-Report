@@ -122,7 +122,8 @@ get_counts_based_measures <- function(month_abbrs) {
         #-----------------------------------------------
         # 1-hour counts, filtered, adjusted, bad detectors
         
-        month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
+        #month_pattern <- paste0("counts_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
+        month_pattern <- glue("filtered_counts_1hr_{yyyy_mm}-\\d+\\.fst")
         fns <- list.files(pattern = month_pattern)
         
         print(fns)
@@ -134,7 +135,7 @@ get_counts_based_measures <- function(month_abbrs) {
             clusterExport(cl, c("get_filtered_counts",
                                 "week",
                                 "signals_list"))
-            fcs <- parLapply(cl, fns, function(fn) {
+            filtered_counts_1hr <- parLapply(cl, fns, function(fn) {
                 library(fst)
                 library(dplyr)
                 library(tidyr)
@@ -143,19 +144,19 @@ get_counts_based_measures <- function(month_abbrs) {
                 library(feather)
                 
                 read_fst(fn) %>% 
-                    filter(SignalID %in% signals_list) %>%
-                    get_filtered_counts(., interval = "1 hour")
+                    filter(SignalID %in% signals_list) #%>%
+                    #get_filtered_counts(., interval = "1 hour")
                 
-            })
+            }) %>% bind_rows() %>% as_tibble()
             stopCluster(cl)
             
-            filtered_counts_1hr <- bind_rows(fcs)
-            write_fst_(filtered_counts_1hr, paste0("filtered_counts_1hr_", yyyy_mm, ".fst"))
-            rm(fcs)
+            #filtered_counts_1hr <- bind_rows(fcs)
+            write_fst_(filtered_counts_1hr, glue("filtered_counts_1hr_{yyyy_mm}.fst"))
+            
             
             print("adjusted counts")
             adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
-            write_fst_(adjusted_counts_1hr, paste0("adjusted_counts_1hr_", yyyy_mm, ".fst"))
+            write_fst_(adjusted_counts_1hr, glue("adjusted_counts_1hr_{yyyy_mm}.fst"))
             #rm(adjusted_counts_1hr)
             
             print("bad detectors")
