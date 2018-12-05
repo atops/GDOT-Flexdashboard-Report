@@ -549,7 +549,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     #  This ensures all detectors are included in the bad detectors calculation.
     all_days <- unique(date(counts$Timeperiod))
     det_config <- lapply(all_days, function(d) {
-        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = "1 hour")
+        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
         read_feather(glue("../ATSPM_Det_Config_Good_{d}.feather")) %>% 
             transmute(SignalID = factor(SignalID), 
                       Detector = factor(Detector), 
