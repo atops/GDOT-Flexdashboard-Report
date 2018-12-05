@@ -251,6 +251,79 @@ rm(cor_weekly_vph_peak)
 rm(cor_monthly_vph_peak)
 gc()
 
+
+
+# DAILY PEDESTRIAN ACTIVATIONS ################################################
+
+print("Daily Pedestrian Activations")
+
+vpd <- f("papd_", month_abbrs)
+weekly_papd <- get_weekly_vpd(papd)
+
+# Group into corridors --------------------------------------------------------
+cor_weekly_papd <- get_cor_weekly_vpd(weekly_papd, corridors)
+
+# Monthly volumes for bar charts and % change ---------------------------------
+monthly_papd <- get_monthly_vpd(papd)
+
+# Group into corridors
+cor_monthly_papd <- get_cor_monthly_vpd(monthly_papd, corridors)
+
+# Monthly % change from previous month by corridor ----------------------------
+saveRDS(weekly_papd, "weekly_papd.rds")
+saveRDS(monthly_papd, "monthly_papd.rds")
+saveRDS(cor_weekly_papd, "cor_weekly_papd.rds")
+saveRDS(cor_monthly_papd, "cor_monthly_papd.rds")
+
+rm(papd)
+rm(weekly_papd)
+rm(monthly_papd)
+rm(cor_weekly_papd)
+rm(cor_monthly_papd)
+gc()
+
+# HOURLY PEDESTRIAN ACTIVATIONS ###############################################
+
+print("Hourly Pedestrian Activations")
+
+vph <- f("paph_", month_abbrs)
+weekly_paph <- get_weekly_vph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
+weekly_paph_peak <- get_weekly_vph_peak(weekly_paph)
+
+# Group into corridors --------------------------------------------------------
+cor_weekly_paph <- get_cor_weekly_vph(weekly_paph, corridors)
+cor_weekly_paph_peak <- get_cor_weekly_vph_peak(cor_weekly_paph)
+
+monthly_paph <- get_monthly_vph(paph)
+monthly_paph_peak <- get_monthly_vph_peak(monthly_paph)
+
+# Hourly volumes by Corridor --------------------------------------------------
+cor_monthly_paph <- get_cor_monthly_vph(monthly_paph, corridors)
+cor_monthly_paph_peak <- get_cor_monthly_vph_peak(cor_monthly_paph)
+
+saveRDS(weekly_paph, "weekly_paph.rds")
+saveRDS(monthly_paph, "monthly_paph.rds")
+saveRDS(cor_weekly_paph, "cor_weekly_paph.rds")
+saveRDS(cor_monthly_paph, "cor_monthly_paph.rds")
+
+saveRDS(weekly_paph_peak, "weekly_paph_peak.rds")
+saveRDS(monthly_paph_peak, "monthly_paph_peak.rds")
+saveRDS(cor_weekly_paph_peak, "cor_weekly_paph_peak.rds")
+saveRDS(cor_monthly_paph_peak, "cor_monthly_paph_peak.rds")
+
+rm(paph)
+rm(weekly_paph)
+rm(monthly_paph)
+rm(cor_weekly_paph)
+rm(cor_monthly_paph)
+rm(weekly_paph_peak)
+rm(monthly_paph_peak)
+rm(cor_weekly_paph_peak)
+rm(cor_monthly_paph_peak)
+gc()
+
+
+
 # DAILY THROUGHPUT ############################################################
 
 print("Daily Throughput")

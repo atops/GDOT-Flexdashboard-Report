@@ -220,7 +220,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 # Filter and Adjust (interpolate) 15 min Counts
                 df <- read_fst(fn)
                     filter(SignalID %in% signals_list) %>%
-                    anti_join(., filter(bad_detectors, Date %in% unique(df$Date)) %>%
+                    anti_join(., filter(bad_detectors, Date %in% unique(df$Date))) %>%
                     mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1))
             })
             stopCluster(cl)
@@ -237,6 +237,48 @@ get_counts_based_measures <- function(month_abbrs) {
             
             write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
         }
+        
+        
+        
+        #-----------------------------------------------
+        # 15-minute counts and throughput
+        print("1-hour pedestrian activation counts")
+        month_pattern <- paste0("counts_ped_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
+        fns <- list.files(pattern = month_pattern)
+        
+        if (length(fns) > 0) {
+            
+            print(fns)
+            
+            print("15-min filtered counts")
+            
+            cl <- makeCluster(4)
+            counts_ped_1hr <- parLapply(cl, fns, function(fn) {
+                library(fst)
+                library(dplyr)
+                library(tidyr)
+                library(lubridate)
+                library(glue)
+                library(feather)
+                
+                
+                # Filter and Adjust (interpolate) 15 min Counts
+                df <- read_fst(fn)
+                filter(SignalID %in% signals_list)
+            })
+            stopCluster(cl)
+        }
+        
+        # PAPD - pedestrian activations per day
+        print("papd")
+        papd <- get_vpd(counts_ped_1hr) # calculate over current period
+        write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
+        
+        
+        # PAPH - pedestrian activations per hour
+        print("paph")
+        paph <- get_vph(counts_ped_1hr)
+        write_fst(paph, paste0("paph_", yyyy_mm, ".fst"))
     })
 }
 get_counts_based_measures(month_abbrs)
