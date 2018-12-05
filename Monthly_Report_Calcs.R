@@ -213,30 +213,37 @@ get_counts_based_measures <- function(month_abbrs) {
                                 "signals_list",
                                 "bad_detectors"),
                           envir = environment())
-            fcs <- parLapply(cl, fns, function(fn) {
+            parLapply(cl, fns, function(fn) {
                 library(fst)
                 library(dplyr)
                 library(tidyr)
                 library(lubridate)
+                library(glue)
+                library(feather)
+
                 
                 # Filter and Adjust (interpolate) 15 min Counts
                 df <- read_fst(fn) %>%
                     as_tibble() %>%
                     filter(SignalID %in% signals_list) %>%
-                    mutate(Date = date(Timeperiod))
+                    mutate(Date = date(Timeperiod)) %>%
+                    get_filtered_counts(., interval = "15 min")
                 
                 bd <- bad_detectors %>%
                     filter(Date %in% unique(df$Date))
                 
-                anti_join(df, bd)
-                
+                anti_join(df, bd) %>%
+                    mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1)) %>%
+                    write_fst(sub("counts_", "filtered_counts_", fn))
             })
             stopCluster(cl)
             
-            filtered_counts_15min <- bind_rows(fcs) %>%
+            ffns <- sub("counts_", "filtered_counts_", fns)
+            filtered_counts_15min <- lapply(ffns, function(fn) {
+                read_fst(fn) }) %>% bind_rows() %>%
                 mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1))
-            rm(fcs)
-            
+            lapply(ffns, file.remove)
+
             print("adjusted counts")
             adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
                 mutate(Date = date(Timeperiod))
@@ -259,30 +266,6 @@ lapply(bd_fns, read_fst) %>% bind_rows() %>%
     write_feather("bad_detectors.feather")
 
 print("--- Finished counts-based measures ---")
-
-# --- This needs the ATSPM database ---
-# print("Upload bad detectors to DB")
-# upload_bad_detectors_to_db <- function(month_abbrs) {
-#     
-#     lapply(month_abbrs, function(yyyy_mm) {
-#         print(yyyy_mm)
-# 
-#         conn <- get_atspm_connection()
-#         
-#         bad_detectors <- read_fst(paste0("bad_detectors_", yyyy_mm, ".fst"))
-#         # Need to be carefule with this to prevent duplicates
-#         lapply(strsplit(yyyy_mm, "-"), 
-#                function(x) { 
-#                    dbSendQuery(conn, paste("delete from BadDetectors where year(Date) =", x[1], "and month(Date) =", x[2]))
-#                }
-#         )
-#         dbWriteTable(conn, "BadDetectors", bad_detectors, append = TRUE)
-# 
-#         dbDisconnect(conn)
-#     })
-# }
-# upload_bad_detectors_to_db(month_abbrs)
-
 
 
 
