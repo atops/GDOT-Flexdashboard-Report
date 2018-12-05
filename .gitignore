@@ -16,6 +16,7 @@
 /Vehicle and Ped Detector Info
 /purgatory
 /Signal_Dashboards
+/*monetdb*
 
 *.RData
 *.feather
