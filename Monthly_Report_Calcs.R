@@ -241,7 +241,7 @@ get_counts_based_measures <- function(month_abbrs) {
         
         
         #-----------------------------------------------
-        # 15-minute counts and throughput
+        # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
         month_pattern <- paste0("counts_ped_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
         fns <- list.files(pattern = month_pattern)
@@ -250,7 +250,7 @@ get_counts_based_measures <- function(month_abbrs) {
             
             print(fns)
             
-            print("15-min filtered counts")
+            #print("1-hour pedestrian activation counts")
             
             cl <- makeCluster(4)
             counts_ped_1hr <- parLapply(cl, fns, function(fn) {
