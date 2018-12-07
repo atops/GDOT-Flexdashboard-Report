@@ -820,10 +820,13 @@ get_bad_detectors <- function(filtered_counts_1hr) {
 
 
 # Volume VPD
-get_vpd <- function(counts) {
+get_vpd <- function(counts, mainline_only = TRUE) {
     
+    if (mainline_only == TRUE) {
+        counts <- counts %>%
+            filter(CallPhase %in% c(2,6)) # sum over Phases 2,6 # added 4/24/18
+    }
     counts %>%
-        filter(CallPhase %in% c(2,6)) %>% # sum over Phases 2,6 # added 4/24/18
         mutate(DOW = wday(Timeperiod), 
                Week = week(date(Timeperiod)),
                Date = date(Timeperiod)) %>% 
@@ -1573,10 +1576,15 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
                Zone_Group = factor(Zone_Group))
 }
 
-get_vph <- function(counts) {
-    df <- counts %>% mutate(Date_Hour = floor_date(Timeperiod, "1 hour"))
+get_vph <- function(counts, mainline_only = TRUE) {
+    
+    if (mainline_only == TRUE) {
+        counts <- counts %>%
+            filter(CallPhase %in% c(2,6)) # sum over Phases 2,6
+    }
+    df <- counts %>% 
+        mutate(Date_Hour = floor_date(Timeperiod, "1 hour"))
     get_sum_by_hr(df, "vol") %>% 
-        filter(CallPhase %in% c(2,6)) %>% # sum over Phases 2,6
         group_by(SignalID, Week, DOW, Hour) %>% 
         summarize(vph = sum(vol, na.rm = TRUE))
     

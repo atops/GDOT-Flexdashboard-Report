@@ -176,6 +176,7 @@ get_counts_based_measures <- function(month_abbrs) {
             print("vph")
             vph <- get_vph(adjusted_counts_1hr)
             write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
+            rm(adjusted_counts_1hr)
             
             
             # DAILY DETECTOR UPTIME
@@ -183,9 +184,11 @@ get_counts_based_measures <- function(month_abbrs) {
             daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
             ddu <- bind_rows(daily_detector_uptime)
             write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
-            
+            rm(filtered_counts_1hr)
         }
         
+        gc()
+
         
         
         
@@ -193,7 +196,7 @@ get_counts_based_measures <- function(month_abbrs) {
         #-----------------------------------------------
         # 15-minute counts and throughput
         print("15-minute counts and throughput")
-        month_pattern <- paste0("counts_15min_TWR_", yyyy_mm, "-\\d\\d?\\.fst")
+        month_pattern <- glue("filtered_counts_15min_TWR_{yyyy_mm}-\\d+\\.fst")
         fns <- list.files(pattern = month_pattern)
         
         if (length(fns) > 0) {
@@ -218,24 +221,42 @@ get_counts_based_measures <- function(month_abbrs) {
 
                 
                 # Filter and Adjust (interpolate) 15 min Counts
-                df <- read_fst(fn)
-                    filter(SignalID %in% signals_list) %>%
-                    anti_join(., filter(bad_detectors, Date %in% unique(df$Date))) %>%
+                df <- read_fst(fn) %>%
+                    filter(SignalID %in% signals_list)
+                anti_join(df, filter(bad_detectors, Date %in% unique(df$Date))) %>%
                     mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1))
-            })
+            }) %>% bind_rows() %>% as_tibble()
             stopCluster(cl)
             
-            print("adjusted counts")
-            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
-                mutate(Date = date(Timeperiod))
-            rm(filtered_counts_15min)
+            
+            
             
             # Calculate and write Throughput
             print("throughput")
-            throughput <- get_thruput(adjusted_counts_15min)
-            rm(adjusted_counts_15min)
-            
+            throughput <- filtered_counts_15min %>% 
+                get_adjusted_counts() %>%
+                mutate(Date = date(Timeperiod)) %>%
+                get_thruput()
             write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
+            rm(filtered_counts_15min)
+            
+
+            
+            # # Calculate and write Throughput
+            # print("throughput")
+            # throughput <- get_thruput(adjusted_counts_15min)
+            # 
+            # print("adjusted counts")
+            # adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+            #     mutate(Date = date(Timeperiod))
+            # rm(filtered_counts_15min)
+            # 
+            # # Calculate and write Throughput
+            # print("throughput")
+            # throughput <- get_thruput(adjusted_counts_15min)
+            # rm(adjusted_counts_15min)
+            # 
+            # write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
         }
         
         
@@ -243,7 +264,7 @@ get_counts_based_measures <- function(month_abbrs) {
         #-----------------------------------------------
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
-        month_pattern <- paste0("counts_ped_1hr_", yyyy_mm, "-\\d\\d?\\.fst")
+        month_pattern <- glue("counts_ped_1hr_{yyyy_mm}-\\d+\\.fst")
         fns <- list.files(pattern = month_pattern)
         
         if (length(fns) > 0) {
@@ -253,6 +274,8 @@ get_counts_based_measures <- function(month_abbrs) {
             #print("1-hour pedestrian activation counts")
             
             cl <- makeCluster(4)
+            clusterExport(cl, c("signals_list"),
+                          envir = environment())
             counts_ped_1hr <- parLapply(cl, fns, function(fn) {
                 library(fst)
                 library(dplyr)
@@ -263,21 +286,21 @@ get_counts_based_measures <- function(month_abbrs) {
                 
                 
                 # Filter and Adjust (interpolate) 15 min Counts
-                df <- read_fst(fn)
-                filter(SignalID %in% signals_list)
-            })
+                df <- read_fst(fn) %>%
+                    filter(SignalID %in% signals_list)
+            }) %>% bind_rows() %>% as_tibble()
             stopCluster(cl)
         }
         
         # PAPD - pedestrian activations per day
         print("papd")
-        papd <- get_vpd(counts_ped_1hr) # calculate over current period
+        papd <- get_vpd(counts_ped_1hr, mainline_only = FALSE) # calculate over current period
         write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
         
         
         # PAPH - pedestrian activations per hour
         print("paph")
-        paph <- get_vph(counts_ped_1hr)
+        paph <- get_vph(counts_ped_1hr, mainline_only = FALSE)
         write_fst(paph, paste0("paph_", yyyy_mm, ".fst"))
     })
 }
