@@ -176,7 +176,6 @@ get_counts_based_measures <- function(month_abbrs) {
             print("vph")
             vph <- get_vph(adjusted_counts_1hr)
             write_fst(vph, paste0("vph_", yyyy_mm, ".fst"))
-            rm(adjusted_counts_1hr)
             
             
             # DAILY DETECTOR UPTIME
@@ -184,11 +183,8 @@ get_counts_based_measures <- function(month_abbrs) {
             daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr)
             ddu <- bind_rows(daily_detector_uptime)
             write_fst_(ddu, paste0("ddu_", yyyy_mm, ".fst"))
-            rm(filtered_counts_1hr)
         }
         
-        gc()
-
         
         
         
@@ -206,9 +202,7 @@ get_counts_based_measures <- function(month_abbrs) {
             print("15-min filtered counts")
             
             cl <- makeCluster(4)
-            clusterExport(cl, c("get_filtered_counts",
-                                "week",
-                                "signals_list",
+            clusterExport(cl, c("signals_list",
                                 "bad_detectors"),
                           envir = environment())
             filtered_counts_15min <- parLapply(cl, fns, function(fn) {
@@ -222,41 +216,24 @@ get_counts_based_measures <- function(month_abbrs) {
                 
                 # Filter and Adjust (interpolate) 15 min Counts
                 df <- read_fst(fn) %>%
+                    mutate(Date = date(Timeperiod)) %>%
                     filter(SignalID %in% signals_list)
                 anti_join(df, filter(bad_detectors, Date %in% unique(df$Date))) %>%
                     mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1))
             }) %>% bind_rows() %>% as_tibble()
             stopCluster(cl)
             
-            
-            
+            print("adjusted counts")
+            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+                mutate(Date = date(Timeperiod))
+            rm(filtered_counts_15min)
             
             # Calculate and write Throughput
             print("throughput")
-            throughput <- filtered_counts_15min %>% 
-                get_adjusted_counts() %>%
-                mutate(Date = date(Timeperiod)) %>%
-                get_thruput()
+            throughput <- get_thruput(adjusted_counts_15min)
+            rm(adjusted_counts_15min)
+            
             write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
-            rm(filtered_counts_15min)
-            
-
-            
-            # # Calculate and write Throughput
-            # print("throughput")
-            # throughput <- get_thruput(adjusted_counts_15min)
-            # 
-            # print("adjusted counts")
-            # adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
-            #     mutate(Date = date(Timeperiod))
-            # rm(filtered_counts_15min)
-            # 
-            # # Calculate and write Throughput
-            # print("throughput")
-            # throughput <- get_thruput(adjusted_counts_15min)
-            # rm(adjusted_counts_15min)
-            # 
-            # write_fst(throughput, paste0("tp_", yyyy_mm, ".fst"))
         }
         
         
