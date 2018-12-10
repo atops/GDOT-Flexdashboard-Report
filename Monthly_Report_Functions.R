@@ -407,6 +407,72 @@ get_counts5 <- function(df, det_config, units = "hours", date_, event_code = 82,
     }
 }
 
+get_uptime <- function(date_) {
+    
+}
+# still needs testing. seems to hang on arrange
+get_counts_new <- function(date_, event_code = 82, interval_ = "1 hour") {
+        
+    if (event_code == 82) {
+        if (interval_ == "1 hour") {
+            counts_fn <- glue("counts_1hr_{date_}.fst")
+        } else if (interval == "15 min") {
+            counts_fn <- glue("counts_15min_{date_}.fst")
+        }
+    } else if (event_code == 90) {
+        if (interval_ == "1 hour") {
+            counts_fn <- glue("counts_ped_1hr_{date_}.fst")
+        } else if (interval == "15 min") {
+            counts_fn <- glue("counts_ped_15min_{date_}.fst")
+        }
+    }
+    
+    det_config <- get_det_config(start_date) %>%
+        select(SignalID, Detector, CallPhase)
+    
+    conn <- get_atspm_connection()
+    
+    cel <- tbl(conn, "Controller_Event_Log")
+
+    start_date <- date_
+    end_date <- ymd(start_date) + days(1)
+    
+    counts <- cel %>% 
+        filter(SignalID %in% signals_list & 
+               Timestamp >= start_date & Timestamp < end_date & 
+               EventCode == event_code)
+    if (interval_ == "1 hour") {
+        counts <- counts %>% 
+            group_by(SignalID, 
+                     Detector = EventParam, 
+                     Timeperiod = dateadd(hh, datediff(hh, 0, Timestamp), 0))
+    } else if (interval == "15 min") {
+        counts <- counts %>% 
+            group_by(SignalID, 
+                     Detector = EventParam, 
+                     Timeperiod = dateadd(ss, -datepart(ss, Timestamp), dateadd(mi, as.integer(datepart(mi, Timestamp)/15) * 15 - datepart(mi, Timestamp), Timestamp)))
+            
+    }
+    counts <- counts %>%
+        count() %>% 
+        arrange(SignalID, Detector, Timeperiod) %>% 
+        collect() %>%
+        ungroup() %>%
+        left_join(det_config, by = c("SignalID", "Detector")) %>%
+        
+        transmute(SignalID = factor(SignalID),
+                  Timeperiod = Timeperiod,
+                  Detector = factor(Detector),
+                  CallPhase = factor(CallPhase),
+                  vol = n)
+    write_fst(counts, counts_fn)
+    counts
+}
+
+#    print("...filtered counts")
+#get_filtered_counts(counts, interval = "1 hour") %>%
+#    write_fst(., sub("(.*?).fst", "filtered_\\1.fst", counts_fn))
+
 get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
 
