@@ -44,9 +44,8 @@ async def fetch(camid, base_path, session): #out_file,
         url = 'http://cdn.511ga.org/cameras/{}.jpg'.format(camid)
         
         response = (await polling.poll(lambda: session.get(url,
+                                                           timeout=5,
                                                            proxy="http://GADOT\V0010894:11400Comm20191@gdot-enterprise:8080"), 
-                                       #ignore_exceptions=(ClientConnectionError, 
-                                       #                   ClientConnectorError), 
                                        step=0.5,
                                        timeout=3))
         
@@ -93,7 +92,7 @@ if __name__=='__main__':
         conf = yaml.load(yaml_file)
 
     gdot_folder = os.path.join(os.path.expanduser('~'), 'Code', 'GDOT', 'GDOT-Flexdashboard-Report')
-    camids_file = os.path.join(gdot_folder, conf['cctv_config_filename']) #'camera_ids_2018-10-22.csv')
+    camids_file = os.path.join(gdot_folder, conf['cctv_config_filename'])
     #'c:/users/V0010894/Code/GDOT/camera_ids.txt'
 
     base_path = os.path.join(gdot_folder, '../cctvlogs')
