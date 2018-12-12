@@ -2238,6 +2238,11 @@ get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip",
         select(LocationId = `DB Id`, SignalID, m, `Maintained By`, City, County) %>%
         filter(m < 100)
     
+    # write locations to teams_locations.fst
+    # move to new function
+    
+    # read from teams_locations.fst
+    
     # Get tasks and join locations, corridors
     tasks <- readr::read_csv(tasks_fn) %>% 
         select(-`Maintained by`) %>%
@@ -2249,10 +2254,10 @@ get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip",
     all_tasks <- tasks %>% 
         mutate(Zone_Group = if_else(`Maintained By` == "District 1", 
                                   "D1", 
-                                  Zone_Group),
+                                  as.character(Zone_Group)),
                Zone_Group = if_else(`Maintained By` == "District 6", 
                                   "D6", 
-                                  Zone_Group),
+                                  as.character(Zone_Group)),
                `Task Type` = as.character(`Task Type`),
                `Due Date` = mdy_hms(`Due Date`),
                `Date Reported` = mdy_hms(`Date Reported`),
@@ -2331,7 +2336,8 @@ get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip",
                       mutate(Zone_Group = "All RTOP"), 
                   all_tasks %>% 
                       filter(Zone_Group == "RTOP2") %>% 
-                      mutate(Zone_Group = "All RTOP"))
+                      mutate(Zone_Group = "All RTOP")) %>%
+        mutate(Zone_Group = factor(Zone_Group))
 }
 
 
