@@ -45,7 +45,7 @@ async def fetch(camid, base_path, session): #out_file,
         
         response = (await polling.poll(lambda: session.get(url,
                                                            timeout=5,
-                                                           proxy="http://GADOT\V0010894:11400Comm20191@gdot-enterprise:8080"), 
+                                                           proxy=os.environ['HTTP_PROXY']), 
                                        step=0.5,
                                        timeout=3))
         
