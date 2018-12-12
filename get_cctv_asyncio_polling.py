@@ -44,7 +44,6 @@ async def fetch(camid, base_path, session): #out_file,
         url = 'http://cdn.511ga.org/cameras/{}.jpg'.format(camid)
         
         response = (await polling.poll(lambda: session.get(url,
-                                                           timeout=5,
                                                            proxy=os.environ['HTTP_PROXY']), 
                                        step=0.5,
                                        timeout=3))
