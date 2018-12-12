@@ -73,7 +73,7 @@ async def run(camids_file, base_path):
     sem = asyncio.Semaphore(20)
     # Create client session that will ensure we dont open new connection
     # per each request.
-    async with ClientSession() as session:
+    async with ClientSession(read_timeout=5) as session:
         for camid in get_camids(camids_file):
             print (camid)
             # pass Semaphore and session to every GET request
