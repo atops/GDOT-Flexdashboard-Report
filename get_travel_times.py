@@ -16,6 +16,7 @@ import yaml
 from datetime import datetime, timedelta
 import zipfile
 import io
+import feather
 
 def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     
@@ -84,7 +85,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
                 lambda: requests.get(uri.format('jobs/export/results'), 
                                params = {'key': key, 'uuid': payload['uuid']}),
                 check_succsss = lambda x: x.status_code == 200,
-                step = 5,
+                step = 1,
                 timeout = 300
                 #poll_forever = True
                 )
@@ -114,7 +115,7 @@ if __name__=='__main__':
 
     start_date = conf['start_date'] #.strftime('%Y-%m-%d')
     # -----
-    #start_date = '2018-09-01'
+    start_date = '2018-11-01'
     # -----
     if start_date == 'yesterday': 
         # Make start_date the start of the month
@@ -122,14 +123,14 @@ if __name__=='__main__':
         start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
     end_date = conf['end_date'] #.strftime('%Y-%m-%d')
     # -----
-    #end_date = '2018-09-30'
+    end_date = '2018-11-30'
     # -----
     if end_date == 'yesterday': 
         end_date = datetime.today().strftime('%Y-%m-%d')
 
 
     tmc_fn = 'tmc_routes.feather'
-    tmc_df = pd.read_feather(tmc_fn)
+    tmc_df = feather.read_dataframe(tmc_fn)
     tmc_dict = tmc_df.groupby(['Corridor'])['tmc'].apply(list).to_dict()
     
     
@@ -138,14 +139,17 @@ if __name__=='__main__':
     
     df = pd.DataFrame()
     for corridor in tmc_dict.keys():
-        print('\n' + corridor)
-        tt_df = get_tmc_data(start_date, end_date, tmc_dict[corridor], cred['RITIS_KEY'], 10)
-    
-        if len(tt_df) > 0:
-            df_ = (pd.merge(tt_df, tmc_df[['tmc','miles']], left_on=['tmc_code'], right_on=['tmc'])
-                     .drop(columns=['tmc'])
-                     .assign(Corridor = str(corridor)))
-            df = pd.concat([df, df_])
+        try:
+            print('\n' + corridor)
+            tt_df = get_tmc_data(start_date, end_date, tmc_dict[corridor], cred['RITIS_KEY'], 2)
+        
+            if len(tt_df) > 0:
+                df_ = (pd.merge(tt_df, tmc_df[['tmc','miles']], left_on=['tmc_code'], right_on=['tmc'])
+                         .drop(columns=['tmc'])
+                         .assign(Corridor = str(corridor)))
+                df = pd.concat([df, df_])
+        except:
+            print('error retrieving records')
             
     if len(df) > 0:
         df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
