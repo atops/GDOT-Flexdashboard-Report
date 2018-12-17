@@ -12,7 +12,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 import yaml
-#import feather
+import feather
 from pandas.tseries.offsets import Day #, MonthEnd
 
 from dask import delayed, compute
@@ -112,11 +112,11 @@ def helper(date_):
         sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
         sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
         sf = sf.reset_index(drop=True)
-        sf.to_feather('sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
+        feather.write_dataframe(sf, 'sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
         
 if __name__=='__main__':
 
-    with open('Monthly_Report_calcs.yaml') as yaml_file:
+    with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date']
@@ -126,8 +126,8 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
-    #start_date = '2018-10-01'
-    #end_date = '2018-10-04'
+    #start_date = '2018-12-01'
+    #end_date = '2018-12-13'
     """
     signals_file = sys.argv[3]
 
@@ -141,7 +141,7 @@ if __name__=='__main__':
     
     signals = list(set(signals) - set(signals_to_exclude))
     """
-    corridors = pd.read_feather(conf['corridors_filename'])
+    corridors = feather.read_dataframe(conf['corridors_filename'])
     corridors = corridors[~corridors.SignalID.isna()]
 
     signals_list = list(corridors.SignalID.values)
@@ -156,11 +156,12 @@ if __name__=='__main__':
     
     dates = pd.date_range(start_date, end_date, freq=Day())
     
-
-    
-    results = []
     for d in dates:
-        x = delayed(helper)(d)
-        results.append(x)
-    compute(*results)
+        helper(d)
+    
+    #    results = []
+    #    for d in dates:
+    #        x = delayed(helper)(d)
+    #        results.append(x)
+    #    compute(*results)
 
