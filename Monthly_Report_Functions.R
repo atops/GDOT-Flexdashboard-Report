@@ -886,7 +886,7 @@ get_bad_detectors <- function(filtered_counts_1hr) {
 
 # Volume VPD
 get_vpd <- function(counts, mainline_only = TRUE) {
-    
+
     if (mainline_only == TRUE) {
         counts <- counts %>%
             filter(CallPhase %in% c(2,6)) # sum over Phases 2,6 # added 4/24/18
