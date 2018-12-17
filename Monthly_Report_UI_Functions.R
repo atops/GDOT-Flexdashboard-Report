@@ -1533,6 +1533,8 @@ signal_dashboard <- function(sigid, pth = "s3") {
             mutate(SignalID = factor(SignalID),
                    CallPhase = factor(CallPhase, levels = sort(as.integer(unique(df$CallPhase)))),
                    Date = as_date(Date))
+        df_ <- df %>% group_by(SignalID, CallPhase) %>% filter(Date == max(Date)) %>% ungroup() %>% mutate(Date = Date + days(1))
+        df <- df %>% bind_rows(df, df_)
         perf_plotly_by_phase(df, "Date", "vpd", 
                              range_max = max(df$vpd), 
                              number_format = ",.0",
