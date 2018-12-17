@@ -75,56 +75,9 @@ month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
 print(month_abbrs)
 
 
-# # TRAVEL TIME AND BUFFER TIME INDEXES #######################################
-
-print("Travel Times")
-
-# Eventually (soon) this will be replaced to get tti and pti from summary tables
-# calculated from RITIS API
-fs <- list.files(path = "Inrix/For_Monthly_Report", 
-                 pattern = "TWTh.csv$",
-                 recursive = TRUE, 
-                 full.names = TRUE)
-fns <- fs[fs < "Inrix/For_Monthly_Report/2018-01"] # old format: files before 2018-01
-tt <- get_tt_csv(fns)
-tti <- tt$tti 
-pti <- tt$pti 
-
-fns2 <- list.files(path = "Inrix/For_Monthly_Report",
-                   pattern = "tt_.*_summary.csv",
-                   recursive = FALSE,
-                   full.names = TRUE)
-
-tt2 <- lapply(fns2, read_csv) %>% bind_rows()
-#tt <- lapply(fns, read_csv) %>% bind_rows() %>% mutate(Corridor = factor(Corridor))
-#tti <- tt %>% select(-pti)
-#pti <- tt %>% select(-tti)
-
-tti <- tt2 %>% 
-    select(-pti) %>% 
-    bind_rows(tti) %>% 
-    mutate(Corridor = factor(Corridor)) %>%
-    arrange(Corridor, Hour)
-    
-
-pti <- tt2 %>% 
-    select(-tti) %>% 
-    bind_rows(pti) %>% 
-    mutate(Corridor = factor(Corridor)) %>%
-    arrange(Corridor, Hour)
-
-
-
-write_fst(tti, "tti.fst")
-write_fst(pti, "pti.fst")
-
-rm(tt)
-gc()
-
-
 # # DETECTOR UPTIME ###########################################################
 
-print("Detector Uptime")
+print("Detector Uptime [1 of 19]")
 
 ddu <- f("ddu_", month_abbrs)
 
@@ -150,7 +103,7 @@ gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print("Communication Uptime")
+print("Communication Uptime [2 of 19]")
 
 cu <- f("cu_", month_abbrs) 
 
@@ -184,7 +137,7 @@ gc()
 
 # DAILY VOLUMES ###############################################################
 
-print("Daily Volumes")
+print("Daily Volumes [3 of 19]")
 
 vpd <- f("vpd_", month_abbrs)
 weekly_vpd <- get_weekly_vpd(vpd)
@@ -213,7 +166,7 @@ gc()
 
 # HOURLY VOLUMES ##############################################################
 
-print("Hourly Volumes")
+print("Hourly Volumes [4 of 19]")
 
 vph <- f("vph_", month_abbrs)
 weekly_vph <- get_weekly_vph(mutate(vph, CallPhase = 2)) # Hack because next function needs a CallPhase
@@ -255,9 +208,9 @@ gc()
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print("Daily Pedestrian Activations")
+print("Daily Pedestrian Activations [5 of 19]")
 
-vpd <- f("papd_", month_abbrs)
+papd <- f("papd_", month_abbrs)
 weekly_papd <- get_weekly_vpd(papd)
 
 # Group into corridors --------------------------------------------------------
@@ -284,9 +237,9 @@ gc()
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print("Hourly Pedestrian Activations")
+print("Hourly Pedestrian Activations [6 of 19]")
 
-vph <- f("paph_", month_abbrs)
+paph <- f("paph_", month_abbrs)
 weekly_paph <- get_weekly_vph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
 weekly_paph_peak <- get_weekly_vph_peak(weekly_paph)
 
@@ -326,7 +279,7 @@ gc()
 
 # DAILY THROUGHPUT ############################################################
 
-print("Daily Throughput")
+print("Daily Throughput [7 of 19]")
 
 throughput <- f("tp_", month_abbrs)
 weekly_throughput <- get_weekly_thruput(throughput)
@@ -357,7 +310,7 @@ gc()
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print("Daily AOG")
+print("Daily AOG [8 of 19]")
 
 aog <- f("aog_", month_abbrs, combine = TRUE)
 daily_aog <- get_daily_aog(aog)
@@ -384,7 +337,7 @@ gc()
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print("Hourly AOG")
+print("Hourly AOG [9 of 19]")
 
 aog_by_hr <- get_aog_by_hr(aog)
 monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
@@ -406,7 +359,7 @@ gc()
 
 # DAILY SPLIT FAILURES #####################################################
 
-print("Daily Split Failures")
+print("Daily Split Failures [10 of 19]")
 
 sf <- f("sf_", month_abbrs)
 wsf <- get_weekly_sf_by_day(sf)
@@ -429,7 +382,7 @@ gc()
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print("Hourly Split Failures")
+print("Hourly Split Failures [11 of 19]")
 
 sfh <- get_sf_by_hr(sf)
 
@@ -449,7 +402,7 @@ gc()
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print("Daily Queue Spillback")
+print("Daily Queue Spillback [12 of 19]")
 
 qs <- f("qs_", month_abbrs)
 wqs <- get_weekly_qs_by_day(qs)
@@ -466,7 +419,7 @@ saveRDS(cor_monthly_qsd, "cor_monthly_qsd.rds")
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print("Hourly Queue Spillback")
+print("Hourly Queue Spillback [13 of 19]")
 
 qsh <- get_qs_by_hr(qs)
 mqsh <- get_monthly_qs_by_hr(qsh)
@@ -489,8 +442,39 @@ gc()
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-tti <- read_fst("tti.fst")
-pti <- read_fst("pti.fst")
+print ("Travel Time Indexes [14 of 19]")
+
+# Eventually (soon) this will be replaced to get tti and pti from summary tables
+# calculated from RITIS API
+fs <- list.files(path = "Inrix/For_Monthly_Report", 
+                 pattern = "TWTh.csv$",
+                 recursive = TRUE, 
+                 full.names = TRUE)
+fns <- fs[fs < "Inrix/For_Monthly_Report/2018-01"] # old format: files before 2018-01
+tt <- get_tt_csv(fns)
+tti <- tt$tti 
+pti <- tt$pti 
+
+fns2 <- list.files(path = "Inrix/For_Monthly_Report",
+                   pattern = "tt_.*_summary.csv",
+                   recursive = FALSE,
+                   full.names = TRUE)
+
+tt2 <- lapply(fns2, read_csv) %>% bind_rows()
+
+tti <- tt2 %>% 
+    select(-pti) %>% 
+    bind_rows(tti) %>% 
+    mutate(Corridor = factor(Corridor)) %>%
+    arrange(Corridor, Hour)
+
+
+pti <- tt2 %>% 
+    select(-tti) %>% 
+    bind_rows(pti) %>% 
+    mutate(Corridor = factor(Corridor)) %>%
+    arrange(Corridor, Hour)
+
 
 cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, corridors)
 cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, corridors)
@@ -498,22 +482,27 @@ cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, corridor
 cor_monthly_tti <- get_cor_monthly_tti(cor_monthly_tti_by_hr, corridors)
 cor_monthly_pti <- get_cor_monthly_pti(cor_monthly_pti_by_hr, corridors)
 
+write_fst(tti, "tti.fst")
+write_fst(pti, "pti.fst")
+
 saveRDS(cor_monthly_tti, "cor_monthly_tti.rds")
 saveRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds")
 
 saveRDS(cor_monthly_pti, "cor_monthly_pti.rds")
 saveRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds")
 
+rm(tt)
 rm(tti)
 rm(pti)
 rm(cor_monthly_tti)
 rm(cor_monthly_tti_by_hr)
 rm(cor_monthly_pti)
 rm(cor_monthly_pti_by_hr)
+gc()
 
 # DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
 
-print("Uptimes")
+print("Uptimes [15 of 19]")
 
 # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
@@ -617,7 +606,7 @@ cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl,
     rename(Date = Month) %>%
     select(-Zone_Group) %>%
     left_join(distinct(corridors, Corridor, Zone_Group)) %>%
-    mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, Zone_Group)),
+    mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, as.character(Zone_Group))),
            Corridor = factor(Corridor))
 
 
@@ -663,7 +652,7 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 
 # ACTIVITIES ##############################
 
-print("TEAMS")
+print("TEAMS [16 of 19]")
 
 # New version from API result
 teams <- get_teams_tasks(conf$teams_tasks_filename) %>%
@@ -741,7 +730,7 @@ saveRDS(cor_monthly_events, "cor_monthly_events.rds")
 
 # Package up for Flexdashboard
 
-print("Package for Monthly Report")
+print("Package for Monthly Report [17 of 19]")
 
 sigify <- function(df, cor_df, corridors) {
     
@@ -910,6 +899,7 @@ sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
 saveRDS(cor, "cor.rds")
 saveRDS(sig, "sig.rds")
 
+print("Upload to AWS [18 of 19]")
 
 aws.s3::put_object(file = "cor.rds", 
                    object = "cor.rds", 
@@ -920,6 +910,8 @@ aws.s3::put_object(file = "sig.rds",
 aws.s3::put_object(file = "teams_tables.rds", 
                    object = "teams_tables.rds", 
                    bucket = "gdot-devices")
+
+print("Build Signal Dashboards [19 of 19]")
 
 db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
                                    corridors = corridors, 
