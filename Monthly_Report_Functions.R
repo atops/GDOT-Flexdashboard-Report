@@ -199,6 +199,11 @@ get_corridor_name <- function(string) {
         
         grepl(pattern = "North(.*)Ave", string) ~ "North Ave",
         
+        grepl(pattern = "Z7.*( |-)10th-Street", string) ~ "10th Street",
+        grepl(pattern = "Z7.*( |-)14th-Street", string) ~ "14th Street",
+        grepl(pattern = "Z7.*( |-)17th-Street", string) ~ "17th Street",
+        grepl(pattern = "Z7.*( |-)Ivan-Allen-Jr", string) ~ "Ivan Allen Jr",
+        
         # From TEAMS Report
         
         # Zone 1
@@ -256,7 +261,8 @@ get_tmc_routes <- function(pth = "Inrix/For_Monthly_Report/2018-09/") {
     
     df <- lapply(fns, function(fn) {
         read_csv(unz(file.path(pth, fn), "TMC_Identification.csv")) %>% 
-            mutate(Corridor = get_corridor_name(fn))
+            mutate(Corridor = get_corridor_name(fn),
+                   Filename = fn)
     }) %>% bind_rows()
     df
 }
