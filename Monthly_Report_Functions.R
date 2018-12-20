@@ -1,4 +1,3 @@
-
 # Monthly_Report_Functions.R
 Sys.unsetenv("JAVA_HOME")
 suppressMessageslibrary(DBI))
@@ -146,8 +145,8 @@ get_corridors <- function(corr_fn) {
                   Agency = Agency,
                   Name = Name,
                   Asof = date(Asof)) %>% 
-        filter(grepl("^\\d.*", SignalID)) %>%
-        filter(!is.na(Corridor)) %>%
+        #filter(grepl("^\\d.*", SignalID)) %>%
+        #filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
 
@@ -199,55 +198,26 @@ get_corridor_name <- function(string) {
         
         grepl(pattern = "North(.*)Ave", string) ~ "North Ave",
         
-        grepl(pattern = "Z7.*( |-)10th-Street", string) ~ "10th Street",
-        grepl(pattern = "Z7.*( |-)14th-Street", string) ~ "14th Street",
-        grepl(pattern = "Z7.*( |-)17th-Street", string) ~ "17th Street",
-        grepl(pattern = "Z7.*( |-)Ivan-Allen-Jr", string) ~ "Ivan Allen Jr",
-        
-        # From TEAMS Report
-        
-        # Zone 1
-        startsWith(string, "SR 13") ~ "SR 13/42/155",
-        startsWith(string, "SR 141-Fulton") ~ "SR 141S",
-        startsWith(string, "SR 141-Dekalb") ~ "SR 141S",
-        startsWith(string, "SR 155N") ~ "SR 13/42/155",
-        startsWith(string, "SR 237") ~ "SR 237",
-        startsWith(string, "SR 42") ~ "SR 13/42/155",
-        startsWith(string, "SR 9-Fulton") ~ "SR 9-Atlanta", # Some of this is SR9-Alpharetta (Z6)
-        # Zone 2
-        startsWith(string, "SR 120-Cobb") ~ "SR 120W",
-        startsWith(string, "SR 140-Fulton") ~ "SR 140-Roswell",
-        startsWith(string, "SR 280") ~ "SR 280",
-        startsWith(string, "SR 360") ~ "SR 360",
-        startsWith(string, "SR 3-Cobb") ~ "SR 3N",
-        startsWith(string, "SR 92") ~ "SR 92",
-        # Zone 3
-        startsWith(string, "SR 138E") ~ "SR 138E",
-        startsWith(string, "SR 138S") ~ "SR 138S",
-        startsWith(string, "SR 3-Clayton") ~ "SR 3S",
-        startsWith(string, "SR 3-Henry") ~ "SR 3S",
-        startsWith(string, "SR 314-Fayette") ~ "SR 3S",
-        startsWith(string, "SR 85") ~ "SR 85",
-        startsWith(string, "SR 331-Clayton") ~ "SR 85",
-        # Zone 4
-        startsWith(string, "US 278") ~ "US 278",
-        startsWith(string, "SR 3-Fulton") ~ "SR 3",
-        startsWith(string, "SR 5") ~ "SR 5",
-        startsWith(string, "SR 6") ~ "SR 6",
-        # Zone 5
-        startsWith(string, "SR 10") ~ "SR 10",
-        startsWith(string, "SR 12") ~ "SR 12",
-        startsWith(string, "SR 154") ~ "SR 154",
-        startsWith(string, "SR 155S") ~ "SR 155S",
-        startsWith(string, "SR 8-Dekalb") ~ "SR 8W-DeKalb", # Some of this is 8E-Dekalb (Z6)
-        startsWith(string, "SR 8-Fulton") ~ "SR 8W-Ponce",
-        # Zone 6
-        startsWith(string, "SR 120-Fulton") ~ "SR 120E",
-        startsWith(string, "SR 140-Gwinnett") ~ "SR 140-Gwinnett",
-        startsWith(string, "SR 141-Forsyth") ~ "SR 141N",
-        startsWith(string, "SR 141-Gwinnett") ~ "SR 141N",
-        startsWith(string, "SR 20") ~ "SR 20",
-        startsWith(string, "SR 8-Gwinnett") ~ "SR 8E-Gwinnett",
+        grepl(pattern = "Z7.*( |-)10th-Street", string) ~ "10th St",
+        grepl(pattern = "Z7.*( |-)14th-Street", string) ~ "14th St",
+        grepl(pattern = "Z7.*( |-)17th-Street", string) ~ "17th St",
+        grepl(pattern = "Z7.*( |-)Ivan-Allen", string) ~ "Ivan Allen/Ralph McGill Blvd",
+        grepl(pattern = "Z7.*( |-)COP", string) ~ "Centennial Olympic Park Dr",
+        grepl(pattern = "Z7.*( |-)Juniper-St-Downtown", string) ~ "Courtland St",
+        grepl(pattern = "Z7.*( |-)Juniper-St-Midtown", string) ~ "Juniper St-Midtown",
+        grepl(pattern = "Z7.*( |-)Juniper-St", string) ~ "Juniper St",
+        grepl(pattern = "Z7.*( |-)Marietta-St", string) ~ "Marietta St",
+        grepl(pattern = "Z7.*( |-)Monroe-Dr", string) ~ "Monroe Dr",
+        grepl(pattern = "Z7.*( |-)W-Peachtree-St", string) ~ "W Peachtree St",
+        grepl(pattern = "Z7.*( |-)Peachtree-St-Downtown", string) ~ "Peachtree St-Downtown",
+        grepl(pattern = "Z7.*( |-)Peachtree-St-Midtown", string) ~ "Peachtree St-Midtown",
+        grepl(pattern = "Z7.*( |-)Peachtree-St", string) ~ "Peachtree St",
+        grepl(pattern = "Z7.*( |-)Piedmont-Ave-Downtown", string) ~ "Piedmont Ave-Downtown",
+        grepl(pattern = "Z7.*( |-)Piedmont-Ave-Midtown", string) ~ "Piedmont Ave-Midtown",
+        grepl(pattern = "Z7.*( |-)Piedmont-Ave", string) ~ "Piedmont Ave",
+        grepl(pattern = "Z7.*( |-)Spring-St-Downtown", string) ~ "Ted Turner Dr",
+        grepl(pattern = "Z7.*( |-)Spring-St-Midtown", string) ~ "Spring St-Midtown",
+        grepl(pattern = "Z7.*( |-)Spring-St", string) ~ "Spring St",
         
         startsWith(string, "-") ~ "",
 
@@ -422,7 +392,7 @@ get_counts_new <- function(date_, event_code = 82, interval_ = "1 hour") {
         if (interval_ == "1 hour") {
             counts_fn <- glue("counts_1hr_{date_}.fst")
         } else if (interval == "15 min") {
-            counts_fn <- glue("counts_15min_{date_}.fst")
+            counts_fn <- glue("counts_15min_TWR_{date_}.fst")
         }
     } else if (event_code == 90) {
         if (interval_ == "1 hour") {
@@ -499,7 +469,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
     counts_1hr_csv_fn <- glue("counts_1hr_{start_date}.csv")
     counts_ped_1hr_csv_fn <- glue("counts_ped_1hr_{start_date}.csv")
-    counts_15min_csv_fn <- glue("counts_15min_{start_date}.csv")
+    counts_15min_csv_fn <- glue("counts_15min_TWR_{start_date}.csv")
     
     if (file.exists(counts_1hr_csv_fn)) {
         file.remove(counts_1hr_csv_fn)
@@ -1137,7 +1107,7 @@ group_corridor_by_hour <- function(df, var_, wt_, corr_grp) {
     group_corridor_by_(df, as.name("Hour"), var_, wt_, corr_grp)
 }
 
-group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
+group_corridors_older <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
     
@@ -1156,6 +1126,42 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         mutate(Corridor = factor(Corridor))
 }
 
+# Runs. Neeed to compare wtih previous tested function (above) before blessing
+group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
+    
+    per_ <- as.name(per_)
+    
+    # Get average for each Zone Group
+    df_ <- df %>% 
+        split(df$Zone_Group)
+    all_zone_groups <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
+    
+    # Get average for All RTOP (RTOP1 and RTOP2)
+    all_rtop_group <- df %>%
+        filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
+        gr_(per_, var_, wt_, "All RTOP")
+    
+    # Get average for each Zone
+    df_ <- df %>%
+        filter(stringi::stri_startswith_fixed(Zone, "Zone")) %>%
+        mutate(Zone_Group = factor(Zone))
+    df_ <- df_%>%
+        split(df_$Zone_Group)
+    all_zones <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
+    
+    # Get average for All Zone 7 (Zone 7m and Zone 7d)
+    all_zone7 <- df %>%
+        filter(Zone %in% c("Zone 7m", "Zone 7d")) %>%
+        gr_(per_, var_, wt_, "Zone 7")
+    
+    # concatenate all summaries with corridor averages
+    dplyr::bind_rows(select_(df, "Corridor", "Zone_Group", per_, var_, wt_, "delta"),
+                     all_zone_groups,
+                     all_rtop_group,
+                     all_zones,
+                     all_zone7) %>%
+        mutate(Corridor = factor(Corridor))
+}
 get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
     var_ <- as.name(var_)
@@ -1168,7 +1174,7 @@ get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
     if (peak_only == TRUE) {
         df <- df %>%
-            filter((hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS)))
+            filter(hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))
     }
 
     df %>%
@@ -1610,12 +1616,12 @@ get_cor_monthly_qs_by_day <- function(monthly_qs_by_day, corridors) {
 get_cor_monthly_tti <- function(cor_monthly_tti_by_hr, corridors) {
     cor_monthly_tti_by_hr %>% 
         mutate(Month = as_date(Hour)) %>%
-        filter(!Corridor %in% c("RTOP1", "RTOP2", "All RTOP", "D5", "Zone 7")) %>%
+        filter(Corridor %in% levels(corridors$Corridor)) %>%
         get_cor_monthly_avg_by_day(corridors, "tti", "pct")
 }
 get_cor_monthly_pti <- function(cor_monthly_pti_by_hr, corridors) {
     cor_monthly_pti_by_hr %>% mutate(Month = as_date(Hour))  %>%
-        filter(!Corridor %in% c("RTOP1", "RTOP2", "All RTOP", "D5", "Zone 7")) %>%
+        filter(Corridor %in% levels(corridors$Corridor)) %>%
         get_cor_monthly_avg_by_day(corridors, "pti", "pct")
 }
 

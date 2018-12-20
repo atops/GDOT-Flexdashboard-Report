@@ -1,7 +1,7 @@
 
 # Monthly_Report_Calcs.R
 
-print(Sys.time())
+print(glue("{Sys.time()} Starting Calcs Script"))
 
 library(yaml)
 
@@ -67,7 +67,7 @@ dbDisconnect(conn)
 
 # And one pass through the database to get all counts and comm uptime
 print(Sys.time())
-print("counts [1 of 10]")
+print(glue("{Sys.time()} counts [1 of 10]"))
 
 get_counts2_date_range <- function(start_date, end_date) {
     
@@ -79,7 +79,7 @@ get_counts2_date_range(start_date, end_date)
 
 print("\n---------------------- Finished counts ---------------------------\n")
 
-print("monthly cu [2 of 10]")
+print(glue("{Sys.time()} monthly cu [2 of 10]"))
 # combine daily (cu_yyyy-mm-dd.fst) into monthly (cu_yyyy-mm.fst)
 lapply(month_abbrs, function(month_abbr) {
     
@@ -112,7 +112,8 @@ lapply(month_abbrs, function(month_abbr) {
 
 # --- Everything up to here needs the ATSPM Database ---
 
-signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
+signals_list <- as.integer(as.character(corridors$SignalID))
+signals_list <- signals_list[signals_list > 0]
 
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
@@ -123,7 +124,7 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 #   adjusted_counts_1hr
 #   BadDetectors
 
-print("counts-based measures [3 of 10]")
+print(glue("{Sys.time()} counts-based measures [3 of 10]"))
 
 get_counts_based_measures <- function(month_abbrs) {
     lapply(month_abbrs, function(yyyy_mm) {
@@ -294,7 +295,7 @@ get_counts_based_measures <- function(month_abbrs) {
 }
 get_counts_based_measures(month_abbrs)
 
-print("bad detectors [4 of 10]")
+print(glue("{Sys.time()} bad detectors [4 of 10]"))
 
 bd_fns <- list.files(pattern = "bad_detectors.*\\.fst")
 lapply(bd_fns, read_fst) %>% bind_rows() %>% 
@@ -306,7 +307,7 @@ print("--- Finished counts-based measures ---")
 
 
 # -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
-print("etl [5 of 10]")
+print(glue("{Sys.time()} etl [5 of 10]"))
 
 #import_from_path("spm_events")
 system("python etl_dashboard.py") # python script
@@ -351,7 +352,7 @@ get_aog_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-print("aog [6 of 10]")
+print(glue("{Sys.time()} aog [6 of 10]"))
 get_aog_date_range(start_date, end_date)
 
 
@@ -391,14 +392,14 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
     })
     stopCluster(cl)
 }
-print("queue spillback [7 of 10]")
+print(glue("{Sys.time()} queue spillback [7 of 10]"))
 get_queue_spillback_date_range(start_date, end_date)
 
 
 
 # # GET SPLIT FAILURES ########################################################
 
-print("split failures [8 of 10]")
+print(glue("{Sys.time()} split failures [8 of 10]"))
 system("python split_failures2.py") # python script
 
 lapply(month_abbrs, function(month_abbr) {
@@ -435,12 +436,12 @@ lapply(month_abbrs, function(month_abbr) {
 
 # # GET CAMERA UPTIMES ########################################################
 
-print("parse cctv logs [9 of 10]")
+print(glue("{Sys.time()} parse cctv logs [9 of 10]"))
 system("python parse_cctvlog.py") # Run python script
 
 # # TRAVEL TIMES FROM RITIS API ###############################################
 
-print("travel times [10 of 10]")
+print(glue("{Sys.time()} travel times [10 of 10]"))
 system("python get_travel_times.py") # Run python script
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")
