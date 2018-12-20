@@ -1,7 +1,7 @@
 
 # Monthly_Report_Package.R
 
-print(Sys.time())
+print(glue("{Sys.time()} Starting Package Script"))
 
 library(yaml)
 
@@ -77,7 +77,7 @@ print(month_abbrs)
 
 # # DETECTOR UPTIME ###########################################################
 
-print("Detector Uptime [1 of 19]")
+print(glue("{Sys.time()} Detector Uptime [1 of 20]"))
 
 ddu <- f("ddu_", month_abbrs)
 
@@ -103,7 +103,7 @@ gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print("Communication Uptime [2 of 19]")
+print(glue("{Sys.time()} Communication Uptime [2 of 20]"))
 
 cu <- f("cu_", month_abbrs) 
 
@@ -137,7 +137,7 @@ gc()
 
 # DAILY VOLUMES ###############################################################
 
-print("Daily Volumes [3 of 19]")
+print(glue("{Sys.time()} Daily Volumes [3 of 20]"))
 
 vpd <- f("vpd_", month_abbrs)
 weekly_vpd <- get_weekly_vpd(vpd)
@@ -166,7 +166,7 @@ gc()
 
 # HOURLY VOLUMES ##############################################################
 
-print("Hourly Volumes [4 of 19]")
+print(glue("{Sys.time()} Hourly Volumes [4 of 20]"))
 
 vph <- f("vph_", month_abbrs)
 weekly_vph <- get_weekly_vph(mutate(vph, CallPhase = 2)) # Hack because next function needs a CallPhase
@@ -208,7 +208,7 @@ gc()
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print("Daily Pedestrian Activations [5 of 19]")
+print(glue("{Sys.time()} Daily Pedestrian Activations [5 of 20]"))
 
 papd <- f("papd_", month_abbrs)
 weekly_papd <- get_weekly_vpd(papd)
@@ -237,7 +237,7 @@ gc()
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print("Hourly Pedestrian Activations [6 of 19]")
+print(glue("{Sys.time()} Hourly Pedestrian Activations [6 of 20]"))
 
 paph <- f("paph_", month_abbrs)
 weekly_paph <- get_weekly_vph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
@@ -279,7 +279,7 @@ gc()
 
 # DAILY THROUGHPUT ############################################################
 
-print("Daily Throughput [7 of 19]")
+print(glue("{Sys.time()} Daily Throughput [7 of 20]"))
 
 throughput <- f("tp_", month_abbrs)
 weekly_throughput <- get_weekly_thruput(throughput)
@@ -310,7 +310,7 @@ gc()
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print("Daily AOG [8 of 19]")
+print(glue("{Sys.time()} Daily AOG [8 of 20]"))
 
 aog <- f("aog_", month_abbrs, combine = TRUE)
 daily_aog <- get_daily_aog(aog)
@@ -337,7 +337,7 @@ gc()
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print("Hourly AOG [9 of 19]")
+print(glue("{Sys.time()} Hourly AOG [9 of 20]"))
 
 aog_by_hr <- get_aog_by_hr(aog)
 monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
@@ -359,7 +359,7 @@ gc()
 
 # DAILY SPLIT FAILURES #####################################################
 
-print("Daily Split Failures [10 of 19]")
+print(glue("{Sys.time()} Daily Split Failures [10 of 20]"))
 
 sf <- f("sf_", month_abbrs)
 wsf <- get_weekly_sf_by_day(sf)
@@ -382,7 +382,7 @@ gc()
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print("Hourly Split Failures [11 of 19]")
+print(glue("{Sys.time()} Hourly Split Failures [11 of 20]"))
 
 sfh <- get_sf_by_hr(sf)
 
@@ -402,7 +402,7 @@ gc()
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print("Daily Queue Spillback [12 of 19]")
+print(glue("{Sys.time()} Daily Queue Spillback [12 of 20]"))
 
 qs <- f("qs_", month_abbrs)
 wqs <- get_weekly_qs_by_day(qs)
@@ -419,7 +419,7 @@ saveRDS(cor_monthly_qsd, "cor_monthly_qsd.rds")
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print("Hourly Queue Spillback [13 of 19]")
+print(glue("{Sys.time()} Hourly Queue Spillback [13 of 20]"))
 
 qsh <- get_qs_by_hr(qs)
 mqsh <- get_monthly_qs_by_hr(qsh)
@@ -442,7 +442,7 @@ gc()
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print ("Travel Time Indexes [14 of 19]")
+print(glue("{Sys.time()} Travel Time Indexes [14 of 20]"))
 
 # Eventually (soon) this will be replaced to get tti and pti from summary tables
 # calculated from RITIS API
@@ -502,7 +502,7 @@ gc()
 
 # DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
 
-print("Uptimes [15 of 19]")
+print(glue("{Sys.time()} Uptimes [15 of 20]"))
 
 # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
@@ -652,7 +652,7 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 
 # ACTIVITIES ##############################
 
-print("TEAMS [16 of 19]")
+print(glue("{Sys.time()} TEAMS [16 of 20]"))
 
 # New version from API result
 teams <- get_teams_tasks(conf$teams_tasks_filename) %>%
@@ -730,7 +730,7 @@ saveRDS(cor_monthly_events, "cor_monthly_events.rds")
 
 # Package up for Flexdashboard
 
-print("Package for Monthly Report [17 of 19]")
+print(glue("{Sys.time()} Package for Monthly Report [17 of 20]"))
 
 sigify <- function(df, cor_df, corridors) {
     
@@ -757,6 +757,7 @@ sigify <- function(df, cor_df, corridors) {
 
 
 
+
 cor <- list()
 cor$dy <- list("du" = readRDS("cor_avg_daily_detector_uptime.rds"),
                "cu" = readRDS("cor_daily_comm_uptime.rds"),
@@ -764,6 +765,8 @@ cor$dy <- list("du" = readRDS("cor_avg_daily_detector_uptime.rds"),
 cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
                "vph" = readRDS("cor_weekly_vph.rds"),
                "vphp" = readRDS("cor_weekly_vph_peak.rds"),
+               "papd" = readRDS("cor_weekly_papd.rds"),
+               "paph" = readRDS( "cor_weekly_paph.rds"),
                "tp" = readRDS("cor_weekly_throughput.rds"),
                "aog" = readRDS("cor_weekly_aog_by_day.rds"),
                "qs" = readRDS("cor_wqs.rds"),
@@ -773,6 +776,8 @@ cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
 cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
                "vph" = readRDS("cor_monthly_vph.rds"),
                "vphp" = readRDS("cor_monthly_vph_peak.rds"),
+               "papd" = readRDS("cor_monthly_papd.rds"),
+               "paph" = readRDS("cor_monthly_paph.rds"),
                "tp" = readRDS("cor_monthly_throughput.rds"),
                "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
                "aogh" = readRDS("cor_monthly_aog_by_hr.rds"),
@@ -817,6 +822,8 @@ sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "vph" = sigify(readRDS("weekly_vph.rds"), cor$wk$vph, corridors),
                "vphp" = purrr::map2(readRDS("weekly_vph_peak.rds"), cor$wk$vphp,
                                     function(x, y) { sigify(x, y, corridors) }),
+               "papd" = sigify(readRDS("weekly_papd.rds"), cor$wk$papd, corridors),
+               "paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
                "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors),
                "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors),
                "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors),
@@ -827,6 +834,8 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors),
                "vphp" = purrr::map2(readRDS("monthly_vph_peak.rds"), cor$mo$vphp,
                                     function(x, y) { sigify(x, y, corridors) }),
+               "papd" = sigify(readRDS("monthly_papd.rds"), cor$mo$papd, corridors),
+               "paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors),
                "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors),
                "aogd" = sigify(readRDS("monthly_aog_by_day.rds"), cor$mo$aogd, corridors),
                "aogh" = sigify(readRDS("monthly_aog_by_hr.rds"), cor$mo$aogh, corridors),
@@ -847,59 +856,61 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
 # Bring April data back from April Report.
 #  Because the database went wonky.
 # ---- Loop through all filenames and cor/sig objects from April
-cor4 <- readRDS("2018-04 Report Files/cor.rds")
-sig4 <- readRDS("2018-04 Report Files/sig.rds")
-
-cor$dy$du <- patch_april(cor$dy$du, cor4$dy$du)
-#cor$dy$cu <- patch_april(cor$dy$cu, cor4$dy$cu)
-cor$wk$vpd <- patch_april(cor$wk$vpd, cor4$wk$vpd)
-cor$wk$vph <- patch_april(cor$wk$vph, cor4$wk$vph)
-cor$wk$vphp <- patch_april(cor$wk$vphp, cor4$wk$vphp)
-cor$wk$tp <- patch_april(cor$wk$tp, cor4$wk$tp)
-cor$wk$aog <- patch_april(cor$wk$aog, cor4$wk$aog)
-cor$wk$qs <- patch_april(cor$wk$qs, cor4$wk$qs)
-cor$wk$sf <- patch_april(cor$wk$sf, cor4$wk$sf)
-cor$wk$cu <- patch_april(cor$wk$cu, cor4$wk$cu)
-sig$dy$du <- patch_april(sig$dy$du, sig4$dy$du)
-#sig$dy$cu <- patch_april(sig$dy$cu, sig4$dy$cu)
-sig$wk$vpd <- patch_april(sig$wk$vpd, sig4$wk$vpd)
-sig$wk$vph <- patch_april(sig$wk$vph, sig4$wk$vph)
-sig$wk$vphp <- patch_april(sig$wk$vphp, sig4$wk$vphp)
-sig$wk$tp <- patch_april(sig$wk$tp, sig4$wk$tp)
-sig$wk$aog <- patch_april(sig$wk$aog, sig4$wk$aog)
-sig$wk$qs <- patch_april(sig$wk$qs, sig4$wk$qs)
-sig$wk$sf <- patch_april(sig$wk$sf, sig4$wk$sf)
-#sig$wk$cu <- patch_april(sig$wk$cu, sig4$wk$cu)
-cor$mo$vpd <- patch_april(cor$mo$vpd, cor4$mo$vpd)
-cor$mo$vph <- patch_april(cor$mo$vph, cor4$mo$vph)
-cor$mo$vphp <- patch_april(cor$mo$vphp, cor4$mo$vphp)
-cor$mo$tp <- patch_april(cor$mo$tp, cor4$mo$tp)
-cor$mo$aogd <- patch_april(cor$mo$aogd, cor4$mo$aogd)
-cor$mo$aogh <- patch_april(cor$mo$aogh, cor4$mo$aogh)
-cor$mo$qsd <- patch_april(cor$mo$qsd, cor4$mo$qsd)
-cor$mo$qsh <- patch_april(cor$mo$qsh, cor4$mo$qsh)
-cor$mo$sfd <- patch_april(cor$mo$sfd, cor4$mo$sfd)
-cor$mo$sfh <- patch_april(cor$mo$sfh, cor4$mo$sfh)
-cor$mo$du <- patch_april(cor$mo$du, cor4$mo$du)
-#cor$mo$cu <- patch_april(cor$mo$cu, cor4$mo$cu)
-sig$mo$vpd <- patch_april(sig$mo$vpd, sig4$mo$vpd)
-sig$mo$vph <- patch_april(sig$mo$vph, sig4$mo$vph)
-sig$mo$vphp <- patch_april(sig$mo$vphp, sig4$mo$vphp)
-sig$mo$tp <- patch_april(sig$mo$tp, sig4$mo$tp)
-sig$mo$aogd <- patch_april(sig$mo$aogd, sig4$mo$aogd)
-sig$mo$aogh <- patch_april(sig$mo$aogh, sig4$mo$aogh)
-sig$mo$qsd <- patch_april(sig$mo$qsd, sig4$mo$qsd)
-sig$mo$qsh <- patch_april(sig$mo$qsh, sig4$mo$qsh)
-sig$mo$sfd <- patch_april(sig$mo$sfd, sig4$mo$sfd)
-sig$mo$sfh <- patch_april(sig$mo$sfh, sig4$mo$sfh)
-#sig$mo$du <- patch_april(sig$mo$du, sig4$mo$du)
-sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
+# cor4 <- readRDS("cor4.rds")
+# sig4 <- readRDS("sig4.rds")
+# 
+print(glue("{Sys.time()} patch April [18 of 20] -- skipping"))
+# 
+# cor$dy$du <- patch_april(cor$dy$du, cor4$dy$du)
+# #cor$dy$cu <- patch_april(cor$dy$cu, cor4$dy$cu)
+# cor$wk$vpd <- patch_april(cor$wk$vpd, cor4$wk$vpd)
+# cor$wk$vph <- patch_april(cor$wk$vph, cor4$wk$vph)
+# cor$wk$vphp <- patch_april(cor$wk$vphp, cor4$wk$vphp)
+# cor$wk$tp <- patch_april(cor$wk$tp, cor4$wk$tp)
+# cor$wk$aog <- patch_april(cor$wk$aog, cor4$wk$aog)
+# cor$wk$qs <- patch_april(cor$wk$qs, cor4$wk$qs)
+# cor$wk$sf <- patch_april(cor$wk$sf, cor4$wk$sf)
+# cor$wk$cu <- patch_april(cor$wk$cu, cor4$wk$cu)
+# sig$dy$du <- patch_april(sig$dy$du, sig4$dy$du)
+# #sig$dy$cu <- patch_april(sig$dy$cu, sig4$dy$cu)
+# sig$wk$vpd <- patch_april(sig$wk$vpd, sig4$wk$vpd)
+# sig$wk$vph <- patch_april(sig$wk$vph, sig4$wk$vph)
+# sig$wk$vphp <- patch_april(sig$wk$vphp, sig4$wk$vphp)
+# sig$wk$tp <- patch_april(sig$wk$tp, sig4$wk$tp)
+# sig$wk$aog <- patch_april(sig$wk$aog, sig4$wk$aog)
+# sig$wk$qs <- patch_april(sig$wk$qs, sig4$wk$qs)
+# sig$wk$sf <- patch_april(sig$wk$sf, sig4$wk$sf)
+# #sig$wk$cu <- patch_april(sig$wk$cu, sig4$wk$cu)
+# cor$mo$vpd <- patch_april(cor$mo$vpd, cor4$mo$vpd)
+# cor$mo$vph <- patch_april(cor$mo$vph, cor4$mo$vph)
+# cor$mo$vphp <- patch_april(cor$mo$vphp, cor4$mo$vphp)
+# cor$mo$tp <- patch_april(cor$mo$tp, cor4$mo$tp)
+# cor$mo$aogd <- patch_april(cor$mo$aogd, cor4$mo$aogd)
+# cor$mo$aogh <- patch_april(cor$mo$aogh, cor4$mo$aogh)
+# cor$mo$qsd <- patch_april(cor$mo$qsd, cor4$mo$qsd)
+# cor$mo$qsh <- patch_april(cor$mo$qsh, cor4$mo$qsh)
+# cor$mo$sfd <- patch_april(cor$mo$sfd, cor4$mo$sfd)
+# cor$mo$sfh <- patch_april(cor$mo$sfh, cor4$mo$sfh)
+# cor$mo$du <- patch_april(cor$mo$du, cor4$mo$du)
+# #cor$mo$cu <- patch_april(cor$mo$cu, cor4$mo$cu)
+# sig$mo$vpd <- patch_april(sig$mo$vpd, sig4$mo$vpd)
+# sig$mo$vph <- patch_april(sig$mo$vph, sig4$mo$vph)
+# sig$mo$vphp <- patch_april(sig$mo$vphp, sig4$mo$vphp)
+# sig$mo$tp <- patch_april(sig$mo$tp, sig4$mo$tp)
+# sig$mo$aogd <- patch_april(sig$mo$aogd, sig4$mo$aogd)
+# sig$mo$aogh <- patch_april(sig$mo$aogh, sig4$mo$aogh)
+# sig$mo$qsd <- patch_april(sig$mo$qsd, sig4$mo$qsd)
+# sig$mo$qsh <- patch_april(sig$mo$qsh, sig4$mo$qsh)
+# sig$mo$sfd <- patch_april(sig$mo$sfd, sig4$mo$sfd)
+# sig$mo$sfh <- patch_april(sig$mo$sfh, sig4$mo$sfh)
+# #sig$mo$du <- patch_april(sig$mo$du, sig4$mo$du)
+# sig$mo$cu <- patch_april(sig$mo$cu, sig4$mo$cu)
 
 
 saveRDS(cor, "cor.rds")
 saveRDS(sig, "sig.rds")
 
-print("Upload to AWS [18 of 19]")
+print(glue("{Sys.time()} Upload to AWS [19 of 20]"))
 
 aws.s3::put_object(file = "cor.rds", 
                    object = "cor.rds", 
@@ -911,7 +922,7 @@ aws.s3::put_object(file = "teams_tables.rds",
                    object = "teams_tables.rds", 
                    bucket = "gdot-devices")
 
-print("Build Signal Dashboards [19 of 19]")
+print(glue("{Sys.time()} Build Signal Dashboards [20 of 20]"))
 
 db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
                                    corridors = corridors, 

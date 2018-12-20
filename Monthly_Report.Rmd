@@ -77,43 +77,51 @@ conditionalPanel("input.zone_group == 'RTOP2'",
                                          ))),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'D1'",
-                 selectInput("corridor_d1", "Corridor:",
+conditionalPanel("input.zone_group == 'Zone 1'",
+                 selectInput("corridor_z1", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Zone_Group == "D1")$Corridor
+                                             corridors, Zone_Group == "Zone 1")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'D3'",
-                 selectInput("corridor_d3", "Corridor:",
+conditionalPanel("input.zone_group == 'Zone 2'",
+                 selectInput("corridor_z2", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Zone_Group == "D3")$Corridor
+                                             corridors, Zone_Group == "Zone 2")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'D4'",
-                 selectInput("corridor_d4", "Corridor:",
+conditionalPanel("input.zone_group == 'Zone 3'",
+                 selectInput("corridor_z3", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Zone_Group == "D4")$Corridor
+                                             corridors, Zone_Group == "Zone 3")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'D5'",
-                 selectInput("corridor_d5", "Corridor:",
+conditionalPanel("input.zone_group == 'Zone 4'",
+                 selectInput("corridor_z4", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Zone_Group == "D5")$Corridor
+                                             corridors, Zone_Group == "Zone 4")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'D6'",
-                 selectInput("corridor_d6", "Corridor:",
+conditionalPanel("input.zone_group == 'Zone 5'",
+                 selectInput("corridor_z5", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Zone_Group == "D6")$Corridor
+                                             corridors, Zone_Group == "Zone 5")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'Zone 6'",
+                 selectInput("corridor_z6", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "Zone 6")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -122,6 +130,70 @@ conditionalPanel("input.zone_group == 'Zone 7'",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
                                              corridors, Zone_Group == "Zone 7")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'Zone 8'",
+                 selectInput("corridor_z8", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "Zone 7")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 1'",
+                 selectInput("corridor_d1", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "D1")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 2'",
+                 selectInput("corridor_d2", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 1")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 3'",
+                 selectInput("corridor_d3", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 3")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 4'",
+                 selectInput("corridor_d4", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 4")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 5'",
+                 selectInput("corridor_d5", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 5")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 6'",
+                 selectInput("corridor_d6", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 6")$Corridor
+                                         ))),
+                             selected = "All Corridors"))
+
+conditionalPanel("input.zone_group == 'District 7'",
+                 selectInput("corridor_d7", "Corridor:",
+                             choices = c("All Corridors", 
+                                         as.character(unique(filter(
+                                             corridors, Zone_Group == "District 7")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -142,18 +214,36 @@ corridor <- reactive(
         input$corridor_rtop1
     } else if (input$zone_group == "RTOP2") {
         input$corridor_rtop2
-    } else if (input$zone_group == "D1") {
-        input$corridor_d1
-    } else if (input$zone_group == "D3") {
-        input$corridor_d3
-    } else if (input$zone_group == "D4") {
-        input$corridor_d4
-    } else if (input$zone_group == "D5") {
-        input$corridor_d5
-    } else if (input$zone_group == "D6") {
-        input$corridor_d6
+    } else if (input$zone_group == "Zone 1") {
+        input$corridor_z1
+    } else if (input$zone_group == "Zone 2") {
+        input$corridor_z2
+    } else if (input$zone_group == "Zone 3") {
+        input$corridor_z3
+    } else if (input$zone_group == "Zone 4") {
+        input$corridor_z4
+    } else if (input$zone_group == "Zone 5") {
+        input$corridor_z5
+    } else if (input$zone_group == "Zone 6") {
+        input$corridor_z6
     } else if (input$zone_group == "Zone 7") {
         input$corridor_z7
+    } else if (input$zone_group == "Zone 8") {
+        input$corridor_z8
+    } else if (input$zone_group == "District 1") {
+        input$corridor_d1
+    } else if (input$zone_group == "District 2") {
+        input$corridor_d2
+    } else if (input$zone_group == "District 3") {
+        input$corridor_d3
+    } else if (input$zone_group == "District 4") {
+        input$corridor_d4
+    } else if (input$zone_group == "District 5") {
+        input$corridor_d5
+    } else if (input$zone_group == "District 6") {
+        input$corridor_d6
+    } else if (input$zone_group == "District 7") {
+        input$corridor_d7
     } else if (input$zone_group == "Cobb County") {
         input$corridor_cb
     } else {
@@ -1177,8 +1267,8 @@ renderPlotly({
 })
 ```
 
-### Hourly Volumes
 
+### Hourly Volumes
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
@@ -1188,6 +1278,19 @@ renderPlotly({
 })
 ```
 
+
+### Pedestrians
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+renderPlotly({ # Good version
+    get_bar_line_dashboard_plot(mr()$wk$papd, mr()$mo$papd, NULL,
+                                "vpd", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Ped Activations per Day",
+                                x_line1_title = paste(input$month, "Ped Activations (papd)"),
+                                plot_title = "Pedestrian Activations per Day (pa/day) Trend")
+})
+```
 
 
 

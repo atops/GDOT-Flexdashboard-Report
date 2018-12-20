@@ -1,26 +1,26 @@
 
 # Monthly_Report_UI_Functions
 
-library(flexdashboard)
-library(shiny)
-library(yaml)
-library(httr)
+suppressWarnings(library(flexdashboard))
+suppressWarnings(library(shiny))
+suppressWarnings(library(yaml))
+suppressWarnings(library(httr))
 
-library(data.table)
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(stringr)
-library(lubridate)
-library(glue)
-library(feather)
-library(forcats)
-library(plotly)
-library(crosstalk)
-library(memoise)
-library(RSQLite)
+suppressWarnings(library(data.table))
+suppressWarnings(library(dplyr))
+suppressWarnings(library(tidyr))
+suppressWarnings(library(lubridate))
+suppressWarnings(library(stringr))
+suppressWarnings(library(lubridate))
+suppressWarnings(library(glue))
+suppressWarnings(library(feather))
+suppressWarnings(library(forcats))
+suppressWarnings(library(plotly))
+suppressWarnings(library(crosstalk))
+suppressWarnings(library(memoise))
+suppressWarnings(library(RSQLite))
 
-library(DT)
+suppressWarnings(library(DT))
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
