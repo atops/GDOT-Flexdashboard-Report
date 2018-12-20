@@ -386,7 +386,7 @@ get_uptime <- function(date_) {
     
 }
 # still needs testing. seems to hang on arrange
-get_counts_new <- function(date_, event_code = 82, interval_ = "1 hour") {
+get_counts_tbl <- function(date_, event_code = 82, interval_ = "1 hour") {
         
     if (event_code == 82) {
         if (interval_ == "1 hour") {
@@ -443,10 +443,6 @@ get_counts_new <- function(date_, event_code = 82, interval_ = "1 hour") {
     write_fst(counts, counts_fn)
     counts
 }
-
-#    print("...filtered counts")
-#get_filtered_counts(counts, interval = "1 hour") %>%
-#    write_fst(., sub("(.*?).fst", "filtered_\\1.fst", counts_fn))
 
 get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
@@ -1126,7 +1122,6 @@ group_corridors_older <- function(df, per_, var_, wt_, gr_ = group_corridor_by_)
         mutate(Corridor = factor(Corridor))
 }
 
-# Runs. Neeed to compare wtih previous tested function (above) before blessing
 group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
@@ -1142,11 +1137,11 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         gr_(per_, var_, wt_, "All RTOP")
     
     # Get average for each Zone
-    df_ <- df %>%
+    corr_by_zone <- df %>%
         filter(stringi::stri_startswith_fixed(Zone, "Zone")) %>%
         mutate(Zone_Group = factor(Zone))
-    df_ <- df_%>%
-        split(df_$Zone_Group)
+    df_ <- corr_by_zone %>%
+        split(corr_by_zone$Zone_Group)
     all_zones <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
     
     # Get average for All Zone 7 (Zone 7m and Zone 7d)
@@ -1158,6 +1153,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     dplyr::bind_rows(select_(df, "Corridor", "Zone_Group", per_, var_, wt_, "delta"),
                      all_zone_groups,
                      all_rtop_group,
+                     corr_by_zone,
                      all_zones,
                      all_zone7) %>%
         mutate(Corridor = factor(Corridor))
