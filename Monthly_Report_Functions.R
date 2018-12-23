@@ -1506,12 +1506,9 @@ get_avg_daily_detector_uptime <- function(ddu) {
     pr_daily_uptime <- get_daily_avg(filter(ddu, setback == "Presence"), 
                                      "uptime", "all", 
                                      peak_only = FALSE)
-    all_daily_uptime <- ddu %>%
-        group_by(SignalID, CallPhase, Date, Date_Hour) %>%
-        summarize(uptime = weighted.mean(uptime, all, na.rm = TRUE),
-                  all = sum(all)) %>%
-        ungroup() %>%
-        get_daily_avg(., "uptime", "all", peak_only = FALSE)
+    all_daily_uptime <- get_daily_avg(ddu, 
+                                      "uptime", "all", 
+                                      peak_only = FALSE)
     
     sb_pr <- full_join(sb_daily_uptime, pr_daily_uptime, 
                        by = c("SignalID", "Date"), 
