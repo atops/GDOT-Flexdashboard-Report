@@ -55,12 +55,20 @@ zone_groups:
     - All RTOP 
     - RTOP1
     - RTOP2
-    - D1
-    - D3
-    - D4
-    - D5
-    - D6
+    - Zone 1
+    - Zone 2
+    - Zone 3
+    - Zone 4
+    - Zone 5
+    - Zone 6
     - Zone 7
+    - District 1
+    - District 2
+    - District 3
+    - District 4
+    - District 5
+    - District 6
+    - District 7
     - Cobb County
 
 
