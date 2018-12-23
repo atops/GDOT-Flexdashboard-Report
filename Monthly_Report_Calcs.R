@@ -1,9 +1,10 @@
 
 # Monthly_Report_Calcs.R
 
-print(glue("{Sys.time()} Starting Calcs Script"))
-
 library(yaml)
+library(glue)
+
+print(glue("{Sys.time()} Starting Calcs Script"))
 
 if (Sys.info()["sysname"] == "Windows") {
     working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
