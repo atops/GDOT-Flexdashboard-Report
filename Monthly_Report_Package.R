@@ -1,9 +1,11 @@
 
 # Monthly_Report_Package.R
 
+library(yaml)
+library(glue)
+
 print(glue("{Sys.time()} Starting Package Script"))
 
-library(yaml)
 
 if (Sys.info()["sysname"] == "Windows") {
     working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
@@ -25,10 +27,11 @@ signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
 
 # # ###########################################################################
 
-f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE) {
+f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE, signals_list = NULL) {
     
     cl <- makeCluster(3)
-    clusterExport(cl, c("prefix"),
+    clusterExport(cl, c("prefix",
+                        "signals_list"),
                   envir = environment())
     x <- parLapply(cl, month_abbrs, function(month_abbr) {
         library(fst)
@@ -42,10 +45,13 @@ f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE) {
             fns <- list.files(pattern = paste0(prefix, month_abbr, ".fst"))
         }
         if (length(fns) > 0) {
-		    lapply(fns, read_fst) %>%
-		        bind_rows() %>% 
-		        mutate(SignalID = factor(SignalID)) %>% 
-		        as_tibble()
+            if (!is.null(signals_list)) {
+                lapply(fns, function(fn) { 
+                    read_fst(fn) %>% filter(SignalID %in% signals_list)
+                }) %>% bind_rows() %>% as_tibble()
+            } else {
+                lapply(fns, read_fst) %>% bind_rows() %>% as_tibble()
+            }
 		} else {
 		    data.frame()
 		}
@@ -53,7 +59,9 @@ f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE) {
     stopCluster(cl)
     
     if (combine == TRUE) {
-        x <- bind_rows(x)
+        x <- bind_rows(x) %>% 
+            mutate(SignalID = factor(SignalID)) %>% 
+            as_tibble()
         #x <- bind_rows_keep_factors(x)
     }
     x
@@ -79,7 +87,7 @@ print(month_abbrs)
 
 print(glue("{Sys.time()} Detector Uptime [1 of 20]"))
 
-ddu <- f("ddu_", month_abbrs)
+ddu <- f("ddu_", month_abbrs, signals_list = signals_list)
 
 avg_daily_detector_uptime <- get_avg_daily_detector_uptime(ddu)
 cor_avg_daily_detector_uptime <- get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
