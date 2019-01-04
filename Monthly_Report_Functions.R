@@ -146,7 +146,7 @@ get_corridors <- function(corr_fn) {
                   Name = Name,
                   Asof = date(Asof)) %>% 
         #filter(grepl("^\\d.*", SignalID)) %>%
-        #filter(!is.na(Corridor)) %>%
+        filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 }
 
@@ -1126,7 +1126,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
     
-    # Get average for each Zone Group
+    # Get average for each Zone Group (RTOP1, RTOP2, Zone 1,..., District 1,..., County 1,...)
     df_ <- df %>% 
         split(df$Zone_Group)
     all_zone_groups <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
@@ -1153,7 +1153,6 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     dplyr::bind_rows(select_(df, "Corridor", "Zone_Group", per_, var_, wt_, "delta"),
                      all_zone_groups,
                      all_rtop_group,
-                     corr_by_zone,
                      all_zones,
                      all_zone7) %>%
         mutate(Corridor = factor(Corridor))
@@ -1609,12 +1608,14 @@ get_cor_monthly_qs_by_day <- function(monthly_qs_by_day, corridors) {
 get_cor_monthly_tti <- function(cor_monthly_tti_by_hr, corridors) {
     cor_monthly_tti_by_hr %>% 
         mutate(Month = as_date(Hour)) %>%
-        filter(Corridor %in% levels(corridors$Corridor)) %>%
+        filter(Corridor %in% levels(corridors$Corridor) &
+               !grepl("^Zone", Zone_Group)) %>%
         get_cor_monthly_avg_by_day(corridors, "tti", "pct")
 }
 get_cor_monthly_pti <- function(cor_monthly_pti_by_hr, corridors) {
     cor_monthly_pti_by_hr %>% mutate(Month = as_date(Hour))  %>%
-        filter(Corridor %in% levels(corridors$Corridor)) %>%
+        filter(Corridor %in% levels(corridors$Corridor) &
+               !grepl("^Zone", Zone_Group)) %>%
         get_cor_monthly_avg_by_day(corridors, "pti", "pct")
 }
 
