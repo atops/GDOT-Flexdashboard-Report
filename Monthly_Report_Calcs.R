@@ -66,6 +66,10 @@ dbDisconnect(conn)
 
 
 
+
+
+
+
 # And one pass through the database to get all counts and comm uptime
 print(Sys.time())
 print(glue("{Sys.time()} counts [1 of 10]"))
