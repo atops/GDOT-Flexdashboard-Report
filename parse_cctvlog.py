@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime
 from glob import glob
 import re
+import os
 
 from dask import delayed, compute
 
@@ -33,6 +34,8 @@ def parse_cctvlog(fn):
     return df
 
 filenames = glob('../cctvlogs/cctvlog_*.json')
+if os.path.exists('../cctvlogs_Larry'):
+    filenames += glob('../cctvlogs_Larry/cctvlog_*.json')
 
 today_ = datetime.today().strftime('%Y-%m-%d')
 filenames = [fn for fn in filenames if re.search(today_, fn) == None]
@@ -45,12 +48,8 @@ for fn in filenames:
 dfs = compute(*results)
 
 df = pd.concat(dfs).drop_duplicates()
+df = df[df.Timestamp > '2018-02-01 00:00:00']
 
-#df = dfs.compute().drop_duplicates()[['ID','Last-Modified','Content-Length']]
-
-#df = (df.rename(columns = {'ID': 'CameraID', 'Last-Modified': 'Timestamp', 'Content-Length': 'Size'})
-#        .assign(Timestamp = lambda x: pd.to_datetime(x.Timestamp, format ='%a, %d %b %Y %H:%M:%S %Z'))
-#        .assign(Date = lambda x: x.Timestamp.dt.date))
 
 # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
 summ = df.groupby(['CameraID','Date']).agg(np.std).fillna(0)
