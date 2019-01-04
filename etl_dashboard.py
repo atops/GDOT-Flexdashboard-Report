@@ -158,7 +158,7 @@ if __name__=='__main__':
     #corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
     #signalids = list(corridors.SignalID.astype('int').values)
     
-    with open('Monthly_Report_calcs.yaml') as yaml_file:
+    with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date']
@@ -169,8 +169,8 @@ if __name__=='__main__':
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     # Placeholder for manual override of start/end dates
-    #start_date = '2018-10-01'
-    #end_date = '2018-10-04'
+    #start_date = '2018-12-28'
+    #end_date = '2019-01-01'
     
     dates = pd.date_range(start_date, end_date, freq='1D')
                                         
