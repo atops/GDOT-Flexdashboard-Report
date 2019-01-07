@@ -1464,12 +1464,12 @@ get_device_uptime_from_xl_multiple <- function(fns, range, corridors) {
     dfs <- lapply(fns, function(x) get_device_uptime_from_xl(x, range))
     df <- bind_rows(dfs)
     
-    corrs <- corridors %>% distinct(Corridor, Zone_Group) %>%
+    corrs <- corridors %>% distinct(Corridor, Zone_Group, Zone) %>%
         mutate(Corridor = factor(Corridor),
                SignalID = factor(0))
     df_ <- left_join(df, corrs)
     
-    df_ %>% select(Zone_Group, Corridor, Month, up, num, uptime)
+    df_ %>% select(Zone_Group, Zone, Corridor, Month, up, num, uptime)
     
 }
 # -- end Generic Aggregation Functions
