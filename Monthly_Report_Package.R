@@ -543,7 +543,9 @@ mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
 
 # January data. One-time only.
 man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
+    left_join(distinct(corridors, Zone_Group, Zone, Corridor)) %>%
     transmute(Zone_Group = Zone_Group,
+              Zone = Zone, 
               Corridor = Corridor,
               Month = ymd("2018-01-01"),
               up = as.integer(up),
@@ -595,15 +597,19 @@ cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
               num = sum(num)) %>%
     mutate(uptime = up/num) %>%
     ungroup() %>%
-    left_join(distinct(corridors, Corridor, Zone_Group))
+    left_join(distinct(corridors, Corridor, Zone_Group, Zone)) %>% 
+    
+    # Hack to eliminate days with acquisition problem
+    filter(!(Date >= "2018-11-02" & Date <= "2018-11-22"))
 
 # this output doesn't filter bad days because we want it to display all days
 #  on the website. Add zone group.
 daily_cctv_uptime <- daily_cctv_uptime_511 %>%
-    left_join(distinct(select(corridors, Corridor, Zone_Group))) %>%
+    left_join(distinct(select(corridors, Corridor, Zone_Group, Zone))) %>%
     mutate(CameraID = factor(CameraID), 
            Corridor = factor(Corridor),
-           Zone_Group = factor(Zone_Group)) 
+           Zone_Group = factor(Zone_Group),
+           Zone = factor(Zone)) 
 
 
 cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
@@ -932,7 +938,7 @@ aws.s3::put_object(file = "teams_tables.rds",
 
 print(glue("{Sys.time()} Build Signal Dashboards [20 of 20]"))
 
-db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
-                                   corridors = corridors, 
-                                   pth = 'Signal_Dashboards', 
-                                   upload_to_s3 = TRUE)
+# db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
+#                                    corridors = corridors, 
+#                                    pth = 'Signal_Dashboards', 
+#                                    upload_to_s3 = TRUE)
