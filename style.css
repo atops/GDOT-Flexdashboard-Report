@@ -42,3 +42,31 @@
     color:#ffffff;
     background-color:#2d6797;
 }
+
+/* From Watchdog App */
+.form-control {
+  font-size: 12px;
+}
+.datepicker-days {
+  font-size: 12px;
+}
+.input-daterange {
+  font-size: 12px;
+}
+
+.tabbable {
+  margin-left: 20px;  
+}
+
+.help-block {
+  
+}
+
+.form-group {
+    margin-bottom: 5px;
+}
+
+.checkbox {
+    margin-top: 1px;
+    margin-bottom: 1px;
+}

@@ -1689,6 +1689,121 @@ Zone 7:
 
 
 
+Watchdog
+=====================================
+
+
+```{r watchdog}
+
+source("filter_SPM_alerts.R")
+source("plot_functions.R")
+
+
+# Main panel with tabs: Map, Table, Plots
+fluidRow(
+    column(width = 3,
+           dateRangeInput("date_range", "Date Range:",
+                        start = today() - days(28),
+                        end = today(),
+                        min = today() - days(365),
+                        max = today(),
+                        format = "mm/dd/yy", 
+                        startview = "month", 
+                        weekstart = 0,
+                        separator = " - ")
+    ),
+    column(width = 3,
+         selectInput("alert_type", "Alert:",
+                     choices = c("Missing Records",
+                                 "Pedestrian Activations",
+                                 "Force Offs",
+                                 "Max Outs",
+                                 "Count",
+                                 "Bad Detection"),
+                     selected = "Missing Records")
+    ),
+    column(width = 2,
+        conditionalPanel("(input.alert_type == 'Missing Records') ||
+                          (input.alert_type == 'Bad Detectors')",
+             selectInput("phase", "Phase:",
+                         choices = "All",
+                         selected = "All")),
+        conditionalPanel("(input.alert_type == 'Pedestrian Activations') || 
+                          (input.alert_type == 'Force Offs') ||
+                          (input.alert_type == 'Max Outs') ||
+                          (input.alert_type == 'Count')",
+             selectInput("phase", "Phase:",
+                         choices = c("All", seq_len(8)),
+                         selected = "All"))
+    ),
+    column(width = 3,
+         textInput("id_filter", "Intersection Filter:")
+    )
+)
+fluidRow(
+    tabsetPanel(type = "tabs",
+                tabPanel("Plot", 
+                         helpText("Plotting up to 40 rows. See table tab for full list. Use the Intersection Filter above to narrow the list for plotting."),
+                         renderPlot({
+                             alerts_plot()
+                         }, height = 600)
+                ),
+                tabPanel("Table", 
+                         renderDataTable({
+                             datatable(filtered_alerts()$table, escape = FALSE,
+                                       extensions = 'Scroller', options = list(
+                                           deferRender = TRUE,
+                                           scrollY = 500,
+                                           scroller = TRUE,
+                                           searching = FALSE)
+                            )
+                        })
+                )
+    )
+)
+
+
+alerts <- get_alerts()
+
+
+filtered_alerts <- reactive({
+
+    alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
+
+    filter_alerts(alerts_by_date,
+                  input$alert_type,
+                  input$zone_group,
+                  input$phase,
+                  input$id_filter)
+})
+    
+
+
+alerts_plot <- reactive({
+
+    dataset <- filtered_alerts()
+
+    if (nrow(dataset$plot) > 0) {
+        
+        plot_df <- dataset$plot %>% 
+            filter(SignalID %in% dataset$table$SignalID[1:40]) %>% 
+            mutate(signal_phase = factor(signal_phase))
+        
+        if (nrow(plot_df) > 0) {
+            plot_alerts(plot_df, input$date_range)
+        } else {
+            plot_empty(zone_group)
+        }
+
+    } else {
+        plot_empty(zone_group)
+    }
+})
+```
+
+
+
+
 
 
 
