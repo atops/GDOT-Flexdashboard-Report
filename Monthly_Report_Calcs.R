@@ -106,9 +106,9 @@ lapply(month_abbrs, function(month_abbr) {
                    Week = week(Date)) %>% 
             
             # filter out days before the signal came online
-            left_join(select(corridors, SignalID, Asof)) %>% 
+            left_join(dplyr::select(corridors, SignalID, Asof)) %>% 
             filter(Date >= Asof) %>%
-            select(-Asof) %>%
+            dplyr::select(-Asof) %>%
             
             write_fst(., paste0("cu_", month_abbr, ".fst"))
     }
@@ -304,7 +304,7 @@ print(glue("{Sys.time()} bad detectors [4 of 10]"))
 
 bd_fns <- list.files(pattern = "bad_detectors.*\\.fst")
 lapply(bd_fns, read_fst) %>% bind_rows() %>% 
-    select(-Good_Day) %>%
+    dplyr::select(-Good_Day) %>%
     write_feather("bad_detectors.feather")
 
 print("--- Finished counts-based measures ---")
