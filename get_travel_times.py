@@ -18,6 +18,8 @@ import zipfile
 import io
 import feather
 
+pd.options.display.max_columns = 10
+
 def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     
     # Allow sleep time to space out requests when running in a loop
@@ -84,7 +86,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
         results = polling.poll(
                 lambda: requests.get(uri.format('jobs/export/results'), 
                                params = {'key': key, 'uuid': payload['uuid']}),
-                check_succsss = lambda x: x.status_code == 200,
+                check_success = lambda x: x.status_code == 200 and len(x.content) > 0,
                 step = 1,
                 timeout = 300
                 #poll_forever = True
@@ -110,12 +112,12 @@ if __name__=='__main__':
     with open('Monthly_Report_AWS.yaml') as yaml_file:
         cred = yaml.load(yaml_file)
 
-    with open('Monthly_Report_calcs.yaml') as yaml_file:
+    with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date'] #.strftime('%Y-%m-%d')
     # -----
-    start_date = '2018-11-01'
+    #start_date = '2018-11-01'
     # -----
     if start_date == 'yesterday': 
         # Make start_date the start of the month
@@ -123,7 +125,7 @@ if __name__=='__main__':
         start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
     end_date = conf['end_date'] #.strftime('%Y-%m-%d')
     # -----
-    end_date = '2018-11-30'
+    #end_date = '2018-11-30'
     # -----
     if end_date == 'yesterday': 
         end_date = datetime.today().strftime('%Y-%m-%d')
@@ -142,14 +144,16 @@ if __name__=='__main__':
         try:
             print('\n' + corridor)
             tt_df = get_tmc_data(start_date, end_date, tmc_dict[corridor], cred['RITIS_KEY'], 2)
+            print(tt_df.head())
         
             if len(tt_df) > 0:
                 df_ = (pd.merge(tt_df, tmc_df[['tmc','miles']], left_on=['tmc_code'], right_on=['tmc'])
                          .drop(columns=['tmc'])
                          .assign(Corridor = str(corridor)))
                 df = pd.concat([df, df_])
-        except:
+        except Exception as e:
             print('error retrieving records')
+            print(e)
             
     if len(df) > 0:
         df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
