@@ -556,6 +556,18 @@ renderValueBox({
 })
 ```
 
+### Pedestrian Detector Availability [automated--test] {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-child",
+    color = BLUE
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -870,6 +882,21 @@ renderValueBox({
 })
 ```
 
+### Pedestrian Detector Availability [manually collected] {.value-box}
+
+```{r}
+
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = FALSE),
+    icon = "fa-child",
+      color = GDOT_BLUE
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1033,6 +1060,11 @@ fillCol(
         data.set <- filter(mr()$mo$cu, Corridor==zone_group() & Month <= current_month())
         validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
+    }),
+    renderPlotly({ 
+        data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
+        validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     height = 800)
 ```
@@ -1388,6 +1420,19 @@ renderValueBox({
 })
 ```
 
+### Pedestrian Detector Availability [automated-test] {.value-box}
+
+```{r, warning = FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(cor$mo$pau, "uptime", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-child" 
+  )
+})
+```
+
+
 Row {.tabset .tabset-fade}
 -------------------------------------
 
@@ -1492,20 +1537,53 @@ renderPlotly({
     } else {
         
         get_uptime_plot(sig$dy$cu, 
-                                 sig$mo$cu, 
-                                 var_ = "uptime", 
-                                 num_format = "percent", 
-                                 month_ = current_month(), 
-                                 zone_group_ = zone_group(),
-                                 x_bar_title = "Current Month Uptime",
-                                 x_line1_title = "Daily Uptime",
-                                 plot_title = "",
-                                 goal = NULL)
+                        sig$mo$cu, 
+                        var_ = "uptime", 
+                        num_format = "percent", 
+                        month_ = current_month(), 
+                        zone_group_ = zone_group(),
+                        x_bar_title = "Current Month Uptime",
+                        x_line1_title = "Daily Uptime",
+                        plot_title = "",
+                        goal = NULL)
     }
     
 })
 ```
 
+
+
+
+### Pedestrian Detector Uptime [automated-test]
+
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+
+renderPlotly({
+
+    if (corridor() == "All Corridors") {
+        
+        get_cor_comm_uptime_plot(mr()$dy$pau,
+                                 mr()$mo$pau,
+                                 month_name = input$month,
+                                 month_ = current_month(),
+                                 zone_group_ = zone_group())
+    } else {
+        
+        get_uptime_plot(sig$dy$pau, 
+                        sig$mo$pau, 
+                        var_ = "uptime", 
+                        num_format = "percent", 
+                        month_ = current_month(), 
+                        zone_group_ = zone_group(),
+                        x_bar_title = "Current Month Uptime",
+                        x_line1_title = "Daily Uptime",
+                        plot_title = "",
+                        goal = NULL)
+    }
+    
+})
+```
 
 
 
@@ -1719,19 +1797,21 @@ fluidRow(
                                  "Force Offs",
                                  "Max Outs",
                                  "Count",
-                                 "Bad Detection"),
+                                 "Bad Vehicle Detection",
+                                 "Bad Ped Detection"),
                      selected = "Missing Records")
     ),
     column(width = 2,
         conditionalPanel("(input.alert_type == 'Missing Records') ||
-                          (input.alert_type == 'Bad Detectors')",
+                          (input.alert_type == 'Bad Vehicle Detection')",
              selectInput("phase", "Phase:",
                          choices = "All",
                          selected = "All")),
         conditionalPanel("(input.alert_type == 'Pedestrian Activations') || 
                           (input.alert_type == 'Force Offs') ||
                           (input.alert_type == 'Max Outs') ||
-                          (input.alert_type == 'Count')",
+                          (input.alert_type == 'Count') ||
+                          (input.alert_type == 'Bad Ped Detection')",
              selectInput("phase", "Phase:",
                          choices = c("All", seq_len(8)),
                          selected = "All"))
@@ -1876,7 +1956,7 @@ fillCol(height = 700,
 
 
 
-Explanation of Calcs
+About
 =====================================
 
 ### PERFORMANCE
