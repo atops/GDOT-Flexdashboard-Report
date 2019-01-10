@@ -83,9 +83,10 @@ month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
 print(month_abbrs)
 
 
+
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Detector Uptime [1 of 20]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 20]"))
 
 ddu <- f("ddu_", month_abbrs, signals_list = signals_list)
 
@@ -107,6 +108,42 @@ rm(avg_daily_detector_uptime)
 rm(monthly_detector_uptime)
 rm(cor_avg_daily_detector_uptime)
 rm(cor_monthly_detector_uptime)
+gc()
+
+# DAILY PEDESTRIAN DETECTOR UPTIME ###############################################
+
+print(glue("{Sys.time()} Ped Detector Uptime [1.5 of 20]"))
+
+papd <- f("papd_", month_abbrs, signals_list = signals_list) %>% rename(papd = vpd)
+
+pau <- get_pau(papd)
+
+daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
+cor_daily_pa_uptime <- get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
+
+weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
+cor_weekly_pa_uptime <- get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
+
+monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
+cor_monthly_pa_uptime <- get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
+
+saveRDS(daily_pa_uptime, "daily_pa_uptime.rds")
+saveRDS(cor_daily_pa_uptime, "cor_daily_pa_uptime.rds")
+
+saveRDS(weekly_pa_uptime, "weekly_pa_uptime.rds")
+saveRDS(cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds")
+
+saveRDS(monthly_pa_uptime, "monthly_pa_uptime.rds")
+saveRDS(cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds")
+
+rm(papd)
+rm(pau)
+rm(daily_pa_uptime)
+rm(cor_daily_pa_uptime)
+rm(weekly_pa_uptime)
+rm(cor_weekly_pa_uptime)
+rm(monthly_pa_uptime)
+rm(cor_monthly_pa_uptime)
 gc()
 
 # GET COMMUNICATIONS UPTIME ###################################################
@@ -471,14 +508,14 @@ fns2 <- list.files(path = "Inrix/For_Monthly_Report",
 tt2 <- lapply(fns2, read_csv) %>% bind_rows()
 
 tti <- tt2 %>% 
-    select(-pti) %>% 
+    dplyr::select(-pti) %>% 
     bind_rows(tti) %>% 
     mutate(Corridor = factor(Corridor)) %>%
     arrange(Corridor, Hour)
 
 
 pti <- tt2 %>% 
-    select(-tti) %>% 
+    dplyr::select(-tti) %>% 
     bind_rows(pti) %>% 
     mutate(Corridor = factor(Corridor)) %>%
     arrange(Corridor, Hour)
@@ -530,8 +567,8 @@ man_xl <- purrr::map2(xl_uptime_fns,
     bind_rows() %>%
     mutate(Zone_Group = factor(Zone_Group))
 
-man_veh_xl <- man_xl %>% filter(Type == "Vehicle") %>% select(-Type)
-man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% select(-Type)
+man_veh_xl <- man_xl %>% filter(Type == "Vehicle") %>% dplyr::select(-Type)
+man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% dplyr::select(-Type)
 
 
 cor_monthly_xl_veh_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_veh_xl, man_veh_xl))
@@ -566,7 +603,7 @@ cam_config <- read.csv(conf$cctv_config_filename) %>% as_tibble() %>% #"../camer
 daily_cctv_uptime_511 <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
     filter(Date > "2018-02-02" & Size > 0) %>%
     mutate(up = 1, num = 1) %>%
-    select(-Size) %>%
+    dplyr::select(-Size) %>%
     distinct() %>%
     
     # Expanded out to include all available cameras on all days
@@ -574,9 +611,9 @@ daily_cctv_uptime_511 <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cc
     
     mutate(uptime = up/num) %>%
     
-    left_join(select(cam_config, -Location)) %>% 
+    left_join(dplyr::select(cam_config, -Location)) %>% 
     filter(Date >= As_of_Date & Corridor != "") %>%
-    select(-As_of_Date) %>%
+    dplyr::select(-As_of_Date) %>%
     mutate(CameraID = factor(CameraID))
 
 
@@ -605,7 +642,7 @@ cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
 # this output doesn't filter bad days because we want it to display all days
 #  on the website. Add zone group.
 daily_cctv_uptime <- daily_cctv_uptime_511 %>%
-    left_join(distinct(select(corridors, Corridor, Zone_Group, Zone))) %>%
+    left_join(distinct(dplyr::select(corridors, Corridor, Zone_Group, Zone))) %>%
     mutate(CameraID = factor(CameraID), 
            Corridor = factor(Corridor),
            Zone_Group = factor(Zone_Group),
@@ -614,11 +651,11 @@ daily_cctv_uptime <- daily_cctv_uptime_511 %>%
 
 cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
                                    man_cctv_xl_2018_01, 
-                                   select(cor_daily_cctv_uptime_511,
+                                   dplyr::select(cor_daily_cctv_uptime_511,
                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
     get_cor_monthly_xl_uptime() %>%
     rename(Date = Month) %>%
-    select(-Zone_Group) %>%
+    dplyr::select(-Zone_Group) %>%
     left_join(distinct(corridors, Corridor, Zone_Group)) %>%
     mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, as.character(Zone_Group))),
            Corridor = factor(Corridor))
@@ -629,7 +666,7 @@ cor_weekly_cctv_uptime_511 <- get_cor_weekly_cctv_uptime(cor_daily_cctv_uptime_5
 
 cor_weekly_cctv_uptime <- bind_rows(mrs_cctv_xl,
                                     man_cctv_xl_2018_01,
-                                    select(cor_weekly_cctv_uptime_511,
+                                    dplyr::select(cor_weekly_cctv_uptime_511,
                                            Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
     get_cor_monthly_xl_uptime() %>%
     rename(Date = Month)
@@ -748,7 +785,7 @@ print(glue("{Sys.time()} Package for Monthly Report [17 of 20]"))
 
 sigify <- function(df, cor_df, corridors) {
     
-    df_ <- df %>% left_join(distinct(corridors, SignalID, Corridor, Name)) %>%
+    df_ <- df %>% left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
         rename(Zone_Group = Corridor, Corridor = SignalID) %>%
         ungroup() %>%
         mutate(Corridor = factor(Corridor))
@@ -775,6 +812,7 @@ sigify <- function(df, cor_df, corridors) {
 cor <- list()
 cor$dy <- list("du" = readRDS("cor_avg_daily_detector_uptime.rds"),
                "cu" = readRDS("cor_daily_comm_uptime.rds"),
+               "pau" = readRDS("cor_daily_pa_uptime.rds"),
                "cctv" = readRDS("cor_daily_cctv_uptime.rds"))
 cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
                "vph" = readRDS("cor_weekly_vph.rds"),
@@ -786,6 +824,7 @@ cor$wk <- list("vpd" = readRDS("cor_weekly_vpd.rds"),
                "qs" = readRDS("cor_wqs.rds"),
                "sf" = readRDS("cor_wsf.rds"),
                "cu" = readRDS("cor_weekly_comm_uptime.rds"),
+               "pau" = readRDS("cor_weekly_pa_uptime.rds"),
                "cctv" =  readRDS("cor_weekly_cctv_uptime.rds"))
 cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
                "vph" = readRDS("cor_monthly_vph.rds"),
@@ -805,6 +844,7 @@ cor$mo <- list("vpd" = readRDS("cor_monthly_vpd.rds"),
                "ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
                "du" = readRDS("cor_monthly_detector_uptime.rds"),
                "cu" = readRDS("cor_monthly_comm_uptime.rds"),
+               "pau" = readRDS("cor_monthly_pa_uptime.rds"),
                "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
                "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
                "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
@@ -821,6 +861,7 @@ cor$qu <- list("vpd" = get_quarterly(cor$mo$vpd, "vpd"),
                "pti" = get_quarterly(cor$mo$pti, "pti"),
                "du" = get_quarterly(cor$mo$du, "uptime.all"),
                "cu" = get_quarterly(cor$mo$cu, "uptime"),
+               "pau" = get_quarterly(cor$mo$pau, "uptime"),
                "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
                "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
                "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
@@ -831,6 +872,7 @@ cor$qu <- list("vpd" = get_quarterly(cor$mo$vpd, "vpd"),
 sig <- list()
 sig$dy <- list("du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$dy$du, corridors),
                "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors),
+               "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors),
                "cctv" = readRDS("daily_cctv_uptime.rds"))
 sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "vph" = sigify(readRDS("weekly_vph.rds"), cor$wk$vph, corridors),
@@ -843,6 +885,7 @@ sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors),
                "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors),
                "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors),
+               "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors),
                "cctv" = readRDS("weekly_cctv_uptime.rds"))
 sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors),
                "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors),
@@ -861,6 +904,7 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "pti" = data.frame(),
                "du" = sigify(readRDS("monthly_detector_uptime.rds"), cor$mo$du, corridors),
                "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
+               "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors),
                "cctv" = readRDS("monthly_cctv_uptime.rds"))
 
 #saveRDS(cor, "cor.rds")
