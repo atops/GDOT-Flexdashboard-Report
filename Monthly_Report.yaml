@@ -5,10 +5,10 @@
 mode: beta
 
 
-start_date: 2018-12-15
+start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2017-11-01
+report_start_date: 2017-12-01
 report_end_date: yesterday
 
 corridors_filename: corridors.feather
@@ -36,6 +36,7 @@ xl_uptime:
         - September Vehicle and Ped Detector Info.xlsx
         - October Vehicle and Ped Detector Info.xlsx
         - November Vehicle and Ped Detector Info.xlsx
+        - December 2018 Vehicle and Ped Detector Info.xlsx
         
     months:
         - 2018-01-01
@@ -49,6 +50,7 @@ xl_uptime:
         - 2018-09-01
         - 2018-10-01
         - 2018-11-01
+        - 2018-12-01
 
 
 zone_groups:
@@ -64,6 +66,7 @@ zone_groups:
     - Zone 7m
     - Zone 7d
     - Zone 7
+    - Zone 8
     - District 1
     - District 2
     - District 3
