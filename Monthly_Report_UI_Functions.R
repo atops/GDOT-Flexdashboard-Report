@@ -131,6 +131,29 @@ get_valuebox <- memoise(get_valuebox_)
 
 
 
+perf_plot_no_data_ <- function(name_) {
+    
+    ax <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
+    ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
+    
+    plot_ly(type = "scatter", mode = "markers") %>% 
+        layout(xaxis = ax, 
+               yaxis = ay,
+               annotations = list(x = -.02,
+                                  y = 0.4,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  xanchor = "right",
+                                  text = name_,
+                                  font = list(size = 12),
+                                  showarrow = FALSE),
+               showlegend = FALSE,
+               margin = list(l = 120,
+                             r = 40)) %>% 
+        plotly::config(displayModeBar = F)
+}
+perf_plot_no_data <- memoise(perf_plot_no_data_)
+
 perf_plot <- function(data_, value_, name_, color_, 
                       format_func = function(x) {x},
                       hoverformat_ = ",.0f") {
