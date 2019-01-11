@@ -510,7 +510,7 @@ Row
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$veh, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
   )
@@ -523,7 +523,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child",
     color = BLUE
   )
@@ -536,7 +536,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(mr()$mo$cctv, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
     color = BLUE
   )
@@ -549,20 +549,20 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "ion-paper-airplane", #"fa-user" #
     color = BLUE
   )
 })
 ```
 
-### Pedestrian Detector Availability [automated--test] {.value-box}
+### Pedestrian Detector Availability [beta] {.value-box}
 
 ```{r}
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child",
     color = BLUE
   )
@@ -829,7 +829,7 @@ renderValueBox({
       value = get_valuebox(cor$qu$veh, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
-                         qu = current_quarter(), break_ = FALSE),
+                         qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
       color = GDOT_BLUE
   )
@@ -845,7 +845,7 @@ renderValueBox({
     value = get_valuebox(cor$qu$ped, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
-                         qu = current_quarter(), break_ = FALSE),
+                         qu = current_quarter(), break_ = TRUE),
     icon = "fa-child",
       color = GDOT_BLUE_RGB 
   )
@@ -860,7 +860,7 @@ renderValueBox({
     value = get_valuebox(cor$qu$cctv, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
-                         qu = current_quarter(), break_ = FALSE),
+                         qu = current_quarter(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
       color = GDOT_BLUE 
   )
@@ -875,7 +875,7 @@ renderValueBox({
       value = get_valuebox(cor$qu$cu, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
-                         qu = current_quarter(), break_ = FALSE),
+                         qu = current_quarter(), break_ = TRUE),
       icon = "ion-paper-airplane",
       color = GDOT_BLUE_RGB
   )
@@ -891,7 +891,7 @@ renderValueBox({
     value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
-                         qu = current_quarter(), break_ = FALSE),
+                         qu = current_quarter(), break_ = TRUE),
     icon = "fa-child",
       color = GDOT_BLUE
   )
@@ -1334,7 +1334,7 @@ renderPlotly({
 
 ### Hourly Volumes
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 renderPlotly({
     get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
@@ -1378,7 +1378,7 @@ renderValueBox({
                           group_by(Corridor) %>% 
                           mutate(delta = uptime.all - lag(uptime.all)), 
                       "uptime.all", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
 })
@@ -1390,7 +1390,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(cor$mo$cctv, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
     icon = "glyphicon-facetime-video" 
   )
 })
@@ -1402,7 +1402,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$ped, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child" 
   )
 })
@@ -1414,19 +1414,19 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "ion-paper-airplane"
   )
 })
 ```
 
-### Pedestrian Detector Availability [automated-test] {.value-box}
+### Pedestrian Detector Availability [beta] {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child" 
   )
 })
@@ -1554,7 +1554,7 @@ renderPlotly({
 
 
 
-### Pedestrian Detector Uptime [automated-test]
+### Pedestrian Detector Uptime [beta]
 
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
