@@ -1130,34 +1130,41 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
     per_ <- as.name(per_)
     
-    # Get average for each Zone Group (RTOP1, RTOP2, Zone 1,..., District 1,..., County 1,...)
+    # Get average for each Zone or District, according to corridors$Zone
     df_ <- df %>% 
-        split(df$Zone_Group)
-    all_zone_groups <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
-    
-    # Get average for All RTOP (RTOP1 and RTOP2)
-    all_rtop_group <- df %>%
-        filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
-        gr_(per_, var_, wt_, "All RTOP")
-    
-    # Get average for each Zone
-    corr_by_zone <- df %>%
-        filter(stringi::stri_startswith_fixed(Zone, "Zone")) %>%
-        mutate(Zone_Group = factor(Zone))
-    df_ <- corr_by_zone %>%
-        split(corr_by_zone$Zone_Group)
+        split(df$Zone)
     all_zones <- lapply(names(df_), function(x) { gr_(df_[[x]], per_, var_, wt_, x) })
     
+    # Get average for All RTOP (RTOP1 and RTOP2)
+    all_rtop <- df %>%
+        filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
+        gr_(per_, var_, wt_, "All RTOP")
+
+    
+    
+    # Get average for RTOP1
+    all_rtop1 <- df %>%
+        filter(Zone_Group == "RTOP1") %>%
+        gr_(per_, var_, wt_, "RTOP1")
+    
+    # Get average for RTOP2
+    all_rtop2 <- df %>%
+        filter(Zone_Group == "RTOP2") %>%
+        gr_(per_, var_, wt_, "RTOP2")
+    
+    
+        
     # Get average for All Zone 7 (Zone 7m and Zone 7d)
     all_zone7 <- df %>%
         filter(Zone %in% c("Zone 7m", "Zone 7d")) %>%
         gr_(per_, var_, wt_, "Zone 7")
     
     # concatenate all summaries with corridor averages
-    dplyr::bind_rows(select_(df, "Corridor", "Zone_Group", per_, var_, wt_, "delta"),
-                     all_zone_groups,
-                     all_rtop_group,
+    dplyr::bind_rows(select_(df, "Corridor", Zone_Group = "Zone", per_, var_, wt_, "delta"),
                      all_zones,
+                     all_rtop,
+                     all_rtop1,
+                     all_rtop2,
                      all_zone7) %>%
         mutate(Corridor = factor(Corridor))
 }
