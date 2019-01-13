@@ -46,6 +46,9 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN,
            "9" = LIGHT_PURPLE, "10" = PURPLE, "11" = LIGHT_BROWN, "12" = BROWN,
            "0" = DARK_GRAY)
 
+RTOP1_ZONES <- c("Zone 1", "Zone 2", "Zone 3", "Zone 8")
+RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
+
 # ###########################################################
 
 conf <- read_yaml("Monthly_Report.yaml")
@@ -97,6 +100,33 @@ as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
 
+
+# Filter for zone_group and zone
+filter_mr_data <- function(df, zone_group_) {
+    if (zone_group_ == "All RTOP") {
+       df %>% 
+            filter(Zone_Group %in% c(RTOP1_ZONES, RTOP2_ZONES, "RTOP1", "RTOP2", "All RTOP"),
+                   !Corridor %in% c(RTOP1_ZONES, RTOP2_ZONES))
+        
+    } else if (zone_group_ == "RTOP1") {
+        df %>%
+            filter(Zone_Group %in% c(RTOP1_ZONES, "RTOP1"),
+                   !Corridor %in% c(RTOP1_ZONES))
+        
+    } else if (zone_group_ == "RTOP2") {
+       df %>%
+            filter(Zone_Group %in% c(RTOP2_ZONES, "RTOP2"),
+                   !Corridor %in% c(RTOP2_ZONES))
+        
+    } else if (zone_group_ == "Zone 7") {
+        df %>%
+            filter(Zone_Group %in% c("Zone 7m", "Zone 7d", "Zone 7"))
+        
+    } else {
+        df %>% 
+            filter(Zone_Group == zone_group_)
+    }
+}
 
 
 get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
@@ -269,21 +299,13 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
     
     highlight_color_ <- highlight_color
     
-    if (zone_group_ == "All RTOP") {
-        mdf <- cor_monthly %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"), 
-                   Month == month_)
-        wdf <- cor_weekly %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"), 
-                   Date < month_ + months(1))
-    } else {
-        mdf <- cor_monthly %>% 
-            filter(Zone_Group == zone_group_, Month == month_)
-        wdf <- cor_weekly %>% 
-            filter(Zone_Group == zone_group_, Date < month_ + months(1))
-    }
+    mdf <- filter_mr_data(cor_monthly, zone_group_)
+    wdf <- filter_mr_data(cor_weekly, zone_group_)
+
+    mdf <- filter(mdf, Month == month_)
+    wdf <- filter(wdf, Date < month_ + months(1))
+
+    
     if (nrow(mdf) > 0 & nrow(wdf) > 0) {
         # Current Month Data
         mdf <- mdf %>%
@@ -357,16 +379,10 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         
         if (!is.null(cor_hourly)) {
             
-            if (zone_group_ == "All RTOP") {
-                hdf <- cor_hourly %>%
-                    filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                           !Corridor %in% c("RTOP1", "RTOP2"), 
-                           date(Hour) == month_)
-            } else {
-                hdf <- cor_hourly %>%
-                    filter(Zone_Group == zone_group_, date(Hour) == month_)
-            }
+            hdf <- filter_mr_data(cor_hourly, zone_group_)
             
+            hdf <- filter(hdf, date(Hour) == month_)
+
             # Hourly Data - current month
             hdf <- hdf %>%
                 mutate(var = !!var_,
@@ -437,20 +453,10 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         #filter(Month < month_ + months(1)) %>%
         select(Corridor, Zone_Group, Hour, tti, pti, bti)
     
-    if (zone_group_ == "All RTOP") {
-        mott <- mott %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"))
-        hrtt <- hrtt %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"))
-    } else {
-        mott <- mott %>% 
-            filter(Zone_Group == zone_group_)
-        hrtt <- hrtt %>% 
-            filter(Zone_Group == zone_group_) 
-    }
+    mott <- filter_mr_data(mott, zone_group_)
+    hrtt <- filter_mr_data(hrtt, zone_group_)
     
+
     if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
         sdb <- SharedData$new(dplyr::filter(mott, Month == month_), 
                               ~Corridor, group = "grp")
@@ -592,15 +598,10 @@ get_pct_ch_plot_ <- function(cor_monthly_vpd,
                                       showarrow = FALSE))}
     
     
-    if (zone_group_ == "All RTOP") {
-        df <- cor_monthly_vpd %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"), 
-                   Month <= month_)
-    } else {
-        df <- cor_monthly_vpd %>% 
-            filter(Zone_Group == zone_group_ & Month <= month_)
-    }
+    df <- filter_mr_data(cor_monthly_vpd, zone_group_)
+    
+    df <- filter(Month <- month_)
+    
     if (nrow(df) > 0) {
         
         pcts <- split(df, df$Corridor)
@@ -618,14 +619,8 @@ get_pct_ch_plot <- memoise(get_pct_ch_plot_)
 get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle, 
                                month_ = current_month(), zone_group_ = zone_group()) {
     
-    if (zone_group_ == "All RTOP") {
-        df <- df %>%
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"))
-    } else {
-        df <- df %>%
-            filter(Zone_Group == zone_group_)
-    }
+    df <- filter_mr_data(df, zone_group_)
+
     if (nrow(df) > 0) {
         
         sdw <- SharedData$new(dplyr::filter(df, Month <= month_), ~Corridor, group = "grp")
@@ -720,13 +715,10 @@ get_minmax_hourly_plot_ <- function(cor_monthly_vph,
                                       showarrow = FALSE))
     }
     
-    if (zone_group_ == "All RTOP") {
-        df <- cor_monthly_vph %>% 
-            filter(!Corridor %in% c("RTOP1", "RTOP2", "D1", "D2", "D3", "D4", "D5", "D6", "Zone 7", "Cobb County") & date(Hour) <= month_)
-    } else {
-        df <- cor_monthly_vph %>% 
-            filter(Zone_Group == zone_group_ & date(Hour) <= month_)
-    }
+    df <- filter_mr_data(cor_monthly_vph, zone_group_)
+    
+    df <- filter(date(Hour) <= month_)
+    
     
     # Current Month Data
     this_month <- df %>% 
@@ -900,17 +892,10 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
             )
     }
     
+    avg_daily_uptime <- filter_mr_data(avg_daily_uptime, zone_group_)
     
-    if (zone_group_ == "All RTOP") {
-        avg_daily_uptime <- avg_daily_uptime %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"), 
-                   Date <= month_ + months(1))
-    } else {
-        avg_daily_uptime <- avg_daily_uptime %>% 
-            filter(Zone_Group == zone_group_ & Date <= month_ + months(1))
-    }
-    
+    avg_daily_uptime <- filter(avg_daily_uptime, Date <= month_ + months(1))
+
     if (nrow(avg_daily_uptime) > 0) {
         # Create Uptime by Detector Type (Setback, Presence) by Corridor Subplots.
         cdfs <- split(avg_daily_uptime, avg_daily_uptime$Corridor)
@@ -1004,23 +989,13 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
             )
     }
     
+    avg_daily_uptime <- filter_mr_data(avg_daily_uptime, zone_group_)
+    avg_monthly_uptime <- filter_mr_data(avg_monthy_uptime, zone_group_)
+
+    avg_daily_uptime <- filter(avg_daily_uptime, Date <= month_ + months(1))
+    avg_monthly_uptime <- filter(avg_monthly_uptime, Month == month_)
     
-    if (zone_group_ == "All RTOP") {
-        avg_daily_uptime <- avg_daily_uptime %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2"), 
-                   Date <= month_ + months(1))
-        avg_monthly_uptime <- avg_monthly_uptime %>%
-            filter(Zone_Group %in% c("RTOP1", "RTOP2", "All RTOP"), 
-                   !Corridor %in% c("RTOP1", "RTOP2") 
-                   & Month == month_)
-    } else {
-        avg_daily_uptime <- avg_daily_uptime %>% 
-            filter(Zone_Group == zone_group_ & Date <= month_ + months(1))
-        avg_monthly_uptime <- avg_monthly_uptime %>%
-            filter(Zone_Group == zone_group_ & Month == month_)
-    }
-    
+
     if (nrow(avg_daily_uptime) > 0) {
         # Create Uptime by Detector Type (Setback, Presence) by Corridor Subplots.
         cdfs <- split(avg_daily_uptime, avg_daily_uptime$Corridor)
