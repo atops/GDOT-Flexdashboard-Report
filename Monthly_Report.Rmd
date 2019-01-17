@@ -1,5 +1,9 @@
 ---
-title: "MARK 1 (beta)"
+# ------------------------------
+title: "MARK 1 (beta)"               # Beta
+# ------------------------------
+#title: "MARK 1"                      # Production
+# ------------------------------
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -14,7 +18,7 @@ runtime: shiny
 
 
 ```{r global, cache = TRUE, include = FALSE, warning = FALSE}
-# FLEXDASHBOARD - RTOP_MONTHLY_REPORT_-_BETA
+# FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
 
 source("Monthly_Report_UI_Functions.R")
@@ -22,6 +26,8 @@ source("Monthly_Report_UI_Functions.R")
 
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
+
+AWS_BUCKET = "https://s3.amazonaws.com/gdot-devices"
 
 ```
 
@@ -43,10 +49,19 @@ Past month reports can be viewed back to `r tail(conf$report_months, 1)`.
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
-current_month <- today() - days(6)
-#current_month <- dmy(paste(1, selected_month))
+if (conf$mode == "production") {
+    current_month <- ymd("2018-12-01")   # Production
+
+} else if (conf$mode == "beta") {
+    current_month <- today() - days(6)   # Beta
+    
+} else {
+    stop("mode defined in configuration yaml file must be either production or beta")
+}    
+
 first_month <- current_month - months(12)
-month_options <- seq(current_month, first_month, by = "-1 month") %>% format("%B %Y")
+report_months <- seq(current_month, first_month, by = "-1 month")
+month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
@@ -324,10 +339,10 @@ filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
 
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
-
+# 
 # renderText({"Selected Zone Group"})
 # renderPrint({zone_group()})
-
+# 
 # renderText({"Selected Corridor"})
 # renderPrint({corridor()})
 ```
@@ -882,7 +897,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [manually collected] {.value-box}
+### Pedestrian Detector Availability [beta] {.value-box}
 
 ```{r}
 
@@ -1334,7 +1349,7 @@ renderPlotly({
 
 ### Hourly Volumes
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
     get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
@@ -1510,7 +1525,7 @@ renderPlotly({
         
         plot_individual_cctvs(sig$dy$cctv, 
                               month_ = current_month(), 
-                              zone_group_ = zone_group(),
+                              #zone_group_ = zone_group(),
                               corridor_ = corridor())
     }
     
@@ -1694,78 +1709,83 @@ fillRow(
 
 #### **Download TSOS Monthly Reports (docx)**
 
-[January 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-01.docx) | 
-[February 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-02.docx) | 
-[March 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-03.docx) | 
-[April 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-04.docx) | 
-May 2018 | 
-[June 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-06.docx) | 
-[July 2018](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+2018-07.docx) | 
-August 2018
+`r lapply(report_months, function(d) {
+    Month_yyyy <- format(d, "%B %Y")
+    yyyy_mm <- format(d, "%Y-%m")
+    glue("[{Month_yyyy}](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+{yyyy_mm}.docx)")
+}) %>% paste(collapse = " | ")`
 
 
 #### **Download Traffic Engineers' Activity Reports (pdf)**
 
+```{r}
+zone_links2 <- function(corrs_, current_month_, rtop_) {
+    lapply(corrs_, function(corr) {
+        yyyy <- format(current_month_, "%Y")
+        mm <- format(current_month_, "%m")
+        
+        corr_plus <- paste(yyyy, mm, gsub("/", "-", corr))
+        corr_plus <- gsub(" ", "+", corr_plus)
+        glue("[{corr}]({AWS_BUCKET}/{rtop_}/{yyyy}-{mm}/{corr_plus}.pdf)")
+    }) %>% paste(collapse = " | ")
+}
+zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"), current_month(), "RTOP1"))
+```
 
 **RTOP 1**
 
 Zone 1: 
-[SR 13/42/155](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+13-42-155.pdf) | 
-[SR 141S](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+141S.pdf) | 
-[SR 237](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+237.pdf) | 
-[SR 9-Atlanta](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+9-Atlanta.pdf)
+`r renderUI({get_progress_report_link("SR 13/42/155", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 141S", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 237", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 9-Atlanta", current_month(), "RTOP1")})`
 
 Zone 2: 
-[SR 120W](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+120W.pdf) | 
-[SR 140-Roswell](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+140-Roswell.pdf) | 
-[SR 280](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+280.pdf) | 
-[SR 360](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+360.pdf) | 
-[SR 3N](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+3N.pdf) | 
-[SR 92](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+92.pdf) | 
-[SR 9N](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+9N.pdf)
+`r renderUI({get_progress_report_link("SR 120W", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 280", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 360", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 3N", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 92", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 9N", current_month(), "RTOP1")})`
 
 Zone 3: 
-[SR 138](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+138.pdf) | 
-[SR 3S](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+3S.pdf) | 
-[SR 85](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/SR+85.pdf)
+`r renderUI({get_progress_report_link("SR 138", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 3S", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("SR 85", current_month(), "RTOP1")})`
 
 Zone 8:
-[Dunwoody-Brookhaven](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/Zone+8+-+Dunwoody-Brookhaven.pdf) | 
-[Sandy Springs](https://s3.amazonaws.com/gdot-devices/RTOP1/latest/Zone+8+-+Sandy+Springs.pdf)
+`r renderUI({get_progress_report_link("SR 92/140", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("Dunwoody-Brookhaven", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link("Sandy Springs", current_month(), "RTOP1")})`
 
 
 **RTOP 2**
 
 Zone 4: 
-[US 278](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+US+278.pdf) | 
-[SR 3](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+3.pdf) | 
-[SR 5](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+5.pdf) | 
-[SR 6](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+6.pdf)
+`r renderUI({get_progress_report_link("US 278", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 3", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 5", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 6", current_month(), "RTOP2")})`
 
 Zone 5: 
-[SR 10](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+10.pdf) | 
-[SR 12](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+12.pdf) | 
-[SR 154](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+154.pdf) | 
-[SR 155S](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+155S.pdf) | 
-[SR 42](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+42.pdf) | 
-[SR 8W-DeKalb](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+Dekalb.pdf) | 
-[SR 8W-Ponce](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8W+Ponce.pdf)
+`r renderUI({get_progress_report_link("SR 10", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 12", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 154", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 155S", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 42", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 8W-DeKalb", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 8W-Ponce", current_month(), "RTOP2")})`
 
 Zone 6: 
-[SR 120E](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+120.pdf) | 
-[SR 140-Gwinnett](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+140.pdf) | 
-[SR 141N](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+141.pdf) | 
-[SR 20](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+20.pdf) | 
-[SR 8E](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+8E.pdf) | 
-[SR 9-Alpharetta](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/SR+9.pdf)
+`r renderUI({get_progress_report_link("SR 120E", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 140-Gwinnett", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 141N", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 20", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 8E", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link("SR 9-Alpharetta", current_month(), "RTOP2")})`
 
 Zone 7: 
-[Zone 7](https://s3.amazonaws.com/gdot-devices/RTOP2/latest/Zone+7.pdf)
-
-
-
-
-
+`r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
 
 Watchdog
 =====================================
@@ -1804,7 +1824,7 @@ fluidRow(
     column(width = 2,
         conditionalPanel("(input.alert_type == 'Missing Records') ||
                           (input.alert_type == 'Bad Vehicle Detection')",
-             selectInput("phase", "Phase:",
+             selectInput("phase.all", "Phase:",
                          choices = "All",
                          selected = "All")),
         conditionalPanel("(input.alert_type == 'Pedestrian Activations') || 
@@ -1812,7 +1832,7 @@ fluidRow(
                           (input.alert_type == 'Max Outs') ||
                           (input.alert_type == 'Count') ||
                           (input.alert_type == 'Bad Ped Detection')",
-             selectInput("phase", "Phase:",
+             selectInput("phase.eight", "Phase:",
                          choices = c("All", seq_len(8)),
                          selected = "All"))
     ),
@@ -1849,11 +1869,17 @@ alerts <- get_alerts()
 filtered_alerts <- reactive({
 
     alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
+    
+    ph <- if(input$phase.eight != "All") {
+        input$phase.eight
+    } else {
+        "All"
+    }
 
     filter_alerts(alerts_by_date,
                   input$alert_type,
                   input$zone_group,
-                  input$phase,
+                  ph, #input$phase,
                   input$id_filter)
 })
     
