@@ -24,6 +24,7 @@ conf <- read_yaml("Monthly_Report.yaml")
 
 corridors <- feather::read_feather(conf$corridors_filename) 
 signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
+all_corridors <- read_feather("all_corridors.feather")
 
 # # ###########################################################################
 
@@ -489,43 +490,28 @@ gc()
 
 print(glue("{Sys.time()} Travel Time Indexes [14 of 20]"))
 
-# Eventually (soon) this will be replaced to get tti and pti from summary tables
-# calculated from RITIS API
-fs <- list.files(path = "Inrix/For_Monthly_Report", 
-                 pattern = "TWTh.csv$",
-                 recursive = TRUE, 
-                 full.names = TRUE)
-fns <- fs[fs < "Inrix/For_Monthly_Report/2018-01"] # old format: files before 2018-01
-tt <- get_tt_csv(fns)
-tti <- tt$tti 
-pti <- tt$pti 
+fns <- list.files(path = "Inrix/For_Monthly_Report",
+                  pattern = "tt_.*_summary.csv",
+                  recursive = FALSE,
+                  full.names = TRUE)
 
-fns2 <- list.files(path = "Inrix/For_Monthly_Report",
-                   pattern = "tt_.*_summary.csv",
-                   recursive = FALSE,
-                   full.names = TRUE)
-
-tt2 <- lapply(fns2, read_csv) %>% bind_rows()
-
-tti <- tt2 %>% 
-    dplyr::select(-pti) %>% 
-    bind_rows(tti) %>% 
+tt <- lapply(fns, read_csv) %>% 
+    bind_rows() %>% 
     mutate(Corridor = factor(Corridor)) %>%
     arrange(Corridor, Hour)
 
+tti <- tt %>% 
+    dplyr::select(-pti) 
 
-pti <- tt2 %>% 
-    dplyr::select(-tti) %>% 
-    bind_rows(pti) %>% 
-    mutate(Corridor = factor(Corridor)) %>%
-    arrange(Corridor, Hour)
+pti <- tt %>% 
+    dplyr::select(-tti)
 
 
-cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, corridors)
-cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, corridors)
+cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
+cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, all_corridors)
 
-cor_monthly_tti <- get_cor_monthly_tti(cor_monthly_tti_by_hr, corridors)
-cor_monthly_pti <- get_cor_monthly_pti(cor_monthly_pti_by_hr, corridors)
+cor_monthly_tti <- get_cor_monthly_ti_by_day(tti, cor_monthly_vph, all_corridors)
+cor_monthly_pti <- get_cor_monthly_ti_by_day(pti, cor_monthly_vph, all_corridors)
 
 write_fst(tti, "tti.fst")
 write_fst(pti, "pti.fst")
@@ -553,41 +539,53 @@ print(glue("{Sys.time()} Uptimes [15 of 20]"))
 
 fns <- list.files(path = "Excel Monthly Reports/2017_12", recursive = TRUE, full.names = TRUE)
 
-mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, corridors)
-mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, corridors)
+mrs_veh_xl <- get_veh_uptime_from_xl_monthly_reports(fns, all_corridors) %>% 
+    filter(Month >= report_start_date)
 
+mrs_ped_xl <- get_ped_uptime_from_xl_monthly_reports(fns, all_corridors) %>% 
+    filter(Month >= report_start_date)
 
 
 xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
 xl_uptime_mos <- conf$xl_uptime$months
 
+
+
 man_xl <- purrr::map2(xl_uptime_fns,
                       xl_uptime_mos,
                       get_det_uptime_from_manual_xl) %>%
     bind_rows() %>%
-    mutate(Zone_Group = factor(Zone_Group))
+    mutate(Zone_Group = factor(Zone_Group)) %>% 
+    filter(Month >= report_start_date)
 
-man_veh_xl <- man_xl %>% filter(Type == "Vehicle") %>% dplyr::select(-Type)
-man_ped_xl <- man_xl %>% filter(Type == "Pedestrian") %>% dplyr::select(-Type)
-
-
-cor_monthly_xl_veh_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_veh_xl, man_veh_xl))
-cor_monthly_xl_ped_uptime <- get_cor_monthly_xl_uptime(bind_rows(mrs_ped_xl, man_ped_xl))
+man_veh_xl <- man_xl %>% filter(Type == "Vehicle")
+man_ped_xl <- man_xl %>% filter(Type == "Pedestrian")
 
 
+cor_monthly_xl_veh_uptime <- bind_rows(mrs_veh_xl, man_veh_xl) %>%
+    dplyr::select(-c(Zone_Group, Zone, Type)) %>%
+    get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
 
-mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors)
 
-# January data. One-time only.
-man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
-    left_join(distinct(corridors, Zone_Group, Zone, Corridor)) %>%
-    transmute(Zone_Group = Zone_Group,
-              Zone = Zone, 
-              Corridor = Corridor,
-              Month = ymd("2018-01-01"),
-              up = as.integer(up),
-              num = as.integer(num),
-              uptime = uptime)
+cor_monthly_xl_ped_uptime <- bind_rows(mrs_ped_xl, man_ped_xl) %>%
+    dplyr::select(-c(Zone_Group, Zone, Type)) %>%
+    get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
+
+
+
+# mrs_cctv_xl <- get_cctv_uptime_from_xl_monthly_reports(fns, corridors) %>% 
+#     dplyr::select(-c(Zone, Zone_Group))
+
+# # January data. One-time only.
+# man_cctv_xl_2018_01 <- read_excel("Vehicle and Ped Detector Info/January Vehicle and Ped Detector Info.xlsx", sheet = "cor_cctv") %>%
+#     #left_join(distinct(corridors, Zone_Group, Zone, Corridor)) %>%
+#     transmute(#Zone_Group = Zone_Group,
+#               #Zone = Zone, 
+#               Corridor = Corridor,
+#               Month = ymd("2018-01-01"),
+#               up = as.integer(up),
+#               num = as.integer(num),
+#               uptime = uptime)
 
 
 cam_config <- read.csv(conf$cctv_config_filename) %>% as_tibble() %>% #"../camera_ids_2018-10-22.csv"
@@ -600,7 +598,7 @@ cam_config <- read.csv(conf$cctv_config_filename) %>% as_tibble() %>% #"../camer
 
 # Expanded out to include all available cameras on all days
 #  up/uptime is 0 if no data
-daily_cctv_uptime_511 <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
+daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
     filter(Date > "2018-02-02" & Size > 0) %>%
     mutate(up = 1, num = 1) %>%
     dplyr::select(-Size) %>%
@@ -619,66 +617,80 @@ daily_cctv_uptime_511 <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cc
 
 # Find the days where uptime across the board is very low (close to 0)
 #  This is symptomatic of a problem with the acquisition rather than the camreras themselves
-bad_days <- daily_cctv_uptime_511 %>% 
+bad_days <- daily_cctv_uptime %>% 
     group_by(Date) %>% 
     summarize(sup = sum(up),
               snum = sum(num),
               suptime = sum(up)/sum(num)) %>% 
     filter(suptime < 0.2)
 
-# Filter out the bad days, add zone group
-cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
-    filter(!Date %in% bad_days$Date) %>%
-    group_by(Corridor, Date) %>%
-    summarize(up = sum(up),
-              num = sum(num)) %>%
-    mutate(uptime = up/num) %>%
-    ungroup() %>%
-    left_join(distinct(corridors, Corridor, Zone_Group, Zone)) %>% 
-    
-    # Hack to eliminate days with acquisition problem
-    filter(!(Date >= "2018-11-02" & Date <= "2018-11-22"))
+# cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
+#     filter(!Date %in% bad_days$Date) %>%
+#     get_daily_avg_cctv()
 
-# this output doesn't filter bad days because we want it to display all days
-#  on the website. Add zone group.
-daily_cctv_uptime <- daily_cctv_uptime_511 %>%
-    left_join(distinct(dplyr::select(corridors, Corridor, Zone_Group, Zone))) %>%
-    mutate(CameraID = factor(CameraID), 
-           Corridor = factor(Corridor),
-           Zone_Group = factor(Zone_Group),
-           Zone = factor(Zone)) 
+# # Filter out the bad days, add zone group
+# cor_daily_cctv_uptime_511 <- daily_cctv_uptime_511 %>%
+#     filter(!Date %in% bad_days$Date) %>%
+#     group_by(Corridor, Date) %>%
+#     summarize(up = sum(up),
+#               num = sum(num)) %>%
+#     mutate(uptime = up/num) %>%
+#     ungroup() %>%
+#     left_join(distinct(corridors, Corridor, Zone_Group, Zone)) %>% 
+#     
+#     # Hack to eliminate days with acquisition problem
+#     filter(!(Date >= "2018-11-02" & Date <= "2018-11-22"))
 
+# # this output doesn't filter bad days because we want it to display all days
+# #  on the website. Add zone group.
+# daily_cctv_uptime <- daily_cctv_uptime %>%
+#     left_join(distinct(dplyr::select(corridors, Corridor, Zone_Group, Zone))) %>%
+#     mutate(CameraID = factor(CameraID), 
+#            Corridor = factor(Corridor),
+#            Zone_Group = factor(Zone_Group),
+#            Zone = factor(Zone)) 
 
-cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
-                                   man_cctv_xl_2018_01, 
-                                   dplyr::select(cor_daily_cctv_uptime_511,
-                                          Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
-    get_cor_monthly_xl_uptime() %>%
-    rename(Date = Month) %>%
-    dplyr::select(-Zone_Group) %>%
-    left_join(distinct(corridors, Corridor, Zone_Group)) %>%
-    mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, as.character(Zone_Group))),
-           Corridor = factor(Corridor))
+cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
+    filter(daily_cctv_uptime, !(Date >= "2018-11-01" & Date <= "2019-01-15")), 
+    all_corridors, "uptime", "num")
 
+weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
 
+cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(weekly_cctv_uptime, all_corridors, "uptime", "num")
 
-cor_weekly_cctv_uptime_511 <- get_cor_weekly_cctv_uptime(cor_daily_cctv_uptime_511)
+cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(mutate(daily_cctv_uptime, Month = Date - days(day(Date) -1)),
+                                               all_corridors, "uptime", "num")
 
-cor_weekly_cctv_uptime <- bind_rows(mrs_cctv_xl,
-                                    man_cctv_xl_2018_01,
-                                    dplyr::select(cor_weekly_cctv_uptime_511,
-                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
-    get_cor_monthly_xl_uptime() %>%
-    rename(Date = Month)
-
-
-
-cor_monthly_cctv_uptime_511 <- get_cor_monthly_cctv_uptime(cor_daily_cctv_uptime_511)
-
-cor_monthly_cctv_uptime <- bind_rows(mrs_cctv_xl, 
-                                     man_cctv_xl_2018_01, 
-                                     cor_monthly_cctv_uptime_511) %>%
-    get_cor_monthly_xl_uptime()
+# cor_daily_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+#                                    man_cctv_xl_2018_01, 
+#                                    dplyr::select(cor_daily_cctv_uptime_511,
+#                                           Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+#     get_cor_monthly_xl_uptime() %>%
+#     rename(Date = Month) %>%
+#     dplyr::select(-Zone_Group) %>%
+#     left_join(distinct(corridors, Corridor, Zone_Group)) %>%
+#     mutate(Zone_Group = factor(if_else(is.na(Zone_Group), Corridor, as.character(Zone_Group))),
+#            Corridor = factor(Corridor))
+# 
+# 
+# 
+# cor_weekly_cctv_uptime_511 <- get_cor_weekly_cctv_uptime(cor_daily_cctv_uptime_511)
+# 
+# cor_weekly_cctv_uptime <- bind_rows(mrs_cctv_xl,
+#                                     man_cctv_xl_2018_01,
+#                                     dplyr::select(cor_weekly_cctv_uptime_511,
+#                                            Zone_Group, Corridor, Month = Date, up, num, uptime)) %>%
+#     get_cor_monthly_xl_uptime() %>%
+#     rename(Date = Month)
+# 
+# 
+# 
+# cor_monthly_cctv_uptime_511 <- get_cor_monthly_cctv_uptime(cor_daily_cctv_uptime_511)
+# 
+# cor_monthly_cctv_uptime <- bind_rows(mrs_cctv_xl, 
+#                                      man_cctv_xl_2018_01, 
+#                                      cor_monthly_cctv_uptime_511) %>%
+#     get_cor_monthly_xl_uptime()
 
 
 
@@ -691,10 +703,10 @@ saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
 
 saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
 
-saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
-
 saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
 saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
+saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
+
 
 
 
@@ -705,14 +717,17 @@ saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
 
 print(glue("{Sys.time()} TEAMS [16 of 20]"))
 
+# Teams Locations
+teams_locations <- read_feather("teams_locations.feather")
+
 # New version from API result
-teams <- get_teams_tasks(conf$teams_tasks_filename) %>%
+teams <- get_teams_tasks(tasks_fn = conf$teams_tasks_filename, locations = teams_locations) %>%
     
     filter(`Date Reported` >= ymd(report_start_date) &
                `Date Reported` <= ymd(report_end_date))
 
 
-saveRDS(teams, "teams.rds")
+#saveRDS(teams, "teams.rds")
 #------------------------------------------------------------------------------
 
 
@@ -886,7 +901,7 @@ sig$wk <- list("vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors),
                "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors),
                "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors),
                "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors),
-               "cctv" = readRDS("weekly_cctv_uptime.rds"))
+               "cctv" = cor$wk$cctv) #readRDS("weekly_cctv_uptime.rds"))
 sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors),
                "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors),
                "vphp" = purrr::map2(readRDS("monthly_vph_peak.rds"), cor$mo$vphp,
@@ -905,7 +920,7 @@ sig$mo <- list("vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors)
                "du" = sigify(readRDS("monthly_detector_uptime.rds"), cor$mo$du, corridors),
                "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors),
                "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors),
-               "cctv" = readRDS("monthly_cctv_uptime.rds"))
+               "cctv" = cor$mo$cctv)
 
 #saveRDS(cor, "cor.rds")
 #saveRDS(sig, "sig.rds")
@@ -970,14 +985,14 @@ saveRDS(sig, "sig.rds")
 
 print(glue("{Sys.time()} Upload to AWS [19 of 20]"))
 
-aws.s3::put_object(file = "cor.rds", 
-                   object = "cor.rds", 
+aws.s3::put_object(file = "cor.rds",
+                   object = "cor.rds",
                    bucket = "gdot-devices")
-aws.s3::put_object(file = "sig.rds", 
-                   object = "sig.rds", 
+aws.s3::put_object(file = "sig.rds",
+                   object = "sig.rds",
                    bucket = "gdot-devices")
-aws.s3::put_object(file = "teams_tables.rds", 
-                   object = "teams_tables.rds", 
+aws.s3::put_object(file = "teams_tables.rds",
+                   object = "teams_tables.rds",
                    bucket = "gdot-devices")
 
 print(glue("{Sys.time()} Build Signal Dashboards [20 of 20]"))
