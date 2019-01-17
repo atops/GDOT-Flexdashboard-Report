@@ -41,6 +41,8 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 # corridors <- get_corridors(conf$corridors_xlsx_filename)
 # write_feather(corridors, "corridors.feather")
+# all_corridors <- get_corridors(conf$corridors_xlsx_filename, filter_signals = FALSE)
+# write_feather(all_corridors, "all_corridors.feather")
 
 conn <- get_atspm_connection()
 
@@ -61,7 +63,10 @@ dbDisconnect(conn)
 #write_feather(tmc_routes, "tmc_routes.feather")
 
 
-
+# -- Teams Locations
+#teams_locations <- get_teams_locations()
+#st_geometry(teams_locations) <- NULL
+#write_feather(teams_locations, "teams_locations.feather")
 
 
 
