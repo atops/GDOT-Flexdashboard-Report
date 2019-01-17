@@ -1133,8 +1133,6 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         filter(Zone_Group %in% c("RTOP1", "RTOP2")) %>%
         gr_(per_, var_, wt_, "All RTOP")
 
-    
-    
     # Get average for RTOP1
     all_rtop1 <- df %>%
         filter(Zone_Group == "RTOP1") %>%
@@ -1144,7 +1142,6 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     all_rtop2 <- df %>%
         filter(Zone_Group == "RTOP2") %>%
         gr_(per_, var_, wt_, "RTOP2")
-    
     
         
     # Get average for All Zone 7 (Zone 7m and Zone 7d)
