@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 #import sqlalchemy as sq
 from datetime import datetime, timedelta
+import time
 
 import yaml
 import feather
@@ -41,9 +42,10 @@ def query_athena(query, database, output_bucket):
             lambda: 'Contents' in s3.list_objects(Bucket=output_bucket, 
                                                   Prefix=response['QueryExecutionId']),
             step=0.5,
-            poll_forever=True)
+            timeout=30)
     print ('Query complete.')
     key = '{}.csv'.format(response['QueryExecutionId'])
+    time.sleep(1)
     s3.download_file(Bucket=output_bucket, Key=key, Filename=key)
     df = pd.read_csv(key)
     os.remove(key)
@@ -126,7 +128,7 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
-    #start_date = '2018-12-01'
+    #start_date = '2019-01-01'
     #end_date = '2018-12-13'
     """
     signals_file = sys.argv[3]
