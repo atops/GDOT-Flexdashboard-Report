@@ -115,29 +115,31 @@ if __name__=='__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
-    start_date = conf['start_date'] #.strftime('%Y-%m-%d')
+    start_date = conf['start_date']
     # -----
-    #start_date = '2018-11-01'
+    #start_date = '2018-12-01'
     # -----
     if start_date == 'yesterday': 
         # Make start_date the start of the month
         start_date = datetime.today() - timedelta(days=1)
-        start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
-    end_date = conf['end_date'] #.strftime('%Y-%m-%d')
+    start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
+    end_date = conf['end_date']
     # -----
-    #end_date = '2018-11-30'
+    #end_date = '2018-12-31'
     # -----
     if end_date == 'yesterday': 
         end_date = datetime.today().strftime('%Y-%m-%d')
-
+    else:
+        end_date = end_date.strftime('%Y-%m-%d')
+    
 
     tmc_fn = 'tmc_routes.feather'
     tmc_df = feather.read_dataframe(tmc_fn)
     tmc_dict = tmc_df.groupby(['Corridor'])['tmc'].apply(list).to_dict()
     
     
-    #start_date = '2018-09-16'
-    #end_date = '2018-09-25'
+    #start_date = '2018-02-01'
+    #end_date = '2018-02-28'
     
     df = pd.DataFrame()
     for corridor in tmc_dict.keys():
@@ -158,7 +160,8 @@ if __name__=='__main__':
     if len(df) > 0:
         df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
         df = df.reset_index(drop=True)
-        fn = 'Inrix/For_Monthly_Report/tt_{}_TWTh.csv'.format(start_date.replace('-01',''))
+        yyyy_mm = datetime.strptime(start_date, '%Y-%m-%d').strftime('%Y-%m')
+        fn = 'Inrix/For_Monthly_Report/tt_{}_TWTh.csv'.format(yyyy_mm)
         print(fn)
         #df.to_csv(fn)
         
