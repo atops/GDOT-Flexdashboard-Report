@@ -141,6 +141,33 @@ filter_mr_data <- function(df, zone_group_) {
     }
 }
 
+# Filter for zone_group and zone
+filter_mr_data <- function(df, zone_group_) {
+    if (zone_group_ == "All RTOP") {
+       df %>% 
+            filter(Zone_Group %in% c(RTOP1_ZONES, RTOP2_ZONES, "RTOP1", "RTOP2", "All RTOP"),
+                   !Corridor %in% c(RTOP1_ZONES, RTOP2_ZONES))
+        
+    } else if (zone_group_ == "RTOP1") {
+        df %>%
+            filter(Zone_Group %in% c(RTOP1_ZONES, "RTOP1"),
+                   !Corridor %in% c(RTOP1_ZONES))
+        
+    } else if (zone_group_ == "RTOP2") {
+       df %>%
+            filter(Zone_Group %in% c(RTOP2_ZONES, "RTOP2"),
+                   !Corridor %in% c(RTOP2_ZONES))
+        
+    } else if (zone_group_ == "Zone 7") {
+        df %>%
+            filter(Zone_Group %in% c("Zone 7m", "Zone 7d", "Zone 7"))
+        
+    } else {
+        df %>% 
+            filter(Zone_Group == zone_group_)
+    }
+}
+
 
 get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
                           zone, mo, qu = NULL) {
