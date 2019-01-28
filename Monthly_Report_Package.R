@@ -651,7 +651,7 @@ bad_days <- daily_cctv_uptime %>%
 #            Zone = factor(Zone)) 
 
 cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
-    filter(daily_cctv_uptime, !(Date >= "2018-11-01" & Date <= "2019-01-15")), 
+    daily_cctv_uptime, #filter(daily_cctv_uptime, !(Date >= "2018-11-01" & Date <= "2019-01-15")), 
     all_corridors, "uptime", "num")
 
 weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
@@ -997,7 +997,7 @@ aws.s3::put_object(file = "teams_tables.rds",
 
 print(glue("{Sys.time()} Build Signal Dashboards [20 of 20]"))
 
-# db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)], 
-#                                    corridors = corridors, 
-#                                    pth = 'Signal_Dashboards', 
-#                                    upload_to_s3 = TRUE)
+db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)],
+                                   corridors = corridors,
+                                   pth = 'Signal_Dashboards/beta',
+                                   upload_to_s3 = TRUE)
