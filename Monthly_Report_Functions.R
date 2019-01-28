@@ -90,7 +90,25 @@ get_atspm_connection <- function() {
                   pwd = Sys.getenv("ATSPM_PASSWORD"))
     }
 } 
-
+get_cel_connection <- function() {
+    
+    if (Sys.info()["sysname"] == "Windows") {
+        
+        dbConnect(odbc::odbc(),
+                  dsn = "MaxView_EventLog",
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+        
+    } else if (Sys.info()["sysname"] == "Linux") {
+        
+        dbConnect(odbc::odbc(),
+                  driver = "FreeTDS",
+                  server = Sys.getenv("MAXV_SERVER_INSTANCE"),
+                  database = Sys.getenv("MAXV_EVENTLOG_DB"),
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+    }
+} 
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
@@ -129,7 +147,7 @@ write_fst_ <- function(df, fn, append = FALSE) {
         ))
             
         df_ <- read_fst(fn)
-        df_ <- bind_rows(df, df_)  %>% 
+        df_ <- bind_rows(df, df_) %>% 
             mutate_at(vars(one_of(factors)), factor)
     } else {
         df_ <- df
@@ -148,7 +166,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Agency = Agency,
                   Name = Name,
                   Asof = date(Asof)) %>%
-        filter(!is.na(Corridor)) %>% 
+        filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
     if (filter_signals == TRUE) {
@@ -421,9 +439,9 @@ get_counts_tbl <- function(date_, event_code = 82, interval_ = "1 hour") {
     det_config <- get_det_config(start_date) %>%
         dplyr::select(SignalID, Detector, CallPhase)
     
-    conn <- get_atspm_connection()
+    conn <- get_cel_connection()
     
-    cel <- tbl(conn, "Controller_Event_Log")
+    cel <- tbl(conn, "controller_event_log")
 
     start_date <- date_
     end_date <- ymd(start_date) + days(1)
@@ -493,7 +511,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         file.remove(counts_15min_csv_fn)
     }
 
-    conn <- get_atspm_connection()
+    conn <- get_cel_connection()
     
     n <- length(signals_list)
     i <- 20
@@ -507,7 +525,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         signals_string <- paste(glue("'{signals_sublist}'"), collapse = ",")
         
-        query = glue("SELECT * FROM Controller_Event_Log 
+        query = glue("SELECT * FROM controller_event_log 
                      WHERE Timestamp BETWEEN '{start_date}' AND '{end_time}'
                      AND EventCode NOT IN (43,44) 
                      AND SignalID in ({signals_string})")
