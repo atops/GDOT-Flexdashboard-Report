@@ -98,7 +98,7 @@ get_maxview_connection <- function(dsn = "MaxView") {
     if (Sys.info()["sysname"] == "Windows") {
         
         dbConnect(odbc::odbc(),
-                  dsn = dsn, #"MaxView_EventLog",
+                  dsn = dsn,
                   uid = Sys.getenv("ATSPM_USERNAME"),
                   pwd = Sys.getenv("ATSPM_PASSWORD"))
         
@@ -559,12 +559,13 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         file.remove(counts_15min_csv_fn)
     }
 
-    #conn <- get_cel_connection()
+    conn <- get_cel_connection()
     
     monday <- get_most_recent_monday(ymd(start_date)) %>% format("%m-%d-%Y")
     dtev <- tbl(mvel_conn, glue("ASC_Det_Events_{monday}"))
     pdev <- tbl(mvel_conn, glue("ASC_PhasePed_Events_{monday}"))
     ge <- tbl(mvel_conn, "GroupableElements")
+	#geic <- tbl(mvel_conn, "GroupableElements_IntersectionController")
     
     
     n <- length(signals_list)
@@ -604,13 +605,13 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         #              AND SignalID in ({signals_string})")
         # 
         # df <- dbGetQuery(conn, query)
-        # print(head(df))
-        print(det_events)
+        # print(head(df))        #print(det_events)
         
+		df <- tbl(conn, "controller_event_log")
 
         if (uptime == TRUE) {
             
-            df <- phase_events %>% distinct(SignalID, Timestamp)
+            #df <- phase_events %>% distinct(SignalID, Timestamp)
 
             uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
             gaps_all <<- bind_rows(gaps_all, collect(get_unique_timestamps(df))) %>% distinct()
@@ -618,7 +619,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
 	    if (counts == TRUE) {
             
-	        df <- det_events
+	        #df <- det_events
 	         
             # get 1hr counts
             counts_1hr <- get_counts5(df, 

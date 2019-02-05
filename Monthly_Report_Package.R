@@ -999,5 +999,5 @@ print(glue("{Sys.time()} Build Signal Dashboards [20 of 20]"))
 
 db_build_data_for_signal_dashboard(month_abbrs = month_abbrs[length(month_abbrs)],
                                    corridors = corridors,
-                                   pth = 'Signal_Dashboards/beta',
+                                   pth = 'Signal_Dashboards',
                                    upload_to_s3 = TRUE)
