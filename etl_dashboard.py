@@ -161,9 +161,16 @@ if __name__=='__main__':
         
     
     with mv_engine.connect() as conn:
-        GroupableElements_Map = (pd.read_sql_table('GroupableElements', conn)
+        GroupableElements = (pd.read_sql_table('GroupableElements', conn)
                                .assign(SignalID = lambda x: x.Number.astype('int64'),
                                        DeviceId = lambda x: x.ID.astype('int64')))
+        GroupableElements_IntersectionController = pd.read_sql_table('GroupableElements_IntersectionController', conn)
+    
+        GroupableElements_Map = pd.merge(GroupableElements_IntersectionController[['ID','Intersection_Name']], 
+                                         GroupableElements[['SignalID','DeviceId','Name']], 
+                                         left_on=['ID'], 
+                                         right_on=['DeviceId'], 
+                                         how = 'inner')
 
     bad_detectors = (feather.read_dataframe('bad_detectors.feather')
                         .assign(SignalID = lambda x: x.SignalID.astype('int64'),
@@ -183,7 +190,7 @@ if __name__=='__main__':
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     # Placeholder for manual override of start/end dates
-    #start_date = '2018-12-28'
+    #start_date = '2019-01-24'
     #end_date = '2019-01-01'
     
     dates = pd.date_range(start_date, end_date, freq='1D')
