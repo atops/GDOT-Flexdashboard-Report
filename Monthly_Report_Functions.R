@@ -129,7 +129,7 @@ write_fst_ <- function(df, fn, append = FALSE) {
         ))
             
         df_ <- read_fst(fn)
-        df_ <- bind_rows(df, df_)  %>% 
+        df_ <- bind_rows(df, df_) %>% 
             mutate_at(vars(one_of(factors)), factor)
     } else {
         df_ <- df
@@ -148,7 +148,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Agency = Agency,
                   Name = Name,
                   Asof = date(Asof)) %>%
-        filter(!is.na(Corridor)) %>% 
+        filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
     if (filter_signals == TRUE) {
