@@ -39,6 +39,7 @@ ath = boto3.client('athena')
 
 def etl2(s, date_):
     
+    did = GroupableElements_Map[GroupableElements_Map.SignalID==s].DeviceId.values[0]
     dc_fn = '../ATSPM_Det_Config_Good_{}.feather'.format(date_.strftime('%Y-%m-%d'))
     det_config = (feather.read_dataframe(dc_fn)
                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))
@@ -53,11 +54,17 @@ def etl2(s, date_):
                          .drop(['Date','_merge'], axis=1))
     
     #sum(~pd.isnull(det_config_good['CallPhase.atspm']))
+    monday = (date_ - pd.DateOffset(days=(date_.weekday()))).strftime('%m-%d-%Y')
     
-    query = """SELECT * FROM Controller_Event_Log 
-               WHERE SignalID = '{}'
-               AND EventCode in (1,4,5,6,8,9,31,81,82) 
-               AND (Timestamp BETWEEN '{}' AND '{}');
+    query1 = """SELECT * FROM [ASC_PhasePed_Events_{}]
+               WHERE DeviceID = '{}'
+               AND EventId in (1,4,5,6,8,9,31) 
+               AND (TimeStamp BETWEEN '{}' AND '{}');
+               """
+    query2 = """SELECT * FROM [ASC_Det_Events_{}]
+               WHERE DeviceID = '{}'
+               AND EventId in (81,82) 
+               AND (TimeStamp BETWEEN '{}' AND '{}');
                """
     start_date = date_
     end_date = date_ + pd.DateOffset(days=1) - pd.DateOffset(seconds=0.1)
@@ -69,10 +76,20 @@ def etl2(s, date_):
 
     try:
         print('|{} reading from database...'.format(s))
-        with engine.connect() as conn:
-            df = pd.read_sql(sql=query.format(s, str(start_date)[:-3], str(end_date)[:-3]), con=conn)
-            df = (df.rename(columns={'Timestamp':'TimeStamp'})
-                    .assign(SignalID = df.SignalID.astype('int')))
+        with mv_el_engine.connect() as conn:
+            df = pd.read_sql(sql=query1.format(monday, did, str(start_date)[:-3], str(end_date)[:-3]), con=conn)
+            df1 = (df.rename(columns={'Timestamp':'TimeStamp'})
+                    .assign(SignalID = s))
+            
+        with mv_el_engine.connect() as conn:
+            df = pd.read_sql(sql=query2.format(monday, did, str(start_date)[:-3], str(end_date)[:-3]), con=conn)
+            df2 = (df.rename(columns={'Timestamp':'TimeStamp'})
+                    .assign(SignalID = s))
+            
+        df = (pd.concat([df1, df2])
+                .rename(columns = {'Timestamp': 'TimeStamp', 
+                                   'EventId': 'EventCode', 
+                                   'Parameter': 'EventParam'}))
         
         if len(df)==0:
             print('|{} no event data for this signal on {}.'.format(s, date_str))
@@ -124,7 +141,9 @@ if __name__=='__main__':
         uid = os.environ['ATSPM_USERNAME']
         pwd = os.environ['ATSPM_PASSWORD']
         
-        engine = sq.create_engine('mssql+pyodbc://{}:{}@sqlodbc'.format(uid, pwd),
+        mv_el_engine = sq.create_engine('mssql+pyodbc://{}:{}@MaxView_EventLog'.format(uid, pwd),
+                                  pool_size=20)
+        mv_engine = sq.create_engine('mssql+pyodbc://{}:{}@MaxView'.format(uid, pwd),
                                   pool_size=20)
     
     elif os.name=='posix':
@@ -141,16 +160,18 @@ if __name__=='__main__':
         engine = sq.create_engine('mssql://', creator=connect)
         
     
-    #with engine.connect() as conn:
-    #
-    #    #det_config = pd.read_sql_table('DetectorConfig', con=conn)
-    #    #det_config = det_config.rename(columns={'CallPhase':'Call Phase'})
-    #    
-    #    bad_detectors = (pd.read_sql_table('BadDetectors', con=conn)
-    #                        .assign(SignalID = lambda x: x.SignalID.astype('int64'),
-    #                                Detector = lambda x: x.Detector.astype('int64')))
+    with mv_engine.connect() as conn:
+        GroupableElements = (pd.read_sql_table('GroupableElements', conn)
+                               .assign(SignalID = lambda x: x.Number.astype('int64'),
+                                       DeviceId = lambda x: x.ID.astype('int64')))
+        GroupableElements_IntersectionController = pd.read_sql_table('GroupableElements_IntersectionController', conn)
     
-    #bad_detectors = pd.read_feather('bad_detectors.feather')
+        GroupableElements_Map = pd.merge(GroupableElements_IntersectionController[['ID','Intersection_Name']], 
+                                         GroupableElements[['SignalID','DeviceId','Name']], 
+                                         left_on=['ID'], 
+                                         right_on=['DeviceId'], 
+                                         how = 'inner')
+
     bad_detectors = (feather.read_dataframe('bad_detectors.feather')
                         .assign(SignalID = lambda x: x.SignalID.astype('int64'),
                                 Detector = lambda x: x.Detector.astype('int64')))
@@ -169,7 +190,7 @@ if __name__=='__main__':
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     # Placeholder for manual override of start/end dates
-    #start_date = '2018-12-28'
+    #start_date = '2019-01-24'
     #end_date = '2019-01-01'
     
     dates = pd.date_range(start_date, end_date, freq='1D')

@@ -1709,7 +1709,7 @@ fillRow(
 
 #### **Download TSOS Monthly Reports (docx)**
 
-`r lapply(report_months, function(d) {
+`r lapply(rev(report_months[report_months >= '2018-01-01']), function(d) {
     Month_yyyy <- format(d, "%B %Y")
     yyyy_mm <- format(d, "%Y-%m")
     glue("[{Month_yyyy}](https://s3.amazonaws.com/gdot-devices/TSOS+Monthly+Meeting+Report+-+{yyyy_mm}.docx)")

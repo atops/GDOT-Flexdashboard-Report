@@ -108,7 +108,9 @@ get_progress_report_link_ <- function(corr, current_month_, rtop_) {
     corr_plus <- paste(yyyy, mm, gsub("/", "-", corr))
     corr_plus <- gsub(" ", "+", corr_plus)
     
-    tags$a(href = glue("{AWS_BUCKET}/{rtop_}/{yyyy}-{mm}/{corr_plus}.pdf"), corr)
+    tags$a(href = glue("{AWS_BUCKET}/{rtop_}/{yyyy}-{mm}/{corr_plus}.pdf"), 
+           target = "_blank",
+           corr)
 }
 get_progress_report_link <- memoize(get_progress_report_link_)
 

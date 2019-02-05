@@ -70,6 +70,9 @@ if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     Sys.setenv(TZ="America/New_York")
 }
 
+get_most_recent_monday <- function(date_) {
+    date_ + days(1 - lubridate::wday(date_, week_start  = 1))
+}
 
 get_atspm_connection <- function() {
     
@@ -90,7 +93,29 @@ get_atspm_connection <- function() {
                   pwd = Sys.getenv("ATSPM_PASSWORD"))
     }
 } 
-
+get_maxview_connection <- function(dsn = "MaxView") {
+    
+    if (Sys.info()["sysname"] == "Windows") {
+        
+        dbConnect(odbc::odbc(),
+                  dsn = dsn,
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+        
+    } else if (Sys.info()["sysname"] == "Linux") {
+        
+        dbConnect(odbc::odbc(),
+                  driver = "FreeTDS",
+                  server = Sys.getenv("MAXV_SERVER_INSTANCE"),
+                  database = Sys.getenv("MAXV_EVENTLOG_DB"),
+                  uid = Sys.getenv("ATSPM_USERNAME"),
+                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+    }
+}
+get_maxview_eventlog_connection <- function() {
+    get_maxview_connection(dsn = "MaxView_EventLog")
+}
+get_cel_connection <- get_maxview_eventlog_connection
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
@@ -348,20 +373,33 @@ get_unique_timestamps <- function(df) {
 
 get_gaps <- function(df, signals_list) {
     
+    
     start_date <- floor_date((df %>% 
-                                  arrange(Timestamp) %>% 
-                                  head(1))$Timestamp)
+                                  distinct(Timestamp) %>% 
+                                  arrange(Timestamp) %>%
+                                  head(1) %>% 
+                                  collect())$Timestamp)
+    
     end_date <- floor_date((df %>% 
-                                arrange(Timestamp) %>% 
-                                tail(1))$Timestamp + days(1))
+                                distinct(Timestamp) %>% 
+                                arrange(desc(Timestamp)) %>%
+                                head(1) %>% 
+                                collect())$Timestamp)
+    
+    # start_date <- floor_date((df %>% 
+    #                               arrange(Timestamp) %>% 
+    #                               head(1))$Timestamp)
+    # end_date <- floor_date((df %>% 
+    #                             arrange(Timestamp) %>% 
+    #                             tail(1))$Timestamp + days(1))
     
     bookends <- expand.grid(SignalID = signals_list, 
                             Timestamp = c(start_date, start_date + days(1)))
     
     ts <- df %>% 
-        collect() %>%
         distinct(SignalID, Timestamp) %>%
-
+        collect() %>%
+        
         bind_rows(., bookends) %>%
         distinct() %>%
         mutate(Date = date(Timestamp)) %>%
@@ -381,16 +419,25 @@ get_counts5 <- function(df, det_config, units = "hours", date_, event_code = 82,
     
     if (lubridate::wday(date_, label = TRUE) %in% c("Tue", "Wed", "Thu") || (TWR_only == FALSE)) {
         
+        if (units == "hours") {
+            df <- df %>% 
+                mutate(Timeperiod = dateadd(hh, datediff(hh, 0, Timestamp), 0))
+        } else if (units == "15min") {
+            df <- df %>% 
+                mutate(Timeperiod = dateadd(mi, datediff(mi, 15, Timestamp), 15))
+        }
+        
         df %>%
             filter(EventCode == event_code) %>%
-            mutate(Timeperiod = floor_date(Timestamp, unit = units)) %>%
-            group_by(SignalID, Detector = EventParam, Timeperiod) %>%
+            #mutate(Timeperiod = floor_date(Timestamp, unit = units)) %>%
+            group_by(SignalID, Detector = EventParam, Timeperiod) %>% 
             summarize(vol = n()) %>%
             ungroup() %>%
             
             left_join(det_config, by = c("SignalID", "Detector")) %>%
             
             dplyr::select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
+            collect() %>%
             mutate(SignalID = factor(SignalID),
                    Detector = factor(Detector))
     } else {
@@ -421,9 +468,20 @@ get_counts_tbl <- function(date_, event_code = 82, interval_ = "1 hour") {
     det_config <- get_det_config(start_date) %>%
         dplyr::select(SignalID, Detector, CallPhase)
     
-    conn <- get_atspm_connection()
+    monday <- get_most_recent_monday(ymd(start_date)) %>% format("%m-%d-%Y")
     
-    cel <- tbl(conn, "Controller_Event_Log")
+    
+    mvel_conn <- get_maxview_eventlog_connection()
+    ev <- tbl(mvel_conn, glue("ASC_Det_Events_{monday}"))
+    ge <- tbl(mvel_conn, "GroupableElements")
+    
+    cel <- left_join(ev, ge, by="DeviceId") %>%
+        dplyr::select(Timestamp = TimeStamp, 
+                      SignalID, 
+                      EventCode = EventId, 
+                      EventParam = Parameter)
+    
+    #cel <- tbl(mvel_conn, "controller_event_log")
 
     start_date <- date_
     end_date <- ymd(start_date) + days(1)
@@ -462,15 +520,23 @@ get_counts_tbl <- function(date_, event_code = 82, interval_ = "1 hour") {
 
 get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
-
+    mvel_conn <- get_maxview_eventlog_connection()
+    
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
     if (counts == TRUE) {
         det_config <- get_det_config(start_date) %>%
             dplyr::select(SignalID, Detector, CallPhase)
+        DBI::dbWriteTable(mvel_conn, "DetectorConfiguration", det_config, overwrite = TRUE)
+        DBI::dbSendQuery(mvel_conn, "CREATE CLUSTERED INDEX DetectorConfiguration_idx0 ON DetectorConfiguration(SignalID, Detector);")
+        det_config <- tbl(mvel_conn, "DetectorConfiguration")
+
         ped_config <- get_ped_config(start_date) %>%
             dplyr::select(SignalID, Detector, CallPhase)
+        DBI::dbWriteTable(mvel_conn, "PedestrianConfiguration", ped_config, overwrite = TRUE)
+        DBI::dbSendQuery(mvel_conn, "CREATE CLUSTERED INDEX PedestrianConfiguration_idx0 ON PedestrianConfiguration(SignalID, Detector);")
+        ped_config <- tbl(mvel_conn, "PedestrianConfiguration")
     }
 
     if (uptime == TRUE) {
@@ -493,7 +559,14 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         file.remove(counts_15min_csv_fn)
     }
 
-    conn <- get_atspm_connection()
+    conn <- get_cel_connection()
+    
+    monday <- get_most_recent_monday(ymd(start_date)) %>% format("%m-%d-%Y")
+    dtev <- tbl(mvel_conn, glue("ASC_Det_Events_{monday}"))
+    pdev <- tbl(mvel_conn, glue("ASC_PhasePed_Events_{monday}"))
+    ge <- tbl(mvel_conn, "GroupableElements")
+	#geic <- tbl(mvel_conn, "GroupableElements_IntersectionController")
+    
     
     n <- length(signals_list)
     i <- 20
@@ -504,28 +577,50 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         gc()
         
         print(signals_sublist)
+
+        det_events <- left_join(dtev, ge, by="DeviceId") %>%
+            dplyr::select(Timestamp = TimeStamp,
+                          SignalID,
+                          EventCode = EventId,
+                          EventParam = Parameter) %>%
+            filter(EventCode %in% c(82, 90),
+                   SignalID %in% signals_sublist,
+                   between(Timestamp, start_date, end_time))
         
-        signals_string <- paste(glue("'{signals_sublist}'"), collapse = ",")
+        phase_events <- left_join(pdev, ge, by="DeviceId") %>%
+            dplyr::select(Timestamp = TimeStamp,
+                          SignalID,
+                          EventCode = EventId,
+                          EventParam = Parameter) %>%
+            filter(!EventCode %in% c(43,44),
+                   SignalID %in% signals_sublist,
+                   between(Timestamp, start_date, end_time))
         
-        query = glue("SELECT * FROM Controller_Event_Log 
-                     WHERE Timestamp BETWEEN '{start_date}' AND '{end_time}'
-                     AND EventCode NOT IN (43,44) 
-                     AND SignalID in ({signals_string})")
         
+        # signals_string <- paste(glue("'{signals_sublist}'"), collapse = ",")
+        # 
+        # query = glue("SELECT * FROM controller_event_log 
+        #              WHERE Timestamp BETWEEN '{start_date}' AND '{end_time}'
+        #              AND EventCode NOT IN (43,44) 
+        #              AND SignalID in ({signals_string})")
+        # 
+        # df <- dbGetQuery(conn, query)
+        # print(head(df))        #print(det_events)
         
-        
-        df <- dbGetQuery(conn, query)
-        print(head(df))
-        
+		df <- tbl(conn, "controller_event_log")
 
         if (uptime == TRUE) {
+            
+            #df <- phase_events %>% distinct(SignalID, Timestamp)
 
             uptime_sig <<- bind_rows(uptime_sig, get_gaps(df, signals_sublist))
-            gaps_all <<- bind_rows(gaps_all, get_unique_timestamps(df)) %>% distinct()
+            gaps_all <<- bind_rows(gaps_all, collect(get_unique_timestamps(df))) %>% distinct()
         }
         
 	    if (counts == TRUE) {
-             
+            
+	        #df <- det_events
+	         
             # get 1hr counts
             counts_1hr <- get_counts5(df, 
                                       det_config, 

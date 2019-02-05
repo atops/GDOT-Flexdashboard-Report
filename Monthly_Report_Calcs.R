@@ -68,8 +68,16 @@ dbDisconnect(conn)
 #st_geometry(teams_locations) <- NULL
 #write_feather(teams_locations, "teams_locations.feather")
 
-
-
+# -- Update MaxView GroupableElements in MaxView_EventLog table for faster joins
+mv_conn <- get_maxview_connection()
+mvel_conn <- get_maxview_connection(dsn = "MaxView_EventLog")
+geic <- tbl(mv_conn, "GroupableElements_IntersectionController") %>% 
+    transmute(DeviceId = ID, Name = Intersection_Name) 
+ge <- tbl(mv_conn, "GroupableElements") %>% 
+    transmute(DeviceId = ID, SignalID = as.character(Number)) %>%
+    filter(DeviceId %in% collect(geic)$DeviceId)
+DBI::dbWriteTable(mvel_conn, "GroupableElements", collect(ge), overwrite = TRUE)
+DBI::dbSendQuery(mvel_conn, "CREATE CLUSTERED INDEX GroupableElements_idx0 ON GroupableElements(DeviceId);")
 
 
 
