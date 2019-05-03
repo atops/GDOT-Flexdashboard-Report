@@ -12,22 +12,39 @@ library(aws.s3)
 library(httr)
 
 
-# if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-#     set_config(
-#         use_proxy("gdot-enterprise", port = 8080,
-#                   username = Sys.getenv("GDOT_USERNAME"),
-#                   password = Sys.getenv("GDOT_PASSWORD")))
-# } else { # shinyapps.io
-#     Sys.setenv(TZ="America/New_York")
-#     
-#     config <- yaml.load_file("gdot_watchdog_config.yaml")
-#     
-#     Sys.setenv("AWS_ACCESS_KEY_ID" = config$AWS_ACCESS_KEY_ID,
-#                "AWS_SECRET_ACCESS_KEY" = config$AWS_SECRET_ACCESS_KEY,
-#                "AWS_DEFAULT_REGION" = config$AWS_DEFAULT_REGION)
-# }
+get_alerts_older <- function() {
+    
+    save_object(file = "SPMWatchDogErrorEvents.feather.zip",
+                object = "SPMWatchDogErrorEvents.feather.zip",
+                bucket = "gdot-devices")
+    unzip("SPMWatchDogErrorEvents.feather.zip")
+    
+    alerts <- read_feather("SPMWatchDogErrorEvents.feather")
+    
+    alerts
+}
 
-
+get_alerts <- function() {
+    
+    objs = aws.s3::get_bucket(bucket = 'gdot-spm', prefix = 'mark/watchdog')
+    lapply(objs, function(obj) {
+        key <- obj$Key
+        if (endsWith(key, "feather.zip")) { f = read_zipped_feather }
+        else if (endsWith(key, "fst")) { f = read_fst }
+        
+        aws.s3::s3read_using(FUN = f, object = key, bucket = 'gdot-spm') %>% 
+            as_tibble() %>%
+            transmute(Zone_Group = factor(Zone_Group),
+                      Zone = factor(Zone),
+                      Corridor = factor(Corridor),
+                      SignalID = factor(SignalID),
+                      Phase = factor(CallPhase),
+                      DetectorID = factor(DetectorID),
+                      Date = date(Date),
+                      Name = as.character(Name),
+                      Alert = factor(Alert))
+    }) %>% bind_rows()
+}
 
 
 filter_alerts_by_date <- function(alerts, dr) {
@@ -36,7 +53,7 @@ filter_alerts_by_date <- function(alerts, dr) {
     end_date <- dr[2]
     
     alerts %>%
-        filter(TimeStamp >= start_date & TimeStamp <= end_date)
+        filter(Date >= start_date & Date <= end_date)
 }
 
 filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_)  {
@@ -95,7 +112,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
                 unite(Name2, SignalID2, Name, sep = ": ") %>%
                 mutate(signal_phase = factor(Name2)) 
             
-        } else if (alert_type_ == "Bad Detection") {
+        } else if (alert_type_ == "Bad Vehicle Detection") {
             
             table_df <- df %>%
                 group_by(Zone, SignalID, Name, Detector = as.integer(as.character(DetectorID)), Alert) %>% 
@@ -109,14 +126,28 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
 
-        } else {
+        } else if (alert_type_ == "No Camera Image") {
             
+            table_df <- df %>%
+                group_by(Zone, SignalID, Name, Alert) %>% 
+                summarize("Occurrences" = n()) %>% 
+                ungroup() 
+            
+            plot_df <- df %>%
+                #mutate(DetectorID = as.character(DetectorID)) %>%
+                #unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
+                mutate(SignalID2 = SignalID) %>%
+                unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
+                mutate(signal_phase = factor(signal_phase))
+            
+        } else {
+
             table_df <- df %>%
                 group_by(Zone, SignalID, Name, Phase, Alert) %>% 
                 summarize("Occurrences" = n()) %>% 
                 ungroup() 
             plot_df <- df %>%
-                mutate(Phase = as.character(Phase)) %>% 
+                # mutate(Phase = as.character(Phase)) %>% 
                 unite(signal_phase2, Name, Phase, sep = " | ph ") %>% # potential problem
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
@@ -142,16 +173,5 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
 
 
 
-get_alerts <- function() {
-    
-    save_object(file = "SPMWatchDogErrorEvents.feather.zip",
-                object = "SPMWatchDogErrorEvents.feather.zip",
-                bucket = "gdot-devices")
-    unzip("SPMWatchDogErrorEvents.feather.zip")
-    
-    alerts <- read_feather("SPMWatchDogErrorEvents.feather")
-    
-    alerts
-}
 
 
