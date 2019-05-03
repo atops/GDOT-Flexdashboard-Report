@@ -10,48 +10,57 @@ from datetime import datetime
 from glob import glob
 import re
 import os
+import boto3
+from datetime import date, timedelta
+from dateutil.relativedelta import *
+
+
+s3 = boto3.client('s3')
 
 from dask import delayed, compute
 
 
-def parse_cctvlog(fn):
-    print(fn)
-    with open(fn) as f:
-        json_data = f.read().strip()
-    df = (pd.read_json('[{}]'.format(json_data.replace('\n',',')))
-            .filter(items=['ID','Last-Modified','Content-Length'], axis=1)
+def parse_cctvlog(key):
+
+    df = (pd.read_parquet('s3://gdot-spm/{}'.format(key), columns=['ID', 'Last-Modified', 'Content-Length'])
             .rename(columns = {'ID': 'CameraID', 
                                'Last-Modified': 'Timestamp', 
                                'Content-Length': 'Size'})
             .assign(Timestamp = lambda x: pd.to_datetime(x.Timestamp, 
                                                          format ='%a, %d %b %Y %H:%M:%S %Z')
-                                          .dt.tz_localize('UTC')
-                                          .dt.tz_convert('America/New_York')
-                                          .dt.tz_localize(None))
+            #                                .dt.tz_localize('UTC')
+                                            .dt.tz_convert('America/New_York')
+                                            .dt.tz_localize(None))
             .assign(Date = lambda x: x.Timestamp.dt.date)
             .drop_duplicates())
     
     return df
 
-filenames = glob('../cctvlogs/cctvlog_*.json')
-if os.path.exists('../cctvlogs_Larry'):
-    filenames += glob('../cctvlogs_Larry/cctvlog_*.json')
+td = date.today()
+som = td - timedelta(td.day-1)
+sopm = som - relativedelta(months=1)
+months = pd.date_range(start=sopm, periods=2, freq = 'MS')
 
-today_ = datetime.today().strftime('%Y-%m-%d')
-filenames = [fn for fn in filenames if re.search(today_, fn) == None]
+for mo in months:
+    print(mo.strftime('%Y-%m-%d'))
+    objs = s3.list_objects(Bucket = 'gdot-spm', Prefix = 'mark/cctvlogs/date={}'.format(mo.strftime('%Y-%m')))
 
+    keys = [contents['Key'] for contents in objs['Contents']]
+    keys = [key for key in keys if re.search(td.strftime('%Y-%m-%d'), key) == None]
+    print(len(keys))
+    
+    if len(keys) > 0: 
+        results = []
+        for key in keys:
+            x = delayed(parse_cctvlog)(key)
+            results.append(x)
+        dfs = compute(*results)
+    
+        df = pd.concat(dfs).drop_duplicates()
 
-results = []
-for fn in filenames:
-    x = delayed(parse_cctvlog)(fn)
-    results.append(x)
-dfs = compute(*results)
-
-df = pd.concat(dfs).drop_duplicates()
-df = df[df.Timestamp > '2018-02-01 00:00:00']
-
-
-# Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
-summ = df.groupby(['CameraID','Date']).agg(np.std).fillna(0)
-
-summ.reset_index().to_feather('parsed_cctv.feather')
+    
+        # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
+        summ = df.groupby(['CameraID','Date']).agg(np.std).fillna(0)
+    
+        s3key = 's3://gdot-spm/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(d=mo.strftime('%Y-%m-%d'))
+        summ.reset_index().to_parquet(s3key)

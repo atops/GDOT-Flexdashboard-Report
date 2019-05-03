@@ -22,7 +22,7 @@ plot_alerts <- function(df, date_range) {
             
             # tile plot
             geom_tile(data = df, 
-                      aes(x = TimeStamp, 
+                      aes(x = Date, 
                           y = signal_phase), 
                       fill = GDOT_BLUE, 
                       color = "white") + 

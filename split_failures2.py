@@ -21,6 +21,8 @@ from dask import delayed, compute
 import boto3
 import polling
 
+#from parquet_lib import upload_parquet
+
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
 s3r = boto3.resource('s3')
@@ -42,7 +44,7 @@ def query_athena(query, database, output_bucket):
             lambda: 'Contents' in s3.list_objects(Bucket=output_bucket, 
                                                   Prefix=response['QueryExecutionId']),
             step=0.5,
-            timeout=30)
+            timeout=120)
     print ('Query complete.')
     key = '{}.csv'.format(response['QueryExecutionId'])
     time.sleep(1)
@@ -111,10 +113,19 @@ def helper(date_):
     
     # Moved into function since we're doing so many days. Reduce memory footprint
     if len(sf) > 0:
-        sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
-        sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
+        sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous='infer', nonexistent='NaT')
+        #sf = sf[sf.Hour != pd.to_datetime('2018-03-11 02:00:00')]
+        #sf.Hour = sf.Hour.dt.tz_localize('US/Eastern', ambiguous=True)
         sf = sf.reset_index(drop=True)
-        feather.write_dataframe(sf, 'sf_{}.feather'.format(date_.strftime('%Y-%m-%d')))
+        
+        date_str = date_.strftime('%Y-%m-%d')
+        feather_filename = 'sf_{}.feather'.format(date_str)
+        feather.write_dataframe(sf, feather_filename)
+        
+        #s3.upload_file(Filename = feather_filename,
+        #               Bucket = 'gdot-spm', 
+        #               Key = 'mark/split_failures/date={}/sf_{}.feather'.format(date_str))
+        return feather_filename
         
 if __name__=='__main__':
 
@@ -160,6 +171,7 @@ if __name__=='__main__':
     
     for d in dates:
         helper(d)
+    
     
     #    results = []
     #    for d in dates:

@@ -5,16 +5,30 @@
 mode: beta
 
 
-start_date: yesterday
+# Sections of Monthly_Report_Calcs_ec2 to run
+run:
+    cctv: TRUE
+    travel_times: TRUE
+    counts: TRUE
+    counts_based_measures: TRUE
+    etl: TRUE
+    arrivals_on_green: TRUE
+    queue_spillback: TRUE
+    split_failures: TRUE   # ** reads this file
+    
+
+start_date: 2019-04-28
 end_date: yesterday
 
-report_start_date: 2018-01-01
+report_start_date: 2018-03-01
 report_end_date: yesterday
 
-corridors_filename: corridors.feather
-corridors_xlsx_filename: Corridors_2019-01-03.xlsx
+production_report_end_date: 2019-03-01
 
-cctv_config_filename: Camera_IDs_2019-01-16.csv
+corridors_filename: corridors.feather
+corridors_xlsx_filename: Corridors_Latest.xlsx
+
+cctv_config_filename: Camera_IDs_Latest.csv
 cctv_parsed_filename: parsed_cctv.feather
 
 teams_tasks_filename: TEAMS_Reports/tasks.csv
@@ -25,22 +39,21 @@ xl_uptime:
     path: Vehicle and Ped Detector Info
 
     filenames: 
-        - January Vehicle and Ped Detector Info.xlsx
-        - February Vehicle and Ped Detector Info.xlsx
-        - March Vehicle and Ped Detector Info.xlsx
-        - April Vehicle and Ped Detector Info.xlsx
-        - May Vehicle and Ped Detector Info.xlsx
-        - June Vehicle and Ped Detector Info.xlsx
-        - July Vehicle and Ped Detector Info.xlsx
-        - August Vehicle and Ped Detector Info.xlsx
-        - September Vehicle and Ped Detector Info.xlsx
-        - October Vehicle and Ped Detector Info.xlsx
-        - November Vehicle and Ped Detector Info.xlsx
+        - March 2018 Vehicle and Ped Detector Info.xlsx
+        - April 2018 Vehicle and Ped Detector Info.xlsx
+        - May 2018 Vehicle and Ped Detector Info.xlsx
+        - June 2018 Vehicle and Ped Detector Info.xlsx
+        - July 2018 Vehicle and Ped Detector Info.xlsx
+        - August 2018 Vehicle and Ped Detector Info.xlsx
+        - September 2018 Vehicle and Ped Detector Info.xlsx
+        - October 2018 Vehicle and Ped Detector Info.xlsx
+        - November 2018 Vehicle and Ped Detector Info.xlsx
         - December 2018 Vehicle and Ped Detector Info.xlsx
+        - January 2019 Vehicle and Ped Detector Info.xlsx
+        - February 2019 Vehicle and Ped Detector Info.xlsx
+        - March 2019 Vehicle and Ped Detector Info.xlsx
         
     months:
-        - 2018-01-01
-        - 2018-02-01
         - 2018-03-01
         - 2018-04-01
         - 2018-05-01
@@ -51,6 +64,9 @@ xl_uptime:
         - 2018-10-01
         - 2018-11-01
         - 2018-12-01
+        - 2019-01-01
+        - 2019-02-01
+        - 2019-03-01
 
 
 zone_groups:

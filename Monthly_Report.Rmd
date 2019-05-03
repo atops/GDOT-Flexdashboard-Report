@@ -17,7 +17,7 @@ runtime: shiny
 ---
 
 
-```{r global, cache = TRUE, include = FALSE, warning = FALSE}
+```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
 
@@ -27,7 +27,7 @@ source("Monthly_Report_UI_Functions.R")
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
 
-AWS_BUCKET = "https://s3.amazonaws.com/gdot-devices"
+AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 
 ```
 
@@ -44,13 +44,13 @@ Inputs {.sidebar}
 
 Measurement, Accuracy, and Reliability Kit (MARK 1) 
 
-Past month reports can be viewed back to `r tail(conf$report_months, 1)`.
+Past month reports can be viewed back to `r conf$report_start_date`.
 
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
 if (conf$mode == "production") {
-    current_month <- ymd("2018-12-01")   # Production
+    current_month <- ymd(conf$production_report_end_date)   # Production
 
 } else if (conf$mode == "beta") {
     current_month <- today() - days(6)   # Beta
@@ -1363,7 +1363,7 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({ # Good version
     get_bar_line_dashboard_plot(mr()$wk$papd, mr()$mo$papd, NULL,
-                                "vpd", "integer", highlight_color = GDOT_BLUE,
+                                "papd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = "Ped Activations per Day",
                                 x_line1_title = paste(input$month, "Ped Activations (papd)"),
@@ -1787,13 +1787,27 @@ Zone 6:
 Zone 7: 
 `r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
 
+
+**February 2019 and later**
+
+`r renderUI({get_progress_report_link_by_zone("Zone 1", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 2", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 3", current_month(), "RTOP1")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 4", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 5", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 6", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 7", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
+
+
+
 Watchdog
 =====================================
 
 
 ```{r watchdog}
 
-source("filter_SPM_alerts.R")
+#source("filter_SPM_alerts.R")
 source("plot_functions.R")
 
 
@@ -1812,18 +1826,20 @@ fluidRow(
     ),
     column(width = 3,
          selectInput("alert_type", "Alert:",
-                     choices = c("Missing Records",
+                     choices = c("No Camera Image",
+                                 "Bad Vehicle Detection",
+                                 "Bad Ped Detection",
                                  "Pedestrian Activations",
                                  "Force Offs",
                                  "Max Outs",
                                  "Count",
-                                 "Bad Vehicle Detection",
-                                 "Bad Ped Detection"),
-                     selected = "Missing Records")
+                                 "Missing Records"),
+                     selected = "No Camera Image")
     ),
     column(width = 2,
         conditionalPanel("(input.alert_type == 'Missing Records') ||
-                          (input.alert_type == 'Bad Vehicle Detection')",
+                          (input.alert_type == 'Bad Vehicle Detection') ||
+                          (input.alert_type == 'No Camera Image')",
              selectInput("phase.all", "Phase:",
                          choices = "All",
                          selected = "All")),
@@ -1863,8 +1879,6 @@ fluidRow(
 )
 
 
-alerts <- get_alerts()
-
 
 filtered_alerts <- reactive({
 
@@ -1876,7 +1890,7 @@ filtered_alerts <- reactive({
         "All"
     }
 
-    filter_alerts(alerts_by_date,
+    filter_alerts(alerts_by_date, # filter_mr_data(alerts_by_date, zone_group())
                   input$alert_type,
                   input$zone_group,
                   ph, #input$phase,
@@ -1958,17 +1972,8 @@ renderUI({
 fillCol(height = 700,
 
     renderPlotly({
-        if (input$signalid == "Select") {
-            no_data_plot("")
-        } else {
-            tryCatch({
-                sid <- stringr::str_extract(input$signalid, "^(\\d+)(?=:)")
-                #signal_dashboard_cached_plot(sid)
-                signal_dashboard(sid)
-            }, error = function(e) {
-                no_data_plot("")
-            })
-        }
+        sid <- sub(":.+", "", input$signalid)
+        signal_dashboard_athena(sid, current_month())
     })
 )
 ```
