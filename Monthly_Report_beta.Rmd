@@ -2,8 +2,6 @@
 # ------------------------------
 title: "MARK 1 (beta)"               # Beta
 # ------------------------------
-#title: "MARK 1"                      # Production
-# ------------------------------
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -476,6 +474,20 @@ renderValueBox({
 })
 ```
 
+### Progression Ratio {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq(mr_str(), "mo", "prd", current_month()), 
+                           "pr", as_2dec, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
 ### Spillback Rate {.value-box}
 
 ```{r}
@@ -778,6 +790,21 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(m1dynq("cor", "qu", "aogd", current_quarter()), "aog", as_pct, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+### Progression Ratio {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq("cor", "qu", "prd", current_quarter()), "pr", as_2dec, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -1103,32 +1130,37 @@ fillCol(
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "tp", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "Throughput", RED2, fill_color_ = NULL, as_int) 
+        perf_plot_beta(data.set, "vph", "Throughput", RED2, fill_color_ = NULL, as_int) 
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "aogd", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, fill_color_ = LIGHT_RED, as_pct, ".1%", goal_ = 0.80) 
+        perf_plot_beta(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, fill_color_ = LIGHT_RED, as_pct, ".1%", goal_ = 0.80) 
+    }),
+    renderPlotly({ 
+        data.set <- m1dynq(mr_str(), "mo", "prd", first_month, current_month(), corridor = zone_group())
+        shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot_beta(data.set, "pr", "Progression Ratio\nGoal: 1.2", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 1.20) 
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "qsd", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "qs_freq", "Queue\nSpillback", RED2, fill_color_ = NULL, as_pct, ".1%")
+        perf_plot_beta(data.set, "qs_freq", "Queue\nSpillback", RED2, fill_color_ = NULL, as_pct, ".1%")
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "sfd", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "sf_freq", "Split\nFailure", RED2, fill_color_ = NULL, as_pct, ".1%")
+        perf_plot_beta(data.set, "sf_freq", "Split\nFailure", RED2, fill_color_ = NULL, as_pct, ".1%")
     }),
     renderPlotly({ 
         data.set <- m1dynq("cor", "mo", "tti", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "tti", "Travel Time\nIndex\nGoal: 1.24", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 1.24) 
+        perf_plot_beta(data.set, "tti", "Travel Time\nIndex\nGoal: 2.00", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 2.00) 
     }),
     renderPlotly({ 
         data.set <- m1dynq("cor", "mo", "pti", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "pti", "Planning Time\nIndex\nGoal: 1.32", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 1.32)
+        perf_plot_beta(data.set, "pti", "Planning Time\nIndex\nGoal: 2.00", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 2.00)
     }),
     height = 700)
 ```
@@ -1148,6 +1180,11 @@ fillCol(
         data.set <- m1dynq(mr_str(), "mo", "aogd", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, as_pct, ".1%", goal_ = 0.80) 
+    }),
+    renderPlotly({ 
+        data.set <- m1dynq(mr_str(), "mo", "prd", first_month, current_month(), corridor = zone_group())
+        shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot(data.set, "pr", "Progression Ratio\nGoal: 80%", RED2, as_2dec, ".1f", goal_ = 1.20) 
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "qsd", first_month, current_month(), corridor = zone_group())
@@ -1182,44 +1219,44 @@ fillCol(
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "vpd", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
+        perf_plot_beta(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
     }),
     
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "vphpa", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
+        perf_plot_beta(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "vphpp", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
+        perf_plot_beta(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
     }),
 
     renderPlotly({ 
         data.set <- m1dynq("cor", "mo", "du", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_beta(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
     }),
     renderPlotly({ 
         data.set <- m1dynq("cor", "mo", "ped", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "cctv", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_beta(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "cu", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_beta(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
     }),
     renderPlotly({ 
         data.set <- m1dynq(mr_str(), "mo", "pau", first_month, current_month(), corridor = zone_group())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
     }),
     height = 800)
 ```
@@ -1314,6 +1351,19 @@ renderValueBox({
 })
 ```
 
+### Progression Ratio {.value-box}
+
+```{r, warning = FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq(mr_str(), "mo", "prd", current_month()), 
+                           "pr", as_2dec,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car"
+  )
+})
+```
+
 ### Spillback Rate {.value-box}
 
 ```{r, warning = FALSE}
@@ -1400,6 +1450,22 @@ renderPlotly({
                                 x_line1_title = "AOG Trend",
                                 x_line2_title = paste(input$month, "AOG by TOD"),
                                 plot_title = "Percent Arrivals on Green")
+})
+```
+
+### Progression Ratio
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "pr", first_month, endof_current_month()),
+                                m1dynq(mr_str(), "mo", "prd", current_month()), 
+                                m1dynq(mr_str(), "mo", "prh", current_month()),
+                                "pr", "decimal", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "AOG"),
+                                x_line1_title = "Progression Ratio Trend",
+                                x_line2_title = paste(input$month, "Progression Ratio by TOD"),
+                                plot_title = "Progression Ratio")
 })
 ```
 
@@ -2238,6 +2304,13 @@ Thursdays.
 The calculation takes the ATSPM data, aggregates the counts by cycle and
 interval, and divides the counts in the green intervals by the total counts
 for the cycle, averaged over all cycles.
+
+#### **Progression Ratio**
+
+Progression Ratio is arrivals on green (AOG) percentage divided by the percent green
+for that phase. A ratio of greater than 1 means better than random arrivals.
+
+... more here ...
 
 #### **Queue Spillback Rate**
 

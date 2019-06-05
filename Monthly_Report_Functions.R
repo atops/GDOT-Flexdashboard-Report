@@ -182,6 +182,17 @@ get_athena_connection <- function() {
     }
 }
 
+get_aurora_connection <- function() {
+    
+    RMySQL::dbConnect(RMySQL::MySQL(),
+                      host = Sys.getenv("RDS_HOST"),
+                      port = 3306,
+                      dbname = Sys.getenv("RDS_DATABASE"),
+                      username = Sys.getenv("RDS_USERNAME"),
+                      password = Sys.getenv("RDS_PASSWORD"))
+}
+
+
 get_spark_context <- function() {
     conf <- spark_config()
     conf$sparklyr.defaultPackages <- c("com.amazonaws:aws-java-sdk-pom:1.10.34",
@@ -482,21 +493,6 @@ get_tmc_routes <- function(pth = "TMC_Identification") {
 }
 
 get_det_config <- function(date_) {
-    
-    # s3filename <- glue("atspm_det_config/date={date_}/ATSPM_Det_Config.csv")
-    # s3read_using(read_csv, object = s3filename, bucket = "gdot-devices") %>% 
-    #     mutate(CallPhase = if_else(ProtectedPhaseNumber > 0, ProtectedPhaseNumber, PermissivePhaseNumber)) %>%
-    #     #select(SignalID, Detector, CallPhase, TimeFromStopBar) %>%
-    #     replace_na(list(TimeFromStopBar = 0)) %>%
-    #     
-    #     transmute(SignalID = factor(SignalID), 
-    #               Detector = factor(Detector), 
-    #               CallPhase = factor(CallPhase),
-    #               #CallPhase.atspm = as.integer(CallPhase_atspm),
-    #               #CallPhase.maxtime = as.integer(CallPhase_maxtime),
-    #               TimeFromStopBar = TimeFromStopBar,
-    #               Date = date(date_))
-    
     
     s3path <- glue('atspm_det_config_good/date={date_}')
     s3key <- "ATSPM_Det_Config_Good.feather"
@@ -953,28 +949,6 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
 }
 get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
     
-    # drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-    #             classPath = "../../AthenaJDBC42_2.0.2.jar",
-    #             identifier.quote = "'")
-    # 
-    # if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-    # 
-    #     conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-    #                       s3_staging_dir = 's3://gdot-spm-athena',
-    #                       user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-    #                       password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-    #                       ProxyHost = "gdot-enterprise",
-    #                       ProxyPort = "8080",
-    #                       ProxyUID = Sys.getenv("GDOT_USERNAME"),
-    #                       ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-    # } else {
-    #     
-    #     conn <- dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-    #                       s3_staging_dir = 's3://gdot-spm-athena',
-    #                       user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-    #                       password = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
-    # }
-    
     conn <- get_athena_connection()
     
     if (TWR_only == TRUE) {
@@ -989,43 +963,19 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only
     
     end_date1 <- ymd(end_date) + days(1)
     
-    signals_list <- as.integer(signals_list)
+    #signals_list <- as.integer(signals_list)
     
     dplyr::filter(df, date >= start_date & date < end_date1) # &
     #signalid %in% signals_list)
 }
 # Query Cycle Data
-get_cycle_data <- function(start_date, end_date, signals_list) {
+get_cycle_data <- function(start_date, end_date, signals_list = NULL) {
     get_spm_data_aws(start_date, end_date, signals_list, table = "CycleData", TWR_only = FALSE)
 }
 # Query Detection Events
-get_detection_events <- function(start_date, end_date, signals_list) {
+get_detection_events <- function(start_date, end_date, signals_list = NULL) {
     get_spm_data_aws(start_date, end_date, signals_list, table = "DetectionEvents", TWR_only = FALSE)
 }
-
-# get_detector_count <- function(signals_list) {
-#     
-#     conn <- get_atspm_connection()
-#     
-#     det <- tbl(conn, "DetectorConfig") %>%
-#         dplyr::filter(SignalID %in% signals_list & CallPhase %in% c(2,6)) %>%
-#         mutate(SignalID = as.character(SignalID)) %>%
-#         collect() %>%
-#         group_by(SignalID, CallPhase) %>%
-#         summarize(Detectors = n())
-#     
-#     dbDisconnect(conn)
-#     
-#     det
-# }
-
-# get_bad_detectors <- function(filtered_counts_1hr) {
-#     filtered_counts_1hr %>% 
-#         ungroup() %>% 
-#         filter(Good_Day == 0) %>% 
-#         distinct(Date, SignalID, Detector) %>% 
-#         arrange(Date, SignalID, Detector)
-# }
 
 get_detector_uptime <- function(filtered_counts_1hr) {
     filtered_counts_1hr %>%
@@ -1078,8 +1028,44 @@ get_thruput <- function(counts) {
     # SignalID | CallPhase | Date | Week | DOW | vph
 }
 
+
+
 # SPM Arrivals on Green -- modified for use with dbplyr on AWS Athena
 get_aog <- function(cycle_data) {
+    
+    df <- cycle_data %>%
+        filter(Phase %in% c(2,6)) %>%
+        group_by(SignalID, Phase, CycleStart, Duration, EventCode) %>% 
+        summarize(Volume = sum(Volume, na.rm = TRUE)) %>% 
+        group_by(SignalID, Phase, CycleStart) %>% 
+        mutate(Total_Volume = sum(Volume, na.rm = TRUE),
+               Total_Duration = sum(Duration, na.rm = TRUE),
+               CallPhase = Phase) %>% 
+        filter(EventCode == 1) %>%
+        
+        
+        group_by(SignalID, CallPhase, 
+                 Hour = date_trunc('hour', CycleStart)) %>%
+        summarize(vol = sum(Total_Volume, na.rm = TRUE),
+                  aog = sum(Volume, na.rm = TRUE)/pmax(1, sum(Total_Volume, na.rm = TRUE)),
+                  gC = sum(Duration, na.rm = TRUE)/pmax(1, sum(Total_Duration, na.rm = TRUE))) %>%
+        ungroup() %>%
+        mutate(pr = aog/gC) %>%
+        
+        collect %>% 
+        
+        mutate(SignalID = factor(SignalID),
+               vol = as.integer(vol),
+               CallPhase = factor(CallPhase),
+               Date_Hour = lubridate::ymd_hms(Hour),
+               Date = date(Date_Hour),
+               DOW = wday(Date), 
+               Week = week(Date)) %>%
+
+        dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, pr, vol)
+}
+
+get_aog_older_no_progression_ratio <- function(cycle_data) {
     
     df <- cycle_data %>% 
         filter(Phase %in% c(2,6)) %>%
@@ -1092,7 +1078,7 @@ get_aog <- function(cycle_data) {
         filter(EventCode == 1) %>%
         
         
-        group_by(SignalID = SignalID, CallPhase, 
+        group_by(SignalID, CallPhase, 
                  Hour = date_trunc('hour', CycleStart)) %>%
         summarize(vol = sum(Total_Volume, na.rm = TRUE),
                   aog = sum(Volume, na.rm = TRUE)/sum(Total_Volume, na.rm = TRUE)) %>%
@@ -1120,10 +1106,197 @@ get_daily_aog <- function(aog) {
                CallPhase = factor(CallPhase)) %>%
         filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
         group_by(SignalID, CallPhase, Date, Week, DOW) %>%
-        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE))
+        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE)) %>%
+        ungroup()
     
     # SignalID | CallPhase | Date | Week | DOW | aog | vol
 }
+
+get_daily_pr <- function(aog) {
+    
+    aog %>%
+        ungroup() %>%
+        mutate(DOW = wday(Date), 
+               Week = week(Date),
+               CallPhase = factor(CallPhase)) %>%
+        #filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
+        group_by(SignalID, CallPhase, Date, Week, DOW) %>%
+        summarize(pr = weighted.mean(pr, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE)) %>%
+        ungroup()
+    
+    # SignalID | CallPhase | Date | Week | DOW | pr | vol
+}
+
+# SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
+get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) {
+    
+    
+    de <- detection_events %>% 
+        filter(phase %in% c(3, 4, 7, 8)) %>%
+        select(signalid,
+               phase,
+               detector,
+               cyclestart,
+               dettimestamp,
+               detduration,
+               date) %>%
+        arrange(signalid, phase, cyclestart) %>%
+
+        collect() %>% 
+        transmute(signalid = factor(signalid),
+                  phase = factor(phase), 
+                  detector = detector, 
+                  cyclestart = ymd_hms(cyclestart),
+                  deton = ymd_hms(dettimestamp),
+                  detoff = ymd_hms(dettimestamp) + seconds(detduration),
+                  date = ymd(date))
+    
+    print(head(de))
+    
+    cd <- cycle_data %>% 
+        filter(phase %in% c(3, 4, 7, 8)) %>%
+        arrange(signalid, phase, cyclestart, phasestart)
+        
+    
+        
+    
+    
+    
+    green_interval <- cd %>% 
+        filter(eventcode == 1) %>%
+        select(signalid, 
+               phase, 
+               cyclestart, 
+               intervalstart = phasestart, 
+               intervalend = phaseend,
+               date) %>% 
+        
+        collect() %>% 
+        mutate(signalid = factor(signalid),
+               phase = factor(phase),
+               cyclestart = ymd_hms(cyclestart),
+               intervalstart = ymd_hms(intervalstart),
+               intervalend = ymd_hms(intervalend),
+               date = ymd(date))
+    
+    
+    
+    sor_interval <- cd %>% 
+        filter(eventcode == 9) %>%
+        select(signalid,
+               phase,
+               cyclestart,
+               intervalstart = phasestart,
+               date) %>%
+        
+        collect() %>%
+        mutate(signalid = factor(signalid),
+               phase = factor(phase),
+               cyclestart = ymd_hms(cyclestart),
+               intervalstart = ymd_hms(intervalstart),
+               intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
+               date = ymd(date))
+    
+
+    
+    
+    de_dt <- data.table(de)
+    gr_dt <- data.table(green_interval)
+    sr_dt <- data.table(sor_interval)
+    
+    setkey(de_dt, signalid, phase, deton, detoff)
+    setkey(gr_dt, signalid, phase, intervalstart, intervalend)
+    setkey(sr_dt, signalid, phase, intervalstart, intervalend)
+    
+    
+    
+    ## ---
+    
+    get_occupancy <- function(dt, int_dt) {
+        occdf <- foverlaps(de_dt, int_dt, type = "any") %>% 
+            as_tibble() %>% 
+            filter(!is.na(intervalstart))%>% 
+            
+            mutate(int_int = interval(intervalstart, intervalend), 
+                   occ_int = interval(deton, detoff), 
+                   occ_duration = as.duration(intersect(occ_int, int_int)),
+                   int_duration = as.duration(int_int)) %>%
+            
+            dplyr::select(signalid, phase, detector, cyclestart,
+                          intervalstart, intervalend,
+                          int_int,
+                          occ_int,
+                          occ_duration, int_duration)
+        
+        
+        occdf <- full_join(green_interval, 
+                           occdf, 
+                           by = c("signalid", "phase", 
+                                  "cyclestart", "intervalstart", "intervalend")) %>% 
+            tidyr::replace_na(list(detector = 0, occ_duration = 0, int_duration = 1))  %>%
+            
+            group_by(signalid, phase, detector, cyclestart) %>%
+            summarize(occ = sum(occ_duration)/max(int_duration)) %>%
+            
+            group_by(signalid, phase, cyclestart) %>%
+            summarize(occ = max(occ)) %>%
+            ungroup() %>%
+            
+            mutate(signalid = factor(signalid),
+                   phase = factor(phase))
+        
+        
+        occdf
+    }
+    
+    
+    grn_occ <- get_occupancy(de_dt, gr_dt) %>% rename(gr_occ = occ)
+    sor_occ <- get_occupancy(de_dt, sr_dt) %>% rename(sr_occ = occ)
+    
+    
+    
+    
+    df <- full_join(grn_occ, sor_occ, by = c("signalid", "phase", "cyclestart")) %>%
+        mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
+    
+    # if a split failure on any phase
+    df0 <- df %>% group_by(signalid, phase = factor(0), cyclestart) %>% 
+        summarize(sf = max(sf))
+    
+    df <- bind_rows(df, df0) %>% 
+        mutate(phase = factor(phase)) %>%
+        
+        group_by(signalid, phase, hour = floor_date(cyclestart, unit = "hour")) %>% 
+        summarize(sf_freq = sum(sf, na.rm = TRUE)/n(), cycles = n()) %>%
+        ungroup() %>%
+        
+        transmute(SignalID = signalid, 
+                  CallPhase = phase, 
+                  Date_Hour = hour,
+                  Date = as.Date(hour),
+                  Hour = hour - days(day(hour) - 1),
+                  sf_freq = sf_freq,
+                  cycles = cycles)
+    
+    # SignalID | CallPhase | Date_Hour | Date | Hour | sf_freq | cycles
+}
+
+get_daily_sf_utah <- function(sf) {
+    
+    sf %>%
+        ungroup() %>%
+        mutate(DOW = wday(Date), 
+               Week = week(Date),
+               CallPhase = factor(CallPhase),
+               Peak = if_else(hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS),
+                              TRUE, FALSE)) %>%
+        #filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
+        group_by(SignalID, CallPhase, Date, Week, DOW, Peak) %>%
+        summarize(sf_freq = weighted.mean(sf_freq, vol, na.rm = TRUE), cycles = sum(cycles, na.rm = TRUE))
+    
+    # SignalID | CallPhase | Date | Week | DOW | Peak | sf_freq | cycles
+}
+
 
 # SPM Split Failures
 get_sf <- function(df) {
@@ -1789,6 +1962,9 @@ get_weekly_thruput <- function(throughput) {
 get_weekly_aog_by_day <- function(daily_aog) {
     get_weekly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
+get_weekly_pr_by_day <- function(daily_pr) {
+    get_weekly_avg_by_day(daily_pr, "pr", "vol", peak_only = TRUE)
+}
 get_weekly_sf_by_day <- function(sf) {
     get_weekly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
@@ -1807,6 +1983,9 @@ get_cor_weekly_thruput <- function(weekly_throughput, corridors) {
 }
 get_cor_weekly_aog_by_day <- function(weekly_aog, corridors) {
     get_cor_weekly_avg_by_day(weekly_aog, corridors, "aog", "vol")
+}
+get_cor_weekly_pr_by_day <- function(weekly_pr, corridors) {
+    get_cor_weekly_avg_by_day(weekly_pr, corridors, "pr", "vol")
 }
 get_cor_weekly_sf_by_day <- function(weekly_sf, corridors) {
     get_cor_weekly_avg_by_day(weekly_sf, corridors, "sf_freq", "cycles")
@@ -1829,6 +2008,9 @@ get_monthly_thruput <- function(throughput) {
 get_monthly_aog_by_day <- function(daily_aog) {
     get_monthly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
+get_monthly_pr_by_day <- function(daily_pr) {
+    get_monthly_avg_by_day(daily_pr, "pr", "vol", peak_only = TRUE)
+}
 get_monthly_sf_by_day <- function(sf) {
     get_monthly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
@@ -1847,6 +2029,9 @@ get_cor_monthly_thruput <- function(monthly_throughput, corridors) {
 }
 get_cor_monthly_aog_by_day <- function(monthly_aog_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_aog_by_day, corridors, "aog", "vol")
+}
+get_cor_monthly_pr_by_day <- function(monthly_pr_by_day, corridors) {
+    get_cor_monthly_avg_by_day(monthly_pr_by_day, corridors, "pr", "vol")
 }
 get_cor_monthly_sf_by_day <- function(monthly_sf_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_sf_by_day, corridors, "sf_freq", "cycles")
@@ -1902,6 +2087,9 @@ get_aog_by_hr <- function(aog) {
     
     # SignalID | CallPhase | Week | DOW | Hour | aog | vol
 }
+get_pr_by_hr <- function(aog) {
+    get_avg_by_hr(aog, "pr", "vol")
+}
 get_sf_by_hr <- function(sf) {
     get_avg_by_hr(sf, "sf_freq", "cycles")
 }
@@ -1938,6 +2126,11 @@ get_monthly_aog_by_hr <- function(aog_by_hr) {
     
     # SignalID | CallPhase | Hour | vph
 }
+get_monthly_pr_by_hr <- function(pr_by_hr) {
+    
+    get_monthly_aog_by_hr(rename(pr_by_hr, aog = pr)) %>%
+        rename(pr = aog)
+}
 get_monthly_sf_by_hr <- function(sf_by_hr) {
     
     get_monthly_aog_by_hr(rename(sf_by_hr, aog = sf_freq, vol = cycles)) %>%
@@ -1960,6 +2153,9 @@ get_cor_monthly_paph <- function(monthly_paph, corridors) {
 get_cor_monthly_aog_by_hr <- function(monthly_aog_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_aog_by_hr, corridors, "aog", "vol")
     # Corridor | Hour | vph
+}
+get_cor_monthly_pr_by_hr <- function(monthly_pr_by_hr, corridors) {
+    get_cor_monthly_avg_by_hr(monthly_pr_by_hr, corridors, "pr", "vol")
 }
 get_cor_monthly_sf_by_hr <- function(monthly_sf_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_sf_by_hr, corridors, "sf_freq", "cycles")
@@ -2373,7 +2569,8 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
     }
     
     quarterly_df %>%
-        mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_))
+        mutate(delta = ((!!var_) - lag(!!var_))/lag(!!var_)) %>%
+        ungroup()
 }
 
 # Activities
@@ -2922,7 +3119,8 @@ get_pau <- function(df){
         ungroup() %>%
         mutate(SignalID = as.character(SignalID),
                CallPhase = as.character(CallPhase),
-               probbad = if_else(papd == 0, 1 - lambda ** ms, 0))
+               probbad = if_else(papd == 0, 1 - lambda ** ms, 0)) %>%
+        filter(Date <= max(df$Date))
     
     bad_ped_detectors <- pau %>% 
         filter(probbad > 0.99) %>%
@@ -2941,3 +3139,37 @@ get_pau <- function(df){
         ungroup()
     
 }
+
+
+dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
+    # per is Month|Date|Hour|Quarter
+    if ("Date" %in% names(df)) {
+        per = "Date"
+    } else if ("Hour" %in% names(df)) {
+        per = "Hour"
+    } else if ("Month" %in% names(df)) {
+        per = "Month"
+    } else if ("Quarter" %in% names(df)) {
+        per = "Quarter"
+    }
+    
+    if (!is.null(asof)) {
+        df <- df[df[[per]] >= asof,]
+    }
+    df <- df[!is.na(df[[per]]),]
+    
+    min_per <- min(df[[per]])
+    max_per <- max(df[[per]])
+    
+    count_query <- sql(glue("SELECT COUNT(*) FROM {table_name} WHERE {per} >= '{min_per}'"))
+    num_del <- dbGetQuery(conn, count_query)[1,1]
+    
+    delete_query <- sql(glue("DELETE FROM {table_name} WHERE {per} >= '{min_per}'"))
+    print(delete_query)
+    print(glue("{num_del} records being deleted."))
+    
+    dbSendQuery(conn, delete_query)
+    RMySQL::dbWriteTable(conn, table_name, df, append = TRUE, row.names = FALSE)
+    print(glue("{nrow(df)} records uploaded."))
+}
+

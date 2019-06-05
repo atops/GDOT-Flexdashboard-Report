@@ -373,7 +373,39 @@ if (conf$run$queue_spillback == TRUE) {
 # # GET SPLIT FAILURES ########################################################
 
 print(glue("{Sys.time()} split failures [10 of 10]"))
+
+get_sf_date_range <- function(start_date, end_date) {
+    
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    
+    foreach(date_ = date_range) %dopar% {
+        cycle_data <- get_cycle_data(date_, date_, signals_list)
+        detection_events <- get_detection_events(date_, date_, signals_list)
+        if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
+            sf <- get_sf_utah(cycle_data, detection_events)
+            s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures_utah")
+        }
+    }
+    registerDoSEQ()
+    gc()
+    
+    # lapply(dates, function(date_) {
+    #     print(date_)
+    #     
+    #     cycle_data <- get_cycle_data(date_, date_, signals_list)
+    #     detection_events <- get_detection_events(date_, date_, signals_list)
+    #     if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
+    #         sf <- get_sf_utah(cycle_data, detection_events)
+    #         s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures_utah")
+    #     }
+    #})
+}
+
 if (conf$run$split_failures == TRUE) {
+
+    #get_sf_date_range(start_date, end_date)
+
+    
     
     system("python split_failures2.py", wait = TRUE) # python script and wait for completion
     

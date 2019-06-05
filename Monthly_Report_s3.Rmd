@@ -1,8 +1,6 @@
 ---
 # ------------------------------
-title: "MARK 1 (beta)"               # Beta
-# ------------------------------
-#title: "MARK 1"                      # Production
+title: "MARK 1"                      # Production
 # ------------------------------
 output: 
   flexdashboard::flex_dashboard:
@@ -20,7 +18,6 @@ runtime: shiny
 ```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
-options(warn = -1)
 
 source("Monthly_Report_UI_Functions.R")
 
@@ -52,7 +49,6 @@ RTOP Concept of Operations can be found
 `r tags$a(href = "https://s3.amazonaws.com/gdot-spm/GDOT_STORM-COO.pdf", 
            target = "_blank",
            "here")`
-
 
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
@@ -231,7 +227,6 @@ conditionalPanel("input.zone_group == 'Cobb County'",
                              selected = "All Corridors"))
 
 current_month <- reactive(lubridate::dmy(paste(1, input$month)))
-endof_current_month <- reactive(lubridate::dmy(paste(1, input$month)) + months(1) - days(1))
 current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
 
 
@@ -290,13 +285,13 @@ zone_group <- reactive(
 )
 
 
-# mr <- reactive(
-#     if (corridor() == "All Corridors") {
-#         cor
-#     } else {
-#         sig
-#     }
-# )
+mr <- reactive(
+    if (corridor() == "All Corridors") {
+        cor
+    } else {
+        sig
+    }
+)
 
 
 filtered_corridors <- reactive({
@@ -335,19 +330,11 @@ filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
 # 
-# renderText({"\nEnd of Selected Month"})
-# renderPrint({endof_current_month()})
-# 
 # renderText({"Selected Zone Group"})
 # renderPrint({zone_group()})
 # 
 # renderText({"Selected Corridor"})
 # renderPrint({corridor()})
-# 
-# renderText({"Selected Querter"})
-# renderPrint({current_quarter()})
-
-
 ```
 
 
@@ -361,71 +348,8 @@ mr_str <- reactive(
     }
 )
 
-#m1dynq_ <- memoize(m1dynq)
 
-# dy_du <- m1dynq_(mr_str(), "dy", "du", first_month, endof_current_month())
-# dy_cu <- m1dynq_(mr_str(), "dy", "cu", first_month, endof_current_month())
-# dy_pau <- m1dynq_(mr_str(), "dy", "pau", first_month, endof_current_month())
-# dy_cctv <- m1dynq_(mr_str(), "dy", "cctv", first_month, endof_current_month())
-# 
-# wk_vpd <- m1dynq_(mr_str(), "wk", "vpd", first_month, endof_current_month())
-# wk_vph <- m1dynq_(mr_str(), "wk", "vph", first_month, endof_current_month())
-# wk_vphpa <- m1dynq_(mr_str(), "wk", "vphpa", first_month, endof_current_month())
-# wk_vphpp <- m1dynq_(mr_str(), "wk", "vphpp", first_month, endof_current_month())
-# wk_papd <- m1dynq_(mr_str(), "wk", "papd", first_month, endof_current_month())
-# wk_paph <- m1dynq_(mr_str(), "wk", "paph", first_month, endof_current_month())
-# wk_tp <- m1dynq_(mr_str(), "wk", "tp", first_month, endof_current_month())
-# wk_aog <- m1dynq_(mr_str(), "wk", "aog", first_month, endof_current_month())
-# wk_qs <- m1dynq_(mr_str(), "wk", "qs", first_month, endof_current_month())
-# wk_sf <- m1dynq_(mr_str(), "wk", "sf", first_month, endof_current_month())
-# wk_cu <- m1dynq_(mr_str(), "wk", "cu", first_month, endof_current_month())
-# wk_pau <- m1dynq_(mr_str(), "wk", "pau", first_month, endof_current_month())
-# wk_cctv <- m1dynq_(mr_str(), "wk", "cctv", first_month, endof_current_month())
-# 
-# mo_vpd <- m1dynq_(mr_str(), "mo", "vpd", first_month, current_month())
-# mo_vph <- m1dynq_(mr_str(), "mo", "vph", first_month, current_month())
-# mo_vphpa <- m1dynq_(mr_str(), "mo", "vphpa", first_month, current_month())
-# mo_vphpp <- m1dynq_(mr_str(), "mo", "vphpp", first_month, current_month())
-# mo_papd <- m1dynq_(mr_str(), "mo", "papd", first_month, current_month())
-# mo_paph <- m1dynq_(mr_str(), "mo", "paph", first_month, current_month())
-# mo_tp <- m1dynq_(mr_str(), "mo", "tp", first_month, current_month())
-# mo_aogd <- m1dynq_(mr_str(), "mo", "aogd", first_month, current_month())
-# mo_aogh <- m1dynq_(mr_str(), "mo", "aogh", first_month, current_month())
-# mo_qsd <- m1dynq_(mr_str(), "mo", "qsd", first_month, current_month())
-# mo_qsh <- m1dynq_(mr_str(), "mo", "qsh", first_month, current_month())
-# mo_sfd <- m1dynq_(mr_str(), "mo", "sfd", first_month, current_month())
-# mo_sfh <- m1dynq_(mr_str(), "mo", "sfh", first_month, current_month())
-# mo_tti <- m1dynq_(mr_str(), "mo", "tti", first_month, current_month())
-# mo_ttih <- m1dynq_(mr_str(), "mo", "ttih", first_month, current_month())
-# mo_pti <- m1dynq_(mr_str(), "mo", "pti", first_month, current_month())
-# mo_ptih <- m1dynq_(mr_str(), "mo", "ptih", first_month, current_month())
-# mo_du <- m1dynq_(mr_str(), "mo", "du", first_month, current_month())
-# mo_cu <- m1dynq_(mr_str(), "mo", "cu", first_month, current_month())
-# mo_pau <- m1dynq_(mr_str(), "mo", "pau", first_month, current_month())
-# mo_veh <- m1dynq_(mr_str(), "mo", "veh", first_month, current_month())
-# mo_ped <- m1dynq_(mr_str(), "mo", "ped", first_month, current_month())
-# mo_cctv <- m1dynq_(mr_str(), "mo", "cctv", first_month, current_month())
-# mo_events <- m1dynq_(mr_str(), "mo", "events", first_month, current_month())
-# 
-# qu_vpd <- m1dynq_(mr_str(), "qu", "vpd", current_quarter())
-# qu_vph <- m1dynq_(mr_str(), "qu", "vph", current_quarter())
-# qu_vphpa <- m1dynq_(mr_str(), "qu", "vphpa", current_quarter())
-# qu_vphpp <- m1dynq_(mr_str(), "qu", "vphpp", current_quarter())
-# qu_tp <- m1dynq_(mr_str(), "qu", "tp", current_quarter())
-# qu_aogd <- m1dynq_(mr_str(), "qu", "aogd", current_quarter())
-# qu_qsd <- m1dynq_(mr_str(), "qu", "qsd", current_quarter())
-# qu_sfd <- m1dynq_(mr_str(), "qu", "sfd", current_quarter())
-# qu_tti <- m1dynq_(mr_str(), "qu", "tti", current_quarter())
-# qu_pti <- m1dynq_(mr_str(), "qu", "pti", current_quarter())
-# qu_du <- m1dynq_(mr_str(), "qu", "du", current_quarter())
-# qu_cu <- m1dynq_(mr_str(), "qu", "cu", current_quarter())
-# qu_pau <- m1dynq_(mr_str(), "qu", "pau", current_quarter())
-# qu_veh <- m1dynq_(mr_str(), "qu", "veh", current_quarter())
-# qu_ped <- m1dynq_(mr_str(), "qu", "ped", current_quarter())
-# qu_cctv <- m1dynq_(mr_str(), "qu", "cctv", current_quarter())
-# qu_reported <- m1dynq_(mr_str(), "qu", "reported", current_quarter())
-# qu_resolved <- m1dynq_(mr_str(), "qu", "resolved", current_quarter())
-# qu_outstanding <- m1dynq_(mr_str(), "qu", "outstanding", current_quarter())
+
 
 ```
 
@@ -453,8 +377,7 @@ Row
 ```{r cache = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "tp", current_month()), 
-                           "vph", as_int, 
+      value = get_valuebox(mr()$mo$tp, "vph", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-bar-chart",
     color = BLUE
@@ -467,8 +390,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "aogd", current_month()), 
-                           "aog", as_pct, 
+      value = get_valuebox(mr()$mo$aogd, "aog", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -481,7 +403,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "qsd", current_month()), "qs_freq", as_pct, 
+      value = get_valuebox(mr()$mo$qsd, "qs_freq", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -494,7 +416,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "sfd", current_month()), "sf_freq", as_pct, 
+      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -507,8 +429,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "tti", current_month()), 
-                           "tti", as_2dec, 
+      value = get_valuebox(cor$mo$tti, "tti", as_2dec, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-dashboard",
     color = BLUE
@@ -521,8 +442,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "pti", current_month()), 
-                           "pti", as_2dec, 
+      value = get_valuebox(cor$mo$pti, "pti", as_2dec, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-dashboard",
     color = BLUE
@@ -547,9 +467,8 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq(mr_str(), "mo", "vpd", current_month()), 
-                         "vpd", as_int, 
-                         zone = zone_group(), mo = current_month(), break_ = FALSE),
+    value = get_valuebox(mr()$mo$vpd, "vpd", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
   )
@@ -560,13 +479,12 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(m1dynq(mr_str(), "mo", "vphpa", current_month()), 
-                             "vph", as_int, 
-                             zone = zone_group(), mo = current_month(), break_ = FALSE),
-        icon = "fa-area-chart",
-        color = BLUE
-    )
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart",
+    color = BLUE
+  )
 })
 ```
 
@@ -574,13 +492,12 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(m1dynq(mr_str(), "mo", "vphpp", current_month()), 
-                             "vph", as_int, 
-                             zone = zone_group(), mo = current_month(), break_ = FALSE),
-        icon = "fa-area-chart",
-        color = BLUE
-    )
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int, 
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart",
+    color = BLUE
+  )
 })
 ```
 
@@ -611,8 +528,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "veh", current_month()), 
-                           "uptime", as_pct, 
+      value = get_valuebox(cor$mo$veh, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -625,8 +541,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "ped", current_month()), 
-                           "uptime", as_pct, 
+      value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child",
     color = BLUE
@@ -639,7 +554,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq(mr_str(), "mo", "cctv", current_month()), "uptime", as_pct, 
+    value = get_valuebox(mr()$mo$cctv, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
     color = BLUE
@@ -652,7 +567,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "cu", current_month()), "uptime", as_pct, 
+      value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "ion-paper-airplane", #"fa-user" #
     color = BLUE
@@ -665,8 +580,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "pau", current_month()), 
-                           "uptime", as_pct, 
+      value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child",
     color = BLUE
@@ -689,8 +603,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.rep), 
-                         "Reported", as_int, 
+    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -703,7 +616,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.res), "Resolved", as_int, 
+    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -716,7 +629,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.out), "Outstanding", as_int, 
+    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -762,7 +675,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "tp", current_quarter()), "vph", as_int, 
+      value = get_valuebox(cor$qu$tp, "vph", as_int, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -777,7 +690,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "aogd", current_quarter()), "aog", as_pct, 
+      value = get_valuebox(cor$qu$aogd, "aog", as_pct, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -792,7 +705,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "qsd", current_quarter()), "qs_freq", as_pct, 
+      value = get_valuebox(cor$qu$qsd, "qs_freq", as_pct, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -807,7 +720,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "sfd", current_quarter()), "sf_freq", as_pct, 
+      value = get_valuebox(cor$qu$sfd, "sf_freq", as_pct, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -822,7 +735,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "tti", current_quarter()), "tti", as_2dec, 
+      value = get_valuebox(cor$qu$tti, "tti", as_2dec, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -837,7 +750,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "pti", current_quarter()), "pti", as_2dec, 
+      value = get_valuebox(cor$qu$pti, "pti", as_2dec, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -864,8 +777,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "vpd", current_quarter()), 
-                         "vpd", as_int, 
+    value = get_valuebox(cor$qu$vpd, "vpd", as_int, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = FALSE),
@@ -880,8 +792,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "vphpa", current_quarter()), 
-                           "vph", as_int, 
+      value = get_valuebox(cor$qu$vphpa, "vph", as_int, 
                            zone = zone_group(), 
                            mo = current_month(),
                            qu = current_quarter(), break_ = FALSE),
@@ -896,8 +807,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "vphpp", current_quarter()), 
-                           "vph", as_int, 
+      value = get_valuebox(cor$qu$vphpp, "vph", as_int, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
@@ -935,8 +845,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "veh", current_quarter()), 
-                           "uptime", as_pct, 
+      value = get_valuebox(cor$qu$veh, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -952,8 +861,7 @@ renderValueBox({
 
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "ped", current_quarter()), 
-                         "uptime", as_pct, 
+    value = get_valuebox(cor$qu$ped, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -968,8 +876,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "cctv", current_quarter()), 
-                         "uptime", as_pct, 
+    value = get_valuebox(cor$qu$cctv, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -984,8 +891,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "cu", current_quarter()), 
-                           "uptime", as_pct, 
+      value = get_valuebox(cor$qu$cu, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -1001,8 +907,7 @@ renderValueBox({
 
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "pau", current_quarter()), 
-                         "uptime", as_pct, 
+    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -1027,8 +932,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "qu", "reported", current_quarter()), 
-                           "Reported", as_int, 
+      value = get_valuebox(cor$qu$reported, "Reported", as_int, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
@@ -1043,8 +947,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "resolved", current_quarter()), 
-                         "Resolved", as_int, 
+    value = get_valuebox(cor$qu$resolved, "Resolved", as_int, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
@@ -1059,8 +962,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "qu", "outstanding", current_quarter()), 
-                         "Outstanding", as_int, 
+    value = get_valuebox(cor$qu$outstanding, "Outstanding", as_int, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
@@ -1098,178 +1000,90 @@ Row
 
 ### Performance
 
-```{r summary_left_TEST, eval = TRUE, warning = FALSE}
+
+```{r summary_left, eval = TRUE, warning = FALSE}
 fillCol(
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "tp", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "Throughput", RED2, fill_color_ = NULL, as_int) 
+        perf_plot_(data.set, "vph", "Throughput", RED2, as_int) 
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "aogd", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$aogd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, fill_color_ = LIGHT_RED, as_pct, ".1%", goal_ = 0.80) 
+        perf_plot_(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, as_pct, ".1%") 
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "qsd", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$qsd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "qs_freq", "Queue\nSpillback", RED2, fill_color_ = NULL, as_pct, ".1%")
+        perf_plot_(data.set, "qs_freq", "Queue\nSpillback", RED2, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "sfd", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$sfd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "sf_freq", "Split\nFailure", RED2, fill_color_ = NULL, as_pct, ".1%")
+        perf_plot_(data.set, "sf_freq", "Split\nFailure", RED2, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "tti", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(cor$mo$tti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "tti", "Travel Time\nIndex\nGoal: 1.24", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 1.24) 
+        perf_plot_(data.set, "tti", "Travel Time\nIndex", RED2, as_2dec, ".2f") 
     }),
     renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "pti", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(cor$mo$pti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "pti", "Planning Time\nIndex\nGoal: 1.32", RED2, fill_color_ = LIGHT_RED, as_2dec, ".2f", goal_ = 1.32)
+        perf_plot_(data.set, "pti", "Planning Time\nIndex", RED2, as_2dec, ".2f")
     }),
     height = 700)
 ```
-
-
-```{r summary_left, eval = FALSE, warning = FALSE}
-
-# This is the good one
-
-fillCol(
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "tp", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "Throughput", RED2, as_int) 
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "aogd", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2, as_pct, ".1%", goal_ = 0.80) 
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "qsd", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "qs_freq", "Queue\nSpillback", RED2, as_pct, ".1%")
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "sfd", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "sf_freq", "Split\nFailure", RED2, as_pct, ".1%")
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "tti", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "tti", "Travel Time\nIndex\nGoal: 1.24", RED2, as_2dec, ".2f", goal_ = 1.24) 
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "pti", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "pti", "Planning Time\nIndex\nGoal: 1.32", RED2, as_2dec, ".2f", goal_ = 1.32)
-    }),
-    height = 700)
-```
-
-
 
 ### Volumes and Equipment
 
-```{r summary_right_TEST, eval = TRUE, warning = FALSE}
+```{r summary_right, eval = TRUE, warning = FALSE}
 
 fillCol(
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vpd", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$vpd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
+        perf_plot_(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, as_int)
     }),
     
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vphpa", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$vphp$am, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
+        perf_plot_(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, as_int)
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vphpp", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$vphp$pm, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, fill_color_ = NULL, as_int)
-    }),
-
-    renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "du", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "ped", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "cctv", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "cu", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "pau", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, fill_color_ = LIGHT_ORANGE, as_pct, ".1%", goal_ = 0.95)
-    }),
-    height = 800)
-```
-
-```{r summary_right, eval = FALSE, warning = FALSE}
-
-# This is the good one
-
-fillCol(
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vpd", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, as_int)
-    }),
-    
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vphpa", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, as_int)
-    }),
-    renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "vphpp", first_month, current_month(), corridor = zone_group())
-        shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, as_int)
+        perf_plot_(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, as_int)
     }),
 
     renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "du", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(cor$mo$du, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq("cor", "mo", "ped", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(cor$mo$ped, 
+                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "cctv", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$cctv, 
+                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "cu", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$cu, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_(data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     renderPlotly({ 
-        data.set <- m1dynq(mr_str(), "mo", "pau", first_month, current_month(), corridor = zone_group())
+        data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, as_pct, ".1%", goal_ = 0.95)
+        perf_plot_(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     height = 800)
 ```
@@ -1293,8 +1107,7 @@ Row
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "tp", current_month()), 
-                           "vph", as_int,
+      value = get_valuebox(mr()$mo$tp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-bar-chart"
   )
@@ -1306,8 +1119,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "aogd", current_month()), 
-                           "aog", as_pct,
+      value = get_valuebox(mr()$mo$aogd, "aog", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1319,8 +1131,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "qsd", current_month()), 
-                           "qs_freq", as_pct,
+      value = get_valuebox(mr()$mo$qsd, "qs_freq", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1332,8 +1143,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "sfd", current_month()), 
-                           "sf_freq", as_pct,
+      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1345,8 +1155,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "tti", current_month()), 
-                           "tti", as_2dec,
+      value = get_valuebox(cor$mo$tti, "tti", as_2dec,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-dashboard"
   )
@@ -1358,8 +1167,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "pti", current_month()), 
-                           "pti", as_2dec,
+      value = get_valuebox(cor$mo$pti, "pti", as_2dec,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-dashboard"
   )
@@ -1375,9 +1183,7 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "tp", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "tp", current_month()), 
-                                NULL,
+    get_bar_line_dashboard_plot(mr()$wk$tp, mr()$mo$tp, NULL,
                                 "vph", "integer", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = "Vehicles per Hour",
@@ -1391,9 +1197,7 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "aog", first_month, endof_current_month()),
-                                m1dynq(mr_str(), "mo", "aogd", current_month()), 
-                                m1dynq(mr_str(), "mo", "aogh", current_month()),
+    get_bar_line_dashboard_plot(mr()$wk$aog, mr()$mo$aogd, mr()$mo$aogh,
                                 "aog", "percent", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "AOG"),
@@ -1408,9 +1212,7 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "qs", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "qsd", current_month()), 
-                                m1dynq(mr_str(), "mo", "qsh", current_month()),
+    get_bar_line_dashboard_plot(mr()$wk$qs, mr()$mo$qsd, mr()$mo$mqsh,
                                 "qs_freq", "percent", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Queue Spillback Rate"),
@@ -1425,9 +1227,7 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "sf", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "sfd", current_month()), 
-                                m1dynq(mr_str(), "mo", "sfh", current_month()),
+    get_bar_line_dashboard_plot(mr()$wk$sf, mr()$mo$sfd, mr()$mo$sfh,
                                 "sf_freq", "percent", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Split Failures Rate"),
@@ -1442,10 +1242,8 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_tt_plot(m1dynq("cor", "mo", "tti", first_month, current_month()), 
-                m1dynq("cor", "mo", "ttih", current_month()), 
-                m1dynq("cor", "mo", "pti", first_month, current_month()), 
-                m1dynq("cor", "mo", "ptih", current_month()),
+    get_tt_plot(cor$mo$tti, cor$mo$ttih, 
+                cor$mo$pti, cor$mo$ptih,
                 month_ = current_month(),
                 zone_group_ = zone_group(),
                 x_bar_title = paste(input$month, "TTI & PTI"),
@@ -1473,8 +1271,7 @@ Row
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq(mr_str(), "mo", "vpd", current_month()), 
-                         "vpd", as_int,
+    value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -1485,12 +1282,11 @@ renderValueBox({
 
 ```{r, warning = FALSE}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(m1dynq(mr_str(), "mo", "vphpa", current_month()), 
-                             "vph", as_int,
-                             zone = zone_group(), mo = current_month(), break_ = FALSE),
-        icon = "fa-area-chart"
-    )
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart"
+  )
 })
 ```
 
@@ -1498,12 +1294,11 @@ renderValueBox({
 
 ```{r, warning = FALSE}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(m1dynq(mr_str(), "mo", "vphpp", current_month()), 
-                             "vph", as_int,
-                             zone = zone_group(), mo = current_month(), break_ = FALSE),
-        icon = "fa-area-chart"
-    )
+  valueBox(
+      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+                           zone = zone_group(), mo = current_month(), break_ = FALSE),
+      icon = "fa-area-chart"
+  )
 })
 ```
 
@@ -1514,9 +1309,7 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({ # Good version
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "vpd", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "vpd", current_month()), 
-                                NULL,
+    get_bar_line_dashboard_plot(mr()$wk$vpd, mr()$mo$vpd, NULL,
                                 "vpd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = "Vehicles per Day",
@@ -1525,49 +1318,44 @@ renderPlotly({ # Good version
 })
 ```
 
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Monthly Change
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_pct_ch_plot(m1dynq(mr_str(), "mo", "vpd", first_month, current_month()),
+    get_pct_ch_plot(mr()$mo$vpd,
                     month_ = current_month(),
                     zone_group = zone_group())
 })
 ```
 
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Peak Hour Volumes
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    am_vph_plot <- get_bar_line_dashboard_plot(
-        m1dynq(mr_str(), "wk", "vphpa", first_month, endof_current_month()),
-        m1dynq(mr_str(), "mo", "vphpa", current_month()),
-        NULL,
-        "vph", "integer", highlight_color = GDOT_BLUE,
-        month_ = current_month(), zone_group_ = zone_group(),
-        x_bar_title = "Vehicles per Hour",
-        x_line1_title = paste(input$month, "Hourly Volume (vph)"),
-        plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
-    
-    pm_vph_plot <- get_bar_line_dashboard_plot(
-        m1dynq(mr_str(), "wk", "vphpp", first_month, endof_current_month()),
-        m1dynq(mr_str(), "mo", "vphpp", current_month()), 
-        NULL,
-        "vph", "integer", highlight_color = GDOT_BLUE,
-        month_ = current_month(), zone_group_ = zone_group(),
-        x_bar_title = "Vehicles per Hour",
-        x_line1_title = paste(input$month, "Hourly Volume (vph)"),
-        plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+    am_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$am,
+                                               mr()$mo$vphp$am, NULL,
+                                "vph", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Hour",
+                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+    pm_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$pm,
+                                               mr()$mo$vphp$pm, NULL,
+                                "vph", "integer", highlight_color = GDOT_BLUE,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = "Vehicles per Hour",
+                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
     subplot(am_vph_plot, pm_vph_plot, nrows = 1, margin = 0.04)
 })
 ```
 
 
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Hourly Volumes
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_minmax_hourly_plot(m1dynq(mr_str(), "mo", "vph", first_month, current_month()),
+    get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
                            zone_group_ = zone_group())
 })
@@ -1578,9 +1366,7 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({ # Good version
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "papd", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "papd", current_month()), 
-                                NULL,
+    get_bar_line_dashboard_plot(mr()$wk$papd, mr()$mo$papd, NULL,
                                 "papd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = "Ped Activations per Day",
@@ -1607,7 +1393,7 @@ Row
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "du", current_month()) %>% 
+      value = get_valuebox(mr()$mo$du %>% 
                           group_by(Corridor) %>% 
                           mutate(delta = uptime.all - lag(uptime.all)), 
                       "uptime.all", as_pct,
@@ -1622,8 +1408,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(m1dynq("cor", "mo", "cctv", current_month()), 
-                         "uptime", as_pct,
+    value = get_valuebox(cor$mo$cctv, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
     icon = "glyphicon-facetime-video" 
   )
@@ -1635,8 +1420,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "ped", current_month()), 
-                           "uptime", as_pct,
+      value = get_valuebox(cor$mo$ped, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child" 
   )
@@ -1648,8 +1432,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq(mr_str(), "mo", "cu", current_month()), 
-                           "uptime", as_pct,
+      value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "ion-paper-airplane"
   )
@@ -1661,8 +1444,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(m1dynq("cor", "mo", "pau", current_month()), 
-                           "uptime", as_pct,
+      value = get_valuebox(cor$mo$pau, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child" 
   )
@@ -1681,15 +1463,15 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
 
-        get_cor_det_uptime_plot(m1dynq(mr_str(), "dy", "du", first_month, endof_current_month()), 
+        get_cor_det_uptime_plot(mr()$dy$du, 
                                 month_name = input$month,
                                 month_ = current_month(), 
                                 zone_group_ = zone_group())
         
     } else {
         
-        get_uptime_plot(m1dynq("sig", "dy", "du", first_month, endof_current_month()), 
-                                 m1dynq("sig", "mo", "du", current_month()), 
+        get_uptime_plot(sig$dy$du, 
+                                 sig$mo$du, 
                                  var_ = "uptime.all", 
                                  num_format = "percent", 
                                  month_ = current_month(), 
@@ -1707,8 +1489,10 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
     
-    weekly_ped_df <- rename(m1dynq("cor", "mo", "ped", first_month, current_month()), Date = Month)
-    monthly_ped_df <- m1dynq("cor", "mo", "ped", current_month())
+    weekly_ped_df <- rename(cor$mo$ped, Date = Month) %>%
+        filter(Date >= ymd("2017-07-01"))
+    monthly_ped_df <- cor$mo$ped %>%
+        filter(Month >= ymd("2017-07-01"))
     get_bar_line_dashboard_plot(weekly_ped_df,
                                 monthly_ped_df,
                                 var_ = "uptime", num_format = "percent", highlight_color = BROWN,
@@ -1727,8 +1511,10 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
         
-        weekly_cctv_df <- m1dynq("cor", "wk", "cctv", first_month, endof_current_month())
-        monthly_cctv_df <- m1dynq("cor", "mo", "cctv", current_month())
+        weekly_cctv_df <- cor$wk$cctv %>%
+            filter(Date >= ymd("2017-07-01"))
+        monthly_cctv_df <- cor$mo$cctv %>%
+            filter(Month >= ymd("2017-07-01"))
         get_bar_line_dashboard_plot(weekly_cctv_df,
                                     monthly_cctv_df,
                                     var_ = "uptime",
@@ -1741,7 +1527,7 @@ renderPlotly({
                                     plot_title = "CCTV Uptime")
     } else {
         
-        plot_individual_cctvs(m1dynq("sig", "dy", "cctv", first_month, endof_current_month()), 
+        plot_individual_cctvs(sig$dy$cctv, 
                               month_ = current_month(), 
                               #zone_group_ = zone_group(),
                               corridor_ = corridor())
@@ -1762,15 +1548,15 @@ renderPlotly({
 
     if (corridor() == "All Corridors") {
         
-        get_cor_comm_uptime_plot(m1dynq(mr_str(), "dy", "cu", first_month, endof_current_month()),
-                                 m1dynq(mr_str(), "mo", "cu", current_month()),
+        get_cor_comm_uptime_plot(mr()$dy$cu,
+                                 mr()$mo$cu,
                                  month_name = input$month,
                                  month_ = current_month(),
                                  zone_group_ = zone_group())
     } else {
         
-        get_uptime_plot(m1dynq("sig", "dy", "cu", first_month, endof_current_month()), 
-                        m1dynq("sig", "mo", "cu", current_month()), 
+        get_uptime_plot(sig$dy$cu, 
+                        sig$mo$cu, 
                         var_ = "uptime", 
                         num_format = "percent", 
                         month_ = current_month(), 
@@ -1796,15 +1582,15 @@ renderPlotly({
 
     if (corridor() == "All Corridors") {
         
-        get_cor_comm_uptime_plot(m1dynq(mr_str(), "dy", "pau", first_month, endof_current_month()),
-                                 m1dynq(mr_str(), "mo", "pau", current_month()),
+        get_cor_comm_uptime_plot(mr()$dy$pau,
+                                 mr()$mo$pau,
                                  month_name = input$month,
                                  month_ = current_month(),
                                  zone_group_ = zone_group())
     } else {
         
-        get_uptime_plot(m1dynq("sig", "dy", "pau", first_month, endof_current_month()), 
-                        m1dynq("sig", "mo", "pau", current_month()), 
+        get_uptime_plot(sig$dy$pau, 
+                        sig$mo$pau, 
                         var_ = "uptime", 
                         num_format = "percent", 
                         month_ = current_month(), 
@@ -1836,8 +1622,7 @@ Row
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.rep), 
-                         "Reported", as_int,
+    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -1849,8 +1634,7 @@ renderValueBox({
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.res), 
-                         "Resolved", as_int,
+    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -1862,8 +1646,7 @@ renderValueBox({
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(m1dynq("cor", "mo", "events", current_month()), delta = delta.out), 
-                         "Outstanding", as_int,
+    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -1882,8 +1665,7 @@ fillRow(
     fillCol(
         renderPlotly({ 
             data.set <- gather_outstanding_events(
-                filter(m1dynq("cor", "mo", "events", first_month, current_month()), 
-                       Zone_Group == zone_group() & 
+                filter(cor$mo$events, Zone_Group == zone_group() & 
                            Month <= current_month())
             )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))

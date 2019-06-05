@@ -141,30 +141,17 @@ if __name__=='__main__':
     
     #start_date = '2019-01-01'
     #end_date = '2018-12-13'
-    """
-    signals_file = sys.argv[3]
+    
+    s3r.Bucket('gdot-spm')\
+       .Object('corridors.feather')\
+       .download_file(conf['corridors_filename'])
 
-    with open(signals_file) as f:
-        signals = [s.strip() for s in f.readlines()]
-    
-    signals_to_exclude = [248,1389,3391,3491,
-                          6329,6330,6331,6347,6350,6656,6657,
-                          7063,7287,7289,7292,7293,7542,
-                          71000,78296] + list(range(1600,1799))
-    
-    signals = list(set(signals) - set(signals_to_exclude))
-    """
     corridors = feather.read_dataframe(conf['corridors_filename'])
     corridors = corridors[~corridors.SignalID.isna()]
 
     signals_list = list(corridors.SignalID.values)
 
-    #signals_to_exclude = [248,1389,3391,3491,
-    #                      6329,6330,6331,6347,6350,6656,6657,
-    #                      7063,7287,7289,7292,7293,7542,
-    #                      71000,78296] + list(range(1600,1799))    
-    #signalids = list(set(signalids) - set(signals_to_exclude))
-    
+
     signals_string = "({})".format(','.join(signals_list))
     
     dates = pd.date_range(start_date, end_date, freq=Day())

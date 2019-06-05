@@ -20,13 +20,17 @@ suppressWarnings(library(crosstalk))
 suppressWarnings(library(memoise))
 suppressWarnings(library(RSQLite))
 suppressWarnings(library(RJDBC))
-library(future)
+suppressWarnings(library(future))
+suppressWarnings(library(pool))
+suppressWarnings(library(RMySQL))
+
 
 plan(multiprocess)
 
 suppressWarnings(library(DT))
 
 select <- dplyr::select
+layout <- plotly::layout
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
@@ -59,6 +63,9 @@ RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
 
 conf <- read_yaml("Monthly_Report.yaml")
 
+if (conf$mode == "beta") {
+    source("mark1_dynamodb.R")
+}
 
 if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
     set_config(
@@ -78,10 +85,28 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
     aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
     Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
                "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
+               "RDS_HOST" = aws_conf$RDS_HOST,
+               "RDS_DATABASE" = aws_conf$RDS_DATABASE,
+               "RDS_USERNAME" = aws_conf$RDS_USERNAME,
+               "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
 }
 
-# TODO: read these in using futures %<-%
+if (conf$mode == "production") {
+    last_month <- ymd(conf$production_report_end_date)   # Production
+    
+} else if (conf$mode == "beta") {
+    last_month <- today() - days(6)   # Beta
+    
+} else {
+    stop("mode defined in configuration yaml file must be either production or beta")
+}    
+
+first_month <- last_month - months(12)
+report_months <- seq(last_month, first_month, by = "-1 month")
+month_options <- report_months %>% format("%B %Y")
+
+zone_group_options <- conf$zone_groups
 
 corridors %<-% read_feather("all_corridors.feather")
 
@@ -93,9 +118,9 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
-    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
-    teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm")
+#    cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
+#    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
+   teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm")
     
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -131,6 +156,20 @@ get_athena_connection <- function() {
                   UseResultsetStreaming = 1)
     }
 }
+
+
+
+get_aurora_connection <- function() {
+    dbPool(
+        drv = RMySQL::MySQL(),
+        host = aws_conf$RDS_HOST,
+        dbname = aws_conf$RDS_DATABASE,
+        #port = 3306,
+        username = aws_conf$RDS_USERNAME,
+        password = aws_conf$RDS_PASSWORD
+    )
+}
+
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
@@ -211,7 +250,7 @@ get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE,
     val <- var_fmt(vals[[var_]])
     del <- paste0(ifelse(vals$delta > 0, " (+", " ( "), as_pct(vals$delta), ")")
     
-    validate(need(val, message = "NA"))
+    shiny::validate(need(val, message = "NA"))
     
     if (break_) {
         tags$div(HTML(paste(
@@ -251,25 +290,108 @@ perf_plot_no_data_ <- function(name_) {
 }
 perf_plot_no_data <- memoise(perf_plot_no_data_)
 
-# TODO: Memorise perf_plot?
-perf_plot <- function(data_, value_, name_, color_, 
-                      format_func = function(x) {x},
-                      hoverformat_ = ",.0f") {
-    
+
+## ------------ With Goals and Fill Colors ---------------------------------------
+perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
+                       format_func = function(x) {x},
+                       hoverformat_ = ",.0f",
+                       goal_ = NULL) {
+
     ax <- list(title = "", showticklabels = TRUE, showgrid = FALSE)
     ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE, hoverformat = hoverformat_)
-    
+
     value_ <- as.name(value_)
     data_ <- dplyr::rename(data_, value = !!value_)
-    
+
     first <- data_[which.min(data_$Month), ]
     last <- data_[which.max(data_$Month), ]
-    
-    plot_ly(type = "scatter", mode = "markers") %>% 
-        add_trace(data = data_, 
-                  x = ~Month, y = ~value, 
+
+    p <- plot_ly(type = "scatter", mode = "markers")
+
+    if (!is.null(goal_)) {
+        p <- p %>%
+            add_trace(data = data_,
+                      x = ~Month, y = goal_,
+                      name = "Goal",
+                      line = list(color = BLACK, dash = "dot"),
+                      mode = 'lines') %>%
+            add_trace(data = data_,
+                      x = ~Month, y = ~value,
+                      name = name_,
+                      line = list(color = color_),
+                      mode = 'lines',
+                      fill = 'tonexty',
+                      fillcolor = fill_color_)
+    } else {
+        p <- p %>%
+            add_trace(data = data_,
+                      x = ~Month, y = ~value,
+                      name = name_,
+                      line = list(color = color_),
+                      mode = 'lines')
+    }
+    p %>%
+        add_annotations(x = first$Month,
+                        y = first$value,
+                        text = format_func(first$value),
+                        showarrow = FALSE,
+                        xanchor = "right",
+                        xshift = -10) %>%
+        add_annotations(x = last$Month,
+                        y = last$value,
+                        text = format_func(last$value),
+                        font = list(size = 16),
+                        showarrow = FALSE,
+                        xanchor = "left",
+                        xshift = 20) %>%
+        layout(xaxis = ax,
+               yaxis = ay,
+               annotations = list(x = -.02,
+                                  y = 0.4,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  xanchor = "right",
+                                  text = name_,
+                                  font = list(size = 12),
+                                  showarrow = FALSE),
+               showlegend = FALSE,
+               margin = list(l = 120,
+                             r = 40)) %>%
+        plotly::config(displayModeBar = F)
+}
+perf_plot_beta <- memoise(perf_plot_beta_)
+## ------------ With Goals and Fill Colors ---------------------------------------
+
+
+perf_plot_ <- function(data_, value_, name_, color_,
+                      format_func = function(x) {x},
+                      hoverformat_ = ",.0f",
+                      goal_ = NULL) {
+
+    ax <- list(title = "", showticklabels = TRUE, showgrid = FALSE)
+    ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE, hoverformat = hoverformat_)
+
+    value_ <- as.name(value_)
+    data_ <- dplyr::rename(data_, value = !!value_)
+
+    first <- data_[which.min(data_$Month), ]
+    last <- data_[which.max(data_$Month), ]
+
+    p <- plot_ly(type = "scatter", mode = "markers")
+
+    if (!is.null(goal_)) {
+        p <- p %>%
+            add_trace(data = data_,
+                      x = ~Month, y = goal_,
+                      name = "Goal",
+                      line = list(color = LIGHT_RED, dash = "dot"),
+                      mode = 'lines')
+    }
+    p %>%
+        add_trace(data = data_,
+                  x = ~Month, y = ~value,
                   name = name_,
-                  line = list(color = color_), 
+                  line = list(color = color_),
                   mode = 'lines+markers',
                   marker = list(size = 8,
                                 color = color_,
@@ -288,7 +410,7 @@ perf_plot <- function(data_, value_, name_, color_,
                         showarrow = FALSE,
                         xanchor = "left",
                         xshift = 20) %>%
-        layout(xaxis = ax, 
+        layout(xaxis = ax,
                yaxis = ay,
                annotations = list(x = -.02,
                                   y = 0.4,
@@ -300,9 +422,11 @@ perf_plot <- function(data_, value_, name_, color_,
                                   showarrow = FALSE),
                showlegend = FALSE,
                margin = list(l = 120,
-                             r = 40)) %>% 
+                             r = 40)) %>%
         plotly::config(displayModeBar = F)
 }
+perf_plot <- memoise(perf_plot_)
+
 
 no_data_plot_ <- function(name_) {
     
@@ -1606,7 +1730,9 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             #------------------------
             df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
                 filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
+                       between(date, start_date, end_date)) %>%
+                select(signalid, detector, callphase, timeperiod, vol) %>%
+                collect()
             dbDisconnect(conn)
             #------------------------
             
@@ -1628,7 +1754,9 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             #------------------------
             df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
                 filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
+                       between(date, start_date, end_date)) %>% 
+                select(signalid, detector, callphase, timeperiod, vol) %>%
+                collect()
             dbDisconnect(conn)
             #------------------------
             
@@ -1979,3 +2107,108 @@ if (conf$mode == "production") {
     
     alerts %<-% get_alerts()
 }
+
+
+reconstitute <- function(df, col_name) { 
+    col_name <- as.name(col_name)
+    lapply(names(df), function(n) { mutate(df[[n]], !!col_name := n) }) %>% 
+        bind_rows() %>% 
+        mutate(!!col_name := factor(!!col_name))
+}
+
+
+m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL) {
+    cid <- glue("{res}-{per}-{tab}")
+    
+    if (class(start_date) == "Date") {
+        start_date <- format(start_date, "%Y-%m-%d")
+    }
+    
+    if (is.null(end_date)) {
+        df <- query_dynamodb_beta(cid, start_date, corridor = corridor)
+    } else {
+        if (class(end_date) == "Date") {
+            end_date <- format(end_date, "%Y-%m-%d")
+        }
+        df <- query_dynamodb_beta(cid, start_date, end_date, corridor = corridor)
+    }
+
+    if ("Corridor" %in% names(df)) {
+        df <- mutate(df, Corridor = factor(Corridor))
+    }
+    if ("Zone_Group" %in% names(df)) {
+        df <- mutate(df, Zone_Group = factor(Zone_Group))
+    }
+    if ("Month" %in% names(df)) {
+        df <- mutate(df, Month = ymd(Month))
+    }
+    if ("Date" %in% names(df)) {
+        df <- mutate(df, Date = ymd(Date))
+    }
+    if ("Hour" %in% names(df)) {
+        df <- mutate(df, Hour = ymd_hms(sub("(\\d{4}-\\d{2}-\\d{2})$", "\\1 00:00:00", Hour)))
+    }
+    
+    df
+}
+m1dynq <- memoise(m1dynq_)
+
+rds_vb_query_ <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
+    
+    table <- glue("{mr}_{per}_{tab}")
+    df <- tbl(conn, table)
+    if (!is.null(current_month)) {
+        df %>% 
+            filter(Month == current_month,
+                   Corridor == zone_group) %>%
+            collect() %>%
+            mutate(Month = date(Month))
+    } else { # current_quarter is not null
+        df %>% 
+            filter(Quarter == current_quarter,
+                   Corridor == zone_group) %>%
+            collect()
+    }
+}
+rds_vb_query <- memoise(rds_vb_query_)
+
+rds_pp_query_ <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
+    
+    table <- glue("{mr}_{per}_{tab}")
+    df <- tbl(conn, table)
+    
+    if ("Month" %in% names(df)) {
+        df <- filter(df, Month >= first_month, Month <= current_month)
+    }
+    if ("Date" %in% names(df)) {
+        df <- filter(Date >= first_month, Date <= current_month)
+    }
+    if ("Hour" %in% names(df)) {
+        df <- filter(Hour >= first_month, Hour <= current_month)
+    }
+    
+    if (!is.null(zone_group)) {
+        df <- filter(df, Corridor == zone_group)
+    }
+    
+    df <- collect(df)
+    
+    if ("Month" %in% names(df)) {
+        df <- mutate(df, Month = date(Month))
+    }
+    if ("Date" %in% names(df)) {
+        df <- mutate(df, Date = date(Date))
+    }
+    if ("Hour" %in% names(df)) {
+        df <- mutate(df, Hour = ymd_hms(Hour))
+    }
+    
+    if ("Corridor" %in% names(df)) {
+        df <- mutate(df, Corridor = factor(Corridor))
+    }
+    if ("Zone_Group" %in% names(df)) {
+        df <- mutate(df, Zone_Group = factor(Zone_Group))
+    }
+    df
+}
+rds_pp_query <- memoise(rds_pp_query_)

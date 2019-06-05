@@ -13,9 +13,10 @@ import os
 import boto3
 from datetime import date, timedelta
 from dateutil.relativedelta import *
-
+import time
 
 s3 = boto3.client('s3')
+ath = boto3.client('athena', region_name='us-east-1')
 
 from dask import delayed, compute
 
@@ -64,3 +65,19 @@ for mo in months:
     
         s3key = 's3://gdot-spm/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(d=mo.strftime('%Y-%m-%d'))
         summ.reset_index().to_parquet(s3key)
+        
+        
+    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+        
+    response_repair = ath.start_query_execution(
+                QueryString='MSCK REPAIR TABLE cctv_uptime', 
+                QueryExecutionContext={'Database': 'gdot_spm'},
+                ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+
+        
+    while True:
+        response = s3.list_objects(Bucket='gdot-spm-athena', Prefix=response_repair['QueryExecutionId'])
+        if 'Contents' in response:
+            break
+        else:
+            time.sleep(2)

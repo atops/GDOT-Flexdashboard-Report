@@ -19,6 +19,7 @@ if (Sys.info()["sysname"] == "Windows") {
 setwd(working_directory)
 
 source("Monthly_Report_Functions.R")
+source("mark1_dynamodb.R")
 conf <- read_yaml("Monthly_Report.yaml")
 
 # startsWith(Sys.info()["nodename"], "ip-") # check for if on AWS EC2 instance
@@ -338,6 +339,60 @@ print(glue("{Sys.time()} Hourly Volumes [5 of 20]"))
 
 tryCatch({
     
+    
+    
+    
+    
+    
+    
+    #vph <- f("vph_", month_abbrs)
+    vph <- s3_read_parquet_parallel(bucket = 'gdot-spm', 'vehicles_ph', report_start_date, report_end_date, signals_list) %>%
+        mutate(SignalID = factor(SignalID),
+               CallPhase = factor(2),  # Hack because next function needs a CallPhase
+               Date = date(Date))
+    
+    weekly_vph <- get_weekly_vph(vph)
+    weekly_vph_peak <- get_weekly_vph_peak(weekly_vph)
+    
+    # Group into corridors --------------------------------------------------------
+    cor_weekly_vph <- get_cor_weekly_vph(weekly_vph, corridors)
+    cor_weekly_vph_peak <- get_cor_weekly_vph_peak(cor_weekly_vph)
+    
+    monthly_vph <- get_monthly_vph(vph)
+    monthly_vph_peak <- get_monthly_vph_peak(monthly_vph)
+    
+    # Hourly volumes by Corridor --------------------------------------------------
+    cor_monthly_vph <- get_cor_monthly_vph(monthly_vph, corridors)
+    cor_monthly_vph_peak <- get_cor_monthly_vph_peak(cor_monthly_vph)
+    
+    saveRDS(weekly_vph, "weekly_vph.rds")
+    saveRDS(monthly_vph, "monthly_vph.rds")
+    saveRDS(cor_weekly_vph, "cor_weekly_vph.rds")
+    saveRDS(cor_monthly_vph, "cor_monthly_vph.rds")
+    
+    saveRDS(weekly_vph_peak, "weekly_vph_peak.rds")
+    saveRDS(monthly_vph_peak, "monthly_vph_peak.rds")
+    saveRDS(cor_weekly_vph_peak, "cor_weekly_vph_peak.rds")
+    saveRDS(cor_monthly_vph_peak, "cor_monthly_vph_peak.rds")
+    
+    rm(vph)
+    rm(weekly_vph)
+    rm(monthly_vph)
+    rm(cor_weekly_vph)
+    #rm(cor_monthly_vph)
+    rm(weekly_vph_peak)
+    rm(monthly_vph_peak)
+    rm(cor_weekly_vph_peak)
+    rm(cor_monthly_vph_peak)
+    gc()
+    
+    
+    
+    
+    
+    
+    
+    
 }, error = function(e) {
     print('ENCOUNTERED AN ERROR:')
     print(e)
@@ -541,14 +596,14 @@ tryCatch({
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, corridors)
     
-    cor_monthly_aog_peak <- get_cor_monthly_aog_peak(cor_monthly_aog_by_hr)
+    #cor_monthly_aog_peak <- get_cor_monthly_aog_peak(cor_monthly_aog_by_hr)
     
     saveRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds")
     saveRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds")
     
-    rm(aog)
+    #rm(aog)
     rm(aog_by_hr)
-    rm(cor_monthly_aog_peak)
+    #rm(cor_monthly_aog_peak)
     rm(monthly_aog_by_hr)
     rm(cor_monthly_aog_by_hr)
     gc()
@@ -557,6 +612,73 @@ tryCatch({
     print('ENCOUNTERED AN ERROR:')
     print(e)
 })
+
+
+
+# DAILY PROGRESSION RATIO #####################################################
+
+print(glue("{Sys.time()} Daily Progression Ratio [10.1 of 20]"))
+
+tryCatch({
+    
+    daily_pr <- get_daily_pr(aog)
+    
+    weekly_pr_by_day <- get_weekly_pr_by_day(aog)
+    
+    cor_weekly_pr_by_day <- get_cor_weekly_pr_by_day(weekly_pr_by_day, corridors)
+    
+    monthly_pr_by_day <- get_monthly_pr_by_day(aog)
+    
+    cor_monthly_pr_by_day <- get_cor_monthly_pr_by_day(monthly_pr_by_day, corridors)
+    
+    saveRDS(weekly_pr_by_day, "weekly_pr_by_day.rds")
+    saveRDS(monthly_pr_by_day, "monthly_pr_by_day.rds")
+    saveRDS(cor_weekly_pr_by_day, "cor_weekly_pr_by_day.rds")
+    saveRDS(cor_monthly_pr_by_day, "cor_monthly_pr_by_day.rds")
+    
+    rm(daily_pr)
+    rm(weekly_pr_by_day)
+    rm(monthly_pr_by_day)
+    rm(cor_weekly_pr_by_day)
+    rm(cor_monthly_pr_by_day)
+    # gc()
+    
+}, error = function(e) {
+    print('ENCOUNTERED AN ERROR:')
+    print(e)
+})
+
+
+
+# HOURLY PROGESSION RATIO ####################################################
+
+print(glue("{Sys.time()} Hourly Progression Ratio [10.2 of 20]"))
+
+tryCatch({
+    pr_by_hr <- get_pr_by_hr(aog)
+    monthly_pr_by_hr <- get_monthly_pr_by_hr(pr_by_hr)
+    
+    # Hourly volumes by Corridor --------------------------------------------------
+    cor_monthly_pr_by_hr <- get_cor_monthly_pr_by_hr(monthly_pr_by_hr, corridors)
+    
+    #cor_monthly_pr_peak <- get_cor_monthly_pr_peak(cor_monthly_pr_by_hr)
+    
+    saveRDS(monthly_pr_by_hr, "monthly_pr_by_hr.rds")
+    saveRDS(cor_monthly_pr_by_hr, "cor_monthly_pr_by_hr.rds")
+    
+    #rm(aog)
+    rm(pr_by_hr)
+    #rm(cor_monthly_pr_peak)
+    rm(monthly_pr_by_hr)
+    rm(cor_monthly_pr_by_hr)
+    gc()
+    
+}, error = function(e) {
+    print('ENCOUNTERED AN ERROR:')
+    print(e)
+})
+
+
 
 
 
@@ -812,10 +934,16 @@ print(glue("{Sys.time()} Uptimes [16 of 20]"))
 tryCatch({
     # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
     
-    #xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
-    xl_uptime_fns <- conf$xl_uptime$filenames
-    xl_uptime_mos <- conf$xl_uptime$months
     
+    keys <- aws.s3::get_bucket_df("gdot-spm", prefix = "manual_veh_ped_uptime")$Key
+    
+    months <- str_extract(basename(keys), "^\\S+ \\d{4}")
+    xl_uptime_fns <- basename(keys)[!is.na(months)]
+    xl_uptime_mos <- dmy(paste("1", months[!is.na(months)]))
+    
+    #xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
+    #xl_uptime_fns <- conf$xl_uptime$filenames
+    #xl_uptime_mos <- conf$xl_uptime$months
     
     
     man_xl <- purrr::map2(xl_uptime_fns,
@@ -1004,7 +1132,7 @@ tryCatch({
                          "priority" = priority_table,
                          "all" = all_teams_table)
     
-    saveRDS(teams_tables, "teams_tables.rds")
+    saveRDS(teams_tables, "teams_tables.rds", version = 2)
     
     
     cor_monthly_events <- teams_tables$all %>%
@@ -1019,7 +1147,8 @@ tryCatch({
         group_by(Corridor, Zone_Group) %>%
         mutate(delta.rep = (Reported - lag(Reported))/lag(Reported),
                delta.res = (Resolved - lag(Resolved))/lag(Resolved),
-               delta.out = (Outstanding - lag(Outstanding))/lag(Outstanding))
+               delta.out = (Outstanding - lag(Outstanding))/lag(Outstanding)) %>%
+        ungroup()
     
     saveRDS(cor_monthly_events, "cor_monthly_events.rds")
 }, error = function(e) {
@@ -1162,6 +1291,7 @@ tryCatch({
                    "paph" = readRDS( "cor_weekly_paph.rds"),
                    "tp" = readRDS("cor_weekly_throughput.rds"),
                    "aog" = readRDS("cor_weekly_aog_by_day.rds"),
+                   "pr" = readRDS("cor_weekly_pr_by_day.rds"),
                    "qs" = readRDS("cor_wqs.rds"),
                    "sf" = readRDS("cor_wsf.rds"),
                    "cu" = readRDS("cor_weekly_comm_uptime.rds"),
@@ -1175,6 +1305,8 @@ tryCatch({
                    "tp" = readRDS("cor_monthly_throughput.rds"),
                    "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
                    "aogh" = readRDS("cor_monthly_aog_by_hr.rds"),
+                   "prd" = readRDS("cor_monthly_pr_by_day.rds"),
+                   "prh" = readRDS("cor_monthly_pr_by_hr.rds"),
                    "qsd" = readRDS("cor_monthly_qsd.rds"),
                    "qsh" = readRDS("cor_mqsh.rds"),
                    "sfd" = readRDS("cor_monthly_sfd.rds"),
@@ -1196,6 +1328,7 @@ tryCatch({
                    "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
                    "tp" = get_quarterly(cor$mo$tp, "vph"),
                    "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
+                   "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
                    "qsd" = get_quarterly(cor$mo$qsd, "qs_freq"),
                    "sfd" = get_quarterly(cor$mo$sfd, "sf_freq"),
                    "tti" = get_quarterly(cor$mo$tti, "tti"),
@@ -1235,6 +1368,7 @@ tryCatch({
                    "paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
                    "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors),
                    "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors),
+                   "pr" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$pr, corridors),
                    "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors),
                    "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors),
                    "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors),
@@ -1249,6 +1383,8 @@ tryCatch({
                    "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors),
                    "aogd" = sigify(readRDS("monthly_aog_by_day.rds"), cor$mo$aogd, corridors),
                    "aogh" = sigify(readRDS("monthly_aog_by_hr.rds"), cor$mo$aogh, corridors),
+                   "prd" = sigify(readRDS("monthly_pr_by_day.rds"), cor$mo$prd, corridors),
+                   "prh" = sigify(readRDS("monthly_pr_by_hr.rds"), cor$mo$prh, corridors),
                    "qsd" = sigify(readRDS("monthly_qsd.rds"), cor$mo$qsd, corridors),
                    "qsh" = sigify(readRDS("mqsh.rds"), cor$mo$qsh, corridors),
                    "sfd" = sigify(readRDS("monthly_sfd.rds"), cor$mo$sfd, corridors),
@@ -1277,10 +1413,12 @@ print(glue("{Sys.time()} Upload to AWS [20 of 20]"))
 
 aws.s3::put_object(file = "cor.rds",
                    object = "cor_ec2.rds",
-                   bucket = "gdot-spm")
+                   bucket = "gdot-spm",
+                   multipart = TRUE)
 aws.s3::put_object(file = "sig.rds",
                    object = "sig_ec2.rds",
-                   bucket = "gdot-spm")
+                   bucket = "gdot-spm",
+                   multipart = TRUE)
 aws.s3::put_object(file = "teams_tables.rds",
                    object = "teams_tables_ec2.rds",
                    bucket = "gdot-spm")
@@ -1291,3 +1429,262 @@ aws.s3::put_object(file = "teams_tables.rds",
 #                                       corridors = corridors,
 #                                       pth = 'Signal_Dashboards',
 #                                       upload_to_s3 = TRUE)
+
+
+
+
+# asof should be the start of the previous month
+asof <- ifelse(conf$start_date == "yesterday", 
+               format(today() - months(1) - days(day(today()) - 1), "%Y-%m-%d"),
+               ymd(conf$start_date) - days(day(ymd(conf$start_date)) - 1))
+
+#aurora <- get_aurora_connection()               
+
+# asof is the start of the month, unless we're less than 7 days into the month,
+# in which case it is the start of the previous month
+if (conf$start_date == "yesterday") {
+    asof <- today() - days(7)
+    asof <- asof - days(day(asof) - 1)
+    asof <- format(asof, "%Y-%m-%d")
+} else {
+    asof <- ymd(conf$start_date) - days(day(ymd(conf$start_date)) - 1)
+}
+
+               
+
+# dbUpdateTable(aurora, "cor_dy_du", cor$dy$du, asof)
+# dbUpdateTable(aurora, "cor_dy_cu", cor$dy$cu, asof)
+# dbUpdateTable(aurora, "cor_dy_pau", cor$dy$pau, asof)
+# dbUpdateTable(aurora, "cor_dy_cctv", cor$dy$cctv, asof)
+# 
+# dbUpdateTable(aurora, "cor_wk_vpd", cor$wk$vpd, asof)
+# dbUpdateTable(aurora, "cor_wk_vph", cor$wk$vph, asof)
+# dbUpdateTable(aurora, "cor_wk_vphpa", cor$wk$vphp$am, asof)
+# dbUpdateTable(aurora, "cor_wk_vphpp", cor$wk$vphp$pm, asof)
+# dbUpdateTable(aurora, "cor_wk_papd", cor$wk$papd, asof)
+# dbUpdateTable(aurora, "cor_wk_paph", cor$wk$paph, asof)
+# dbUpdateTable(aurora, "cor_wk_tp", cor$wk$tp, asof)
+# dbUpdateTable(aurora, "cor_wk_aog", cor$wk$aog, asof)
+# dbUpdateTable(aurora, "cor_wk_qs", cor$wk$qs, asof)
+# dbUpdateTable(aurora, "cor_wk_sf", cor$wk$sf, asof)
+# dbUpdateTable(aurora, "cor_wk_cu", cor$wk$cu, asof)
+# dbUpdateTable(aurora, "cor_wk_pau", cor$wk$pau, asof)
+# dbUpdateTable(aurora, "cor_wk_cctv", cor$wk$cctv, asof)
+# 
+# dbUpdateTable(aurora, "cor_mo_vpd", cor$mo$vpd, asof)
+# dbUpdateTable(aurora, "cor_mo_vph", cor$mo$vph, asof)
+# dbUpdateTable(aurora, "cor_mo_vphpa", cor$mo$vphp$am, asof)
+# dbUpdateTable(aurora, "cor_mo_vphpp", cor$mo$vphp$pm, asof)
+# dbUpdateTable(aurora, "cor_mo_papd", cor$mo$papd, asof)
+# dbUpdateTable(aurora, "cor_mo_paph", cor$mo$paph, asof)
+# dbUpdateTable(aurora, "cor_mo_tp", cor$mo$tp, asof)
+# dbUpdateTable(aurora, "cor_mo_aogd", cor$mo$aogd, asof)
+# dbUpdateTable(aurora, "cor_mo_aogh", cor$mo$aogh, asof)
+# dbUpdateTable(aurora, "cor_mo_qsd", cor$mo$qsd, asof)
+# dbUpdateTable(aurora, "cor_mo_qsh", cor$mo$qsh, asof)
+# dbUpdateTable(aurora, "cor_mo_sfd", cor$mo$sfd, asof)
+# dbUpdateTable(aurora, "cor_mo_sfh", cor$mo$sfh, asof)
+# dbUpdateTable(aurora, "cor_mo_tti", cor$mo$tti, asof)
+# dbUpdateTable(aurora, "cor_mo_ttih", cor$mo$ttih, asof)
+# dbUpdateTable(aurora, "cor_mo_pti", cor$mo$pti, asof)
+# dbUpdateTable(aurora, "cor_mo_ptih", cor$mo$ptih, asof)
+# dbUpdateTable(aurora, "cor_mo_du", cor$mo$du, asof)
+# dbUpdateTable(aurora, "cor_mo_cu", cor$mo$cu, asof)
+# dbUpdateTable(aurora, "cor_mo_pau", cor$mo$pau, asof) # lots of warnings
+# dbUpdateTable(aurora, "cor_mo_veh", cor$mo$veh, asof)
+# dbUpdateTable(aurora, "cor_mo_ped", cor$mo$ped, asof)
+# dbUpdateTable(aurora, "cor_mo_cctv", cor$mo$cctv, asof)
+# dbUpdateTable(aurora, "cor_mo_events", cor$mo$events, asof)
+# 
+# dbUpdateTable(aurora, "cor_qu_vpd", cor$qu$vpd)
+# dbUpdateTable(aurora, "cor_qu_vphpa", cor$qu$vphpa)
+# dbUpdateTable(aurora, "cor_qu_vphpp", cor$qu$vphpp)
+# dbUpdateTable(aurora, "cor_qu_tp", cor$qu$tp)
+# dbUpdateTable(aurora, "cor_qu_aogd", cor$qu$aogd)
+# dbUpdateTable(aurora, "cor_qu_qsd", cor$qu$qsd)
+# dbUpdateTable(aurora, "cor_qu_sfd", cor$qu$sfd)
+# dbUpdateTable(aurora, "cor_qu_tti", cor$qu$tti)
+# dbUpdateTable(aurora, "cor_qu_pti", cor$qu$pti)
+# dbUpdateTable(aurora, "cor_qu_du", cor$qu$du)
+# dbUpdateTable(aurora, "cor_qu_cu", cor$qu$cu)
+# dbUpdateTable(aurora, "cor_qu_pau", cor$qu$pau)
+# dbUpdateTable(aurora, "cor_qu_veh", cor$qu$veh)
+# dbUpdateTable(aurora, "cor_qu_ped", cor$qu$ped)
+# dbUpdateTable(aurora, "cor_qu_cctv", cor$qu$cctv)
+# dbUpdateTable(aurora, "cor_qu_reported", cor$qu$reported)
+# dbUpdateTable(aurora, "cor_qu_resolved", cor$qu$resolved)
+# dbUpdateTable(aurora, "cor_qu_outstanding", cor$qu$outstanding)
+# 
+# 
+# dbUpdateTable(aurora, "sig_dy_du", sig$dy$du, asof)
+# dbUpdateTable(aurora, "sig_dy_cu", sig$dy$cu, asof)
+# dbUpdateTable(aurora, "sig_dy_pau", sig$dy$pau, asof)
+# dbUpdateTable(aurora, "sig_dy_cctv", sig$dy$cctv, asof)
+# 
+# dbUpdateTable(aurora, "sig_wk_vpd", sig$wk$vpd, asof)
+# dbUpdateTable(aurora, "sig_wk_vph", sig$wk$vph, asof)
+# dbUpdateTable(aurora, "sig_wk_vphpa", sig$wk$vphp$am, asof)
+# dbUpdateTable(aurora, "sig_wk_vphpp", sig$wk$vphp$pm, asof)
+# dbUpdateTable(aurora, "sig_wk_papd", sig$wk$papd, asof)
+# dbUpdateTable(aurora, "sig_wk_paph", sig$wk$paph, asof)
+# dbUpdateTable(aurora, "sig_wk_tp", sig$wk$tp, asof)
+# dbUpdateTable(aurora, "sig_wk_aog", sig$wk$aog, asof)
+# dbUpdateTable(aurora, "sig_wk_qs", sig$wk$qs, asof)
+# dbUpdateTable(aurora, "sig_wk_sf", sig$wk$sf, asof)
+# dbUpdateTable(aurora, "sig_wk_cu", sig$wk$cu, asof)
+# dbUpdateTable(aurora, "sig_wk_pau", sig$wk$pau, asof)
+# dbUpdateTable(aurora, "sig_wk_cctv", sig$wk$cctv, asof)
+# 
+# dbUpdateTable(aurora, "sig_mo_vpd", sig$mo$vpd, asof)
+# dbUpdateTable(aurora, "sig_mo_vph", sig$mo$vph, asof)
+# dbUpdateTable(aurora, "sig_mo_vphpa", sig$mo$vphp$am, asof)
+# dbUpdateTable(aurora, "sig_mo_vphpp", sig$mo$vphp$pm, asof)
+# dbUpdateTable(aurora, "sig_mo_papd", sig$mo$papd, asof)
+# dbUpdateTable(aurora, "sig_mo_paph", sig$mo$paph, asof)
+# dbUpdateTable(aurora, "sig_mo_tp", sig$mo$tp, asof)
+# dbUpdateTable(aurora, "sig_mo_aogd", sig$mo$aogd, asof)
+# dbUpdateTable(aurora, "sig_mo_aogh", sig$mo$aogh, asof)
+# dbUpdateTable(aurora, "sig_mo_qsd", sig$mo$qsd, asof)
+# dbUpdateTable(aurora, "sig_mo_qsh", sig$mo$qsh, asof)
+# dbUpdateTable(aurora, "sig_mo_sfd", sig$mo$sfd, asof)
+# dbUpdateTable(aurora, "sig_mo_sfh", sig$mo$sfh, asof)
+# dbUpdateTable(aurora, "sig_mo_du", sig$mo$du, asof)
+# dbUpdateTable(aurora, "sig_mo_cu", sig$mo$cu, asof)
+# dbUpdateTable(aurora, "sig_mo_pau", sig$mo$pau, asof)
+# dbUpdateTable(aurora, "sig_mo_cctv", sig$mo$cctv, asof)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# New Dynamodb Upload Code. Write to table by Partition Key.
+
+write_to_dynamodb_beta(cor$dy$du, "cor-dy-du", asof)
+write_to_dynamodb_beta(cor$dy$cu, "cor-dy-cu", asof)
+write_to_dynamodb_beta(cor$dy$pau, "cor-dy-pau", asof)
+write_to_dynamodb_beta(cor$dy$cctv, "cor-dy-cctv", asof)
+#
+write_to_dynamodb_beta(cor$wk$vpd, "cor-wk-vpd", asof)
+write_to_dynamodb_beta(cor$wk$vph, "cor-wk-vph", asof)
+write_to_dynamodb_beta(cor$wk$vphp$am, "cor-wk-vphpa", asof)
+write_to_dynamodb_beta(cor$wk$vphp$pm, "cor-wk-vphpp", asof)
+write_to_dynamodb_beta(cor$wk$papd, "cor-wk-papd", asof)
+write_to_dynamodb_beta(cor$wk$paph, "cor-wk-paph", asof)
+write_to_dynamodb_beta(cor$wk$tp, "cor-wk-tp", asof)
+write_to_dynamodb_beta(cor$wk$aog, "cor-wk-aog", asof)
+write_to_dynamodb_beta(cor$wk$pr, "cor-wk-pr", asof)
+write_to_dynamodb_beta(cor$wk$qs, "cor-wk-qs", asof)
+write_to_dynamodb_beta(cor$wk$sf, "cor-wk-sf", asof)
+write_to_dynamodb_beta(cor$wk$cu, "cor-wk-cu", asof)
+write_to_dynamodb_beta(cor$wk$pau, "cor-wk-pau", asof)
+write_to_dynamodb_beta(cor$wk$cctv, "cor-wk-cctv", asof)
+
+write_to_dynamodb_beta(cor$mo$vpd, "cor-mo-vpd", asof)
+write_to_dynamodb_beta(cor$mo$vph, "cor-mo-vph", asof)
+write_to_dynamodb_beta(cor$mo$vphp$am, "cor-mo-vphpa", asof)
+write_to_dynamodb_beta(cor$mo$vphp$pm, "cor-mo-vphpp", asof)
+write_to_dynamodb_beta(cor$mo$papd, "cor-mo-papd", asof)
+write_to_dynamodb_beta(cor$mo$paph, "cor-mo-paph", asof)
+write_to_dynamodb_beta(cor$mo$tp, "cor-mo-tp", asof)
+write_to_dynamodb_beta(cor$mo$aogd, "cor-mo-aogd", asof)
+write_to_dynamodb_beta(cor$mo$aogh, "cor-mo-aogh", asof)
+write_to_dynamodb_beta(cor$mo$prd, "cor-mo-prd", asof)
+write_to_dynamodb_beta(cor$mo$prh, "cor-mo-prh", asof)
+write_to_dynamodb_beta(cor$mo$qsd, "cor-mo-qsd", asof)
+write_to_dynamodb_beta(cor$mo$qsh, "cor-mo-qsh", asof)
+write_to_dynamodb_beta(cor$mo$sfd, "cor-mo-sfd", asof)
+write_to_dynamodb_beta(cor$mo$sfh, "cor-mo-sfh", asof)
+write_to_dynamodb_beta(cor$mo$tti, "cor-mo-tti", asof)
+write_to_dynamodb_beta(cor$mo$ttih, "cor-mo-ttih", asof)
+write_to_dynamodb_beta(cor$mo$pti, "cor-mo-pti", asof)
+write_to_dynamodb_beta(cor$mo$ptih, "cor-mo-ptih", asof)
+write_to_dynamodb_beta(cor$mo$du, "cor-mo-du", asof)
+write_to_dynamodb_beta(cor$mo$cu, "cor-mo-cu", asof)
+write_to_dynamodb_beta(cor$mo$pau, "cor-mo-pau", asof)
+write_to_dynamodb_beta(cor$mo$veh, "cor-mo-veh", asof)
+write_to_dynamodb_beta(cor$mo$ped, "cor-mo-ped", asof)
+write_to_dynamodb_beta(cor$mo$cctv, "cor-mo-cctv", asof)
+write_to_dynamodb_beta(cor$mo$events, "cor-mo-events", asof)
+
+# TODO: Why is Quarter NA? Why is underyling Month NA?
+
+write_to_dynamodb_beta(cor$qu$vpd %>% filter(!is.na(Quarter)), "cor-qu-vpd")
+write_to_dynamodb_beta(cor$qu$vphpa %>% filter(!is.na(Quarter)), "cor-qu-vphpa")
+write_to_dynamodb_beta(cor$qu$vphpp %>% filter(!is.na(Quarter)), "cor-qu-vphpp")
+write_to_dynamodb_beta(cor$qu$tp %>% filter(!is.na(Quarter)), "cor-qu-tp")
+write_to_dynamodb_beta(cor$qu$aogd %>% filter(!is.na(Quarter)), "cor-qu-aogd")
+write_to_dynamodb_beta(cor$qu$prd %>% filter(!is.na(Quarter)), "cor-qu-prd")
+write_to_dynamodb_beta(cor$qu$qsd %>% filter(!is.na(Quarter)), "cor-qu-qsd")
+write_to_dynamodb_beta(cor$qu$sfd %>% filter(!is.na(Quarter)), "cor-qu-sfd")
+write_to_dynamodb_beta(cor$qu$tti %>% filter(!is.na(Quarter)), "cor-qu-tti")
+write_to_dynamodb_beta(cor$qu$pti %>% filter(!is.na(Quarter)), "cor-qu-pti")
+write_to_dynamodb_beta(cor$qu$du %>% filter(!is.na(Quarter)), "cor-qu-du")
+write_to_dynamodb_beta(cor$qu$cu %>% filter(!is.na(Quarter)), "cor-qu-cu")
+write_to_dynamodb_beta(cor$qu$pau %>% filter(!is.na(Quarter)), "cor-qu-pau")
+write_to_dynamodb_beta(cor$qu$veh %>% filter(!is.na(Quarter)), "cor-qu-veh")
+write_to_dynamodb_beta(cor$qu$ped %>% filter(!is.na(Quarter)), "cor-qu-ped")
+write_to_dynamodb_beta(cor$qu$cctv %>% filter(!is.na(Quarter)), "cor-qu-cctv")
+write_to_dynamodb_beta(cor$qu$reported %>% filter(!is.na(Quarter)), "cor-qu-reported")
+write_to_dynamodb_beta(cor$qu$resolved %>% filter(!is.na(Quarter)), "cor-qu-resolved")
+write_to_dynamodb_beta(cor$qu$outstanding %>% filter(!is.na(Quarter)), "cor-qu-outstanding")
+#
+#
+write_to_dynamodb_beta(sig$dy$du, "sig-dy-du", asof)
+write_to_dynamodb_beta(sig$dy$cu, "sig-dy-cu", asof)
+write_to_dynamodb_beta(sig$dy$pau, "sig-dy-pau", asof)
+write_to_dynamodb_beta(sig$dy$cctv, "sig-dy-cctv", asof)
+
+#
+write_to_dynamodb_beta(sig$wk$vpd, "sig-wk-vpd", asof)
+write_to_dynamodb_beta(sig$wk$vph, "sig-wk-vph", asof)
+#write_to_dynamodb_beta(sig$wk$vphp$am, "sig-wk-vphpa", asof)
+#write_to_dynamodb_beta(sig$wk$vphp$pm, "sig-wk-vphpp", asof)
+write_to_dynamodb_beta(sig$wk$papd, "sig-wk-papd", asof)
+#write_to_dynamodb_beta(sig$wk$paph, "sig-wk-paph", asof)
+write_to_dynamodb_beta(sig$wk$tp, "sig-wk-tp", asof)
+write_to_dynamodb_beta(sig$wk$aog, "sig-wk-aog", asof)
+write_to_dynamodb_beta(sig$wk$pr, "sig-wk-pr", asof)
+write_to_dynamodb_beta(sig$wk$qs, "sig-wk-qs", asof)
+write_to_dynamodb_beta(sig$wk$sf, "sig-wk-sf", asof)
+write_to_dynamodb_beta(sig$wk$cu, "sig-wk-cu", asof)
+write_to_dynamodb_beta(sig$wk$pau, "sig-wk-pau", asof)
+write_to_dynamodb_beta(sig$wk$cctv, "sig-wk-cctv", asof)
+#
+write_to_dynamodb_beta(sig$mo$vpd, "sig-mo-vpd", asof)
+write_to_dynamodb_beta(sig$mo$vph, "sig-mo-vph", asof)
+write_to_dynamodb_beta(sig$mo$vphp$am, "sig-mo-vphpa", asof)
+write_to_dynamodb_beta(sig$mo$vphp$pm, "sig-mo-vphpp", asof)
+write_to_dynamodb_beta(sig$mo$papd, "sig-mo-papd", asof)
+write_to_dynamodb_beta(sig$mo$paph, "sig-mo-paph", asof)
+write_to_dynamodb_beta(sig$mo$tp, "sig-mo-tp", asof)
+write_to_dynamodb_beta(sig$mo$aogd, "sig-mo-aogd", asof)
+write_to_dynamodb_beta(sig$mo$aogh, "sig-mo-aogh", asof)
+write_to_dynamodb_beta(sig$mo$prd, "sig-mo-prd", asof)
+write_to_dynamodb_beta(sig$mo$prh, "sig-mo-prh", asof)
+write_to_dynamodb_beta(sig$mo$qsd, "sig-mo-qsd", asof)
+write_to_dynamodb_beta(sig$mo$qsh, "sig-mo-qsh", asof)
+write_to_dynamodb_beta(sig$mo$sfd, "sig-mo-sfd", asof)
+write_to_dynamodb_beta(sig$mo$sfh, "sig-mo-sfh", asof)
+#write_to_dynamodb_beta(sig$mo$tti, "sig-mo-tti", asof)
+#write_to_dynamodb_beta(sig$mo$pti, "sig-mo-pti", asof)
+write_to_dynamodb_beta(sig$mo$du, "sig-mo-du", asof)
+write_to_dynamodb_beta(sig$mo$cu, "sig-mo-cu", asof)
+write_to_dynamodb_beta(sig$mo$pau, "sig-mo-pau", asof)
+write_to_dynamodb_beta(sig$mo$cctv, "sig-mo-cctv", asof)
+
+
+
+
