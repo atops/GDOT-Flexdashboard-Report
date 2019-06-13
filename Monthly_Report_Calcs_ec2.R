@@ -198,22 +198,25 @@ get_counts_based_measures <- function(month_abbrs) {
                 'adjusted_counts_1hr', 
                 as.character(date_), 
                 as.character(date_),
-                bucket = 'gdot-spm') %>%
-                mutate(Date = date(Date),
-                       SignalID = factor(SignalID),
-                       CallPhase = factor(CallPhase),
-                       Detector = factor(Detector))
+                bucket = 'gdot-spm')
             
-            # VPD
-            print(glue("vpd: {date_}"))
-            vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
-            s3_upload_parquet_date_split(vpd, prefix = "vpd", table_name = "vehicles_pd")
-            
-            # VPH
-            print(glue("vph: {date_}"))
-            vph <- get_vph(adjusted_counts_1hr)
-            s3_upload_parquet_date_split(vph, prefix = "vph", table_name = "vehicles_ph")
-           
+            if (nrow(adjusted_counts_1hr) > 0) {
+                adjusted_counts_1hr <- adjusted_counts_1hr %>%
+                    mutate(Date = date(Date),
+                           SignalID = factor(SignalID),
+                           CallPhase = factor(CallPhase),
+                           Detector = factor(Detector))
+                
+                # VPD
+                print(glue("vpd: {date_}"))
+                vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
+                s3_upload_parquet_date_split(vpd, prefix = "vpd", table_name = "vehicles_pd")
+                
+                # VPH
+                print(glue("vph: {date_}"))
+                vph <- get_vph(adjusted_counts_1hr)
+                s3_upload_parquet_date_split(vph, prefix = "vph", table_name = "vehicles_ph")
+            }
         })
         registerDoSEQ()
     	gc()
@@ -228,34 +231,34 @@ get_counts_based_measures <- function(month_abbrs) {
         #mclapply(date_range_twr, function(date_) {
         foreach(date_ = date_range_twr) %dopar% {
             if (between(date_, start_date, end_date)) {
-            date_ <- as.character(date_)
-            filtered_counts_15min <- s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
-                transmute(SignalID = factor(SignalID), 
-                          CallPhase = factor(CallPhase), 
-                          Detector = factor(Detector), 
-                          Date = date(Date), 
-                          Timeperiod = Timeperiod, 
-                          Month_Hour = Month_Hour, 
-                          Hour = Hour, 
-                          vol = vol, 
-                          Good = Good, 
-                          Good_Day = Good_Day, 
-                          delta_vol = delta_vol, 
-                          mean_abs_delta = mean_abs_delta)
-            
-            if (length(filtered_counts_15min) > 0) {
+                date_ <- as.character(date_)
+                filtered_counts_15min <- s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
+                    transmute(SignalID = factor(SignalID), 
+                              CallPhase = factor(CallPhase), 
+                              Detector = factor(Detector), 
+                              CountPriority = CountPriority,
+                              Date = date(Date), 
+                              Timeperiod = Timeperiod, 
+                              Month_Hour = Month_Hour, 
+                              Hour = Hour, 
+                              vol = vol, 
+                              Good = Good, 
+                              Good_Day = Good_Day, 
+                              delta_vol = delta_vol, 
+                              mean_abs_delta = mean_abs_delta)
                 
-                # print("adjusted counts")
-                # adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
-                # 	mutate(Date = date(Timeperiod))
-                # rm(filtered_counts_15min)
-                
-                # Calculate and write Throughput
-                throughput <- get_thruput(filtered_counts_15min)
-                # throughput <- get_thruput(filtered_counts_15min)
-                
-                s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
-            }
+                if (length(filtered_counts_15min) > 0) {
+                    
+                    # print("adjusted counts")
+                    # adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+                    # 	mutate(Date = date(Timeperiod))
+                    # rm(filtered_counts_15min)
+                    
+                    # Calculate and write Throughput
+                    throughput <- get_thruput(filtered_counts_15min)
+                    
+                    s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
+                }
             }
         }
         registerDoSEQ()
@@ -379,61 +382,52 @@ get_sf_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
     foreach(date_ = date_range) %dopar% {
+        print(date_)
         cycle_data <- get_cycle_data(date_, date_, signals_list)
         detection_events <- get_detection_events(date_, date_, signals_list)
         if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
             sf <- get_sf_utah(cycle_data, detection_events)
-            s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures_utah")
+            s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures")
         }
     }
     registerDoSEQ()
     gc()
     
-    # lapply(dates, function(date_) {
-    #     print(date_)
-    #     
-    #     cycle_data <- get_cycle_data(date_, date_, signals_list)
-    #     detection_events <- get_detection_events(date_, date_, signals_list)
-    #     if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
-    #         sf <- get_sf_utah(cycle_data, detection_events)
-    #         s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures_utah")
-    #     }
-    #})
 }
 
 if (conf$run$split_failures == TRUE) {
 
-    #get_sf_date_range(start_date, end_date)
+    get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
 
     
     
-    system("python split_failures2.py", wait = TRUE) # python script and wait for completion
-    
-    lapply(month_abbrs, function(month_abbr) {
-        fns <- list.files(pattern = paste0("sf_", month_abbr, "-\\d{2}.feather"))
-        
-        #wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", fns), label = TRUE)
-        #twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
-        #fns <- fns[twr]
-        
-        print(fns)
-        if (length(fns) > 0) {
-            lapply(fns, read_feather) %>%
-                bind_rows() %>% 
-                transmute(SignalID = factor(SignalID),
-                          CallPhase = factor(Phase),
-                          Date = date(Hour),
-                          Date_Hour = Hour,
-                          DOW = wday(Hour),
-                          Week = week(Date),
-                          sf = as.integer(sf),
-                          cycles = as.integer(cycles),
-                          sf_freq = sf_freq) %>%
-                s3_upload_parquet_date_split(prefix = "sf", table_name = "split_failures")
-            #write_fst(., paste0("sf_", month_abbr, ".fst"))
-            #lapply(fns, file.remove)
-        }
-    })
+    # system("python split_failures2.py", wait = TRUE) # python script and wait for completion
+    # 
+    # lapply(month_abbrs, function(month_abbr) {
+    #     fns <- list.files(pattern = paste0("sf_", month_abbr, "-\\d{2}.feather"))
+    #     
+    #     #wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", fns), label = TRUE)
+    #     #twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
+    #     #fns <- fns[twr]
+    #     
+    #     print(fns)
+    #     if (length(fns) > 0) {
+    #         lapply(fns, read_feather) %>%
+    #             bind_rows() %>% 
+    #             transmute(SignalID = factor(SignalID),
+    #                       CallPhase = factor(Phase),
+    #                       Date = date(Hour),
+    #                       Date_Hour = Hour,
+    #                       DOW = wday(Hour),
+    #                       Week = week(Date),
+    #                       sf = as.integer(sf),
+    #                       cycles = as.integer(cycles),
+    #                       sf_freq = sf_freq) %>%
+    #             s3_upload_parquet_date_split(prefix = "sf", table_name = "split_failures")
+    #         #write_fst(., paste0("sf_", month_abbr, ".fst"))
+    #         #lapply(fns, file.remove)
+    #     }
+    # })
 }
 
 

@@ -1,20 +1,20 @@
 
 # Monthly_Report config file (yaml format)
 
-#mode: production
-mode: beta
+mode: production
+#mode: beta
 
 
 # Sections of Monthly_Report_Calcs_ec2 to run
 run:
-    cctv: FALSE
-    travel_times: FALSE
+    cctv: TRUE
+    travel_times: TRUE
     counts: TRUE
-    counts_based_measures: FALSE
-    etl: FALSE  # ** reads this file
-    arrivals_on_green: FALSE
-    queue_spillback: FALSE
-    split_failures: FALSE  # ** reads this file
+    counts_based_measures: TRUE
+    etl: TRUE   # ** reads this file
+    arrivals_on_green: TRUE
+    queue_spillback: TRUE
+    split_failures: TRUE
     
 
 start_date: yesterday

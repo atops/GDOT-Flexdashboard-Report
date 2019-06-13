@@ -96,12 +96,12 @@ if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
     
 } else if (conf$mode == "beta") {
-    last_month <- today() - days(6)   # Beta
+    last_month <- floor_date(today() - days(6), unit = "months")   # Beta
     
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
 }    
-
+endof_last_month <- last_month + months(1) - days(1)
 first_month <- last_month - months(12)
 report_months <- seq(last_month, first_month, by = "-1 month")
 month_options <- report_months %>% format("%B %Y")
@@ -1917,7 +1917,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             
             perf_plotly_by_phase(df,
                                  "Date_Hour", "sf_freq",
-                                 range_max = 0.5,
+                                 range_max = 1.0,
                                  title = "Split Failure Rate") %>%
                 layout(showlegend = FALSE)
         }, error = function(cond) {
@@ -2212,3 +2212,42 @@ rds_pp_query_ <- function(mr, per, tab, first_month, current_month, zone_group =
     df
 }
 rds_pp_query <- memoise(rds_pp_query_)
+
+
+
+
+
+
+get_raw_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
+    #------------------------
+    start_date <- ymd(start_date)
+    end_date <- ymd(end_date)
+    
+    plan(multisession)
+    #------------------------
+    
+    p_rc %<-% tryCatch({
+        conn <- get_athena_connection()
+        #------------------------
+        df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
+            filter(signalid == sigid,
+                   between(date, start_date, end_date)) %>%
+            select(signalid, detector, callphase, timeperiod, vol) %>%
+            collect()
+        dbDisconnect(conn)
+        #------------------------
+        
+        df <- df %>%
+            mutate(vol = ifelse(is.na(vol), 0, vol),
+                   SignalID = factor(signalid),
+                   Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
+                   CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                   Timeperiod = as_datetime(timeperiod))
+        volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
+            layout(showlegend = TRUE)
+    },
+    error = function(cond) {
+        plot_ly()
+    })
+    p_rc
+}

@@ -83,7 +83,7 @@ def get_detector_pairs(df, det_config):
     # det_config is what comes from MaxTime Detector Plans
     dc = (det_config.rename(columns = {'Detector': 'EventParam'})
                     .fillna(value = {'TimeFromStopBar': 0})
-                    .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar']]
+                    .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar', 'CountDetector']]
 
     df = get_pairs(df, 82, 81).join(dc).dropna() # map detector ID to phase
     
@@ -91,18 +91,6 @@ def get_detector_pairs(df, det_config):
     df['EventCode'] = df['EventCode'].astype('int64')
 
     df.StartTimeStamp = df.StartTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
-    #df.EndTimeStamp = df.EndTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
-
-    # Add 5 seconds to account for detector setback distance.
-    # TODO: This is a hack. Need actual setback distances, as this
-    # assumes phases 2,6 are setback detectors and all others are stop bar.
-    
-    
-    #df.StartTimeStamp = (np.where(df['Call Phase'].isin([2,6]), 
-    #                              df.StartTimeStamp + pd.to_timedelta(5, 's'), 
-    #                              df.StartTimeStamp))
-    #df = (df.assign(StartTimeStamp = df.StartTimeStamp + pd.Timedelta(5, 's'),
-    #                EndTimeStamp = df.EndTimeStamp + pd.Timedelta(5, 's'))
     
     df = (df.reset_index(level=1, drop=False)
             .rename(columns={'EventParam':'Detector'})
@@ -148,12 +136,16 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
             .rename(columns={'EventCode_y':'EventCode',
                              'Duration':'DetDuration'}))
     df.EventCode = df.EventCode.astype('int64')
+    
 
     # Disaggregate. All detection events at point in cycle/phase
     detections_by_cycle = df[['Detector', 'CycleStart','PhaseStart','EventCode','DetTimeStamp',
                                'DetDuration','DetTimeInCycle','DetTimeInPhase']].reset_index()
 
+
     # Aggregate. Group detection events to get volumes by gyr
+    df = df[df.CountDetector == True].drop('CountDetector', axis=1)
+
     volumes = (df.set_index(['EventCode','PhaseStart'], append=True)
                  .groupby(level=[0,1,2,3])
                  .count()[['DetTimeStamp']]

@@ -917,7 +917,7 @@ renderValueBox({
 })
 ```
 
-Row {data-height = 50}
+Row {data- = 50}
 -------------------------------------
 
 ### Activity Measures
@@ -1032,8 +1032,8 @@ fillCol(
         data.set <- filter(cor$mo$pti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "pti", "Planning Time\nIndex", RED2, as_2dec, ".2f")
-    }),
-    height = 700)
+    })
+)
 ```
 
 ### Volumes and Equipment
@@ -1084,8 +1084,8 @@ fillCol(
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, as_pct, ".1%")
-    }),
-    height = 800)
+    })
+)
 ```
 
 

@@ -23,7 +23,7 @@ from parquet_lib import *
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 s3 = boto3.client('s3')
-ath = boto3.client('athena' )
+ath = boto3.client('athena')
 
 
 '''
@@ -45,25 +45,23 @@ ath = boto3.client('athena' )
 def etl2(s, date_):
     
     date_str = date_.strftime('%Y-%m-%d')
-    dc_fn = 'ATSPM_Det_Config_Good_{}.feather'.format(date_str)
-    """
-    if ~os.path.exists(dc_fn):
-        s3.download_file(Filename = dc_fn, 
-                         Bucket = 'gdot-devices', 
-                         Key = 'atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str))
-    """
-    det_config = (feather.read_dataframe(dc_fn)
-                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))
-                    .assign(Detector = lambda x: x.Detector.astype('int64'))
-                    .rename(columns={'CallPhase': 'Call Phase'}))
-    
-    left = det_config[det_config.SignalID==s]
-    right = bad_detectors[(bad_detectors.SignalID==s) & (bad_detectors.Date==date_)]
-        
-    det_config_good = (pd.merge(left, right, how = 'outer', indicator = True)
-                         .loc[lambda x: x._merge=='left_only']
-                         .drop(['Date','_merge'], axis=1))
+    # dc_fn = 'ATSPM_Det_Config_Good_{}.feather'.format(date_str)
 
+    # det_config = (feather.read_dataframe(dc_fn)
+    #                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))
+    #                 .assign(Detector = lambda x: x.Detector.astype('int64'))
+    #                 .rename(columns={'CallPhase': 'Call Phase'}))
+
+    
+    # left = det_config[det_config.SignalID==s]
+    # right = bad_detectors[(bad_detectors.SignalID==s) & (bad_detectors.Date==date_)]
+        
+    # det_config_good = (pd.merge(left, right, how = 'outer', indicator = True)
+    #                      .loc[lambda x: x._merge=='left_only']
+    #                      .drop(['Date','_merge'], axis=1))
+
+    det_config_good = det_config[det_config.SignalID==s]
+    
     start_date = date_
     end_date = date_ + pd.DateOffset(days=1) - pd.DateOffset(seconds=0.1)
     
@@ -144,43 +142,53 @@ if __name__=='__main__':
     
     #-----------------------------------------------------------------------------------------
     # Placeholder for manual override of start/end dates
-    #start_date = '2019-02-03'
-    #end_date = '2019-02-03'
+    #start_date = '2019-06-04'
+    #end_date = '2019-06-04'
     #-----------------------------------------------------------------------------------------
     
     dates = pd.date_range(start_date, end_date, freq='1D')
-    print(dates)
-                                       
+
     corridors_filename = conf['corridors_filename']
     corridors = feather.read_dataframe(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]
     
     signalids = list(corridors.SignalID.astype('int').values)
     
+    
+    #-----------------------------------------------------------------------------------------
+    # Placeholder for manual override of signalids
+    #signalids = [7053]
+    #-----------------------------------------------------------------------------------------
+
     for date_ in dates:
 
         t0 = time.time()
         
-        #query = "SELECT * FROM gdot_spm.bad_detectors WHERE date = '{}';"
-        #       
-        #with connect(s3_staging_dir='s3://gdot-spm-athena', region_name='us-east-1') as conn:
-        #    bad_detectors = (pd.read_sql(sql = query.format(date_.strftime('%Y-%m-%d')), con=conn)
-        #                       .rename(columns = {'date': 'Date', 
-        #                                          'signalid': 'SignalID',
-        #                                          'detector': 'Detector', 
-        #                                          'good_day': 'Good_Day'}))
-
         date_str = date_.strftime('%Y-%m-%d')
         dc_fn = 'ATSPM_Det_Config_Good_{}.feather'.format(date_str)
         s3.download_file(Filename = dc_fn, 
                          Bucket = 'gdot-devices', 
                          Key = 'atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str))
-        
+
+        det_config = feather.read_dataframe(dc_fn)\
+                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
+                    .assign(Detector = lambda x: x.Detector.astype('int64'))\
+                    .rename(columns={'CallPhase': 'Call Phase'})
+
         key = 'mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str)
-        bad_detectors = read_parquet_file('gdot-spm', key)
-        
-        #key = 'mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str)
-        #bad_detectors = pd.read_parquet('s3://gdot-spm/{}'.format(key))
+        bad_detectors = read_parquet_file('gdot-spm', key)\
+                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
+                    .assign(Detector = lambda x: x.Detector.astype('int64'))
+
+        left = det_config
+        right = bad_detectors[bad_detectors.Date==date_]
+
+        det_config = (pd.merge(left, right, how = 'outer', indicator = True)
+                        .loc[lambda x: x._merge=='left_only']
+                        .drop(['Date','_merge'], axis=1))
+                        
+        det_config = det_config.groupby(['SignalID','Call Phase'])\
+                        .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))
         
         ncores = os.cpu_count()
 

@@ -339,12 +339,6 @@ print(glue("{Sys.time()} Hourly Volumes [5 of 20]"))
 
 tryCatch({
     
-    
-    
-    
-    
-    
-    
     #vph <- f("vph_", month_abbrs)
     vph <- s3_read_parquet_parallel(bucket = 'gdot-spm', 'vehicles_ph', report_start_date, report_end_date, signals_list) %>%
         mutate(SignalID = factor(SignalID),
@@ -576,7 +570,7 @@ tryCatch({
     rm(monthly_aog_by_day)
     rm(cor_weekly_aog_by_day)
     rm(cor_monthly_aog_by_day)
-    # gc()
+    gc()
     
 }, error = function(e) {
     print('ENCOUNTERED AN ERROR:')
@@ -707,22 +701,26 @@ tryCatch({
         ed <- sd + months(1) - days(1)
         ed <- min(ed, ymd(report_end_date))
         
-        sf <- s3_read_parquet_parallel('split_failures', as.character(sd), as.character(ed), signals_list, 'gdot-spm') %>% 
-            transmute(SignalID = factor(SignalID),
-                      CallPhase = factor(CallPhase),
-                      Date = date(Date),
-                      Date_Hour = Date_Hour,
-                      DOW = wday(Date),
-                      Week = week(Date),
-                      sf = sf,
-                      cycles = cycles,
-                      sf_freq = sf_freq)
+        sf <- s3_read_parquet_parallel('split_failures', as.character(sd), as.character(ed), signals_list, 'gdot-spm')
         
-        wsf <- get_weekly_sf_by_day(sf) %>% ungroup()
-        msf <- get_monthly_sf_by_day(sf) %>% ungroup() %>% filter(!is.na(Month))
-        sfh <- get_sf_by_hr(sf)
-        
-        list(wsf = wsf, msf = msf, sfh = sfh)
+        if (nrow(sf) > 0) {
+            sf <- sf %>% 
+                transmute(SignalID = factor(SignalID),
+                          CallPhase = factor(CallPhase),
+                          Date = date(Date),
+                          Date_Hour = Date_Hour,
+                          DOW = wday(Date),
+                          Week = week(Date),
+                          #sf = sf,
+                          cycles = cycles,
+                          sf_freq = sf_freq)
+            
+            wsf <- get_weekly_sf_by_day(sf) %>% ungroup()
+            msf <- get_monthly_sf_by_day(sf) %>% ungroup() %>% filter(!is.na(Month))
+            sfh <- get_sf_by_hr(sf)
+            
+            list(wsf = wsf, msf = msf, sfh = sfh)
+        }
     })
     
     wsf <- lapply(sfs, function(x) { x$wsf %>% ungroup() }) %>% 
@@ -1449,8 +1447,8 @@ if (conf$start_date == "yesterday") {
 } else {
     asof <- ymd(conf$start_date) - days(day(ymd(conf$start_date)) - 1)
 }
+#asof <- ymd("2019-05-01")
 
-               
 
 # dbUpdateTable(aurora, "cor_dy_du", cor$dy$du, asof)
 # dbUpdateTable(aurora, "cor_dy_cu", cor$dy$cu, asof)

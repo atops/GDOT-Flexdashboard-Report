@@ -1425,9 +1425,13 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "tp", first_month, endof_current_month()), 
-                                m1dynq(mr_str(), "mo", "tp", current_month()), 
-                                NULL,
+    
+    wk.data = m1dynq(mr_str(), "wk", "tp", first_month, endof_last_month) %>% 
+        filter(Date <= endof_current_month())
+    mo.data = m1dynq(mr_str(), "mo", "tp", current_month())
+    dy.data = NULL
+    
+    get_bar_line_dashboard_plot(wk.data, mo.data, dy.data,
                                 "vph", "integer", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = "Vehicles per Hour",
@@ -2247,9 +2251,10 @@ renderDataTable({
 Signal Details
 =====================================
 
-```{r signal_detail}
+```{r signal_detail, eval=TRUE}
 fillCol(height = 100,
 renderUI({
+
     selectInput("signalid", "SignalID:",
                 choices = c("Select", filtered_signalids()),
                 selected = "",
@@ -2267,8 +2272,37 @@ fillCol(height = 700,
 ```
 
 
+```{r, eval = FALSE}
 
+fluidRow(
+    column(width = 3,
+        renderUI({
 
+    
+        
+                   dateRangeInput("date_range", "Date Range:",
+                                start = today() - days(28),
+                                end = today(),
+                                min = today() - days(365),
+                                max = today(),
+                                format = "mm/dd/yy", 
+                                startview = "month", 
+                                weekstart = 0,
+                                separator = " - ")
+        })
+    ),
+    column(width = 3,
+        renderUI({
+                    selectInput("signalid", "SignalID:",
+                        choices = c("Select", filtered_signalids()),
+                        selected = "",
+                        width = "600px")
+        })
+    )
+)
+
+           
+```
 
 
 
