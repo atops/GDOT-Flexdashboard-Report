@@ -22,19 +22,23 @@ from dask import delayed, compute
 
 
 def parse_cctvlog(key):
-
-    df = (pd.read_parquet('s3://gdot-spm/{}'.format(key), columns=['ID', 'Last-Modified', 'Content-Length'])
+    #print(key)
+    try:
+        df = (pd.read_parquet('s3://gdot-spm/{}'.format(key), columns=['ID', 'Last-Modified', 'Content-Length'])
             .rename(columns = {'ID': 'CameraID', 
-                               'Last-Modified': 'Timestamp', 
-                               'Content-Length': 'Size'})
+        		       'Last-Modified': 'Timestamp', 
+        		       'Content-Length': 'Size'})
             .assign(Timestamp = lambda x: pd.to_datetime(x.Timestamp, 
-                                                         format ='%a, %d %b %Y %H:%M:%S %Z')
+        						 format ='%a, %d %b %Y %H:%M:%S %Z')
             #                                .dt.tz_localize('UTC')
-                                            .dt.tz_convert('America/New_York')
-                                            .dt.tz_localize(None))
+        				    .dt.tz_convert('America/New_York')
+        				    .dt.tz_localize(None))
             .assign(Date = lambda x: x.Timestamp.dt.date)
             .drop_duplicates())
-    
+    except:
+        print('Problem reading {}'.format(key))
+        df = pd.DataFrame()
+
     return df
 
 td = date.today()

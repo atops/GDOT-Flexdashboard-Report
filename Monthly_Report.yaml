@@ -11,13 +11,13 @@ run:
     travel_times: TRUE
     counts: TRUE
     counts_based_measures: TRUE
-    etl: TRUE   # ** reads this file
+    etl: TRUE
     arrivals_on_green: TRUE
     queue_spillback: TRUE
     split_failures: TRUE
     
 
-start_date: yesterday
+start_date: 2019-06-24
 end_date: yesterday
 
 report_start_date: 2018-05-01

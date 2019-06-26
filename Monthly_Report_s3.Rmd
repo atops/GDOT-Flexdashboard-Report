@@ -398,6 +398,20 @@ renderValueBox({
 })
 ```
 
+### Progression Ratio {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq(mr_str(), "mo", "prd", current_month()), 
+                           "pr", as_2dec, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car",
+    color = BLUE
+  )
+})
+```
+
 ### Spillback Rate {.value-box}
 
 ```{r}
@@ -691,6 +705,21 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$qu$aogd, "aog", as_pct, 
+                           zone = zone_group(), 
+                           mo = current_month(), 
+                           qu = current_quarter(), break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB
+  )
+})
+```
+
+### Progression Ratio {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq("cor", "qu", "prd", current_quarter()), "pr", as_2dec, 
                            zone = zone_group(), 
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
@@ -1032,7 +1061,8 @@ fillCol(
         data.set <- filter(cor$mo$pti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "pti", "Planning Time\nIndex", RED2, as_2dec, ".2f")
-    })
+    }),
+    height = 800
 )
 ```
 
@@ -1065,13 +1095,13 @@ fillCol(
     }),
     renderPlotly({ 
         data.set <- filter(cor$mo$ped, 
-                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
+                          Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
     renderPlotly({ 
         data.set <- filter(mr()$mo$cctv, 
-                          Corridor==zone_group() & Month <= current_month() & Month >= ymd("2017-07-01"))
+                          Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, as_pct, ".1%")
     }),
@@ -1084,7 +1114,8 @@ fillCol(
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, as_pct, ".1%")
-    })
+    }),
+    height = 800
 )
 ```
 
@@ -1120,6 +1151,19 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$aogd, "aog", as_pct,
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-car"
+  )
+})
+```
+
+### Progression Ratio {.value-box}
+
+```{r, warning = FALSE}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(m1dynq(mr_str(), "mo", "prd", current_month()), 
+                           "pr", as_2dec,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1186,8 +1230,8 @@ renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$tp, mr()$mo$tp, NULL,
                                 "vph", "integer", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Hour",
-                                x_line1_title = paste(input$month, "Throughput (vph)"),
+                                x_bar_title = paste(input$month, "Throughput (vph)"),
+                                x_line1_title = "Vehicles per Hour Trend",
                                 plot_title = "Throughput (peak veh/hr) Trend")
 })
 ```
@@ -1204,6 +1248,23 @@ renderPlotly({
                                 x_line1_title = "AOG Trend",
                                 x_line2_title = paste(input$month, "AOG by TOD"),
                                 plot_title = "Percent Arrivals on Green")
+})
+```
+
+
+### Progression Ratio
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(m1dynq(mr_str(), "wk", "pr", first_month, endof_current_month()),
+                                m1dynq(mr_str(), "mo", "prd", current_month()), 
+                                m1dynq(mr_str(), "mo", "prh", current_month()),
+                                "pr", "decimal", highlight_color = RED2,
+                                month_ = current_month(), zone_group_ = zone_group(),
+                                x_bar_title = paste(input$month, "AOG"),
+                                x_line1_title = "Progression Ratio Trend",
+                                x_line2_title = paste(input$month, "Progression Ratio by TOD"),
+                                plot_title = "Progression Ratio")
 })
 ```
 
@@ -1312,8 +1373,8 @@ renderPlotly({ # Good version
     get_bar_line_dashboard_plot(mr()$wk$vpd, mr()$mo$vpd, NULL,
                                 "vpd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Day",
-                                x_line1_title = paste(input$month, "Daily Volume (vpd)"),
+                                x_bar_title = paste(input$month, "Daily Volume (vpd)"),
+                                x_line1_title = "Vehicles per Day Trend",
                                 plot_title = "Daily Volume (veh/day) Trend")
 })
 ```
@@ -1336,15 +1397,15 @@ renderPlotly({
                                                mr()$mo$vphp$am, NULL,
                                 "vph", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Hour",
-                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                x_bar_title = paste(input$month, "Hourly Volume (vph)"),
+                                x_line1_title = "Vehicles per Hour Trend",
                                 plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
     pm_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$pm,
                                                mr()$mo$vphp$pm, NULL,
                                 "vph", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Hour",
-                                x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+                                x_bar_title = paste(input$month, "Hourly Volume (vph)"),
+                                x_line1_title = "Vehicles per Hour",
                                 plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
     subplot(am_vph_plot, pm_vph_plot, nrows = 1, margin = 0.04)
 })
@@ -1369,8 +1430,8 @@ renderPlotly({ # Good version
     get_bar_line_dashboard_plot(mr()$wk$papd, mr()$mo$papd, NULL,
                                 "papd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Ped Activations per Day",
-                                x_line1_title = paste(input$month, "Ped Activations (papd)"),
+                                x_bar_title = paste(input$month, "Ped Activations (papd)"),
+                                x_line1_title = "Ped Activations per Day Trend",
                                 plot_title = "Pedestrian Activations per Day (pa/day) Trend")
 })
 ```
@@ -1489,10 +1550,8 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
     
-    weekly_ped_df <- rename(cor$mo$ped, Date = Month) %>%
-        filter(Date >= ymd("2017-07-01"))
-    monthly_ped_df <- cor$mo$ped %>%
-        filter(Month >= ymd("2017-07-01"))
+    weekly_ped_df <- rename(cor$mo$ped, Date = Month)
+    monthly_ped_df <- cor$mo$ped
     get_bar_line_dashboard_plot(weekly_ped_df,
                                 monthly_ped_df,
                                 var_ = "uptime", num_format = "percent", highlight_color = BROWN,
@@ -1511,10 +1570,8 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
         
-        weekly_cctv_df <- cor$wk$cctv %>%
-            filter(Date >= ymd("2017-07-01"))
-        monthly_cctv_df <- cor$mo$cctv %>%
-            filter(Month >= ymd("2017-07-01"))
+        weekly_cctv_df <- cor$wk$cctv
+        monthly_cctv_df <- cor$mo$cctv
         get_bar_line_dashboard_plot(weekly_cctv_df,
                                     monthly_cctv_df,
                                     var_ = "uptime",

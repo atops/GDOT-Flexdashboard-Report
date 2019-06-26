@@ -4,6 +4,7 @@ Created on Mon Nov 27 16:27:29 2017
 
 @author: Alan.Toppen
 """
+import sys
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool
 import pandas as pd
@@ -45,20 +46,6 @@ ath = boto3.client('athena')
 def etl2(s, date_):
     
     date_str = date_.strftime('%Y-%m-%d')
-    # dc_fn = 'ATSPM_Det_Config_Good_{}.feather'.format(date_str)
-
-    # det_config = (feather.read_dataframe(dc_fn)
-    #                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))
-    #                 .assign(Detector = lambda x: x.Detector.astype('int64'))
-    #                 .rename(columns={'CallPhase': 'Call Phase'}))
-
-    
-    # left = det_config[det_config.SignalID==s]
-    # right = bad_detectors[(bad_detectors.SignalID==s) & (bad_detectors.Date==date_)]
-        
-    # det_config_good = (pd.merge(left, right, how = 'outer', indicator = True)
-    #                      .loc[lambda x: x._merge=='left_only']
-    #                      .drop(['Date','_merge'], axis=1))
 
     det_config_good = det_config[det_config.SignalID==s]
     
@@ -76,9 +63,7 @@ def etl2(s, date_):
     key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
     df = read_parquet_file('gdot-spm', key)
     
-    #print("df", df.head(3))
-    #print("det_config", det_config_good)
-    
+
     if len(df)==0:
         print('|{} no event data for this signal on {}.'.format(s, date_str))
 
@@ -122,21 +107,22 @@ def etl2(s, date_):
 if __name__=='__main__':
 
     
-
-    
-        
-    
-    
     #corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
     #signalids = list(corridors.SignalID.astype('int').values)
     
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file)
 
-    start_date = conf['start_date']
+
+    if len(sys.argv) > 1:
+        start_date = sys.argv[1]
+        end_date = sys.argv[2]
+    else:
+        start_date = conf['start_date']
+        end_date = conf['end_date']
+    
     if start_date == 'yesterday': 
         start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    end_date = conf['end_date']
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
@@ -165,39 +151,43 @@ if __name__=='__main__':
         t0 = time.time()
         
         date_str = date_.strftime('%Y-%m-%d')
-        dc_fn = 'ATSPM_Det_Config_Good_{}.feather'.format(date_str)
-        s3.download_file(Filename = dc_fn, 
-                         Bucket = 'gdot-devices', 
-                         Key = 'atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str))
 
-        det_config = feather.read_dataframe(dc_fn)\
-                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
-                    .assign(Detector = lambda x: x.Detector.astype('int64'))\
-                    .rename(columns={'CallPhase': 'Call Phase'})
+        print(date_str)
 
-        key = 'mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str)
-        bad_detectors = read_parquet_file('gdot-spm', key)\
+        with io.BytesIO() as data:
+            s3.download_fileobj(Bucket='gdot-devices', Key='atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str), Fileobj=data)
+
+            det_config_raw = feather.read_dataframe(data)\
+                .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
+                .assign(Detector = lambda x: x.Detector.astype('int64'))\
+                .rename(columns={'CallPhase': 'Call Phase'})
+
+
+
+        bad_detectors = pd.read_parquet('s3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str))\
                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                     .assign(Detector = lambda x: x.Detector.astype('int64'))
 
-        left = det_config
-        right = bad_detectors[bad_detectors.Date==date_]
-
-        det_config = (pd.merge(left, right, how = 'outer', indicator = True)
-                        .loc[lambda x: x._merge=='left_only']
-                        .drop(['Date','_merge'], axis=1))
-                        
-        det_config = det_config.groupby(['SignalID','Call Phase'])\
-                        .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))
+        left = det_config_raw.set_index(['SignalID', 'Detector'])
+        right = bad_detectors.set_index(['SignalID', 'Detector'])
         
-        ncores = os.cpu_count()
+        
+        det_config = left.join(right, how='left')\
+            .fillna(value={'Good_Day': 1})\
+            .query('Good_Day == 1')\
+            .groupby(['SignalID','Call Phase'])\
+            .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
+            .reset_index()
 
-        #-----------------------------------------------------------------------------------------
-        pool = Pool(ncores * 4) #24
-        asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
-        pool.close()
-        pool.join()
-        #-----------------------------------------------------------------------------------------
+        if len(det_config) > 0:    
+            ncores = os.cpu_count()
+
+            #-----------------------------------------------------------------------------------------
+            pool = Pool(ncores * 4) #24
+            asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
+            pool.close()
+            pool.join()
+            #-----------------------------------------------------------------------------------------
         
         
         
@@ -211,7 +201,6 @@ if __name__=='__main__':
         #response = ath.start_query_execution(QueryString = partition_query, 
         #                                         QueryExecutionContext={'Database': 'gdot_spm'},
         #                                         ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
-        os.remove(dc_fn)
         
     os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         

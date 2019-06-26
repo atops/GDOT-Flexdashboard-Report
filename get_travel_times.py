@@ -180,11 +180,12 @@ if __name__=='__main__':
             def uf(df):
                 date_string = df.date.values[0]
                 filename = 'travel_times_{}.parquet'.format(date_string)
-                df.drop(columns=['date']).to_parquet(filename)
-                s3.upload_file(Bucket = 'gdot-spm', 
-                               Filename = filename, 
-                               Key = 'mark/travel_times/date={}/{}'.format(date_string, filename))
-            
+                # df.drop(columns=['date']).to_parquet(filename)
+                # s3.upload_file(Bucket = 'gdot-spm', 
+                #                Filename = filename, 
+                #                Key = 'mark/travel_times/date={}/{}'.format(date_string, filename))
+                df.drop(columns=['date']).to_parquet('s3://gdot-spm/mark/travel_times/date={}/{}'.format(date_string, filename))
+                 
             # Write to parquet files and upload to S3
             df.groupby(['date']).apply(uf)
             

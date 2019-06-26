@@ -1434,8 +1434,8 @@ renderPlotly({
     get_bar_line_dashboard_plot(wk.data, mo.data, dy.data,
                                 "vph", "integer", highlight_color = RED2,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Hour",
-                                x_line1_title = paste(input$month, "Throughput (vph)"),
+                                x_bar_title = paste(input$month, "Throughput (vph)"),
+                                x_line1_title = "Vehicles per Hour Trend",
                                 plot_title = "Throughput (peak veh/hr) Trend")
 })
 ```
@@ -1589,8 +1589,8 @@ renderPlotly({ # Good version
                                 NULL,
                                 "vpd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Vehicles per Day",
-                                x_line1_title = paste(input$month, "Daily Volume (vpd)"),
+                                x_bar_title = paste(input$month, "Daily Volume (vpd)"),
+                                x_line1_title = "Vehicles per Day Trend",
                                 plot_title = "Daily Volume (veh/day) Trend")
 })
 ```
@@ -1615,8 +1615,8 @@ renderPlotly({
         NULL,
         "vph", "integer", highlight_color = GDOT_BLUE,
         month_ = current_month(), zone_group_ = zone_group(),
-        x_bar_title = "Vehicles per Hour",
-        x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+        x_bar_title = paste(input$month, "Hourly Volume (vph)"),
+        x_line1_title = "Vehicles per Hour Trend",
         plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
     
     pm_vph_plot <- get_bar_line_dashboard_plot(
@@ -1625,8 +1625,8 @@ renderPlotly({
         NULL,
         "vph", "integer", highlight_color = GDOT_BLUE,
         month_ = current_month(), zone_group_ = zone_group(),
-        x_bar_title = "Vehicles per Hour",
-        x_line1_title = paste(input$month, "Hourly Volume (vph)"),
+        x_bar_title = paste(input$month, "Hourly Volume (vph)"),
+        x_line1_title = "Vehicles per Hour",
         plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
     subplot(am_vph_plot, pm_vph_plot, nrows = 1, margin = 0.04)
 })
@@ -1653,8 +1653,8 @@ renderPlotly({ # Good version
                                 NULL,
                                 "papd", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = "Ped Activations per Day",
-                                x_line1_title = paste(input$month, "Ped Activations (papd)"),
+                                x_bar_title = paste(input$month, "Ped Activations (papd)"),
+                                x_line1_title = "Ped Activations per Day Trend",
                                 plot_title = "Pedestrian Activations per Day (pa/day) Trend")
 })
 ```

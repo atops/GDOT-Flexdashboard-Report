@@ -38,6 +38,7 @@ suppressMessages(library(fitdistrplus))
 suppressMessages(library(foreach))
 
 select <- dplyr::select
+filter <- dplyr::filter
 
 if (Sys.info()["sysname"] == "Windows") {
     python_path <- file.path(dirname(path.expand("~")), "Anaconda3", "python.exe")
@@ -94,18 +95,12 @@ get_usable_cores <- function() {
     # Usable cores is one per 8 GB of RAM. 
     # Get RAM from system file and divide
     x <- readLines('/proc/meminfo')
-    suppressWarnings(
-        df <- read_delim(x, delim = " ", trim_ws = TRUE, col_names = FALSE)
-    )
-    mem <- filter(df, X1 == "MemTotal:")$X2
+    
+    memline <- x[grepl("MemTotal", x)]
+    mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
+    mem <- as.integer(mem)
     mem <- round(mem, -6)
     max(floor(mem/8e6), 1)
-    
-    # x <- system('free -m', intern = TRUE)
-    # df <- read_table(x)
-    # mem <- filter(df, X1 == "Mem:")$total
-    # mem <- round(mem, -3)
-    # max(floor(mem/8000), 1)
 }
 
 read_zipped_feather <- function(x) {
@@ -651,7 +646,10 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     
     if (counts == TRUE) {
         det_config <- get_det_config(start_date) %>%
-            dplyr::select(SignalID, Detector, CallPhase)
+            transmute(SignalID = factor(SignalID), 
+                      Detector = factor(Detector), 
+                      CallPhase = factor(CallPhase))
+        #,dplyr::select(SignalID, Detector, CallPhase)
         
         ped_config <- get_ped_config(start_date) %>%
             dplyr::select(SignalID, Detector, CallPhase)
@@ -934,17 +932,20 @@ multicore_decorator <- function(FUN) {
 ## -- --- Adds CountPriority from detector config file --------------------- -- ##
 ## This determines which detectors to use for counts when there is more than
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
-get_det_config_all <- function(date_) {
+get_det_config <- function(date_) {
     
     s3bucket <- "gdot-devices"
     s3object = glue("atspm_det_config_good/date={date_}/ATSPM_Det_Config_Good.feather")
     
-    aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
+    aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket) %>%
+        mutate(SignalID = as.character(SignalID),
+               Detector = as.integer(Detector), 
+               CallPhase = as.integer(CallPhase))
 }
 
 get_det_config_aog <- function(date_) {
     
-    get_det_config_all(date_) %>%
+    get_det_config(date_) %>%
         filter(!is.na(Detector)) %>%
         mutate(AOGPriority = 
                    dplyr::case_when(
@@ -965,7 +966,7 @@ get_det_config_aog <- function(date_) {
 
 get_det_config_qs <- function(date_) {
     
-    get_det_config_all(date_) %>%
+    get_det_config(date_) %>%
         filter(grepl("Advanced Count", DetectionTypeDesc)) %>%
         filter(!is.na(Detector)) %>%
         
@@ -978,7 +979,7 @@ get_det_config_qs <- function(date_) {
 
 get_det_config_sf <- function(date_) {
     
-    get_det_config_all(date_) %>%
+    get_det_config(date_) %>%
         filter(grepl("Stop Bar Presence", DetectionTypeDesc)) %>%
         filter(!is.na(Detector)) %>%
         
@@ -990,15 +991,18 @@ get_det_config_sf <- function(date_) {
                   Date = date(date_))
 }
 
-get_det_config <- function(date_) {
+get_det_config_vol <- function(date_) {
     
-    get_det_config_all(date_) %>%
+    get_det_config(date_) %>%
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
                   CallPhase = factor(CallPhase),
                   CountPriority,
                   TimeFromStopBar = TimeFromStopBar,
-                  Date = date(date_))
+                  Date = date(date_)) %>%
+        group_by(SignalID, CallPhase) %>%
+        filter(CountPriority == min(CountPriority, na.rm = TRUE)) %>%
+        ungroup()
 }
 
 
@@ -1028,14 +1032,13 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     det_config <- lapply(all_days, function(d) {
         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
         get_det_config(d) %>%
-            expand(nesting(SignalID, Detector, CallPhase, CountPriority), 
+            expand(nesting(SignalID, Detector, CallPhase), 
                    Timeperiod = all_timeperiods)
     }) %>% bind_rows() %>%
         transmute(SignalID = factor(SignalID),
                   Timeperiod = Timeperiod,
                   Detector = factor(Detector),
-                  CallPhase = factor(CallPhase),
-                  CountPriority = CountPriority) 
+                  CallPhase = factor(CallPhase)) 
     
     
     expanded_counts <- full_join(det_config, counts) %>%
@@ -1044,7 +1047,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
                   Timeperiod = Timeperiod,
                   Detector = factor(Detector), 
                   CallPhase = factor(CallPhase),
-                  CountPriority = CountPriority,
                   vol = as.double(vol),
                   vol0 = if_else(is.na(vol), 0.0, vol)) %>%
         group_by(SignalID, CallPhase, Detector) %>% 
@@ -1064,7 +1066,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     #    mean absolute change in hourly volume > 200 
     bad_days <- expanded_counts %>% 
         filter(hour(Timeperiod) >= 5) %>%
-        group_by(SignalID, CallPhase, Detector, CountPriority, Date = date(Timeperiod)) %>% 
+        group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
         summarize(Good = sum(Good, na.rm = TRUE), 
                   All = n(), 
                   Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
@@ -1072,7 +1074,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
         
         # manually calibrated
         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < 200, 1, 0))) %>%
-        dplyr::select(SignalID, CallPhase, CountPriority, Detector, Date, mean_abs_delta, Good_Day) %>%
+        dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day) %>%
         ungroup()
     
     # counts with the bad days taken out
@@ -1090,11 +1092,12 @@ get_adjusted_counts <- function(filtered_counts) {
     
     usable_cores <- get_usable_cores()
     
+    det_config <- lapply(unique(filtered_counts$Date), get_det_config_vol) %>% bind_rows()
+    
     filtered_counts %>%
-        group_by(SignalID, CallPhase) %>% 
-        filter(CountPriority == min(CountPriority)) %>%
-        ungroup() %>%
-        
+        left_join(det_config) %>%
+        filter(!is.na(CountPriority)) %>%
+    
         split(.$SignalID) %>% mclapply(function(fc) {
             fc <- fc %>% 
                 mutate(DOW = wday(Timeperiod),
@@ -1227,10 +1230,6 @@ get_vpd <- function(counts, mainline_only = TRUE) {
 get_thruput <- function(counts) {
     
     counts %>%
-        group_by(SignalID, CallPhase) %>% 
-        filter(CountPriority == min(CountPriority)) %>%
-        ungroup() %>%
-        
         mutate(DOW = wday(Date), 
                Week = week(Date)) %>%
         group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
@@ -1251,6 +1250,8 @@ get_thruput <- function(counts) {
 
 # SPM Arrivals on Green -- modified for use with dbplyr on AWS Athena
 get_aog <- function(cycle_data) {
+
+    # volumes in cycle_data use count detectors only
     
     df <- cycle_data %>%
         filter(Phase %in% c(2,6)) %>%
@@ -1371,8 +1372,9 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
                   detoff = ymd_hms(dettimestamp) + seconds(detduration),
                   date = ymd(date)) 
     
-    dates <- seq(min(de$date), max(de$date), by = "1 day")
-    
+    # dates <- seq(min(de$date), max(de$date), by = "1 day")
+    dates <- unique(de$date)
+
     dc <- lapply(dates, get_det_config_sf) %>% 
         bind_rows %>% 
         rename(signalid = SignalID, detector = Detector, phase = CallPhase, date = Date)
@@ -1602,7 +1604,8 @@ get_qs <- function(detection_events) {
                qs_freq = as.double(qs)/as.double(cycles)) %>%
         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, qs, cycles, qs_freq)
     
-    dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
+    # dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
+    dates <- unique(qs$Date)
     
     dc <- lapply(dates, get_det_config_qs) %>% 
         bind_rows() %>% 

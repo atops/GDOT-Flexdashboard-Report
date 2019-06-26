@@ -23,15 +23,17 @@ s3 = boto3.client('s3')
 def upload_parquet(Bucket, Key, Filename):
     #print(Key)
     feather_filename = Filename
-    #df = feather.read_dataframe(feather_filename)
+    # df = feather.read_dataframe(feather_filename)
     df = pd.read_feather(feather_filename).drop(columns = ['Date'], errors = 'ignore')
-    parquet_filename = feather_filename.replace('.feather', '.parquet')
-    df.to_parquet(parquet_filename)
+    # parquet_filename = feather_filename.replace('.feather', '.parquet')
+    df.to_parquet('s3://{b}/{k}'.format(b=Bucket, k=Key))
 
-    s3.upload_file(Filename=parquet_filename, 
-                   Bucket=Bucket, 
-                   Key=Key)
-    os.remove(parquet_filename)
+    # df.to_parquet(parquet_filename)
+
+    # s3.upload_file(Filename=parquet_filename, 
+    #                Bucket=Bucket, 
+    #                Key=Key)
+    # os.remove(parquet_filename)
     
     date_ = re.search('\d{4}-\d{2}-\d{2}', Key).group(0)
     table_name = re.search('mark/(.*?)/date', Key).groups()[0]

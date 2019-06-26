@@ -2218,36 +2218,40 @@ rds_pp_query <- memoise(rds_pp_query_)
 
 
 
-get_raw_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
+get_counts_plot <- function(sigid, start_date, end_date, pth = "s3", table_name) {
     #------------------------
     start_date <- ymd(start_date)
     end_date <- ymd(end_date)
     
-    plan(multisession)
+    conn <- get_athena_connection()
+    #------------------------
+    df <- tbl(conn, sql(glue("select * from gdot_spm.{table_name}"))) %>%
+        filter(signalid == sigid,
+               between(date, start_date, end_date)) %>%
+        select(signalid, detector, callphase, timeperiod, vol) %>%
+        collect()
+    dbDisconnect(conn)
     #------------------------
     
-    p_rc %<-% tryCatch({
-        conn <- get_athena_connection()
-        #------------------------
-        df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
-            filter(signalid == sigid,
-                   between(date, start_date, end_date)) %>%
-            select(signalid, detector, callphase, timeperiod, vol) %>%
-            collect()
-        dbDisconnect(conn)
-        #------------------------
-        
-        df <- df %>%
-            mutate(vol = ifelse(is.na(vol), 0, vol),
-                   SignalID = factor(signalid),
-                   Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                   CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                   Timeperiod = as_datetime(timeperiod))
-        volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
-            layout(showlegend = TRUE)
-    },
-    error = function(cond) {
-        plot_ly()
-    })
-    p_rc
+    df <- df %>%
+        mutate(vol = ifelse(is.na(vol), 0, vol),
+               SignalID = factor(signalid),
+               Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
+               CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+               Timeperiod = as_datetime(timeperiod))
+    volplot_plotly(df, title = "Counts") %>% 
+        layout(showlegend = TRUE)
 }
+
+get_raw_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "counts_1hr")
+}
+get_filtered_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "filtered_counts_1hr")
+}
+get_adjusted_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "adjusted_counts_1hr")
+}
+
+
+    

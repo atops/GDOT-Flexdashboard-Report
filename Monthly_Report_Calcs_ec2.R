@@ -55,7 +55,7 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 # -- ----------------------------------------------------
 
 corridors <- feather::read_feather(conf$corridors_filename) 
-signals_list <- corridors$SignalID
+signals_list <- unique(corridors$SignalID)
 
 # -- TMC Codes for Corridors
 #tmc_routes <- get_tmc_routes()
@@ -121,7 +121,7 @@ print(glue("{Sys.time()} monthly cu [4 of 10]"))
 # --- Everything up to here needs the ATSPM Database ---
 
 signals_list <- as.integer(as.character(corridors$SignalID))
-signals_list <- as.character(signals_list[signals_list > 0])
+signals_list <- unique(as.character(signals_list[signals_list > 0]))
 
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
@@ -228,15 +228,16 @@ get_counts_based_measures <- function(month_abbrs) {
         doParallel::registerDoParallel(cores = usable_cores)
         
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c('Tue','Wed','Thu')]
-        #mclapply(date_range_twr, function(date_) {
-        foreach(date_ = date_range_twr) %dopar% {
+        
+        filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
             if (between(date_, start_date, end_date)) {
                 date_ <- as.character(date_)
-                filtered_counts_15min <- s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
+                print(date_)
+                s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
                     transmute(SignalID = factor(SignalID), 
                               CallPhase = factor(CallPhase), 
                               Detector = factor(Detector), 
-                              CountPriority = CountPriority,
+                              #CountPriority = CountPriority,
                               Date = date(Date), 
                               Timeperiod = Timeperiod, 
                               Month_Hour = Month_Hour, 
@@ -246,21 +247,56 @@ get_counts_based_measures <- function(month_abbrs) {
                               Good_Day = Good_Day, 
                               delta_vol = delta_vol, 
                               mean_abs_delta = mean_abs_delta)
-                
-                if (length(filtered_counts_15min) > 0) {
-                    
-                    # print("adjusted counts")
-                    # adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
-                    # 	mutate(Date = date(Timeperiod))
-                    # rm(filtered_counts_15min)
-                    
-                    # Calculate and write Throughput
-                    throughput <- get_thruput(filtered_counts_15min)
-                    
-                    s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
-                }
             }
+        } %>% bind_rows()
+        
+        if (length(filtered_counts_15min) > 0) {
+            
+            print("adjusted counts")
+            adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+                mutate(Date = date(Timeperiod))
+            rm(filtered_counts_15min)
+            
+            # Calculate and write Throughput
+            throughput <- get_thruput(adjusted_counts_15min)
+            # throughput <- get_thruput(filtered_counts_15min)
+            
+            s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
         }
+        
+        # foreach(date_ = date_range_twr) %dopar% {
+        #     if (between(date_, start_date, end_date)) {
+        #         date_ <- as.character(date_)
+        #         filtered_counts_15min <- s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
+        #             transmute(SignalID = factor(SignalID), 
+        #                       CallPhase = factor(CallPhase), 
+        #                       Detector = factor(Detector), 
+        #                       CountPriority = CountPriority,
+        #                       Date = date(Date), 
+        #                       Timeperiod = Timeperiod, 
+        #                       Month_Hour = Month_Hour, 
+        #                       Hour = Hour, 
+        #                       vol = vol, 
+        #                       Good = Good, 
+        #                       Good_Day = Good_Day, 
+        #                       delta_vol = delta_vol, 
+        #                       mean_abs_delta = mean_abs_delta)
+        #         
+        #         if (length(filtered_counts_15min) > 0) {
+        #             
+        #             print("adjusted counts")
+        #             adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
+        #             	mutate(Date = date(Timeperiod))
+        #             rm(filtered_counts_15min)
+        #             
+        #             # Calculate and write Throughput
+        #             throughput <- get_thruput(adjusted_counts_15min)
+        #             # throughput <- get_thruput(filtered_counts_15min)
+        #             
+        #             s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
+        #         }
+        #     }
+        # }
         registerDoSEQ()
 	    gc()
 
