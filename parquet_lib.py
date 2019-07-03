@@ -46,8 +46,8 @@ def upload_parquet(Bucket, Key, Filename):
     print(partition_query)
     
     response = ath.start_query_execution(QueryString = partition_query, 
-                                             QueryExecutionContext={'Database': 'gdot_spm'},
-                                             ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+                                         QueryExecutionContext={'Database': 'gdot_spm'},
+                                         ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
     #print('Response HTTPStatusCode:', response['HTTPStatusCode'])
 
 @retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)

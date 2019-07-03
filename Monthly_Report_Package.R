@@ -24,89 +24,21 @@ conf <- read_yaml("Monthly_Report.yaml")
 
 # startsWith(Sys.info()["nodename"], "ip-") # check for if on AWS EC2 instance
 
-corridors <- feather::read_feather(conf$corridors_filename) 
+corridors <- read_feather(conf$corridors_filename)
 signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
-all_corridors <- read_feather("all_corridors.feather")
+all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
+
+subcorridors <- corridors %>% 
+    mutate(Subcorridor = as.character(Subcorridor),
+           Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))) %>%
+    mutate(Corridor = factor(Subcorridor)) %>%
+    select(-Subcorridor)
 
 conn <- get_athena_connection()
 
 #system("aws s3 sync s3://gdot-spm/mark MARK --exclude *counts_*")
 
 # # ###########################################################################
-
-#f3 <- pqlib$read_parquet
-
-# f2 <- function(table_name, start_date, end_date, signals_list = NULL) {
-#     df <- tbl(conn, sql(glue("SELECT * from gdot_spm.{table_name}"))) %>%
-#         filter(between(date, start_date, end_date))
-# 
-#     if (!is.null(signals_list)) {
-#         df <- df %>% filter(signalid %in% signals_list)
-#     }
-#     df <- collect(df)
-#     cols <- names(df)
-#     if ("signalid" %in% cols) { 
-#         df <- mutate(df, SignalID = factor(signalid)) %>% select(-signalid)
-#     }
-#     if ("callphase" %in% cols) { 
-#         df <- mutate(df, CallPhase = factor(callphase)) %>% select(-callphase)
-#     }
-#     if ("date" %in% cols) { 
-#         df <- mutate(df, Date = date(date)) %>% select(-date)
-#     }
-#     if ("date_hour" %in% cols) { 
-#         df <- mutate(df, Date_Hour = ymd_hms(date_hour)) %>% select(-date_hour)
-#     }
-#     if ("setback" %in% cols) { 
-#         df <- mutate(df, setback = factor(setback)) }
-#     if ("week" %in% cols) { 
-#         df <- mutate(df, Week = as.integer(week)) %>% select(-week)
-#     }
-#     if ("dow" %in% cols) { 
-#         df <- mutate(df, DOW = as.integer(dow)) %>% select(-dow)
-#     }
-#     if ("timefromstopbar" %in% cols) { 
-#         df <- mutate(df, TimeFromStopBar = factor(timefromstopbar)) %>% select(-timefromstopbar)
-#     }
-#     df
-# }
-# 
-# f <- function(prefix, month_abbrs, daily = FALSE, combine = TRUE, signals_list = NULL) {
-#     
-#     x <- mclapply(month_abbrs, function(month_abbr) {
-#         if (daily == TRUE) {
-#             month_abbr <- paste0(month_abbr, "-")
-#         }
-#         fns <- aws.s3::get_bucket_df("gdot-spm", prefix = glue("SAM/{prefix}{month_abbr}"))$Key
-#         #print(fns)
-#         
-#         if (length(fns) > 0) {
-#             if (!is.null(signals_list)) {
-#                 xx <- lapply(fns, function(fn) { 
-#                     aws.s3::save_object(fn, bucket = "gdot-spm", file = basename(fn))
-#                     read_fst(basename(fn)) %>% filter(SignalID %in% signals_list)
-#                 }) %>% bind_rows() %>% as_tibble()
-#             } else {
-#                 xx <- lapply(fns, function(fn) {
-#                     aws.s3::save_object(fn, bucket = "gdot-spm", file = basename(fn))
-#                     read_fst(basename(fn))
-#                 }) %>% bind_rows() %>% as_tibble()
-#             }
-# 		} else {
-# 		    xx <- data.frame()
-# 		}
-#         lapply(basename(fns), file.remove)
-#         xx
-#     })
-# 
-#     if (combine == TRUE) {
-#         x <- bind_rows(x) %>% 
-#             mutate(SignalID = factor(SignalID)) %>% 
-#             as_tibble()
-#         #x <- bind_rows_keep_factors(x)
-#     }
-#     x
-# }
 
 # # Package everything up for Monthly Report back 13 months
 
@@ -129,17 +61,16 @@ date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
 date_range_str <- paste0("{", paste0(as.character(date_range), collapse=","), "}")
 
 
+
+
+
+
 # # DETECTOR UPTIME ###########################################################
 
 print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 20]"))
 
 tryCatch({
-    #ddu <- f("ddu_", month_abbrs, signals_list = signals_list)
-    #ddu <- s3_read_parquet_parallel(bucket = 'gdot-spm', 'detector_uptime_pd', report_start_date, report_end_date, signals_list)
-    
-    #keys <- glue("s3a://gdot-spm/mark/detector_uptime_pd/date={date_range_str}/*")
-    #ddu <- spark_read_parquet(sc, name = "ddu", path = keys)
-    
+
     avg_daily_detector_uptime <- lapply(month_abbrs, function(yyyy_mm) {
         sd <- ymd(paste0(yyyy_mm, "-01"))
         ed <- sd + months(1) - days(1)
@@ -189,26 +120,7 @@ tryCatch({
     
     pau <- get_pau(papd)
     
-    # pau <- lapply(month_abbrs, function(yyyy_mm) {
-    #     sd <- ymd(paste0(yyyy_mm, "-01"))
-    #     ed <- sd + months(1) - days(1)
-    #     ed <- min(ed, ymd(report_end_date))
-    #     
-    #     df <- s3_read_parquet_parallel('ped_actuations_pd', as.character(sd), as.character(ed), signals_list, 'gdot-spm')
-    #     if (nrow(df) > 0) {
-    #         df <- df %>%
-    #             replace_na((list(CallPhase = 0))) %>%
-    #             mutate(SignalID = factor(SignalID),
-    #                    CallPhase = factor(CallPhase),
-    #                    Date = date(Date)) %>% 
-    #             get_pau()
-    #     } else {
-    #         df <- data.frame()
-    #     }
-    #     df
-    #         
-    # }) %>% bind_rows()
-    
+
     daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
     cor_daily_pa_uptime <- get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
     
@@ -306,18 +218,23 @@ tryCatch({
     
     # Group into corridors --------------------------------------------------------
     cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
+    # Subcorridors
+    sub_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, subcorridors)
     
     # Monthly volumes for bar charts and % change ---------------------------------
     monthly_vpd <- get_monthly_vpd(vpd)
     
     # Group into corridors
     cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
+    # Subcorridors
+    sub_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, subcorridors)
     
     # Monthly % change from previous month by corridor ----------------------------
     saveRDS(weekly_vpd, "weekly_vpd.rds")
     saveRDS(monthly_vpd, "monthly_vpd.rds")
     saveRDS(cor_weekly_vpd, "cor_weekly_vpd.rds")
-    saveRDS(cor_monthly_vpd, "cor_monthly_vpd.rds")
+    saveRDS(sub_monthly_vpd, "sub_monthly_vpd.rds")
+    saveRDS(sub_monthly_vpd, "sub_monthly_vpd.rds")
     
     rm(vpd)
     rm(weekly_vpd)
@@ -681,78 +598,19 @@ tryCatch({
 tryCatch({
     print(glue("{Sys.time()} Daily Split Failures [11 of 20]"))
     
-    #sf <- f("sf_", month_abbrs)
-    # sf <- s3_read_parquet_parallel(bucket = 'gdot-spm', 'split_failures', report_start_date, report_end_date, signals_list) %>%
-    #   transmute(SignalID = factor(SignalID),
-    #             CallPhase = factor(CallPhase),
-    #             Date = date(Date),
-    #             Date_Hour = Date_Hour,
-    #             DOW = wday(Date),
-    #             Week = week(Date),
-    #             sf = sf,
-    #             cycles = cycles,
-    #             sf_freq = sf_freq)
-    #usable_cores <- get_usable_cores()
-    #doParallel::registerDoParallel(cores = usable_cores)
-     
-    sfs <- lapply(month_abbrs, function(yyyy_mm) {
-    #sfs <- foreach(yyyy_mm = month_abbrs) %dopar% {
-        sd <- ymd(paste0(yyyy_mm, "-01"))
-        ed <- sd + months(1) - days(1)
-        ed <- min(ed, ymd(report_end_date))
-        
-        sf <- s3_read_parquet_parallel('split_failures', as.character(sd), as.character(ed), signals_list, 'gdot-spm')
-        
-        if (nrow(sf) > 0) {
-            sf <- sf %>% 
-                transmute(SignalID = factor(SignalID),
-                          CallPhase = factor(CallPhase),
-                          Date = date(Date),
-                          Date_Hour = Date_Hour,
-                          DOW = wday(Date),
-                          Week = week(Date),
-                          #sf = sf,
-                          cycles = cycles,
-                          sf_freq = sf_freq)
-            
-            wsf <- get_weekly_sf_by_day(sf) %>% ungroup()
-            msf <- get_monthly_sf_by_day(sf) %>% ungroup() %>% filter(!is.na(Month))
-            sfh <- get_sf_by_hr(sf)
-            
-            list(wsf = wsf, msf = msf, sfh = sfh)
-        }
-    })
-    
-    wsf <- lapply(sfs, function(x) { x$wsf %>% ungroup() }) %>% 
-        bind_rows() %>% 
-        arrange(SignalID, Date) %>% 
-        mutate(SignalID = factor(SignalID)) %>%
-        group_by(SignalID) %>%
-        mutate(delta = (sf_freq - lag(sf_freq))/lag(sf_freq)) %>%
-        ungroup()
-    
-    monthly_sfd <- lapply(sfs, function(x) { x$msf %>% ungroup() }) %>% 
-        bind_rows() %>% 
-        arrange(SignalID, Month) %>% 
-        mutate(SignalID = factor(SignalID)) %>%
-        group_by(SignalID) %>%
-        mutate(delta = (sf_freq - lag(sf_freq))/lag(sf_freq)) %>%
-        ungroup()
-    
-    sfh <- lapply(sfs, function(x) { x$sfh %>% ungroup() }) %>% 
-        bind_rows() %>% 
-        arrange(SignalID, CallPhase) %>% 
+    sf <- s3_read_parquet_parallel('split_failures', report_start_date, report_end_date, signals_list, 'gdot-spm') %>%
         mutate(SignalID = factor(SignalID),
-               CallPhase = factor(CallPhase)) %>%
-        group_by(SignalID, CallPhase) %>%
-        mutate(delta = (sf_freq - lag(sf_freq))/lag(sf_freq)) %>%
-        ungroup()
+               CallPhase = factor(CallPhase),
+               Date = date(Date))
+
+    wsf <- get_weekly_sf_by_day(sf) %>% ungroup()
+    msf <- get_monthly_sf_by_day(sf) %>% ungroup() %>% filter(!is.na(Month))
+    sfh <- get_sf_by_hr(sf)
     
-    
-    #wsf <- get_weekly_sf_by_day(sf)
+     
     cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
     
-    #monthly_sfd <- get_monthly_sf_by_day(sf)
+    monthly_sfd <- get_monthly_sf_by_day(sf)
     cor_monthly_sfd <- get_cor_monthly_sf_by_day(monthly_sfd, corridors)
     
     saveRDS(wsf, "wsf.rds")
@@ -867,23 +725,9 @@ tryCatch({
 print(glue("{Sys.time()} Travel Time Indexes [15 of 20]"))
 
 tryCatch({
-    # fns <- list.files(path = "Inrix/For_Monthly_Report",
-    #                   pattern = "tt_.*_summary.csv",
-    #                   recursive = FALSE,
-    #                   full.names = TRUE)
-    # 
-    # tt <- lapply(fns, read_csv) %>% 
-    #     bind_rows() %>% 
-    #     mutate(Corridor = factor(Corridor)) %>%
-    #     arrange(Corridor, Hour)
-    
+
     tt <- s3_read_parquet_parallel('travel_time_metrics', report_start_date, report_end_date, bucket = 'gdot-spm') %>% 
         mutate(Corridor = factor(Corridor))
-    
-    # sc <- get_spark_context()
-    # table_name <- "travel_time_metrics"
-    # keys <- glue("s3a://gdot-spm/mark/{table_name}/date={date_range_str}/*")
-    # tt <- spark_read_parquet(sc, name = "tt", path = keys) %>% dplyr::select(-starts_with("__"))
     
     tti <- tt %>% 
         dplyr::select(-pti) %>% collect() %>% mutate(Corridor = factor(Corridor))
@@ -1398,10 +1242,6 @@ tryCatch({
     print(e)
 })
 
-#saveRDS(cor, "cor.rds")
-#saveRDS(sig, "sig.rds")
-
-
 
 
 saveRDS(cor, "cor.rds")
@@ -1449,107 +1289,7 @@ if (conf$start_date == "yesterday") {
 }
 asof <- ymd("2019-01-01")
 
-
-# dbUpdateTable(aurora, "cor_dy_du", cor$dy$du, asof)
-# dbUpdateTable(aurora, "cor_dy_cu", cor$dy$cu, asof)
-# dbUpdateTable(aurora, "cor_dy_pau", cor$dy$pau, asof)
-# dbUpdateTable(aurora, "cor_dy_cctv", cor$dy$cctv, asof)
-# 
-# dbUpdateTable(aurora, "cor_wk_vpd", cor$wk$vpd, asof)
-# dbUpdateTable(aurora, "cor_wk_vph", cor$wk$vph, asof)
-# dbUpdateTable(aurora, "cor_wk_vphpa", cor$wk$vphp$am, asof)
-# dbUpdateTable(aurora, "cor_wk_vphpp", cor$wk$vphp$pm, asof)
-# dbUpdateTable(aurora, "cor_wk_papd", cor$wk$papd, asof)
-# dbUpdateTable(aurora, "cor_wk_paph", cor$wk$paph, asof)
-# dbUpdateTable(aurora, "cor_wk_tp", cor$wk$tp, asof)
-# dbUpdateTable(aurora, "cor_wk_aog", cor$wk$aog, asof)
-# dbUpdateTable(aurora, "cor_wk_qs", cor$wk$qs, asof)
-# dbUpdateTable(aurora, "cor_wk_sf", cor$wk$sf, asof)
-# dbUpdateTable(aurora, "cor_wk_cu", cor$wk$cu, asof)
-# dbUpdateTable(aurora, "cor_wk_pau", cor$wk$pau, asof)
-# dbUpdateTable(aurora, "cor_wk_cctv", cor$wk$cctv, asof)
-# 
-# dbUpdateTable(aurora, "cor_mo_vpd", cor$mo$vpd, asof)
-# dbUpdateTable(aurora, "cor_mo_vph", cor$mo$vph, asof)
-# dbUpdateTable(aurora, "cor_mo_vphpa", cor$mo$vphp$am, asof)
-# dbUpdateTable(aurora, "cor_mo_vphpp", cor$mo$vphp$pm, asof)
-# dbUpdateTable(aurora, "cor_mo_papd", cor$mo$papd, asof)
-# dbUpdateTable(aurora, "cor_mo_paph", cor$mo$paph, asof)
-# dbUpdateTable(aurora, "cor_mo_tp", cor$mo$tp, asof)
-# dbUpdateTable(aurora, "cor_mo_aogd", cor$mo$aogd, asof)
-# dbUpdateTable(aurora, "cor_mo_aogh", cor$mo$aogh, asof)
-# dbUpdateTable(aurora, "cor_mo_qsd", cor$mo$qsd, asof)
-# dbUpdateTable(aurora, "cor_mo_qsh", cor$mo$qsh, asof)
-# dbUpdateTable(aurora, "cor_mo_sfd", cor$mo$sfd, asof)
-# dbUpdateTable(aurora, "cor_mo_sfh", cor$mo$sfh, asof)
-# dbUpdateTable(aurora, "cor_mo_tti", cor$mo$tti, asof)
-# dbUpdateTable(aurora, "cor_mo_ttih", cor$mo$ttih, asof)
-# dbUpdateTable(aurora, "cor_mo_pti", cor$mo$pti, asof)
-# dbUpdateTable(aurora, "cor_mo_ptih", cor$mo$ptih, asof)
-# dbUpdateTable(aurora, "cor_mo_du", cor$mo$du, asof)
-# dbUpdateTable(aurora, "cor_mo_cu", cor$mo$cu, asof)
-# dbUpdateTable(aurora, "cor_mo_pau", cor$mo$pau, asof) # lots of warnings
-# dbUpdateTable(aurora, "cor_mo_veh", cor$mo$veh, asof)
-# dbUpdateTable(aurora, "cor_mo_ped", cor$mo$ped, asof)
-# dbUpdateTable(aurora, "cor_mo_cctv", cor$mo$cctv, asof)
-# dbUpdateTable(aurora, "cor_mo_events", cor$mo$events, asof)
-# 
-# dbUpdateTable(aurora, "cor_qu_vpd", cor$qu$vpd)
-# dbUpdateTable(aurora, "cor_qu_vphpa", cor$qu$vphpa)
-# dbUpdateTable(aurora, "cor_qu_vphpp", cor$qu$vphpp)
-# dbUpdateTable(aurora, "cor_qu_tp", cor$qu$tp)
-# dbUpdateTable(aurora, "cor_qu_aogd", cor$qu$aogd)
-# dbUpdateTable(aurora, "cor_qu_qsd", cor$qu$qsd)
-# dbUpdateTable(aurora, "cor_qu_sfd", cor$qu$sfd)
-# dbUpdateTable(aurora, "cor_qu_tti", cor$qu$tti)
-# dbUpdateTable(aurora, "cor_qu_pti", cor$qu$pti)
-# dbUpdateTable(aurora, "cor_qu_du", cor$qu$du)
-# dbUpdateTable(aurora, "cor_qu_cu", cor$qu$cu)
-# dbUpdateTable(aurora, "cor_qu_pau", cor$qu$pau)
-# dbUpdateTable(aurora, "cor_qu_veh", cor$qu$veh)
-# dbUpdateTable(aurora, "cor_qu_ped", cor$qu$ped)
-# dbUpdateTable(aurora, "cor_qu_cctv", cor$qu$cctv)
-# dbUpdateTable(aurora, "cor_qu_reported", cor$qu$reported)
-# dbUpdateTable(aurora, "cor_qu_resolved", cor$qu$resolved)
-# dbUpdateTable(aurora, "cor_qu_outstanding", cor$qu$outstanding)
-# 
-# 
-# dbUpdateTable(aurora, "sig_dy_du", sig$dy$du, asof)
-# dbUpdateTable(aurora, "sig_dy_cu", sig$dy$cu, asof)
-# dbUpdateTable(aurora, "sig_dy_pau", sig$dy$pau, asof)
-# dbUpdateTable(aurora, "sig_dy_cctv", sig$dy$cctv, asof)
-# 
-# dbUpdateTable(aurora, "sig_wk_vpd", sig$wk$vpd, asof)
-# dbUpdateTable(aurora, "sig_wk_vph", sig$wk$vph, asof)
-# dbUpdateTable(aurora, "sig_wk_vphpa", sig$wk$vphp$am, asof)
-# dbUpdateTable(aurora, "sig_wk_vphpp", sig$wk$vphp$pm, asof)
-# dbUpdateTable(aurora, "sig_wk_papd", sig$wk$papd, asof)
-# dbUpdateTable(aurora, "sig_wk_paph", sig$wk$paph, asof)
-# dbUpdateTable(aurora, "sig_wk_tp", sig$wk$tp, asof)
-# dbUpdateTable(aurora, "sig_wk_aog", sig$wk$aog, asof)
-# dbUpdateTable(aurora, "sig_wk_qs", sig$wk$qs, asof)
-# dbUpdateTable(aurora, "sig_wk_sf", sig$wk$sf, asof)
-# dbUpdateTable(aurora, "sig_wk_cu", sig$wk$cu, asof)
-# dbUpdateTable(aurora, "sig_wk_pau", sig$wk$pau, asof)
-# dbUpdateTable(aurora, "sig_wk_cctv", sig$wk$cctv, asof)
-# 
-# dbUpdateTable(aurora, "sig_mo_vpd", sig$mo$vpd, asof)
-# dbUpdateTable(aurora, "sig_mo_vph", sig$mo$vph, asof)
-# dbUpdateTable(aurora, "sig_mo_vphpa", sig$mo$vphp$am, asof)
-# dbUpdateTable(aurora, "sig_mo_vphpp", sig$mo$vphp$pm, asof)
-# dbUpdateTable(aurora, "sig_mo_papd", sig$mo$papd, asof)
-# dbUpdateTable(aurora, "sig_mo_paph", sig$mo$paph, asof)
-# dbUpdateTable(aurora, "sig_mo_tp", sig$mo$tp, asof)
-# dbUpdateTable(aurora, "sig_mo_aogd", sig$mo$aogd, asof)
-# dbUpdateTable(aurora, "sig_mo_aogh", sig$mo$aogh, asof)
-# dbUpdateTable(aurora, "sig_mo_qsd", sig$mo$qsd, asof)
-# dbUpdateTable(aurora, "sig_mo_qsh", sig$mo$qsh, asof)
-# dbUpdateTable(aurora, "sig_mo_sfd", sig$mo$sfd, asof)
-# dbUpdateTable(aurora, "sig_mo_sfh", sig$mo$sfh, asof)
-# dbUpdateTable(aurora, "sig_mo_du", sig$mo$du, asof)
-# dbUpdateTable(aurora, "sig_mo_cu", sig$mo$cu, asof)
-# dbUpdateTable(aurora, "sig_mo_pau", sig$mo$pau, asof)
-# dbUpdateTable(aurora, "sig_mo_cctv", sig$mo$cctv, asof)
+print(glue("As of: {asof}"))
 
 
 
@@ -1562,9 +1302,10 @@ asof <- ymd("2019-01-01")
 
 
 
-system(paste("aws dynamodb update-table",
-             "--table-name MARK1_beta2", 
-             "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=1000"))
+
+# system(paste("aws dynamodb update-table",
+#              "--table-name MARK1_beta2", 
+#              "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=1000"))
 
 
 
@@ -1687,8 +1428,114 @@ tryCatch({
     batch_write_items(sig$mo$cctv, "sig-mo-cctv", asof)
 })
 
-system(paste("aws dynamodb update-table",
-             "--table-name MARK1_beta2", 
-             "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=10"))
+# system(paste("aws dynamodb update-table",
+#              "--table-name MARK1_beta2", 
+#              "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=10"))
 #system("aws dynamodb describe-table --table-name MARK1_beta2")
 
+
+
+
+
+
+
+# dbUpdateTable(aurora, "cor_dy_du", cor$dy$du, asof)
+# dbUpdateTable(aurora, "cor_dy_cu", cor$dy$cu, asof)
+# dbUpdateTable(aurora, "cor_dy_pau", cor$dy$pau, asof)
+# dbUpdateTable(aurora, "cor_dy_cctv", cor$dy$cctv, asof)
+# 
+# dbUpdateTable(aurora, "cor_wk_vpd", cor$wk$vpd, asof)
+# dbUpdateTable(aurora, "cor_wk_vph", cor$wk$vph, asof)
+# dbUpdateTable(aurora, "cor_wk_vphpa", cor$wk$vphp$am, asof)
+# dbUpdateTable(aurora, "cor_wk_vphpp", cor$wk$vphp$pm, asof)
+# dbUpdateTable(aurora, "cor_wk_papd", cor$wk$papd, asof)
+# dbUpdateTable(aurora, "cor_wk_paph", cor$wk$paph, asof)
+# dbUpdateTable(aurora, "cor_wk_tp", cor$wk$tp, asof)
+# dbUpdateTable(aurora, "cor_wk_aog", cor$wk$aog, asof)
+# dbUpdateTable(aurora, "cor_wk_qs", cor$wk$qs, asof)
+# dbUpdateTable(aurora, "cor_wk_sf", cor$wk$sf, asof)
+# dbUpdateTable(aurora, "cor_wk_cu", cor$wk$cu, asof)
+# dbUpdateTable(aurora, "cor_wk_pau", cor$wk$pau, asof)
+# dbUpdateTable(aurora, "cor_wk_cctv", cor$wk$cctv, asof)
+# 
+# dbUpdateTable(aurora, "cor_mo_vpd", cor$mo$vpd, asof)
+# dbUpdateTable(aurora, "cor_mo_vph", cor$mo$vph, asof)
+# dbUpdateTable(aurora, "cor_mo_vphpa", cor$mo$vphp$am, asof)
+# dbUpdateTable(aurora, "cor_mo_vphpp", cor$mo$vphp$pm, asof)
+# dbUpdateTable(aurora, "cor_mo_papd", cor$mo$papd, asof)
+# dbUpdateTable(aurora, "cor_mo_paph", cor$mo$paph, asof)
+# dbUpdateTable(aurora, "cor_mo_tp", cor$mo$tp, asof)
+# dbUpdateTable(aurora, "cor_mo_aogd", cor$mo$aogd, asof)
+# dbUpdateTable(aurora, "cor_mo_aogh", cor$mo$aogh, asof)
+# dbUpdateTable(aurora, "cor_mo_qsd", cor$mo$qsd, asof)
+# dbUpdateTable(aurora, "cor_mo_qsh", cor$mo$qsh, asof)
+# dbUpdateTable(aurora, "cor_mo_sfd", cor$mo$sfd, asof)
+# dbUpdateTable(aurora, "cor_mo_sfh", cor$mo$sfh, asof)
+# dbUpdateTable(aurora, "cor_mo_tti", cor$mo$tti, asof)
+# dbUpdateTable(aurora, "cor_mo_ttih", cor$mo$ttih, asof)
+# dbUpdateTable(aurora, "cor_mo_pti", cor$mo$pti, asof)
+# dbUpdateTable(aurora, "cor_mo_ptih", cor$mo$ptih, asof)
+# dbUpdateTable(aurora, "cor_mo_du", cor$mo$du, asof)
+# dbUpdateTable(aurora, "cor_mo_cu", cor$mo$cu, asof)
+# dbUpdateTable(aurora, "cor_mo_pau", cor$mo$pau, asof) # lots of warnings
+# dbUpdateTable(aurora, "cor_mo_veh", cor$mo$veh, asof)
+# dbUpdateTable(aurora, "cor_mo_ped", cor$mo$ped, asof)
+# dbUpdateTable(aurora, "cor_mo_cctv", cor$mo$cctv, asof)
+# dbUpdateTable(aurora, "cor_mo_events", cor$mo$events, asof)
+# 
+# dbUpdateTable(aurora, "cor_qu_vpd", cor$qu$vpd)
+# dbUpdateTable(aurora, "cor_qu_vphpa", cor$qu$vphpa)
+# dbUpdateTable(aurora, "cor_qu_vphpp", cor$qu$vphpp)
+# dbUpdateTable(aurora, "cor_qu_tp", cor$qu$tp)
+# dbUpdateTable(aurora, "cor_qu_aogd", cor$qu$aogd)
+# dbUpdateTable(aurora, "cor_qu_qsd", cor$qu$qsd)
+# dbUpdateTable(aurora, "cor_qu_sfd", cor$qu$sfd)
+# dbUpdateTable(aurora, "cor_qu_tti", cor$qu$tti)
+# dbUpdateTable(aurora, "cor_qu_pti", cor$qu$pti)
+# dbUpdateTable(aurora, "cor_qu_du", cor$qu$du)
+# dbUpdateTable(aurora, "cor_qu_cu", cor$qu$cu)
+# dbUpdateTable(aurora, "cor_qu_pau", cor$qu$pau)
+# dbUpdateTable(aurora, "cor_qu_veh", cor$qu$veh)
+# dbUpdateTable(aurora, "cor_qu_ped", cor$qu$ped)
+# dbUpdateTable(aurora, "cor_qu_cctv", cor$qu$cctv)
+# dbUpdateTable(aurora, "cor_qu_reported", cor$qu$reported)
+# dbUpdateTable(aurora, "cor_qu_resolved", cor$qu$resolved)
+# dbUpdateTable(aurora, "cor_qu_outstanding", cor$qu$outstanding)
+# 
+# 
+# dbUpdateTable(aurora, "sig_dy_du", sig$dy$du, asof)
+# dbUpdateTable(aurora, "sig_dy_cu", sig$dy$cu, asof)
+# dbUpdateTable(aurora, "sig_dy_pau", sig$dy$pau, asof)
+# dbUpdateTable(aurora, "sig_dy_cctv", sig$dy$cctv, asof)
+# 
+# dbUpdateTable(aurora, "sig_wk_vpd", sig$wk$vpd, asof)
+# dbUpdateTable(aurora, "sig_wk_vph", sig$wk$vph, asof)
+# dbUpdateTable(aurora, "sig_wk_vphpa", sig$wk$vphp$am, asof)
+# dbUpdateTable(aurora, "sig_wk_vphpp", sig$wk$vphp$pm, asof)
+# dbUpdateTable(aurora, "sig_wk_papd", sig$wk$papd, asof)
+# dbUpdateTable(aurora, "sig_wk_paph", sig$wk$paph, asof)
+# dbUpdateTable(aurora, "sig_wk_tp", sig$wk$tp, asof)
+# dbUpdateTable(aurora, "sig_wk_aog", sig$wk$aog, asof)
+# dbUpdateTable(aurora, "sig_wk_qs", sig$wk$qs, asof)
+# dbUpdateTable(aurora, "sig_wk_sf", sig$wk$sf, asof)
+# dbUpdateTable(aurora, "sig_wk_cu", sig$wk$cu, asof)
+# dbUpdateTable(aurora, "sig_wk_pau", sig$wk$pau, asof)
+# dbUpdateTable(aurora, "sig_wk_cctv", sig$wk$cctv, asof)
+# 
+# dbUpdateTable(aurora, "sig_mo_vpd", sig$mo$vpd, asof)
+# dbUpdateTable(aurora, "sig_mo_vph", sig$mo$vph, asof)
+# dbUpdateTable(aurora, "sig_mo_vphpa", sig$mo$vphp$am, asof)
+# dbUpdateTable(aurora, "sig_mo_vphpp", sig$mo$vphp$pm, asof)
+# dbUpdateTable(aurora, "sig_mo_papd", sig$mo$papd, asof)
+# dbUpdateTable(aurora, "sig_mo_paph", sig$mo$paph, asof)
+# dbUpdateTable(aurora, "sig_mo_tp", sig$mo$tp, asof)
+# dbUpdateTable(aurora, "sig_mo_aogd", sig$mo$aogd, asof)
+# dbUpdateTable(aurora, "sig_mo_aogh", sig$mo$aogh, asof)
+# dbUpdateTable(aurora, "sig_mo_qsd", sig$mo$qsd, asof)
+# dbUpdateTable(aurora, "sig_mo_qsh", sig$mo$qsh, asof)
+# dbUpdateTable(aurora, "sig_mo_sfd", sig$mo$sfd, asof)
+# dbUpdateTable(aurora, "sig_mo_sfh", sig$mo$sfh, asof)
+# dbUpdateTable(aurora, "sig_mo_du", sig$mo$du, asof)
+# dbUpdateTable(aurora, "sig_mo_cu", sig$mo$cu, asof)
+# dbUpdateTable(aurora, "sig_mo_pau", sig$mo$pau, asof)
+# dbUpdateTable(aurora, "sig_mo_cctv", sig$mo$cctv, asof)

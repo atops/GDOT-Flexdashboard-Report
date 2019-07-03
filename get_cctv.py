@@ -52,7 +52,7 @@ def get_camera_data(camid):
 if __name__=='__main__':
 
     with open('Monthly_Report.yaml') as yaml_file:
-        conf = yaml.load(yaml_file)
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
     
     gdot_folder = os.path.join(os.path.expanduser('~'), 'Code', 'GDOT', 'GDOT-Flexdashboard-Report')
     camids_file = os.path.join(gdot_folder, conf['cctv_config_filename'])

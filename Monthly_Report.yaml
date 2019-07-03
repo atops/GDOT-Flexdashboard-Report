@@ -17,13 +17,13 @@ run:
     split_failures: TRUE
     
 
-start_date: 2019-06-24
+start_date: 2019-06-28
 end_date: yesterday
 
-report_start_date: 2018-05-01
+report_start_date: 2018-06-01
 report_end_date: yesterday
 
-production_report_end_date: 2019-05-01
+production_report_end_date: 2019-06-01
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: Corridors_Latest.xlsx
@@ -34,40 +34,6 @@ cctv_parsed_filename: parsed_cctv.feather
 teams_tasks_filename: TEAMS_Reports/tasks.csv
 
 tmc_filename: tmc_routes.feather
-
-# xl_uptime:
-#     path: Vehicle and Ped Detector Info
-# 
-#     filenames: 
-#         - March 2018 Vehicle and Ped Detector Info.xlsx
-#         - April 2018 Vehicle and Ped Detector Info.xlsx
-#         - May 2018 Vehicle and Ped Detector Info.xlsx
-#         - June 2018 Vehicle and Ped Detector Info.xlsx
-#         - July 2018 Vehicle and Ped Detector Info.xlsx
-#         - August 2018 Vehicle and Ped Detector Info.xlsx
-#         - September 2018 Vehicle and Ped Detector Info.xlsx
-#         - October 2018 Vehicle and Ped Detector Info.xlsx
-#         - November 2018 Vehicle and Ped Detector Info.xlsx
-#         - December 2018 Vehicle and Ped Detector Info.xlsx
-#         - January 2019 Vehicle and Ped Detector Info.xlsx
-#         - February 2019 Vehicle and Ped Detector Info.xlsx
-#         - March 2019 Vehicle and Ped Detector Info.xlsx
-#         - April 2019 Vehicle and Ped Detector Info.xlsx
-# 
-#     months:
-#         - 2018-03-01
-#         - 2018-04-01
-#         - 2018-05-01
-#         - 2018-06-01
-#         - 2018-07-01
-#         - 2018-08-01
-#         - 2018-09-01
-#         - 2018-10-01
-#         - 2018-11-01
-#         - 2018-12-01
-#         - 2019-01-01
-#         - 2019-02-01
-#         - 2019-03-01
 
 
 zone_groups:

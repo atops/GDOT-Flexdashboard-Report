@@ -42,20 +42,34 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 # -- Code to update corridors file/table from Excel file
 
-# aws.s3::save_object("Corridors_Latest.xlsx", bucket = 'gdot-spm')
-# corridors <- get_corridors("Corridors_Latest.xlsx")
-# ## corridors <- get_corridors(conf$corridors_xlsx_filename)
-# write_feather(corridors, "corridors.feather")
-# ## all_corridors <- get_corridors(conf$corridors_xlsx_filename, filter_signals = FALSE)
-# all_corridors <- get_corridors("Corridors_Latest.xlsx", filter_signals = FALSE)
-# write_feather(all_corridors, "all_corridors.feather")
+install_corridors_file <- function() {
+    
+    corridors <- s3read_using(get_corridors, object = "Corridors_Latest.xlsx", bucket = 'gdot-spm')
+    write_feather(corridors, conf$corridors_filename)
+    aws.s3::put_object(conf$corridors_filename, 
+                       object = conf$corridors_filename, 
+                       bucket = "gdot-spm")
+    
+    all_corridors <- get_corridors("Corridors_Latest.xlsx", filter_signals = FALSE)
+    write_feather(all_corridors, glue("all_{conf$corridors_filename}"))
+    aws.s3::put_object(glue("all_{conf$corridors_filename}"), 
+                       object = glue("all_{conf$corridors_filename}"), 
+                       bucket = "gdot-spm")
+}
 
-#conn <- get_atspm_connection()
+#install_corridors_file()
+
 
 # -- ----------------------------------------------------
 
-corridors <- feather::read_feather(conf$corridors_filename) 
+corridors <- read_feather(conf$corridors_filename)
 signals_list <- unique(corridors$SignalID)
+
+subcorridors <- corridors %>% 
+    mutate(Subcorridor = as.character(Subcorridor),
+           Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))) %>%
+    mutate(Corridor = factor(Subcorridor)) %>%
+    select(-Subcorridor)
 
 # -- TMC Codes for Corridors
 #tmc_routes <- get_tmc_routes()
@@ -264,39 +278,6 @@ get_counts_based_measures <- function(month_abbrs) {
             s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
         }
         
-        # foreach(date_ = date_range_twr) %dopar% {
-        #     if (between(date_, start_date, end_date)) {
-        #         date_ <- as.character(date_)
-        #         filtered_counts_15min <- s3_read_parquet('filtered_counts_15min', date_, date_, bucket = 'gdot-spm') %>%
-        #             transmute(SignalID = factor(SignalID), 
-        #                       CallPhase = factor(CallPhase), 
-        #                       Detector = factor(Detector), 
-        #                       CountPriority = CountPriority,
-        #                       Date = date(Date), 
-        #                       Timeperiod = Timeperiod, 
-        #                       Month_Hour = Month_Hour, 
-        #                       Hour = Hour, 
-        #                       vol = vol, 
-        #                       Good = Good, 
-        #                       Good_Day = Good_Day, 
-        #                       delta_vol = delta_vol, 
-        #                       mean_abs_delta = mean_abs_delta)
-        #         
-        #         if (length(filtered_counts_15min) > 0) {
-        #             
-        #             print("adjusted counts")
-        #             adjusted_counts_15min <- get_adjusted_counts(filtered_counts_15min) %>%
-        #             	mutate(Date = date(Timeperiod))
-        #             rm(filtered_counts_15min)
-        #             
-        #             # Calculate and write Throughput
-        #             throughput <- get_thruput(adjusted_counts_15min)
-        #             # throughput <- get_thruput(filtered_counts_15min)
-        #             
-        #             s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
-        #         }
-        #     }
-        # }
         registerDoSEQ()
 	    gc()
 
@@ -308,22 +289,17 @@ get_counts_based_measures <- function(month_abbrs) {
         
         conn <- get_athena_connection()
         
-        counts_ped_1hr <- tbl(conn, sql("select * from gdot_spm.counts_ped_1hr")) %>%
-            filter(date %in% date_range,
-                   signalid %in% signals_list) %>%
-            collect() %>%
-            transmute(SignalID = factor(signalid),
-                      Timeperiod = ymd_hms(timeperiod),
-                      Detector = factor(detector),
-                      CallPhase = callphase,
-                      Date = ymd(date),
-                      vol = vol)
         
-        dbDisconnect(conn)
-        
+        counts_ped_1hr <- s3_read_parquet_parallel(
+            'counts_ped_1hr', 
+            as.character(start_date), 
+            as.character(end_date),
+            bucket = 'gdot-spm')
+
         # PAPD - pedestrian activations per day
         print("papd")
-        papd <- get_vpd(counts_ped_1hr, mainline_only = FALSE) %>% # calculate over current period
+        papd <- get_vpd(counts_ped_1hr, mainline_only = FALSE) %>% 
+            ungroup() %>%
             rename(papd = vpd)
         #s3_upload_parquet(papd, sd, glue("papd_{yyyy_mm}"), "ped_actuations_pd")
         #write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
@@ -344,11 +320,6 @@ if (conf$run$counts_based_measures == TRUE) {
 }
 
 # print(glue("{Sys.time()} bad detectors [4 of 10]"))
-# 
-# bd_fns <- list.files(pattern = "bad_detectors.*\\.fst")
-# lapply(bd_fns, read_fst) %>% bind_rows() %>% 
-#     dplyr::select(-Good_Day) %>%
-#     write_feather("bad_detectors.feather")
 
 print("--- Finished counts-based measures ---")
 
@@ -358,8 +329,8 @@ print("--- Finished counts-based measures ---")
 print(glue("{Sys.time()} etl [7 of 10]"))
 
 if (conf$run$etl == TRUE) {
-    #import_from_path("spm_events")
-    system("python etl_dashboard.py", wait = TRUE) # python script and wait for completion
+    # run python script and wait for completion
+    system(glue("python etl_dashboard.py {start_date} {end_date}"), wait = TRUE)
 }
 
 # --- ----------------------------- -----------
@@ -435,35 +406,6 @@ if (conf$run$split_failures == TRUE) {
 
     get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
 
-    
-    
-    # system("python split_failures2.py", wait = TRUE) # python script and wait for completion
-    # 
-    # lapply(month_abbrs, function(month_abbr) {
-    #     fns <- list.files(pattern = paste0("sf_", month_abbr, "-\\d{2}.feather"))
-    #     
-    #     #wds <- lubridate::wday(sub(pattern = "sf_(.*)\\.feather", "\\1", fns), label = TRUE)
-    #     #twr <- sapply(wds, function(x) {x %in% c("Tue", "Wed", "Thu")})
-    #     #fns <- fns[twr]
-    #     
-    #     print(fns)
-    #     if (length(fns) > 0) {
-    #         lapply(fns, read_feather) %>%
-    #             bind_rows() %>% 
-    #             transmute(SignalID = factor(SignalID),
-    #                       CallPhase = factor(Phase),
-    #                       Date = date(Hour),
-    #                       Date_Hour = Hour,
-    #                       DOW = wday(Hour),
-    #                       Week = week(Date),
-    #                       sf = as.integer(sf),
-    #                       cycles = as.integer(cycles),
-    #                       sf_freq = sf_freq) %>%
-    #             s3_upload_parquet_date_split(prefix = "sf", table_name = "split_failures")
-    #         #write_fst(., paste0("sf_", month_abbr, ".fst"))
-    #         #lapply(fns, file.remove)
-    #     }
-    # })
 }
 
 

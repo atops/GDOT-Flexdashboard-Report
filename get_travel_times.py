@@ -104,15 +104,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             f.write(results.content)
             f.seek(0)
             df = pd.read_csv(f, compression='zip')       
-    
-        # zf_filename = payload['uuid'] +'.zip'
-        # with open(zf_filename, 'wb') as f:
-        #     f.write(results.content)
-        # df = pd.read_csv(zf_filename)
-        # if 'Hour' in df.columns:
-        #     df.Hour = df.Hour.dt.tz_localize('America/New_York')
-        # os.remove(zf_filename)
-    
+
     else:
         df = pd.DataFrame()
 
@@ -123,13 +115,14 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
 if __name__=='__main__':
 
     with open('Monthly_Report_AWS.yaml') as yaml_file:
-        cred = yaml.load(yaml_file)
+        cred = yaml.load(yaml_file, Loader=yaml.Loader)
 
     with open('Monthly_Report.yaml') as yaml_file:
-        conf = yaml.load(yaml_file)
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
     # start_date is either the given day or the first day of the month
     start_date = conf['start_date']
+    start_date = pd.Timestamp('2019-03-01')
     if start_date == 'yesterday': 
         start_date = datetime.today() - timedelta(days=1)
     start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
@@ -137,6 +130,7 @@ if __name__=='__main__':
     # end date is either the given date + 1 or today. 
     # end_date is not included in the query results
     end_date = conf['end_date']
+    end_date = pd.Timestamp('2019-03-31')
     if end_date == 'yesterday': 
         end_date = datetime.today() - timedelta(days=1)
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -154,7 +148,7 @@ if __name__=='__main__':
     
     try:
     
-        tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 2)
+        tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
 
     except Exception as e:
         print('error retrieving records')
@@ -184,7 +178,8 @@ if __name__=='__main__':
                 # s3.upload_file(Bucket = 'gdot-spm', 
                 #                Filename = filename, 
                 #                Key = 'mark/travel_times/date={}/{}'.format(date_string, filename))
-                df.drop(columns=['date']).to_parquet('s3://gdot-spm/mark/travel_times/date={}/{}'.format(date_string, filename))
+                df.drop(columns=['date'])\
+                    .to_parquet('s3://gdot-spm/mark/travel_times/date={}/{}'.format(date_string, filename))
                  
             # Write to parquet files and upload to S3
             df.groupby(['date']).apply(uf)
@@ -193,7 +188,8 @@ if __name__=='__main__':
     
             # -- Travel Time Metrics Summarized by tti, pti by hour --
             df_ = df.groupby(['Corridor', 'Hour'], as_index=False)['travel_time_minutes', 'reference_minutes'].sum()
-            df_['Hour'] = df_['Hour'] - pd.to_timedelta(df_['Hour'].dt.day - 1, unit = 'days')
+            #df_['Hour'] = df_['Hour'] - pd.to_timedelta(df_['Hour'].dt.day - 1, unit = 'days')
+            df_['Hour'] = df_['Hour'].apply(lambda x: x.replace(day=1))
     
             desc = df_.groupby(['Corridor', 'Hour']).describe(percentiles = [0.90])
             tti = desc['travel_time_minutes']['mean'] / desc['reference_minutes']['mean']
@@ -204,11 +200,9 @@ if __name__=='__main__':
             def uf(df): # upload parquet file
                 date_string = df.date.values[0]
                 filename = 'travel_time_metrics_{}.parquet'.format(date_string)
-                df.drop(columns=['date']).to_parquet(filename)
-                s3.upload_file(Bucket = 'gdot-spm', 
-                               Filename = filename, 
-                               Key = 'mark/travel_time_metrics/date={}/{}'.format(date_string, filename))
-    
+                df.drop(columns=['date'])\
+                    .to_parquet('s3://gdot-spm/mark/travel_time_metrics/date={}/{}'.format(date_string, filename))
+                    
             # Write to parquet files and upload to S3
             summ_df.reset_index().assign(date = lambda x: x.Hour.dt.date).groupby(['date']).apply(uf)
         else:

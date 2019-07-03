@@ -163,7 +163,7 @@ query_dynamodb_beta <- function(cid, start_date, end_date = NULL, corridor = NUL
 
 # Load a dataframe in chunks of 25
 # Works, as of 6/26/2019
-batch_write_items <- function(df, hashkey, asof = None, verbose = FALSE) {
+batch_write_items <- function(df, hashkey, asof = NULL, verbose = FALSE) {
     print(now())
     ncores <- parallel::detectCores() - 1
     doParallel::registerDoParallel(cores = ncores)
@@ -180,7 +180,7 @@ batch_write_items <- function(df, hashkey, asof = None, verbose = FALSE) {
         df <- df %>% mutate(Date_ = sub(" ", "T", as.character(Hour)))
     }
     if ("Quarter" %in% names(df)) {
-        df <- df %>% mutate(Date_ = ymd(paste0(Quarter, "-1")))
+        df <- df %>% mutate(Date_ = Quarter)
     }
     if (!is.null(asof)) {
         df <- filter(df, Date_ >= asof)
@@ -238,7 +238,7 @@ batch_write_items <- function(df, hashkey, asof = None, verbose = FALSE) {
         #cat('.')
     }
     
-    write_duration <- as.integer(as.numeric(now() - t0, units="secs"))
+    write_duration <- round(as.numeric(now() - t0, units="secs"), 1)
     print(glue("completed in {write_duration} seconds"))
 }
 

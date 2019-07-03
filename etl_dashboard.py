@@ -111,7 +111,7 @@ if __name__=='__main__':
     #signalids = list(corridors.SignalID.astype('int').values)
     
     with open('Monthly_Report.yaml') as yaml_file:
-        conf = yaml.load(yaml_file)
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
 
     if len(sys.argv) > 1:
