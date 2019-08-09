@@ -6,7 +6,8 @@ Created on Mon Nov 27 16:27:29 2017
 """
 import sys
 from datetime import datetime, timedelta
-from multiprocessing.dummy import Pool
+#from multiprocessing.dummy import Pool
+from multiprocessing import Pool
 import pandas as pd
 import sqlalchemy as sq
 from pyathenajdbc import connect
@@ -43,7 +44,7 @@ ath = boto3.client('athena')
         Call Phase [int64]
 '''
 
-def etl2(s, date_):
+def etl2(s, date_, det_config):
     
     date_str = date_.strftime('%Y-%m-%d')
 
@@ -57,74 +58,59 @@ def etl2(s, date_):
     
     print('{} | {} Starting...'.format(s, date_str))
 
-    #try:
-    print('|{} reading from database...'.format(s))
-
-    key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
-    df = read_parquet_file('gdot-spm', key)
-    
-
-    if len(df)==0:
-        print('|{} no event data for this signal on {}.'.format(s, date_str))
-
-    if len(det_config_good)==0:
-        print('|{} no detector configuration data for this signal on {}.'.format(s, date_str))
-        
-    if len(df) > 0 and len(det_config_good) > 0:
-
-        print('|{} creating cycles and detection events...'.format(s))
-        c, d = etl_main(df, det_config_good)
-
-        if len(c) > 0 and len(d) > 0:
-
-            # print('writing to files...')
-
-            # if not os.path.exists('../CycleData/' + date_str):
-            #     os.mkdir('../CycleData/' + date_str)
-            # if not os.path.exists('../DetectionEvents/' + date_str):
-            #     os.mkdir('../DetectionEvents/' + date_str)
-
-
-            c.to_parquet('s3://gdot-spm-cycles/date={}/cd_{}_{}.parquet'.format(date_str, s, date_str), 
-                         allow_truncated_timestamps=True)
-
-            d.to_parquet('s3://gdot-spm-detections/date={}/de_{}_{}.parquet'.format(date_str, s, date_str), 
-                         allow_truncated_timestamps=True)
-
-
-            print('{}: {} seconds'.format(s, int(time.time()-t0)))
-        else:
-            print('{}: {} seconds -- no cycles'.format(s, int(time.time()-t0)))
+    try:
+        #print('|{} reading from database...'.format(s)) 
+        key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
+        df = read_parquet_file('gdot-spm', key)
         
     
-    #except Exception as e:
-    #    print(s, e)
+        if len(df)==0:
+            print('|{} no event data for this signal on {}.'.format(s, date_str))
+    
+        if len(det_config_good)==0:
+            print('|{} no detector configuration data for this signal on {}.'.format(s, date_str))
+            
+        if len(df) > 0 and len(det_config_good) > 0:
+    
+            #print('|{} creating cycles and detection events...'.format(s))
+            c, d = etl_main(df, det_config_good)
+    
+            if len(c) > 0 and len(d) > 0:
+    
+                # print('writing to files...')
+    
+                # if not os.path.exists('../CycleData/' + date_str):
+                #     os.mkdir('../CycleData/' + date_str)
+                # if not os.path.exists('../DetectionEvents/' + date_str):
+                #     os.mkdir('../DetectionEvents/' + date_str)
+    
+    
+                c.to_parquet('s3://gdot-spm-cycles/date={}/cd_{}_{}.parquet'.format(date_str, s, date_str), 
+                             allow_truncated_timestamps=True)
+    
+                d.to_parquet('s3://gdot-spm-detections/date={}/de_{}_{}.parquet'.format(date_str, s, date_str), 
+                             allow_truncated_timestamps=True)
+    
+    
+                print('{}: {} seconds'.format(s, round(time.time()-t0, 1)))
+            else:
+                print('{}: {} seconds -- no cycles'.format(s, round(time.time()-t0, 1)))
+        
+    
+    except Exception as e:
+        print(s, e)
 
 
         
         
     
-if __name__=='__main__':
 
-    
-    #corridors = pd.read_feather("GDOT-Flexdashboard-Report/corridors.feather")
-    #signalids = list(corridors.SignalID.astype('int').values)
+
+def main(start_date, end_date):
+  
     
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
-
-
-    if len(sys.argv) > 1:
-        start_date = sys.argv[1]
-        end_date = sys.argv[2]
-    else:
-        start_date = conf['start_date']
-        end_date = conf['end_date']
-    
-    if start_date == 'yesterday': 
-        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    if end_date == 'yesterday': 
-        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
     #-----------------------------------------------------------------------------------------
     # Placeholder for manual override of start/end dates
@@ -146,9 +132,10 @@ if __name__=='__main__':
     #signalids = [7053]
     #-----------------------------------------------------------------------------------------
 
+    t0 = time.time()
+
     for date_ in dates:
 
-        t0 = time.time()
         
         date_str = date_.strftime('%Y-%m-%d')
 
@@ -179,16 +166,19 @@ if __name__=='__main__':
             .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
             .reset_index()
 
+        print(det_config.head())
+
         if len(det_config) > 0:    
             ncores = os.cpu_count()
 
             #-----------------------------------------------------------------------------------------
-            pool = Pool(ncores * 4) #24
-            asyncres = pool.starmap(etl2, list(itertools.product(signalids, [date_])))
-            pool.close()
-            pool.join()
+            with Pool(processes=ncores-1) as pool: #24
+                result = pool.starmap_async(etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
+                pool.close()
+                pool.join()
             #-----------------------------------------------------------------------------------------
-        
+        else:
+            print('No good detectors. Skip this day.') 
         
         
         #for s in signalids:
@@ -214,7 +204,7 @@ if __name__=='__main__':
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         
-    print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len([date_]), int((time.time()-t0)/60)))
+    print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len(dates), int((time.time()-t0)/60)))
 
         
     while True:
@@ -226,3 +216,25 @@ if __name__=='__main__':
         else:
             time.sleep(2)
             print('.', end='')
+
+
+if __name__=='__main__':
+    
+    with open('Monthly_Report.yaml') as yaml_file:
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
+
+
+    if len(sys.argv) > 1:
+        start_date = sys.argv[1]
+        end_date = sys.argv[2]
+    else:
+        start_date = conf['start_date']
+        end_date = conf['end_date']
+    
+    if start_date == 'yesterday': 
+        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    if end_date == 'yesterday': 
+        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+    main(start_date, end_date)
+
