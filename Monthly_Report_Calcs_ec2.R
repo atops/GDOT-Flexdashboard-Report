@@ -32,8 +32,8 @@ end_date <- ifelse(conf$end_date == "yesterday",
                    conf$end_date)
 
 # Manual overrides
-#start_date <- "2019-02-10"
-#end_date <- "2019-02-20"
+#start_date <- "2019-06-28"
+#end_date <- "2019-06-30"
 
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
@@ -44,13 +44,17 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 install_corridors_file <- function() {
     
-    corridors <- s3read_using(get_corridors, object = "Corridors_Latest.xlsx", bucket = 'gdot-spm')
+    corridors <- s3read_using(get_corridors, 
+                              object = "Corridors_Latest.xlsx", 
+                              bucket = 'gdot-spm')
     write_feather(corridors, conf$corridors_filename)
     aws.s3::put_object(conf$corridors_filename, 
                        object = conf$corridors_filename, 
                        bucket = "gdot-spm")
     
-    all_corridors <- get_corridors("Corridors_Latest.xlsx", filter_signals = FALSE)
+    all_corridors <- s3read_using(function(x) get_corridors(x, filter_signals=FALSE), 
+                                  object = "Corridors_Latest.xlsx", 
+                                  bucket = 'gdot-spm')
     write_feather(all_corridors, glue("all_{conf$corridors_filename}"))
     aws.s3::put_object(glue("all_{conf$corridors_filename}"), 
                        object = glue("all_{conf$corridors_filename}"), 
@@ -110,18 +114,15 @@ print(glue("{Sys.time()} counts [3 of 10]"))
 if (conf$run$counts == TRUE) {
 
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+
     if (length(date_range) == 1) {
         lapply(date_range, function(date_) {
             get_counts2(date_, uptime = TRUE, counts = TRUE)
         })
-        
     } else {
-        
         foreach(date_ = date_range) %dopar% {
-            
-        #mclapply(start_dates, function(x) {
             get_counts2(date_, uptime = TRUE, counts = TRUE)
-        }#, mc.cores = usable_cores)
+        }
         registerDoSEQ()
         gc()
     }
@@ -207,7 +208,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 gc()
             }
             
-            print(glue("adjusted_counts_1hr: {date_}"))
+            print(glue("reading adjusted_counts_1hr: {date_}"))
             adjusted_counts_1hr <- s3_read_parquet_parallel(
                 'adjusted_counts_1hr', 
                 as.character(date_), 
@@ -329,8 +330,25 @@ print("--- Finished counts-based measures ---")
 print(glue("{Sys.time()} etl [7 of 10]"))
 
 if (conf$run$etl == TRUE) {
+    library(reticulate)
+
+    python_path <- file.path("~", "miniconda3", "bin", "python")
+    use_python(python_path)
+    
+    etl <- reticulate::import_from_path("etl_dashboard", path = "~/Code/GDOT/GDOT-Flexdashboard-Report/")
+    
+    etl$main(start_date, end_date)
+
     # run python script and wait for completion
-    system(glue("python etl_dashboard.py {start_date} {end_date}"), wait = TRUE)
+    #system2("./etl_dashboard.sh", args = c(start_date, end_date))
+
+    
+    # date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    # foreach(date_ = date_range) %dopar% {
+    #     # run python script and wait for completion
+    #     system(glue("python etl_dashboard.py {date_} {date_}"), wait = TRUE)
+    # }
+    
 }
 
 # --- ----------------------------- -----------
@@ -338,9 +356,10 @@ if (conf$run$etl == TRUE) {
 # # GET ARRIVALS ON GREEN #####################################################
 get_aog_date_range <- function(start_date, end_date) {
     
-    dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
-    lapply(dates, function(date_) {
+    lapply(date_range, function(date_) {
+    #foreach(date_ = date_range) %dopar% {
         print(date_)
         
         cycle_data <- get_cycle_data(date_, date_, signals_list)
@@ -348,7 +367,7 @@ get_aog_date_range <- function(start_date, end_date) {
             aog <- get_aog(cycle_data)
             s3_upload_parquet_date_split(aog, prefix = "aog", table_name = "arrivals_on_green")
         }
-    })# %>% bind_rows() #, mc.cores = ceiling(parallel::detectCores()*1/2)) %>% bind_rows()
+    }) 
 }
 print(glue("{Sys.time()} aog [8 of 10]"))
 
@@ -360,9 +379,10 @@ gc()
 # # GET QUEUE SPILLBACK #######################################################
 get_queue_spillback_date_range <- function(start_date, end_date) {
     
-    dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
-    lapply(dates, function(date_) {
+    lapply(date_range, function(date_) {
+    #foreach(date_ = date_range) %dopar% {
         print(date_)
         
         detection_events <- get_detection_events(date_, date_, signals_list)
@@ -370,7 +390,7 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
             qs <- get_qs(detection_events)
             s3_upload_parquet_date_split(qs, prefix = "qs", table_name = "queue_spillback")
         }
-    }) # %>% bind_rows() #, mc.cores = ceiling(parallel::detectCores()*1/2)) # 
+    })
 }
 print(glue("{Sys.time()} queue spillback [9 of 10]"))
 
@@ -388,7 +408,8 @@ get_sf_date_range <- function(start_date, end_date) {
     
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
-    foreach(date_ = date_range) %dopar% {
+    lapply(date_range, function(date_) {
+    #foreach(date_ = date_range) %dopar% {
         print(date_)
         cycle_data <- get_cycle_data(date_, date_, signals_list)
         detection_events <- get_detection_events(date_, date_, signals_list)
@@ -396,7 +417,7 @@ get_sf_date_range <- function(start_date, end_date) {
             sf <- get_sf_utah(cycle_data, detection_events)
             s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures")
         }
-    }
+    })
     registerDoSEQ()
     gc()
     
