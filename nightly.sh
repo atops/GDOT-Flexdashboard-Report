@@ -14,9 +14,10 @@ echo "This always runs. The hour is ${H#0}"
 cd /home/rstudio/Code/GDOT/GDOT-Flexdashboard-Report
 
 if [[ ${H#0} -lt 6 ]]; then
-    echo $(TZ=America/New_York date) #>> nightly.log
-    Rscript Monthly_Report_Calcs_ec2.R #>> nightly.log
-    Rscript Monthly_Report_Package.R #>> nightly.log
+    echo $(TZ=America/New_York date)
+    Rscript Monthly_Report_Calcs_ec2.R
+    Rscript Monthly_Report_Package.R
 else
-    echo "$(TZ=America/New_York date) - after 6am" #>> nightly.log
+    echo "$(TZ=America/New_York date) - after 6am"
 fi
+

@@ -153,22 +153,12 @@ def read_parquet_file(bucket, key):
 
     if 'Contents' in s3.list_objects(Bucket = bucket, Prefix = key):
         
-
-        #objs = s3.list_objects(Bucket = 'gdot-spm', Prefix = key)
-        #contents = objs['Contents']
         date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
         
         df = (pd.read_parquet('s3://{b}/{k}'.format(b = bucket, k = key))
                 .assign(Date = lambda x: pd.to_datetime(date_, format = '%Y-%m-%d'))
                 .rename(columns = {'Timestamp': 'TimeStamp'}))
 
-        #response = s3.get_object(Bucket = 'gdot-spm', Key = contents[0]['Key'])
-
-        #with io.BytesIO() as f:
-        #    f.write(response['Body'].read())
-        #    df = (pd.read_parquet(f)
-        #            .assign(Date = lambda x: pd.to_datetime(date_, format = '%Y-%m-%d'))
-        #            .rename(columns = {'Timestamp': 'TimeStamp'}))
     else:
         df = pd.DataFrame()
         
