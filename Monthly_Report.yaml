@@ -17,13 +17,13 @@ run:
     split_failures: TRUE
     
 
-start_date: 2019-06-28
+start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2018-06-01
+report_start_date: 2018-07-01
 report_end_date: yesterday
 
-production_report_end_date: 2019-06-01
+production_report_end_date: 2019-07-01
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: Corridors_Latest.xlsx
