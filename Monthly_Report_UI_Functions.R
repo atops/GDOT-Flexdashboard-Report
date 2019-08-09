@@ -1,35 +1,38 @@
 # Monthly_Report_UI_Functions
 
-suppressWarnings(library(flexdashboard))
-suppressWarnings(library(shiny))
-suppressWarnings(library(yaml))
-suppressWarnings(library(httr))
+suppressMessages(library(flexdashboard))
+suppressMessages(library(shiny))
+suppressMessages(library(yaml))
+suppressMessages(library(httr))
 
-suppressWarnings(library(data.table))
-suppressWarnings(library(dplyr))
-suppressWarnings(library(dbplyr))
-suppressWarnings(library(tidyr))
-suppressWarnings(library(lubridate))
-suppressWarnings(library(stringr))
-suppressWarnings(library(glue))
-suppressWarnings(library(feather))
-suppressWarnings(library(fst))
-suppressWarnings(library(forcats))
-suppressWarnings(library(plotly))
-suppressWarnings(library(crosstalk))
-suppressWarnings(library(memoise))
-suppressWarnings(library(RSQLite))
-suppressWarnings(library(RJDBC))
-suppressWarnings(library(future))
-suppressWarnings(library(pool))
-suppressWarnings(library(RMySQL))
+suppressMessages(library(data.table))
+suppressMessages(library(dplyr))
+suppressMessages(library(dbplyr))
+suppressMessages(library(tidyr))
+suppressMessages(library(lubridate))
+suppressMessages(library(stringr))
+suppressMessages(library(glue))
+suppressMessages(library(feather))
+suppressMessages(library(fst))
+suppressMessages(library(forcats))
+suppressMessages(library(plotly))
+suppressMessages(library(crosstalk))
+suppressMessages(library(memoise))
+suppressMessages(library(RSQLite))
+suppressMessages(library(RJDBC))
+suppressMessages(library(future))
+suppressMessages(library(pool))
+suppressMessages(library(RMySQL))
 
 
-plan(multiprocess)
+#plan(multiprocess)
+plan(sequential)
+plan(multisession)
 
-suppressWarnings(library(DT))
+suppressMessages(library(DT))
 
 select <- dplyr::select
+filter <- dplyr::filter
 layout <- plotly::layout
 
 # Colorbrewer Paired Palette Colors
@@ -108,19 +111,21 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
-corridors %<-% read_feather("all_corridors.feather")
 
 if (conf$mode == "production") {
     
+    corridors %<-% read_feather("all_corridors.feather")
     cor <- readRDS("cor.rds")
-    sig <- readRDS("sig.rds")
-    teams_tables <- readRDS("teams_tables.rds")
+    sig %<-% readRDS("sig.rds")
+    #sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
+    teams_tables %<-% readRDS("teams_tables.rds")
     
 } else if (conf$mode == "beta") {
     
-#    cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
-#    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
-   teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm")
+    corridors %<-% aws.s3::s3read_using(read_feather, object = "all_corridors.feather", bucket = "gdot-spm")
+    cor <- aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
+    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
+    teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm")
     
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -130,6 +135,18 @@ as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
 
+goal <- list("tp" = NULL,
+             "aogd" = 0.80,
+             "prd" = 1.20,
+             "qsd" = NULL,
+             "sfd" = NULL,
+             "tti" = 1.20,
+             "pti" = 1.30,
+             "du" = 0.95,
+             "ped" = 0.95,
+             "cctv" = 0.95,
+             "cu" = 0.95,
+             "pau" = 0.95)
 
 get_athena_connection <- function() {
     
@@ -313,7 +330,7 @@ perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
             add_trace(data = data_,
                       x = ~Month, y = goal_,
                       name = "Goal",
-                      line = list(color = BLACK, dash = "dot"),
+                      line = list(color = DARK_GRAY), #, dash = "dot"),
                       mode = 'lines') %>%
             add_trace(data = data_,
                       x = ~Month, y = ~value,
@@ -1365,17 +1382,51 @@ cum_events_plot <- memoise(cum_events_plot_)
 
 
 
+# plot_individual_cctvs_ <- function(daily_cctv_df, 
+#                                    month_ = current_month(), 
+#                                    corridor_ = corridor()) {
+#     
+#     df <- filter(daily_cctv_df, Date < month_ + months(1))
+#     
+#     df <- filter(df, Corridor == corridor_)
+# 
+#     
+#     spr <- df %>%
+#         dplyr::select(-num, -uptime, -Corridor) %>% 
+#         distinct() %>% 
+#         spread(Date, up, fill = 0) %>%
+#         arrange(desc(CameraID))
+#     
+#     m <- as.matrix(spr %>% dplyr::select(-CameraID))
+#     row.names(m) <- spr$CameraID
+#     m <- round(m,0)
+#     
+#     plot_ly(x = colnames(m), 
+#             y = row.names(m), 
+#             z = m, 
+#             colors = c(LIGHT_GRAY_BAR, BROWN),
+#             type = "heatmap",
+#             #xgap = 1,
+#             ygap = 1,
+#             showscale = FALSE) %>% 
+#         layout(yaxis = list(type = "category",
+#                             title = ""),
+#                margin = list(l = 150))
+# }
 plot_individual_cctvs_ <- function(daily_cctv_df, 
                                    month_ = current_month(), 
-                                   corridor_ = corridor()) {
+                                   zone_group_ = zone_group()) {
     
-    df <- filter(daily_cctv_df, Date < month_ + months(1))
+    #df <- filter(daily_cctv_df, Date < month_ + months(1))
+    #df <- filter(df, Zone_Group == zone_group_)
     
-    df <- filter(df, Corridor == corridor_)
-
-    
-    spr <- df %>%
-        dplyr::select(-num, -uptime, -Corridor) %>% 
+    spr <- daily_cctv_df %>%
+        filter(Date < month_ + months(1),
+               Zone_Group == zone_group_, 
+               Corridor != Zone_Group) %>% 
+        rename(CameraID = Corridor, 
+               Corridor = Zone_Group) %>%
+        dplyr::select(-c(num, uptime, Corridor, Name, delta, Week)) %>% 
         distinct() %>% 
         spread(Date, up, fill = 0) %>%
         arrange(desc(CameraID))
@@ -1389,7 +1440,7 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
             z = m, 
             colors = c(LIGHT_GRAY_BAR, BROWN),
             type = "heatmap",
-            xgap = 1,
+            #xgap = 1,
             ygap = 1,
             showscale = FALSE) %>% 
         layout(yaxis = list(type = "category",
@@ -2049,6 +2100,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             plot_df <- df %>%
                 mutate(DetectorID = as.character(DetectorID)) %>%
                 unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
+                
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
@@ -2063,6 +2115,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             plot_df <- df %>%
                 #mutate(DetectorID = as.character(DetectorID)) %>%
                 #unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
+                
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
@@ -2076,6 +2129,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             plot_df <- df %>%
                 # mutate(Phase = as.character(Phase)) %>% 
                 unite(signal_phase2, Name, Phase, sep = " | ph ") %>% # potential problem
+                
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
@@ -2117,7 +2171,7 @@ reconstitute <- function(df, col_name) {
 }
 
 
-m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL) {
+m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL, zone_group = NULL) {
     cid <- glue("{res}-{per}-{tab}")
     
     if (class(start_date) == "Date") {
@@ -2125,12 +2179,12 @@ m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL)
     }
     
     if (is.null(end_date)) {
-        df <- query_dynamodb_beta(cid, start_date, corridor = corridor)
+        df <- query_dynamodb_beta(cid, start_date, corridor = corridor, zone_group = zone_group)
     } else {
         if (class(end_date) == "Date") {
             end_date <- format(end_date, "%Y-%m-%d")
         }
-        df <- query_dynamodb_beta(cid, start_date, end_date, corridor = corridor)
+        df <- query_dynamodb_beta(cid, start_date, end_date, corridor = corridor, zone_group = zone_group)
     }
 
     if ("Corridor" %in% names(df)) {
