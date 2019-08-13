@@ -82,9 +82,16 @@ subcorridors <- corridors %>%
 
 
 # -- Teams Locations
-#teams_locations <- get_teams_locations()
-#st_geometry(teams_locations) <- NULL
-#write_feather(teams_locations, "teams_locations.feather")
+# Warning: Need to clean up ,="", and convert to utf-8 on Notepad++ 
+# to TEAMS Location Report after export
+#
+# teams_locations_report_raw_output <- "TEAMS_Reports/TEAMS_Locations_Report_2019-08-12.csv"
+# teams_locations <- get_teams_locations(teams_locations_report_raw_output)
+# st_geometry(teams_locations) <- NULL
+# write_feather(teams_locations, "teams_locations.feather")
+# put_object(file = "teams_locations.feather", 
+#            object = "teams_locations.feather", 
+#            bucket = "gdot-spm")
 
 
 

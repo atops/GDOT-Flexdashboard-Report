@@ -21,9 +21,9 @@ suppressMessages(library(parallel))
 suppressMessages(library(doParallel))
 suppressMessages(library(multidplyr))
 #suppressMessages(library(pool))
-#suppressMessages(library(httr))
+suppressMessages(library(httr))
 suppressMessages(library(aws.s3))
-#suppressMessages(library(sf))
+suppressMessages(library(sf))
 suppressMessages(library(yaml))
 suppressMessages(library(utils))
 
@@ -42,10 +42,12 @@ select <- dplyr::select
 filter <- dplyr::filter
 
 if (Sys.info()["sysname"] == "Windows") {
-    python_path <- file.path(dirname(path.expand("~")), "Anaconda3", "python.exe")
+    home_path <- dirname(path.expand("~"))
+    python_path <- file.path(home_path, "Anaconda3", "python.exe")
     
 } else if (Sys.info()["sysname"] == "Linux") {
-    python_path <- file.path("~", "miniconda3", "bin", "python")
+    home_path <- "~"
+    python_path <- file.path(home_path, "miniconda3", "bin", "python")
     
 } else {
     stop("Unknown operating system.")
@@ -54,7 +56,7 @@ if (Sys.info()["sysname"] == "Windows") {
 use_python(python_path)
 
 #pqlib <- reticulate::import_from_path("upload_parquet", path = "~")
-pqlib <- reticulate::import_from_path("parquet_lib", path = "~/Code/GDOT/GDOT-Flexdashboard-Report/")
+pqlib <- reticulate::import_from_path("parquet_lib", path = file.path(home_path, "Code/GDOT/GDOT-Flexdashboard-Report/"))
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
@@ -3092,7 +3094,9 @@ get_teams_locations <- function(locations_fn = "TEAMS_Reports/TEAMS_Locations_Re
     
     dbDisconnect(conn)
     
-    corridors <- read_feather("corridors.feather")
+    corridors <- s3read_using(read_feather, 
+                              object = "corridors.feather", 
+                              bucket = "gdot-spm")
     
     # sf (spatial - point) objects
     locs.sp <- sf::st_as_sf(locs, coords = c("Latitude", "Longitude")) %>%
