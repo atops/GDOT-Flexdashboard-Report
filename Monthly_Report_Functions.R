@@ -3119,12 +3119,14 @@ get_teams_locations <- function(locations_fn = "TEAMS_Reports/TEAMS_Locations_Re
 }
 
 
-get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip", locations = teams_locations) {
-    
+get_teams_tasks <- function(tasks, locations = teams_locations) {
+#get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip", locations = teams_locations) {
+        
     #locations <- teams_locations
     
     # Get tasks and join locations, corridors
-    tasks <- readr::read_csv(tasks_fn) %>% 
+    tasks <- tasks %>%
+    #tasks <- readr::read_csv(tasks_fn) %>% 
         dplyr::select(-`Maintained by`) %>%
         left_join(locations) %>%
         filter(!is.na(m)) %>%
