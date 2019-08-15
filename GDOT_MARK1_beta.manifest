@@ -15,13 +15,9 @@ plot_functions.R
 #SPMWatchDogErrorEvents.feather
 #SPMWatchDogErrorEvents.feather.zip
 style.css
+#sub.rds
 teams_locations.feather
-teams_tables.rds
+#teams_tables.rds
 tmc_routes.feather
 AthenaJDBC42_2.0.6.jar
 google-analytics.html
-
-aws.dynamodb/R/utils.R
-aws.dynamodb/R/http.R
-aws.dynamodb/R/put_item.R
-mark1_dynamodb.R
