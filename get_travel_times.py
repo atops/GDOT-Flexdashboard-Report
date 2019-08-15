@@ -122,7 +122,6 @@ if __name__=='__main__':
 
     # start_date is either the given day or the first day of the month
     start_date = conf['start_date']
-    start_date = pd.Timestamp('2019-03-01')
     if start_date == 'yesterday': 
         start_date = datetime.today() - timedelta(days=1)
     start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
@@ -130,7 +129,6 @@ if __name__=='__main__':
     # end date is either the given date + 1 or today. 
     # end_date is not included in the query results
     end_date = conf['end_date']
-    end_date = pd.Timestamp('2019-03-31')
     if end_date == 'yesterday': 
         end_date = datetime.today() - timedelta(days=1)
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -143,8 +141,8 @@ if __name__=='__main__':
     tmc_dict = tmc_df.groupby(['Corridor'])['tmc'].apply(list).to_dict()
     tmc_list = list(set(tmc_df.tmc.values))
     
-    #start_date = '2018-02-01'
-    #end_date = '2018-03-01'
+    #start_date = '2019-02-01'
+    #end_date = '2019-03-31'
     
     try:
     
