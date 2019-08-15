@@ -103,7 +103,8 @@ print(Sys.time())
 print(glue("{Sys.time()} parse cctv logs [1 of 10]"))
 
 if (conf$run$cctv == TRUE) {
-  system("python parse_cctvlog.py", wait = FALSE) # Run python script asynchronously
+    system("python parse_cctvlog.py", wait = FALSE) # Run python script asynchronously
+    system("python parse_cctvlog_encoders.py", wait = FALSE) # Run python script asynchronously
 }
 
 # # TRAVEL TIMES FROM RITIS API ###############################################
@@ -111,7 +112,7 @@ if (conf$run$cctv == TRUE) {
 print(glue("{Sys.time()} travel times [2 of 10]"))
 
 if (conf$run$travel_times == TRUE) {
-  system("python get_travel_times.py", wait = FALSE) # Run python script asynchronously
+    system("python get_travel_times.py", wait = FALSE) # Run python script asynchronously
 }
 
 # # COUNTS ####################################################################
