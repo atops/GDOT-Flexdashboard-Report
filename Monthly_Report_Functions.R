@@ -26,6 +26,7 @@ suppressMessages(library(aws.s3))
 suppressMessages(library(sf))
 suppressMessages(library(yaml))
 suppressMessages(library(utils))
+suppressMessages(library(readxl))
 
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
@@ -3132,10 +3133,10 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
     tasks <- tasks %>%
     #tasks <- readr::read_csv(tasks_fn) %>% 
         dplyr::select(-`Maintained by`) %>%
-        left_join(locations) %>%
+        left_join(locations, by = c("LocationId")) %>%
         filter(!is.na(m)) %>%
         mutate(SignalID = factor(SignalID)) %>%
-        left_join(corridors)
+        left_join(corridors, by = c("SignalID"))
     
     all_tasks <- tasks %>% 
         mutate(#Zone_Group = if_else(`Maintained By` == "District 1", 
@@ -3161,17 +3162,19 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
             `Task Source` = ifelse(`Task Source` == "P Program", "RTOP Program", `Task Source`),
             `Task Subtype` = ifelse(`Task Subtype` == "ection Check", "Detection Check", `Task Subtype`),
             Priority = ifelse(Priority == "mal", "Normal", Priority),
-            
+
+            # -------------------- Needed??            
             Zone_Group = dplyr::case_when(
                 `Maintained By` == "District 1" ~ "District 1",
                 `Maintained By` == "District 6" ~ "District 6",
                 TRUE ~ as.character(Zone_Group)),
-            
+
             Zone = dplyr::case_when(
                 Zone_Group == "District 1" ~ "District 1",
                 Zone_Group == "District 6" ~ "District 6",
                 TRUE ~ as.character(Zone)
             ),
+            # -------------------- Needed??            
             
             Task_Type = factor(`Task Type`),
             Task_Subtype = factor(`Task Subtype`),
@@ -3218,7 +3221,8 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
         filter(!is.na(`Date Reported`),
                !(Zone_Group == "Zone 7" & `Date Reported` < "2018-05-01"))
     
-    # Dupicate RTOP1 and RTOP2 as "All RTOP" and add to tasks
+    # Duplicate RTOP1 and RTOP2 as "All RTOP" and add to tasks
+    # --------------------- This was fine while we only wanted to aggregate by Zone Group -------
     all_tasks %>% 
         bind_rows(all_tasks %>% 
                       filter(Zone_Group == "RTOP1") %>% 
@@ -3237,31 +3241,33 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
 
 
 
-get_outstanding_events <- function(teams, group_var) {
+get_outstanding_events <- function(teams, group_var, spatial_grouping="Zone_Group") {
     
+    # group_var is either All, Type, Subtype, ...
+    # spatial grouping is either Zone_Group or Corridor
     rep <- teams %>% 
         filter(!is.na(`Date Reported`)) %>%
-        mutate(Month = `Date Reported` - days(day(`Date Reported`) - 1)) %>%
+        mutate(Month = floor_date(`Date Reported`, "1 month")) %>%
         arrange(Month) %>%
-        group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
+        group_by_(group_var, spatial_grouping, quote(Month)) %>%
         summarize(Rep = n()) %>% 
-        group_by_(quote(Zone_Group), group_var) %>%
+        group_by_(spatial_grouping, group_var) %>%
         mutate(cumRep = cumsum(Rep))
     
     res <- teams %>% 
         filter(!is.na(`Date Resolved`)) %>%
         mutate(Month = `Date Resolved` - days(day(`Date Resolved`) -1)) %>%
         arrange(Month) %>%
-        group_by_(group_var, quote(Zone_Group), quote(Month)) %>%
+        group_by_(group_var, spatial_grouping, quote(Month)) %>%
         summarize(Res = n()) %>% 
-        group_by_(quote(Zone_Group), group_var) %>%
+        group_by_(spatial_grouping, group_var) %>%
         mutate(cumRes = cumsum(Res))
     
     left_join(rep, res) %>% 
         fill(cumRes, .direction = "down") %>% 
         replace_na(list(Rep = 0, cumRep = 0, 
                         Res = 0, cumRes = 0)) %>% 
-        group_by_(quote(Zone_Group), group_var) %>%
+        group_by_(spatial_grouping, group_var) %>%
         mutate(outstanding = cumRep - cumRes) %>%
         ungroup()
 }
