@@ -18,6 +18,7 @@ runtime: shiny
 ```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
+conf_mode <- "production"
 
 source("Monthly_Report_UI_Functions.R")
 
@@ -1049,7 +1050,7 @@ fillCol(
                        goal_ = goal$aogd)
     }),
     renderPlotly({ 
-        data.set <- filter(mr_str()$mo$prd, Corridor = zone_group() & Month <= current_month())
+        data.set <- filter(mr()$mo$prd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_beta(data.set, "pr", "Progression Ratio\nGoal: 1.2", RED2, 
                        format_func = as_2dec, 
@@ -1621,10 +1622,8 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
         
-        weekly_cctv_df <- cor$wk$cctv
-        monthly_cctv_df <- cor$mo$cctv
-        get_bar_line_dashboard_plot(weekly_cctv_df,
-                                    monthly_cctv_df,
+        get_bar_line_dashboard_plot(cor$wk$cctv,
+                                    cor$mo$cctv,
                                     var_ = "uptime",
                                     num_format = "percent",
                                     highlight_color = BROWN,
