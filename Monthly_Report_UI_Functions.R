@@ -23,10 +23,11 @@ suppressMessages(library(RJDBC))
 suppressMessages(library(future))
 suppressMessages(library(pool))
 suppressMessages(library(RMySQL))
+suppressMessages(library(rsconnect))
 
 
 #plan(multiprocess)
-plan(sequential)
+#plan(sequential)
 plan(multisession)
 
 suppressMessages(library(DT))
@@ -66,9 +67,11 @@ RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
 
 conf <- read_yaml("Monthly_Report.yaml")
 
-if (conf$mode == "beta") {
-    source("mark1_dynamodb.R")
-}
+#$conf$mode <- conf_mode
+
+#if (conf$mode == "beta") {
+#    source("mark1_dynamodb.R")
+#}
 
 if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
     set_config(
@@ -117,15 +120,20 @@ if (conf$mode == "production") {
     corridors %<-% read_feather("all_corridors.feather")
     cor <- readRDS("cor.rds")
     sig %<-% readRDS("sig.rds")
-    #sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
     teams_tables %<-% readRDS("teams_tables.rds")
     
 } else if (conf$mode == "beta") {
     
-    corridors %<-% aws.s3::s3read_using(read_feather, object = "all_corridors.feather", bucket = "gdot-spm")
+    corridors <- aws.s3::s3read_using(read_feather, 
+                                      object = "all_corridors.feather", 
+                                      bucket = "gdot-spm")
+    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm",
+                               key = aws_conf$AWS_ACCESS_KEY_ID,
+                               secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm",
+                                        key = aws_conf$AWS_ACCESS_KEY_ID,
+                                        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     cor <- aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
-    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm")
-    teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm")
     
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -2000,7 +2008,8 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
 
 get_alerts <- function() {
     
-    objs = aws.s3::get_bucket(bucket = 'gdot-spm', prefix = 'mark/watchdog')
+    objs <- aws.s3::get_bucket(bucket = 'gdot-spm', 
+                               prefix = 'mark/watchdog')
     lapply(objs, function(obj) {
         key <- obj$Key
         if (endsWith(key, "feather.zip")) {
@@ -2010,7 +2019,9 @@ get_alerts <- function() {
             f = read_fst
         }
         
-        aws.s3::s3read_using(FUN = f, object = key, bucket = 'gdot-spm') %>% 
+        aws.s3::s3read_using(FUN = f, 
+                             object = key, 
+                             bucket = 'gdot-spm') %>% 
             as_tibble() %>%
             transmute(Zone_Group = factor(Zone_Group),
                       Zone = factor(Zone),
