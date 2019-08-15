@@ -927,35 +927,79 @@ tryCatch({
                                         ymd(As_of_Date),
                                         mdy(As_of_Date)))
     }
-        
-    daily_cctv_uptime <- dbGetQuery(conn, sql("select cameraid, date, size from gdot_spm.cctv_uptime")) %>% 
-        transmute(CameraID = factor(cameraid),
-                  Date = date(date),
-                  Size = size) %>%
-        as_tibble() %>%
-        
-        # CCTV image size variance by CameraID and Date
-        #  -> reduce to 1 for Size > 0, 0 otherwise
-        
-        # Expanded out to include all available cameras on all days
-        #  up/uptime is 0 if no data
-        #daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
-        filter(Date >= report_start_date,
-               Size > 0) %>%
-        mutate(up = 1, num = 1) %>%
-        dplyr::select(-Size) %>%
-        distinct() %>%
-        
-        # Expanded out to include all available cameras on all days
-        complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
-        
-        mutate(uptime = up/num) %>%
-        
-        left_join(dplyr::select(cam_config, -Location)) %>% 
-        filter(Date >= As_of_Date & Corridor != "") %>%
-        dplyr::select(-As_of_Date) %>%
-        mutate(CameraID = factor(CameraID),
-               Corridor = factor(Corridor))
+
+    get_daily_cctv_uptime <- function(table) {
+        if (!table %in% c("cctv_uptime", "cctv_uptime_encoders")) {
+            stop("Unrecognized table: should be either 'cctv_uptime' or cctv_uptime_encoders'")
+        } else {
+            dbGetQuery(conn, sql(glue("select cameraid, date, size from gdot_spm.{table}"))) %>% 
+                transmute(CameraID = factor(cameraid),
+                          Date = date(date),
+                          Size = size) %>%
+                as_tibble() %>%
+                
+                # CCTV image size variance by CameraID and Date
+                #  -> reduce to 1 for Size > 0, 0 otherwise
+                
+                # Expanded out to include all available cameras on all days
+                #  up/uptime is 0 if no data
+                #daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
+                filter(Date >= report_start_date,
+                       Size > 0) %>%
+                mutate(up = 1, num = 1) %>%
+                dplyr::select(-Size) %>%
+                distinct() %>%
+                
+                # Expanded out to include all available cameras on all days
+                complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
+                
+                mutate(uptime = up/num) %>%
+                
+                left_join(dplyr::select(cam_config, -Location)) %>% 
+                filter(Date >= As_of_Date & Corridor != "") %>%
+                dplyr::select(-As_of_Date) %>%
+                mutate(CameraID = factor(CameraID),
+                       Corridor = factor(Corridor))
+        }
+    }
+    # daily_cctv_uptime <- dbGetQuery(conn, sql("select cameraid, date, size from gdot_spm.cctv_uptime")) %>% 
+    #     transmute(CameraID = factor(cameraid),
+    #               Date = date(date),
+    #               Size = size) %>%
+    #     as_tibble() %>%
+    #     
+    #     # CCTV image size variance by CameraID and Date
+    #     #  -> reduce to 1 for Size > 0, 0 otherwise
+    #     
+    #     # Expanded out to include all available cameras on all days
+    #     #  up/uptime is 0 if no data
+    #     #daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
+    #     filter(Date >= report_start_date,
+    #            Size > 0) %>%
+    #     mutate(up = 1, num = 1) %>%
+    #     dplyr::select(-Size) %>%
+    #     distinct() %>%
+    #     
+    #     # Expanded out to include all available cameras on all days
+    #     complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
+    #     
+    #     mutate(uptime = up/num) %>%
+    #     
+    #     left_join(dplyr::select(cam_config, -Location)) %>% 
+    #     filter(Date >= As_of_Date & Corridor != "") %>%
+    #     dplyr::select(-As_of_Date) %>%
+    #     mutate(CameraID = factor(CameraID),
+    #            Corridor = factor(Corridor))
+    
+    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime")
+    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders")
+    
+    daily_cctv_uptime <- left_join(daily_cctv_uptime, 
+                                   daily_cctv_uptime_encoders, 
+                                   by=c("Corridor", "CameraID", "Date")) %>%
+        mutate(up = up.x,
+               num = num.x,
+               uptime = uptime.x)
     
     
     # Find the days where uptime across the board is very low (close to 0)
@@ -980,9 +1024,7 @@ tryCatch({
     
     cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(weekly_cctv_uptime, all_corridors, "uptime", "num")
     
-    get_cor_monthly_avg_by_day(monthly_cctv_uptime, all_corridors, "uptime", "num")
-    # cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(mutate(daily_cctv_uptime, Month = Date - days(day(Date) -1)),
-    #                                                       all_corridors, "uptime", "num")
+    cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(monthly_cctv_uptime, all_corridors, "uptime", "num")
 
     saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
     saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
@@ -1026,10 +1068,11 @@ tryCatch({
     
     
     # New version from API result
-    teams <- aws.s3::get_object('mark/teams/tasks.csv', bucket = 'gdot-spm') %>%
+    teams <- aws.s3::s3read_using(read_csv, object = 'mark/teams/tasks.csv', bucket = 'gdot-spm') %>%
+    #teams <- aws.s3::get_object('mark/teams/tasks.csv', bucket = 'gdot-spm') %>%
         #rawToChar() %>%
         #read_csv() %>%
-        get_teams_tasks() %>%
+        get_teams_tasks(teams_locations) %>%
         
         
         #teams <- get_teams_tasks(tasks_fn = conf$teams_tasks_filename, locations = teams_locations) %>%
@@ -1042,34 +1085,44 @@ tryCatch({
     #------------------------------------------------------------------------------
     
     
-    type_table <- get_outstanding_events(teams, "Task_Type") %>%
+    type_table <- get_outstanding_events(teams, "Task_Type", spatial_grouping = "Zone_Group") %>%
+        bind_rows(get_outstanding_events(teams, "Task_Type", spatial_grouping = "Corridor") %>% 
+                      rename(Zone_Group = Corridor)) %>%
         mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
         group_by(Zone_Group, Task_Type, Month) %>%
         summarize_all(sum) %>%
         ungroup() %>%
         mutate(Task_Type = factor(Task_Type))
     
-    subtype_table <- get_outstanding_events(teams, "Task_Subtype") %>%
+    subtype_table <- get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Zone_Group") %>%
+        bind_rows(get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Corridor") %>% 
+                      rename(Zone_Group = Corridor)) %>%
         mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
         group_by(Zone_Group, Task_Subtype, Month) %>%
         summarize_all(sum) %>%
         ungroup() %>%
         mutate(Task_Subtype = factor(Task_Subtype))
     
-    source_table <- get_outstanding_events(teams, "Task_Source") %>%
+    source_table <- get_outstanding_events(teams, "Task_Source", spatial_grouping = "Zone_Group") %>%
+        bind_rows(get_outstanding_events(teams, "Task_Source", spatial_grouping = "Corridor") %>% 
+                      rename(Zone_Group = Corridor)) %>%
         mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
         group_by(Zone_Group, Task_Source, Month) %>%
         summarize_all(sum) %>%
         ungroup() %>%
         mutate(Task_Source = factor(Task_Source))
     
-    priority_table <- get_outstanding_events(teams, "Priority") %>%
+    priority_table <- get_outstanding_events(teams, "Priority", spatial_grouping = "Zone_Group") %>%
+        bind_rows(get_outstanding_events(teams, "Priority", spatial_grouping = "Corridor") %>% 
+                      rename(Zone_Group = Corridor)) %>%
         group_by(Zone_Group, Priority, Month) %>%
         summarize_all(sum) %>%
         ungroup() %>%
         mutate(Priority = factor(Priority))
     
-    all_teams_table <- get_outstanding_events(teams, "All") %>%
+    all_teams_table <- get_outstanding_events(teams, "All", spatial_grouping = "Zone_Group") %>%
+        bind_rows(get_outstanding_events(teams, "All", spatial_grouping = "Corridor") %>% 
+                      rename(Zone_Group = Corridor)) %>%
         group_by(Zone_Group, All, Month) %>%
         summarize_all(sum) %>%
         ungroup() %>%
