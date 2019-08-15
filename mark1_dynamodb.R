@@ -24,7 +24,7 @@ source("aws.dynamodb/R/put_item.R")
 write_to_dynamodb_beta <- function(df, hashkey, asof = NULL) {
     tryCatch({
         print(now())
-        ncores <- parallel::detectCores() # - 1
+        ncores <- parallel::detectCores() - 1
         if (is.na(ncores)) ncores <- 2
         doParallel::registerDoParallel(cores = ncores)
         df <- ungroup(df)
@@ -103,8 +103,9 @@ write_to_dynamodb_beta <- function(df, hashkey, asof = NULL) {
 # Read data from dynamodb to data frame
 # cid = cor-mo-vpd or similar
 # start_date, end_date = yyyy-mm-dd Date/Month, both inclusive
-query_dynamodb_beta <- function(cid, start_date, end_date = NULL, corridor = NULL, verbose = FALSE) {
+query_dynamodb_beta <- function(cid, start_date, end_date = NULL, corridor = NULL, zone_group = NULL, verbose = FALSE) {
     
+    fe <- NULL
     
     request_body <- list(TableName = get_tablename("MARK1_beta2"))
     
@@ -121,11 +122,24 @@ query_dynamodb_beta <- function(cid, start_date, end_date = NULL, corridor = NUL
     
     if (!is.null(corridor)) {
         # Filter by corridor based on start of json field string
-        corridor_filter <- paste0('[{"Corridor":"',corridor , '"')
+        corridor_filter <- paste0('[{"Corridor":"', corridor, '"')
         fe <- "begins_with(json, :j)"
         eav$`:j` <- corridor_filter
         
         request_body$FilterExpression <- fe
+    }
+    
+    if (!is.null(zone_group)) {
+        # Filter by corridor based on start of json field string
+        zone_group_filter <- paste0('"Zone_Group":"', zone_group, '"')
+        fe2 <- "contains(json, :j2)"
+        eav$`:j2` <- zone_group_filter
+        
+        if (is.null(fe)) {
+            request_body$FilterExpression <- fe2
+        } else {
+            request_body$FilterExpression <- paste(fe, "AND", fe2)
+        }
         
     }
     
