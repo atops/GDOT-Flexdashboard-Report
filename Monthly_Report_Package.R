@@ -694,7 +694,6 @@ tryCatch({
 
     wsf <- get_weekly_sf_by_day(sf) %>% ungroup()
     msf <- get_monthly_sf_by_day(sf) %>% ungroup() %>% filter(!is.na(Month))
-    sfh <- get_sf_by_hr(sf)
     
      
     cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
@@ -731,6 +730,7 @@ print(glue("{Sys.time()} Hourly Split Failures [12 of 20]"))
 
 tryCatch({
 
+    sfh <- get_sf_by_hr(sf)
     msfh <- get_monthly_sf_by_hr(sfh)
     
     # Hourly volumes by Corridor --------------------------------------------------

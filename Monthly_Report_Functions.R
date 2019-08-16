@@ -98,13 +98,28 @@ get_usable_cores <- function() {
     
     # Usable cores is one per 8 GB of RAM. 
     # Get RAM from system file and divide
-    x <- readLines('/proc/meminfo')
     
-    memline <- x[grepl("MemTotal", x)]
-    mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
-    mem <- as.integer(mem)
-    mem <- round(mem, -6)
-    max(floor(mem/8e6), 1)
+    if (Sys.info()["sysname"] == "Windows") {
+        x <- shell('systeminfo | findstr Memory', intern = TRUE)
+        
+        memline <- x[grepl("Total Physical Memory", x)]
+        mem <- stringr::str_extract(string =  memline, pattern = "\\d+,\\d+")
+        mem <- as.numeric(gsub(",", "", mem))
+        mem <- round(mem, -3)
+        max(floor(mem/8e3), 1)
+        
+    } else if (Sys.info()["sysname"] == "Linux") {
+        x <- readLines('/proc/meminfo')
+        
+        memline <- x[grepl("MemTotal", x)]
+        mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
+        mem <- as.integer(mem)
+        mem <- round(mem, -6)
+        max(floor(mem/8e6), 1)
+        
+    } else {
+        stop("Unknown operating system.")
+    }
 }
 
 read_zipped_feather <- function(x) {
@@ -1653,18 +1668,18 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     # SignalID | CallPhase | Date_Hour | Date | Hour | sf_freq | cycles
 }
 
-get_daily_sf_utah <- function(sf) {
+get_peak_sf_utah <- function(msfh) {
     
-    sf %>%
+    msfh %>%
+        group_by(SignalID, 
+                 Date = date(Hour), 
+                 Peak = if_else(hour(Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS),
+                                "Peak", "Off_Peak")) %>%
+        summarize(sf_freq = weighted.mean(sf_freq, cycles, na.rm = TRUE), 
+                  cycles = sum(cycles, na.rm = TRUE)) %>%
         ungroup() %>%
-        mutate(DOW = wday(Date), 
-               Week = week(Date),
-               CallPhase = factor(CallPhase),
-               Peak = if_else(hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS),
-                              TRUE, FALSE)) %>%
-        #filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        group_by(SignalID, CallPhase, Date, Week, DOW, Peak) %>%
-        summarize(sf_freq = weighted.mean(sf_freq, vol, na.rm = TRUE), cycles = sum(cycles, na.rm = TRUE))
+        select(-cycles) %>% 
+        split(.$Peak)
     
     # SignalID | CallPhase | Date | Week | DOW | Peak | sf_freq | cycles
 }
