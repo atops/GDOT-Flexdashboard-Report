@@ -39,6 +39,10 @@ suppressMessages(library(fitdistrplus))
 #suppressMessages(library(sparklyr))
 suppressMessages(library(foreach))
 
+suppressMessages(library(arrow))
+# https://arrow.apache.org/install/
+# install.packages("arrow")
+
 select <- dplyr::select
 filter <- dplyr::filter
 
@@ -89,10 +93,13 @@ if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     Sys.setenv(TZ="America/New_York")
 }
 
+sizeof <- function(x) {
+    format(object.size(x), units = "Mb")
+}
+
 get_most_recent_monday <- function(date_) {
     date_ + days(1 - lubridate::wday(date_, week_start  = 1))
 }
-
 
 get_usable_cores <- function() {
     
@@ -232,6 +239,19 @@ get_spark_context <- function() {
     sc
 }
 
+# Because of issue with Apache Arrow (feather, parquet)
+# where R wants to convert UTC to local time zone on read
+# Switch date or datetime fields back to UTC. Run on reed.
+convert_to_utc <- function(df) {
+    is_datetime <- sapply(names(df), function(x) sum(class(df[[x]]) == "POSIXct"))
+    datetimes <- names(is_datetime[is_datetime==1])
+    
+    for (col in datetimes) {
+        df[[col]] <- with_tz(df[[col]], "UTC")
+    }
+    df
+}
+
 # Use Python to upload R dataframe to s3 in parquet format
 s3_upload_parquet <- function(df, date_, fn, table_name) {
     
@@ -244,11 +264,16 @@ s3_upload_parquet <- function(df, date_, fn, table_name) {
         df <- mutate(df, CallPhase = as.character(CallPhase)) 
     }
     
+    # s3write_using(select(df, -Date),
+    #               write_parquet,
+    #               bucket = "gdot-spm",
+    #               object = glue("mark/{table_name}/date={date_}/{fn}.parquet"))
+    
     feather_filename = paste0(fn, ".feather")
     write_feather(df, feather_filename)
-    
-    pqlib$upload_parquet(Bucket = "gdot-spm", 
-                         Key = glue("mark/{table_name}/date={date_}/{fn}.parquet"), 
+
+    pqlib$upload_parquet(Bucket = "gdot-spm",
+                         Key = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
                          Filename = feather_filename)
     file.remove(feather_filename)
 }
@@ -270,7 +295,12 @@ s3_upload_parquet_date_split <- function(df, prefix, table_name) {
             Sys.sleep(1)
         })
 }
-s3_read_parquet <- function(table_name, start_date, end_date, signals_list = NULL, bucket = NULL) {
+s3_read_parquet <- function(table_name, 
+                            start_date, 
+                            end_date, 
+                            signals_list = NULL, 
+                            bucket = NULL,
+                            callback = function(x) {x}) {
     
     if (is.null(bucket)) {
         fn <- pqlib$read_parquet_local(table_name, start_date, end_date, signals_list)
@@ -279,7 +309,11 @@ s3_read_parquet <- function(table_name, start_date, end_date, signals_list = NUL
     }
     
     if (!is.null(fn)) {
-        df = read_feather(fn) #%>% mutate(Date = date(Date))
+        df = read_feather(fn) %>% 
+            convert_to_utc()
+        if (nrow(df)) {
+            df <- callback(df)
+        }
         file.remove(fn)
     } else {
         df <- data.frame()
@@ -287,9 +321,44 @@ s3_read_parquet <- function(table_name, start_date, end_date, signals_list = NUL
     as_tibble(df)
 }
 
-s3_read_parquet_parallel <- function(table_name, start_date, end_date, signals_list = NULL, bucket = NULL) {
+# The function below uses the python function for parallel reads
+# which would be nice except it prevents us from using callbacks from R
+# which causes it to return very large data sets.
+s3_read_parquet_parallel_newer <- function(
+    table_name, 
+    start_date, 
+    end_date, 
+    signals_list = NULL, 
+    bucket = NULL,
+    callback = function(x) {x}) {
     
-    usable_cores <- get_usable_cores()
+    if (is.null(bucket)) {
+        fn <- pqlib$read_parquet_local(table_name, start_date, end_date, signals_list)
+    } else{
+        fn <- pqlib$read_parquet(bucket, table_name, start_date, end_date, signals_list)
+    }
+    
+    if (!is.null(fn)) {
+        df = read_feather(fn) %>% 
+            convert_to_utc()
+        if (nrow(df)) {
+            df <- callback(df)
+        }
+        file.remove(fn)
+    } else {
+        df <- data.frame()
+    }
+    as_tibble(df)
+}
+
+s3_read_parquet_parallel <- function(table_name, 
+                                     start_date, 
+                                     end_date, 
+                                     signals_list = NULL, 
+                                     bucket = NULL,
+                                     callback = function(x) {x}) {
+    
+    usable_cores <- detectCores() - 1 # get_usable_cores()
     
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
@@ -297,22 +366,44 @@ s3_read_parquet_parallel <- function(table_name, start_date, end_date, signals_l
     
     df <- foreach(date_ = date_range, .combine = rbind) %dopar% {
         date_ <- as.character(date_)
-        s3_read_parquet(table_name, date_, date_, signals_list = signals_list, bucket = bucket)
-        #filtered_counts_1hr <- 
+        x <- s3_read_parquet(
+            table_name, 
+            date_, 
+            date_, 
+            signals_list = signals_list, 
+            bucket = bucket)
+        if (nrow(x)) callback(x)
     }
-    
-    # df <- mclapply(date_range, function(date_) {
-    #     date_ <- as.character(date_)
-    #     filtered_counts_1hr <- s3_read_parquet(table_name, date_, date_, signals_list = signals_list, bucket = bucket)
-    # }, mc.cores = usable_cores) #ceiling(parallel::detectCores()*1/2)) 
-    
     if (length(df) > 1) {
         bind_rows(df)
     } else {
         df
     }
 }
-
+# The below is getting this errors;
+# SSL read: error:1408F119:SSL routines:SSL3_GET_RECORD:decryption failed or bad record mac, errno 0
+s3_read_parquet_parallel2 <- function(table_name, 
+                                      start_date, 
+                                      end_date, 
+                                      signals_list = NULL, 
+                                      bucket = NULL) {
+    
+    objs <- aws.s3::get_bucket_df(bucket, prefix = glue("mark/{table_name}")) %>% 
+        filter(Key >= glue("mark/{table_name}/date={start_date}"), 
+               Key <= glue("mark/{table_name}/date={end_date}"))
+    
+    
+    doParallel::registerDoParallel(cores = detectCores() - 1)
+    
+    foreach(key = objs$Key, .combine = rbind) %dopar% {
+        date_ <- stringr::str_extract(key, "\\d+-\\d+-\\d+")
+        s3read_using(read_parquet, 
+                     object = key, 
+                     bucket = bucket) %>%
+            filter(SignalID %in% signals_list) %>%
+            mutate(Date = ymd(date_))
+    }
+}
 week <- function(d) {
     d0 <- ymd("2016-12-25")
     as.integer(trunc((ymd(d) - d0)/dweeks(1)))
@@ -611,7 +702,7 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
                          signalid,
                          eventparam)
             
-            # Group by 15 minute interval using Athena/Presto SQL
+        # Group by 15 minute interval using Athena/Presto SQL
         } else if (units == "15min") {
             df <- df %>% 
                 mutate(timeperiod = date_trunc('minute', timestamp)) %>%
@@ -622,7 +713,7 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
                          eventparam)
         }
         
-        df %>%
+        df <- df %>%
             count() %>%
             ungroup() %>%
             collect() %>%
@@ -635,6 +726,8 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
             dplyr::select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
             mutate(SignalID = factor(SignalID),
                    Detector = factor(Detector))
+        #tz(df$Timeperiod) <- "America/New_York"
+        df
     } else {
         data.frame()
     }
@@ -664,7 +757,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
     df <- tbl(conn, sql("select distinct * from gdot_spm.atspm2")) %>%
         filter(date == start_date)
     
-    print(head(df))
+    print(head(arrange(df, timestamp)))
     
     if (uptime == TRUE) {
         
@@ -673,7 +766,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         
         # Reduce to comm uptime for signals_sublist
-        print("Communications uptime")
+        print(glue("Communications uptime {date_}"))
         
         cu <- uptime$sig %>%
             ungroup() %>%
@@ -686,6 +779,7 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
                    DOW = wday(start_date), 
                    Week = week(start_date)) %>%
             dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime)
+        #tz(cu$Date_Hour) <- "America/New_York"
         
         s3_upload_parquet(cu, date_, 
                           fn = glue("cu_{date_}"), 
@@ -703,15 +797,25 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         # get 1hr counts
         print("1-hour counts")
-        counts_1hr <- get_counts(df, det_config, "hours", date_, 
-                                 event_code = 82, TWR_only = FALSE) %>% 
+        counts_1hr <- get_counts(
+            df, 
+            det_config, 
+            "hours", 
+            date_, 
+            event_code = 82, 
+            TWR_only = FALSE
+        ) %>% 
             arrange(SignalID, Detector, Timeperiod)
+
         s3_upload_parquet(counts_1hr, date_, 
                           fn = counts_1hr_fn, 
                           table_name = "counts_1hr")
         
         print("1-hr filtered counts")
-        filtered_counts_1hr <- get_filtered_counts(counts_1hr, interval = "1 hour")
+        filtered_counts_1hr <- get_filtered_counts(
+            counts_1hr, 
+            interval = "1 hour")
+        
         s3_upload_parquet(filtered_counts_1hr, date_, 
                           fn = filtered_counts_1hr_fn, 
                           table_name = "filtered_counts_1hr")
@@ -720,10 +824,16 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         # get 1hr ped counts
         print("1-hour pedestrian counts")
-        counts_ped_1hr <- get_counts(df, ped_config, "hours", date_, 
-                                     event_code = 90, TWR_only = FALSE) %>% 
+        counts_ped_1hr <- get_counts(
+            df, 
+            ped_config, 
+            "hours", 
+            date_, 
+            event_code = 90, 
+            TWR_only = FALSE
+        ) %>% 
             arrange(SignalID, Detector, Timeperiod)
-        
+
         s3_upload_parquet(counts_ped_1hr, date_, 
                           fn = counts_ped_1hr_fn, 
                           table_name = "counts_ped_1hr")
@@ -732,8 +842,14 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         # get 15min counts
         print("15-minute counts")
-        counts_15min <- get_counts(df, det_config, "15min", date_,
-                                   event_code = 82, TWR_only = FALSE) %>% 
+        counts_15min <- get_counts(
+            df, 
+            det_config, 
+            "15min", 
+            date_,
+            event_code = 82, 
+            TWR_only = FALSE
+        ) %>% 
             arrange(SignalID, Detector, Timeperiod)
         
         s3_upload_parquet(counts_15min, date_, 
@@ -1014,7 +1130,8 @@ get_det_config_vol <- function(date_) {
 
 
 # Multidplyr. Uses a local cluster to partition and parallelize
-get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+# interval (e.g., "1 hour", "15 min")
+get_filtered_counts <- function(counts, interval = "1 hour") {
     
     if (interval == "1 hour") {
         max_volume <- 1000
@@ -1039,7 +1156,10 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     #  This ensures all detectors are included in the bad detectors calculation.
     all_days <- unique(date(counts$Timeperiod))
     det_config <- lapply(all_days, function(d) {
-        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
+        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), 
+                               ymd_hms(paste(d, "23:59:00")), 
+                               by = interval)
+        #tz(all_timeperiods) <- "America/New_York"
         get_det_config(d) %>%
             expand(nesting(SignalID, Detector, CallPhase), 
                    Timeperiod = all_timeperiods)
@@ -1247,7 +1367,9 @@ get_adjusted_counts <- function(filtered_counts) {
             # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
             
             # fill in missing detectors by hour and day of week volume in the month
-            left_join(fc_phc, mo_hrly_vols, by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>% 
+            left_join(fc_phc, 
+                      mo_hrly_vols, 
+                      by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>% 
                 ungroup() %>%
                 mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
                 
@@ -1474,10 +1596,10 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
                dettimestamp,
                detduration,
                date) %>%
-
+        arrange(signalid, phase, cyclestart) %>%
+        
         collect() %>% 
 
-        arrange(signalid, phase, cyclestart) %>%
         transmute(signalid = factor(signalid),
                   phase = factor(phase), 
                   detector = factor(detector), 
@@ -1502,49 +1624,79 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     
     print(head(de))
     
+    # cd <- cycle_data %>% 
+    #     filter(phase %in% c(3, 4, 7, 8)) %>%
+    #     arrange(signalid, phase, cyclestart, phasestart)
+        
+
     cd <- cycle_data %>% 
-        filter(phase %in% c(3, 4, 7, 8)) %>%
-        arrange(signalid, phase, cyclestart, phasestart)
-        
-    
-        
-    
-    
-    
-    grn_interval <- cd %>% 
-        filter(eventcode == 1) %>%
+        filter(phase %in% c(3, 4, 7, 8),
+               eventcode %in% c(1,9)) %>%
         select(signalid, 
                phase, 
                cyclestart, 
                phasestart, 
                phaseend,
-               date) %>% 
-        
-        collect() %>% 
+               date,
+               eventcode) %>% 
+        arrange(signalid, phase, cyclestart, phasestart) %>%
+        collect()
+    
+    grn_interval <- cd %>% 
+        filter(eventcode == 1) %>%
         mutate(signalid = factor(signalid),
                phase = factor(phase),
                cyclestart = ymd_hms(cyclestart),
                intervalstart = ymd_hms(phasestart),
                intervalend = ymd_hms(phaseend),
-               date = ymd(date))
-    cat('.')
+               date = ymd(date)) %>%
+        select(-eventcode)
     
-    
-    sor_interval <- cd %>% 
+    sor_interval <- cd %>%
         filter(eventcode == 9) %>%
-        select(signalid,
-               phase,
-               cyclestart,
-               phasestart,
-               date) %>%
-        
-        collect() %>%
         mutate(signalid = factor(signalid),
                phase = factor(phase),
                cyclestart = ymd_hms(cyclestart),
                intervalstart = ymd_hms(phasestart),
                intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
-               date = ymd(date))
+               date = ymd(date)) %>%
+        select(-eventcode)
+    
+    
+    # grn_interval <- cd %>% 
+    #     filter(eventcode == 1) %>%
+    #     select(signalid, 
+    #            phase, 
+    #            cyclestart, 
+    #            phasestart, 
+    #            phaseend,
+    #            date) %>% 
+    #     
+    #     collect() %>% 
+    #     mutate(signalid = factor(signalid),
+    #            phase = factor(phase),
+    #            cyclestart = ymd_hms(cyclestart),
+    #            intervalstart = ymd_hms(phasestart),
+    #            intervalend = ymd_hms(phaseend),
+    #            date = ymd(date))
+    # cat('.')
+    # 
+    # 
+    # sor_interval <- cd %>% 
+    #     filter(eventcode == 9) %>%
+    #     select(signalid,
+    #            phase,
+    #            cyclestart,
+    #            phasestart,
+    #            date) %>%
+    #     
+    #     collect() %>%
+    #     mutate(signalid = factor(signalid),
+    #            phase = factor(phase),
+    #            cyclestart = ymd_hms(cyclestart),
+    #            intervalstart = ymd_hms(phasestart),
+    #            intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
+    #            date = ymd(date))
     cat('.')
 
     
@@ -1604,9 +1756,11 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     }
     
     
-    grn_occ <- get_occupancy(de_dt, gr_dt, grn_interval) %>% rename(gr_occ = occ)
+    grn_occ <- get_occupancy(de_dt, gr_dt, grn_interval) %>% 
+        rename(gr_occ = occ)
     cat('.')
-    sor_occ <- get_occupancy(de_dt, sr_dt, sor_interval) %>% rename(sr_occ = occ)
+    sor_occ <- get_occupancy(de_dt, sr_dt, sor_interval) %>% 
+        rename(sr_occ = occ)
     cat('.')
 
     
@@ -1637,7 +1791,7 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
                   cycles = cycles,
                   sf_freq = sf_freq)
     
-    tz(sf$Date_Hour) <- "US/Eastern"
+    #tz(sf$Date_Hour) <- "US/Eastern"
     
     sf
     
@@ -1833,7 +1987,36 @@ get_tt_csv <- function(fns) {
     # Corridor | hour | idx | value
 }
 
-
+get_daily_cctv_uptime <- function(table) {
+    dbGetQuery(conn, sql(glue("select cameraid, date, size from gdot_spm.{table}"))) %>% 
+        transmute(CameraID = factor(cameraid),
+                  Date = date(date),
+                  Size = size) %>%
+        as_tibble() %>%
+        
+        # CCTV image size variance by CameraID and Date
+        #  -> reduce to 1 for Size > 0, 0 otherwise
+        
+        # Expanded out to include all available cameras on all days
+        #  up/uptime is 0 if no data
+        #daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
+        filter(Date >= report_start_date,
+               Size > 0) %>%
+        mutate(up = 1, num = 1) %>%
+        dplyr::select(-Size) %>%
+        distinct() %>%
+        
+        # Expanded out to include all available cameras on all days
+        complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
+        
+        mutate(uptime = up/num) %>%
+        
+        left_join(dplyr::select(cam_config, -Location)) %>% 
+        filter(Date >= As_of_Date & Corridor != "") %>%
+        dplyr::select(-As_of_Date) %>%
+        mutate(CameraID = factor(CameraID),
+               Corridor = factor(Corridor))
+}
 
 # -- Generic Aggregation Functions
 get_Tuesdays <- function(df) {
@@ -1940,7 +2123,8 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
                      all_rtop1,
                      all_rtop2,
                      all_zone7) %>%
-        mutate(Corridor = factor(Corridor))
+        mutate(Corridor = factor(Corridor),
+               Zone_Group = factor(Zone_Group))
 }
 get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
@@ -2122,7 +2306,8 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     gdf <- df %>%
         #mutate(Month = Date - days(day(Date) - 1)) %>%
         group_by(SignalID, CallPhase) %>%
-        complete(nesting(SignalID, CallPhase), Month = seq(min(Month), current_month, by = "1 month")) %>%
+        complete(nesting(SignalID, CallPhase), 
+                 Month = seq(min(Month), current_month, by = "1 month")) %>%
         group_by(SignalID, CallPhase, Month)
     
     if (is.null(wt_)) {
@@ -2194,7 +2379,7 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     } else {
         wt_ <- as.name(wt_)
         df_ %>%
-            group_by(SignalID, CallPhase, Week, Hour) 
+            group_by(SignalID, CallPhase, Week, Hour) %>%
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
                       !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
             group_by(SignalID, Week, Hour) %>% 
@@ -2300,6 +2485,27 @@ get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_ = "ones") {
     
     cor_df_out <- weighted_mean_by_corridor_(df, "Hour", corridors, var_, wt_)
     group_corridors_(cor_df_out, "Hour", var_, wt_)
+}
+
+# Used to get peak period metrics from hourly results, i.e., peak/off-peak split failures
+summarize_by_peak <- function(df, date_col) {
+    
+    date_col_ <- as.name(date_col)
+    
+    df %>% 
+        mutate(Peak = if_else(hour(!!date_col_) %in% AM_PEAK_HOURS | hour(!!date_col_) %in% PM_PEAK_HOURS, 
+                              "Peak", 
+                              "Off_Peak"), 
+               Peak = factor(Peak)) %>%
+        split(.$Peak) %>%
+        lapply(function(x) {
+            x %>% 
+                group_by(SignalID, Period = date(!!date_col_), Peak) %>%
+                summarize(sf_freq = weighted.mean(sf_freq, cycles),
+                          cycles = sum(cycles)) %>%
+                ungroup() %>%
+                select(-Peak)
+        })
 }
 
 # Device Uptime from Excel files from Field Engineers
@@ -2587,10 +2793,13 @@ get_monthly_aog_by_hr <- function(aog_by_hr) {
     
     aog_by_hr %>% 
         group_by(SignalID, Hour) %>% 
-        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE)) %>%
+        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
+                  vol = sum(vol, na.rm = TRUE)) %>%
         mutate(Hour = Hour - days(day(Hour)) + days(1)) %>%
         group_by(SignalID, Hour) %>%
-        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE))
+        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
+                  vol = sum(vol, na.rm = TRUE)) %>%
+        ungroup()
     
     # SignalID | CallPhase | Hour | vph
 }
@@ -3562,7 +3771,7 @@ patch_april <- function(df, df4) {
 
 get_pau <- function(df) {
     
-    begin_date <- ymd("2018-08-01")
+    begin_date <- min(df$Date) # ymd("2018-08-01")
     
     papd <- df %>%
         filter(CallPhase != 0) %>% #-- this is new 8/5/19
