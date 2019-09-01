@@ -5,11 +5,12 @@ import os
 import re
 import io
 from pandas.tseries.offsets import Day
-from datetime import datetime
+from datetime import datetime, timedelta
 from glob import glob
 import random
 import string
 from retrying import retry
+from multiprocessing import Pool
 
 def random_string(length):
     x = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)]) 
@@ -51,78 +52,122 @@ def upload_parquet(Bucket, Key, Filename):
     #print('Response HTTPStatusCode:', response['HTTPStatusCode'])
 
 @retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
-def get_keys_(bucket, prefix):
+def get_keys_older(bucket, prefix):
     objs = s3.list_objects(Bucket = bucket, Prefix = prefix)
     if 'Contents' in objs:
         return [contents['Key'] for contents in objs['Contents']]
+        
+    
+@retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
+def get_keys_(bucket, prefix):
+    paginator = s3.get_paginator('list_objects')
+
+    # Create a PageIterator from the Paginator
+    page_iterator = paginator.paginate(
+        Bucket=bucket, 
+        Prefix=prefix)
+
+    for contents in [page['Contents'] for page in page_iterator]:
+        keys = [content['Key'] for content in contents]
+        for key in keys:
+            yield key
 
 def get_keys(bucket, table_name, start_date, end_date):
-    dates = pd.date_range(start_date, end_date, freq=Day())
-    prefixes = ["mark/{t}/date={d}".format(t=table_name, d=date_.strftime('%Y-%m-%d')) for date_ in dates]
+    # Need to add a day to end_date because
+    # mark/date=2019-03-31/sf_2019-03-31.parquet isn't equal to or less than
+    # mark/date=2019-03-31, which would be our end_date for March, for example
+    dt_format = '%Y-%m-%d'
+    end_date_plus1 = (datetime.strptime(end_date, dt_format) + timedelta(days=1)).strftime(dt_format)
+
+    prefix = 'mark/{t}'.format(t=table_name)
+    start_prefix = '{pre}/date={d}'.format(pre=prefix, d=start_date)
+    end_prefix = '{pre}/date={d}'.format(pre=prefix, d=end_date_plus1)
     
-    keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
-    keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
-    keys = list(filter(lambda x: x, keys)) # drop None entries
-    keys = [y for x in keys for y in x] # flatten list
+    all_keys = list(get_keys_(bucket, prefix))
+    # end_prefix is based on end_date_plus1 so we use key < end_prefix
+    keys = [key for key in all_keys if (start_prefix <= key < end_prefix)]
     
     return keys
 
+
+# def get_keys_older(bucket, table_name, start_date, end_date):
+#     dates = pd.date_range(start_date, end_date, freq=Day())
+#     prefixes = ["mark/{t}/date={d}".format(t=table_name, d=date_.strftime('%Y-%m-%d')) for date_ in dates]
+#     
+#     #keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
+#     keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
+#     keys = list(filter(lambda x: x, keys)) # drop None entries
+#     keys = [y for x in keys for y in x] # flatten list
+#     
+#     return keys
+    
+
+
+# def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
+#     
+#     def download_and_read_parquet(key):
+#         objs = s3.list_objects(Bucket = bucket, Prefix = key)
+#         contents = objs['Contents']
+#         date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
+#         response = s3.get_object(Bucket = bucket, Key = contents[0]['Key'])
+#         
+#         with io.BytesIO() as f:
+#             f.write(response['Body'].read())
+#             df = pd.read_parquet(f).assign(Date = date_)
+# 
+#         return df
+# 
+#     #start_key = 'mark/{t}/date={d}'.format(t=table_name, d=start_date)
+#     #end_key = 'mark/{t}/date={d}'.format(t=table_name, d=end_date)
+#     
+#     #check = in_date_range(start_key, end_key)
+#     
+#     keys = get_keys(bucket, table_name, start_date, end_date)
+#     if len(keys) > 0:
+#         #df = pd.concat([download_and_read_parquet(key) for key in keys], sort = True)
+#         dfs = [pd.read_parquet('s3://gdot-spm/{}'.format(key)).assign(Date = re.search('\d{4}-\d{2}-\d{2}', key).group(0)) for key in keys]
+#         df = pd.concat(dfs, sort=True)
+#         
+#         feather_filename = '{t}_{d}_{r}.feather'.format(t=table_name, d=start_date, r=random_string(12))
+#         df.reset_index().drop(columns=['index']).to_feather(feather_filename)
+#             
+#         return feather_filename
+#     
+#     else:
+#         return None
+#     
+#     return feather_filename
+
+
+def download_and_read_parquet(key):
+    df = (pd.read_parquet('s3://gdot-spm/{}'.format(key)).
+            assign(Date = re.search('\d{4}-\d{2}-\d{2}', key).group(0)))
+
+    return df
+
 def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
-    
-    def download_and_read_parquet(key):
-        objs = s3.list_objects(Bucket = bucket, Prefix = key)
-        contents = objs['Contents']
-        date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
-        response = s3.get_object(Bucket = bucket, Key = contents[0]['Key'])
-        
-        with io.BytesIO() as f:
-            f.write(response['Body'].read())
-            df = pd.read_parquet(f).assign(Date = date_)
 
-        return df
+    keys = list(get_keys(bucket, table_name, start_date, end_date))
 
-    start_key = 'mark/{t}/date={d}'.format(t=table_name, d=start_date)
-    end_key = 'mark/{t}/date={d}'.format(t=table_name, d=end_date)
-    
-    #check = in_date_range(start_key, end_key)
-    
-    keys = get_keys(bucket, table_name, start_date, end_date)
-    if len(keys) > 0:
-        #df = pd.concat([download_and_read_parquet(key) for key in keys], sort = True)
-        dfs = [pd.read_parquet('s3://gdot-spm/{}'.format(key)).assign(Date = re.search('\d{4}-\d{2}-\d{2}', key).group(0)) for key in keys]
+    if not keys:
+        return None
+    elif len(keys) == 1:
+        df = download_and_read_parquet(keys[0])
+    else: #len(keys) > 1:
+        with Pool() as pool:
+            results = pool.map_async(download_and_read_parquet, keys)
+            pool.close()
+            pool.join()
+        dfs = results.get()
+
         df = pd.concat(dfs, sort=True)
         
-        feather_filename = '{t}_{d}_{r}.feather'.format(t=table_name, d=start_date, r=random_string(12))
-        df.reset_index().drop(columns=['index']).to_feather(feather_filename)
-            
-        return feather_filename
-    
-    else:
-        return None
-    
-    #pd.concat(dfs, sort = True).reset_index().drop(columns=['index']).to_feather(feather_filename)
-    #
-    #return feather_filename
-    #
-    #dfs = []
-    #keys = get_keys(bucket, table_name, start_date, end_date)
-    #print(keys)
-    #for key_list in keys:
-    #    for key in key_list:
-    #        filename = os.path.basename(key)
-    #        date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
-    #        s3.download_file(Bucket=bucket,
-    #                         Key=key,
-    #                         Filename=filename)
-    #        df = pd.read_parquet(filename).assign(Date = datetime.strptime(date_, '%Y-%m-%d'))
-    #        if signals_list is not None:
-    #            df = df[df.SignalID.isin(signals_list)]
-    #        dfs.append(df)
-    #feather_filename = table_name + '.feather'
-    #pd.concat(dfs, sort = True).reset_index().drop(columns=['index']).to_feather(feather_filename)
-    
+    feather_filename = '{t}_{d}_{r}.feather'.format(t=table_name, d=start_date, r=random_string(12))
+    df.reset_index().drop(columns=['index']).to_feather(feather_filename)
+        
     return feather_filename
     
+
 def read_parquet_local(table_name, start_date, end_date, signals_list = None):
     
     def read_parquet(fn):
