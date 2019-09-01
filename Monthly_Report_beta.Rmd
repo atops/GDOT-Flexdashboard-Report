@@ -51,7 +51,224 @@ RTOP Concept of Operations can be found
            target = "_blank",
            "here")`
 
+
 ```{r sidebar, warning = FALSE, cache = FALSE}
+# shiny inputs defined here
+
+
+
+selectInput("month", "Month:",
+                       choices = month_options,
+                       selected = month_options[1]) # Default to current month
+
+selectInput("zone_group", "Signal Group:",
+                       choices = zone_group_options,
+                       selected = "All RTOP")
+
+
+
+# Corridor Selection Drop Down based on Zone/Zone Group ---
+
+conditionalPanel("input.zone_group != 'All RTOP'",
+                 selectInput("corridor_x", "Corridor:",
+                             choices = c("All Corridors"),
+                             selected = "All Corridors"))
+
+observe({
+    choices_ <- if (is.null(input$zone_group)) {
+                    NULL
+                } else {
+                    if (input$zone_group == "All RTOP") {
+                        c("All Corridors")
+                    } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone_Group == input$zone_group)$Corridor)))
+                    } else {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone == input$zone_group)$Corridor)))
+                    }
+                }
+            
+    updateSelectInput(session, "corridor_x", choices = choices_, selected = "All Corridors")
+})
+
+
+# --- Sub-Corridor Selection Drop Down based on Corridor ---
+
+# conditionalPanel(
+#     "input.corridor_x != 'All Corridors'",
+#     checkboxInput(
+#         "subcorridors", "Sub-Corridors", value = FALSE, width = NULL)
+# )
+
+conditionalPanel(
+    "input.corridor_x != 'All Corridors'",
+    radioButtons(
+        "subcorridors", 
+        label = NULL, 
+        choices = c("By Intersection", "By Sub-corridor"), 
+        selected = "By Intersection",
+        inline = FALSE, 
+        width = NULL, 
+        choiceNames = NULL,
+        choiceValues = NULL)
+)
+
+# conditionalPanel("input.corridor_x != 'All Corridors'",
+#                  selectInput("subcorridor_x", "Sub-Corridor:",
+#                              choices = c("--"),
+#                              selected = "--"))
+# 
+# observe({
+#     choices_ <- if (is.null(input$zone_group)) {
+#                     NULL
+#                 } else {
+#                     c("--", "All Sub-Corridors",
+#                       as.character(unique(filter(
+#                           corridors, Corridor == input$corridor_x)$Subcorridor)))
+#                 }
+# 
+#     updateSelectInput(session, "subcorridor_x", choices = choices_, selected = "--")
+# })
+
+# --- -------------------------------------------------- ---
+
+
+current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+endof_current_month <- reactive(lubridate::dmy(paste(1, input$month)) + months(1) - days(1))
+current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
+
+
+# This is a simpler version of what is commented out below
+corridor <- reactive({
+    if (input$zone_group == "All RTOP") {
+        "All Corridors"
+    } else {
+        input$corridor_x
+    }
+})
+# corridor <- reactive({
+#     if (input$zone_group %in% c(paste0("RTOP", c(1,2)), 
+#                                 paste("Zone", c(seq(1,7), "7m", "7d", 8)),
+#                                 paste("District", seq(1,7)),
+#                                 "Cobb County")) {
+#         input$corridor_x
+#     } else {
+#         "All Corridors"
+#     }
+# })
+
+
+# subcorridor <- reactive({
+#     input$subcorridor_x
+# })
+
+
+zone_group <- reactive(
+    if (corridor() == "All Corridors") {
+        input$zone_group
+    } else {
+        corridor()
+    }
+)
+
+
+mr <- reactive(
+    if (corridor() == "All Corridors") {
+        cor
+    } else if (input$subcorridors == "By Sub-corridor") {
+        sub
+    } else {
+        sig
+    }
+)
+
+filtered_corridors <- reactive({
+
+    # All RTOP is the union of RTOP1, RTOP2
+    if (input$zone_group == "All RTOP") {
+        corr <- corridors %>% 
+            filter(Zone_Group %in% c("RTOP1", "RTOP2"))
+
+    # Zone 7 is the union of Zone 7m, 7d
+    } else if (input$zone_group == "Zone 7") {
+        corr <- corridors %>% 
+            filter(grepl("^Zone 7", Zone))
+
+    # Zones filter by Zone rather than Zone_Group
+    } else if (startsWith(input$zone_group, "Zone")) {
+        corr <- corridors %>% 
+            filter(Zone %in% input$zone_group)
+
+    } else {
+        corr <- corridors %>% 
+            filter(Zone_Group %in% input$zone_group)
+    }
+    
+    # if a specific corridor is selected, filter on that
+    if (corridor() != "All Corridors") {
+        corr <- corr %>% 
+            filter(Corridor == corridor())
+    } #else {
+      #  corr
+    #}
+    
+    # if (!subcorridor() %in% c("--", "All Corridors")) {
+    #     corr <- corr %>%
+    #       filter(Subcorridor == subcorridor())
+    # }
+    
+  
+    corr %>% select(-Description, -Asof)
+})
+
+
+
+
+filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
+                                      filtered_corridors()$Name))
+
+
+mr_str <- reactive(
+    if (corridor() == "All Corridors") {
+        "cor"
+    } else if (input$subcorridors == "By Sub-corridor") {
+        "sub"
+    } else {
+        "sig"
+    }
+)
+
+# renderText({"\nSelected Month"})
+# renderPrint({current_month()})
+# 
+# renderText({"\nEnd of Selected Month"})
+# renderPrint({endof_current_month()})
+# 
+# renderText({"Selected Querter"})
+# renderPrint({current_quarter()})
+# 
+renderText({"Selected Zone Group"})
+renderPrint({zone_group()})
+
+renderText({"Selected Corridor"})
+renderPrint({corridor()})
+
+renderText({"Sub-Corridors selected"})
+renderPrint({input$subcorridors})
+
+renderText({"Filtered Corridors"})
+renderPrint({filtered_corridors()})
+
+renderText({"mr()"})
+renderPrint({mr_str()})
+
+```
+
+
+```{r sidebar_older, warning = FALSE, cache = FALSE, eval=FALSE}
 #knitr::opts_chunk$set(
 #    cache.extra = attr(aws.s3::head_object("cor_ec2.rds", "gdot-spm"), "x-amz-version-id")
 #)
@@ -348,20 +565,6 @@ filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
 ```
 
 
-```{r}
-
-mr_str <- reactive(
-    if (corridor() == "All Corridors") {
-        "cor"
-    } else {
-        "sig"
-    }
-)
-
-
-
-
-```
 
 
 
@@ -386,12 +589,13 @@ Row
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$tp, "vph", as_int, 
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-bar-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$tp, "vph", as_int, zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "fa-bar-chart",
+        color = BLUE
+    )
 })
 ```
 
@@ -434,7 +638,7 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
@@ -442,8 +646,24 @@ renderValueBox({
       value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
-    color = BLUE
-  )
+    color = BLUE)
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfp$Off_Peak, 
+            "sf_freq", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-car",
+    color = BLUE)
 })
 ```
 
@@ -757,7 +977,7 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
@@ -769,6 +989,24 @@ renderValueBox({
       icon = "fa-car",
       color = GDOT_BLUE_RGB
   )
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            cor$qu$sfp$Off_Peak, 
+            "sf_freq", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            qu = current_quarter(), 
+            break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB)
 })
 ```
 
@@ -1085,12 +1323,31 @@ fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$sfd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "sf_freq", "Split\nFailure", RED2, 
+        perf_plot_beta(data.set, "sf_freq", "Peak\nSplit Failure", RED2, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_RED, 
                        goal_ = goal$sfd)
     }),
+    ##----------------
+    renderPlotly({ 
+        data.set <- filter(
+            mr()$mo$sfp$Off_Peak, 
+            Corridor==zone_group() & Month <= current_month()
+        )
+        shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot_beta(
+            data.set, 
+            "sf_freq", 
+            "Off-Peak\nSplit Failure", 
+            RED2,
+            format_func = as_pct, 
+            hoverformat = ".1%", 
+            fill_color_ = LIGHT_RED, 
+            goal_ = goal$sfd
+        )
+    }),
+    ##----------------
     renderPlotly({ 
         data.set <- filter(cor$mo$tti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
@@ -1252,15 +1509,36 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
       icon = "fa-car"
   )
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfp$Off_Peak, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+      icon = "fa-car")
 })
 ```
 
@@ -1352,17 +1630,43 @@ renderPlotly({
 ```
 
 
-### Split Failures
+### Peak Period Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(mr()$wk$sf, mr()$mo$sfd, mr()$mo$sfh,
-                                "sf_freq", "percent", highlight_color = RED2,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "Split Failures Rate"),
-                                x_line1_title = "Split Failures Trend",
-                                x_line2_title = paste(input$month, "Split Failures by TOD"),
-                                plot_title = "Split Failures Rate")
+    get_bar_line_dashboard_plot(
+        mr()$wk$sf, 
+        mr()$mo$sfd, 
+        mr()$mo$sfh,
+        "sf_freq", 
+        "percent", 
+        highlight_color = RED2,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "Split Failures Rate"),
+        x_line1_title = "Peak Period Split Failures Trend",
+        x_line2_title = paste(input$month, "Split Failures by TOD"),
+        plot_title = "Peak Period Split Failures Rate")
+})
+```
+
+### Off-Peak Split Failures
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(
+        mr()$wk$sfp$Off_Peak, 
+        mr()$mo$sfp$Off_Peak, 
+        mr()$mo$sfh,
+        "sf_freq", 
+        "percent", 
+        highlight_color = RED2,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "Off_Peak Split Failures Rate"),
+        x_line1_title = "Off-Peak Split Failures Trend",
+        x_line2_title = paste(input$month, "Split Failures by TOD"),
+        plot_title = "Off-Peak Split Failures Rate")
 })
 ```
 
@@ -1592,23 +1896,26 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
 
-        get_cor_det_uptime_plot(mr()$dy$du, 
-                                month_name = input$month,
-                                month_ = current_month(), 
-                                zone_group_ = zone_group())
+        get_cor_det_uptime_plot(
+            mr()$dy$du, 
+            mr()$mo$du,
+            month_name = input$month,
+            month_ = current_month(), 
+            zone_group_ = zone_group())
         
     } else {
         
-        get_uptime_plot(sig$dy$du, 
-                                 sig$mo$du, 
-                                 var_ = "uptime.all", 
-                                 num_format = "percent", 
-                                 month_ = current_month(), 
-                                 zone_group_ = zone_group(),
-                                 x_bar_title = "Current Month Uptime",
-                                 x_line1_title = "Daily Uptime",
-                                 plot_title = "",
-                                 goal = NULL)
+        get_uptime_plot(
+            sig$dy$du, 
+            sig$mo$du, 
+            var_ = "uptime.all", 
+            num_format = "percent", 
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = "Current Month Uptime",
+            x_line1_title = "Daily Uptime",
+            plot_title = "",
+            goal = NULL)
     }
 })
 ```
@@ -2154,8 +2461,8 @@ for that phase. A ratio of greater than 1 means better than random arrivals.
 
 Queue Spillback Rate is an experimental measure of effectiveness.
 It is a measure of unmet demand in a cycle. Based on the vehicle
-dwell times over setback detectors on the main street through phases, each cycle is
-evaluated for spillback. A spillback condition will be triggered by
+dwell times over setback detectors on the main street through phases, 
+each cycle is evaluated for spillback. A spillback condition will be triggered by
 occupancy readings above what is typical for setback detectors under
 freely flowing conditions. 
 
@@ -2172,17 +2479,16 @@ divided by the number of cycles for main street through phases.
 
 #### **Split Failures**
 
-Split failure is another measure of unmet demand. It identifies cycles where a
-phase has unserved demand. A phase is flagged for split failure when a  detector on event occurs
-before the start of red and the subsequent detector off event occurs after the next
-start of green.
+Split failure is another measure of unmet demand. It identifies cycles 
+where a phase has unserved demand. A phase is flagged for split failure when 
+the average occupancy of the stop bar detectors on the phase are greater than 80%
+during the green phase and greater than 80% during the first five seconds of the
+red phase. The intersection is flagged as a split failure on that cycle if 
+at least one phase meets the criteria for split failure during that phase.
 
-Because this measure requires stop
-bar detection, it is only be calculated for side street and left
-turn phases, i.e., all phases other than main street through phases.
-
-Split Failure Percent is calculated as the number of split failures divided by the total
-number of side street and left turn phases.
+Because this measure requires stop bar detection, it is only be calculated 
+for side street and left turn phases, i.e., all phases other than 
+main street through phases.
 
 #### **Travel Time Index**
 
@@ -2198,9 +2504,9 @@ the month.
 An hourly Travel Time Index is then calculated for each corridor as the
 average travel time for that hour of the day divided by the free flow
 travel time for the corridor. The TTI for each hour is then averaged
-over the day, weighted by the average hourly volume on the main street through phases
-(from ATSPM) to get a TTI for the month (this gives more weight to peak
-periods than off-peak periods).
+over the day, weighted by the average hourly volume on the main street 
+through phases (from ATSPM) to get a TTI for the month (this gives more 
+weight to peak periods than off-peak periods). 
 
 #### **Planning Time Index**
 
