@@ -165,7 +165,7 @@ if __name__=='__main__':
                     .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
                             date = lambda x: x.measurement_tstamp.dt.date)
                     .rename(columns = {'measurement_tstamp': 'Hour'}))
-            df.Hour = df.Hour.dt.tz_localize('America/New_York')
+            #df.Hour = df.Hour.dt.tz_localize('America/New_York')
             df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
             
             # -- Raw Hourly Travel Time Data --
