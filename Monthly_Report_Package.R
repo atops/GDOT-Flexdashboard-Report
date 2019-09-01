@@ -826,7 +826,6 @@ tryCatch({
         filter(!is.na(Month))
     sfh <- get_sf_by_hr(sf)
 
-
     cor_wsf <- get_cor_weekly_sf_by_day(wsf, corridors)
     sub_wsf <- get_cor_weekly_sf_by_day(wsf, subcorridors) %>%
         filter(!is.na(Corridor))
