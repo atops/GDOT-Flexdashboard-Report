@@ -117,10 +117,11 @@ zone_group_options <- conf$zone_groups
 
 if (conf$mode == "production") {
     
-    corridors %<-% read_feather("all_corridors.feather")
-    cor <- readRDS("cor.rds")
-    sig %<-% readRDS("sig.rds")
-    teams_tables %<-% readRDS("teams_tables.rds")
+    # corridors %<-% read_feather("all_corridors.feather")
+    # cor <- readRDS("cor.rds")
+    # sig %<-% readRDS("sig.rds")
+    # sub %<-% readRDS("sub.rds")
+    # teams_tables %<-% readRDS("teams_tables.rds")
     
 } else if (conf$mode == "beta") {
     
@@ -128,6 +129,9 @@ if (conf$mode == "production") {
                                       object = "all_corridors.feather", 
                                       bucket = "gdot-spm")
     sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm",
+                               key = aws_conf$AWS_ACCESS_KEY_ID,
+                               secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    sub %<-% aws.s3::s3readRDS("sub_ec2.rds", "gdot-spm",
                                key = aws_conf$AWS_ACCESS_KEY_ID,
                                secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm",
@@ -1032,6 +1036,7 @@ det_uptime_line_plot_ <- function(df, corr, showlegend_) {
 det_uptime_line_plot <- memoise(det_uptime_line_plot_)
 
 get_cor_det_uptime_plot_ <- function(avg_daily_uptime, 
+                                     avg_monthly_uptime,
                                      month_,
                                      zone_group_,
                                      month_name) {
@@ -1074,9 +1079,10 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
     plot_detector_uptime_bar <- function(df) {
         
         df <- df %>% 
-            filter(Date - days(day(Date) -1) == month_) %>%
-            group_by(Corridor, Zone_Group) %>%
-            summarize(uptime = mean(uptime.all)) %>%
+            #filter(Date - days(day(Date) -1) == month_) %>%
+            #group_by(Corridor, Zone_Group) %>%
+            #summarize(uptime = mean(uptime.all)) %>%
+            rename(uptime = uptime.all) %>%
             arrange(uptime) %>% ungroup() %>%
             mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
@@ -1113,16 +1119,21 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
             )
     }
     
-    avg_daily_uptime <- filter_mr_data(avg_daily_uptime, zone_group_)
+    #avg_daily_uptime <- filter_mr_data(avg_daily_uptime, zone_group_)
+    #avg_daily_uptime <- filter(avg_daily_uptime, Date <= month_ + months(1))
     
-    avg_daily_uptime <- filter(avg_daily_uptime, Date <= month_ + months(1))
+    avg_daily_uptime <- filter_mr_data(avg_daily_uptime, zone_group_) %>%
+        filter(Date <= month_ + months(1))
+    
+    avg_monthly_uptime <- filter_mr_data(avg_monthly_uptime, zone_group_) %>%
+        filter(Month == month_)
 
     if (nrow(avg_daily_uptime) > 0) {
         # Create Uptime by Detector Type (Setback, Presence) by Corridor Subplots.
         cdfs <- split(avg_daily_uptime, avg_daily_uptime$Corridor)
         cdfs <- cdfs[lapply(cdfs, nrow)>0]
         
-        p1 <- plot_detector_uptime_bar(avg_daily_uptime)
+        p1 <- plot_detector_uptime_bar(avg_monthly_uptime) #(avg_daily_uptime)
         
         plts <- lapply(seq_along(cdfs), function(i) { 
             plot_detector_uptime(cdfs[[i]], names(cdfs)[i], ifelse(i==1, TRUE, FALSE)) 
@@ -1392,15 +1403,18 @@ cum_events_plot <- memoise(cum_events_plot_)
 
 # plot_individual_cctvs_ <- function(daily_cctv_df, 
 #                                    month_ = current_month(), 
-#                                    corridor_ = corridor()) {
+#                                    zone_group_ = zone_group()) {
 #     
-#     df <- filter(daily_cctv_df, Date < month_ + months(1))
+#     #df <- filter(daily_cctv_df, Date < month_ + months(1))
+#     #df <- filter(df, Zone_Group == zone_group_)
 #     
-#     df <- filter(df, Corridor == corridor_)
-# 
-#     
-#     spr <- df %>%
-#         dplyr::select(-num, -uptime, -Corridor) %>% 
+#     spr <- daily_cctv_df %>%
+#         filter(Date < month_ + months(1),
+#                Zone_Group == zone_group_, 
+#                Corridor != Zone_Group) %>% 
+#         rename(CameraID = Corridor, 
+#                Corridor = Zone_Group) %>%
+#         dplyr::select(-c(num, uptime, Corridor, Name, delta, Week)) %>% 
 #         distinct() %>% 
 #         spread(Date, up, fill = 0) %>%
 #         arrange(desc(CameraID))
@@ -1425,16 +1439,13 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
                                    month_ = current_month(), 
                                    zone_group_ = zone_group()) {
     
-    #df <- filter(daily_cctv_df, Date < month_ + months(1))
-    #df <- filter(df, Zone_Group == zone_group_)
-    
     spr <- daily_cctv_df %>%
         filter(Date < month_ + months(1),
                Zone_Group == zone_group_, 
                Corridor != Zone_Group) %>% 
         rename(CameraID = Corridor, 
                Corridor = Zone_Group) %>%
-        dplyr::select(-c(num, uptime, Corridor, Name, delta, Week)) %>% 
+        dplyr::select(-c(up_511, up_enc, num, uptime, Corridor, Name, delta, Week)) %>% 
         distinct() %>% 
         spread(Date, up, fill = 0) %>%
         arrange(desc(CameraID))
@@ -1446,7 +1457,7 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
     plot_ly(x = colnames(m), 
             y = row.names(m), 
             z = m, 
-            colors = c(LIGHT_GRAY_BAR, BROWN),
+            colors = c(LIGHT_GRAY_BAR, "#e48c5b", BROWN),
             type = "heatmap",
             #xgap = 1,
             ygap = 1,
