@@ -15,7 +15,7 @@ runtime: shiny
 ---
 
 
-```{r global, cache = FALSE, include = FALSE, warning = FALSE}
+```{r global, cache = FALSE, cache.lazy=FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
 conf_mode <- "production"
@@ -31,6 +31,15 @@ AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 ```
 
 
+```{r data, cache=FALSE, cache.lazy=FALSE}
+
+corridors <- read_feather("all_corridors.feather")
+cor <- readRDS("cor.rds")
+sig <- readRDS("sig.rds")
+sub <- readRDS("sub.rds")
+teams_tables <- readRDS("teams_tables.rds")
+alerts <- get_alerts()
+```
 
 
 
@@ -1576,23 +1585,26 @@ renderPlotly({
     
     if (corridor() == "All Corridors") {
 
-        get_cor_det_uptime_plot(mr()$dy$du, 
-                                month_name = input$month,
-                                month_ = current_month(), 
-                                zone_group_ = zone_group())
+        get_cor_det_uptime_plot(
+            mr()$dy$du,
+            mr()$mo$du,
+            month_name = input$month,
+            month_ = current_month(), 
+            zone_group_ = zone_group())
         
     } else {
         
-        get_uptime_plot(sig$dy$du, 
-                                 sig$mo$du, 
-                                 var_ = "uptime.all", 
-                                 num_format = "percent", 
-                                 month_ = current_month(), 
-                                 zone_group_ = zone_group(),
-                                 x_bar_title = "Current Month Uptime",
-                                 x_line1_title = "Daily Uptime",
-                                 plot_title = "",
-                                 goal = NULL)
+        get_uptime_plot(
+            sig$dy$du, 
+            sig$mo$du, 
+            var_ = "uptime.all", 
+            num_format = "percent", 
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = "Current Month Uptime",
+            x_line1_title = "Daily Uptime",
+            plot_title = "",
+            goal = NULL)
     }
 })
 ```
