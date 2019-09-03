@@ -1442,10 +1442,11 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
     spr <- daily_cctv_df %>%
         filter(Date < month_ + months(1),
                Zone_Group == zone_group_, 
-               Corridor != Zone_Group) %>% 
+               as.character(Corridor) != as.character(Zone_Group)) %>% 
         rename(CameraID = Corridor, 
                Corridor = Zone_Group) %>%
-        dplyr::select(-c(up_511, up_enc, num, uptime, Corridor, Name, delta, Week)) %>% 
+        #dplyr::select(-c(up_511, up_enc, num, uptime, Corridor, Name, delta, Week)) %>% 
+        dplyr::select(CameraID, Date, up) %>%
         distinct() %>% 
         spread(Date, up, fill = 0) %>%
         arrange(desc(CameraID))
