@@ -19,6 +19,7 @@ suppressMessages(library(feather))
 suppressMessages(library(fst))
 suppressMessages(library(parallel))
 suppressMessages(library(doParallel))
+suppressMessages(library(future))
 suppressMessages(library(multidplyr))
 #suppressMessages(library(pool))
 suppressMessages(library(httr))
@@ -2618,17 +2619,19 @@ get_avg_daily_detector_uptime <- function(ddu) {
 
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
-    cor_daily_sb_uptime <- avg_daily_detector_uptime %>% 
+    plan(multiprocess)
+    
+    cor_daily_sb_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.sb)) %>%
-        get_cor_weekly_avg_by_day(corridors, "uptime.sb", "all.sb")
+        get_cor_weekly_avg_by_day(corridors, "uptime.sb", "all.sb"))
     
-    cor_daily_pr_uptime <- avg_daily_detector_uptime %>% 
+    cor_daily_pr_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.pr)) %>%
-        get_cor_weekly_avg_by_day(corridors, "uptime.pr", "all.pr")
+        get_cor_weekly_avg_by_day(corridors, "uptime.pr", "all.pr"))
     
-    cor_daily_all_uptime <- avg_daily_detector_uptime %>% 
+    cor_daily_all_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.all)) %>%
-        get_cor_weekly_avg_by_day(corridors, "uptime.all", "ones")
+        get_cor_weekly_avg_by_day(corridors, "uptime.all", "ones"))
     
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
@@ -2660,6 +2663,14 @@ get_weekly_sf_by_day <- function(sf) {
 get_weekly_qs_by_day <- function(qs) {
     get_weekly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
+get_weekly_detector_uptime <- function(avg_daily_detector_uptime) {
+    avg_daily_detector_uptime %>% 
+        mutate(CallPhase = 0, Week = week(Date)) %>%
+        rename(uptime = uptime.all) %>%
+        get_weekly_avg_by_day("uptime", "all", peak_only = FALSE) %>%
+        replace_na(list(uptime.all = 0)) %>%
+        arrange(SignalID, Date)
+}
 
 get_cor_weekly_vpd <- function(weekly_vpd, corridors) {
     get_cor_weekly_avg_by_day(weekly_vpd, corridors, "vpd")
@@ -2681,6 +2692,9 @@ get_cor_weekly_sf_by_day <- function(weekly_sf, corridors) {
 }
 get_cor_weekly_qs_by_day <- function(weekly_qs, corridors) {
     get_cor_weekly_avg_by_day(weekly_qs, corridors, "qs_freq", "cycles")
+}
+get_cor_weekly_detector_uptime <- function(avg_weekly_detector_uptime, corridors) {
+    get_cor_weekly_avg_by_day(avg_weekly_detector_uptime, corridors, "uptime", "all")
 }
 
 get_monthly_vpd <- function(vpd) {
@@ -2706,6 +2720,13 @@ get_monthly_sf_by_day <- function(sf) {
 get_monthly_qs_by_day <- function(qs) {
     get_monthly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
+get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
+    avg_daily_detector_uptime %>% 
+        mutate(CallPhase = 0) %>%
+        rename(uptime = uptime.all) %>%
+        get_monthly_avg_by_day("uptime", "all") %>%
+        arrange(SignalID, Month)
+}
 
 get_cor_monthly_vpd <- function(monthly_vpd, corridors) {
     get_cor_monthly_avg_by_day(monthly_vpd, corridors, "vpd")
@@ -2728,27 +2749,22 @@ get_cor_monthly_sf_by_day <- function(monthly_sf_by_day, corridors) {
 get_cor_monthly_qs_by_day <- function(monthly_qs_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_qs_by_day, corridors, "qs_freq", "cycles")
 }
-
-get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
-    avg_daily_detector_uptime %>% 
-        mutate(CallPhase = 0) %>%
-        get_monthly_avg_by_day("uptime.all", "all") %>%
-        arrange(SignalID, Month)
-}
-
 get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
-    cor_daily_sb_uptime <- avg_daily_detector_uptime %>% 
+    
+    plan(multiprocess)
+    
+    cor_daily_sb_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.sb)) %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        get_cor_monthly_avg_by_day(corridors, "uptime.sb", "all.sb")
-    cor_daily_pr_uptime <- avg_daily_detector_uptime %>% 
+        get_cor_monthly_avg_by_day(corridors, "uptime.sb", "all.sb"))
+    cor_daily_pr_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.pr)) %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        get_cor_monthly_avg_by_day(corridors, "uptime.pr", "all.pr")
-    cor_daily_all_uptime <- avg_daily_detector_uptime %>% 
+        get_cor_monthly_avg_by_day(corridors, "uptime.pr", "all.pr"))
+    cor_daily_all_uptime %<-% (avg_daily_detector_uptime %>% 
         filter(!is.na(uptime.all)) %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        get_cor_monthly_avg_by_day(corridors, "uptime.all", "all")
+        get_cor_monthly_avg_by_day(corridors, "uptime.all", "all"))
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
               dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
@@ -3348,7 +3364,8 @@ get_teams_locations <- function(locations_fn = "TEAMS_Reports/TEAMS_Locations_Re
 }
 
 
-get_teams_tasks <- function(tasks, locations = teams_locations) {
+
+tidy_teams_tasks <- function(tasks, locations) {
 #get_teams_tasks <- function(tasks_fn = "TEAMS_Reports/tasks.csv.zip", locations = teams_locations) {
         
     #locations <- teams_locations
@@ -3363,43 +3380,10 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
         left_join(corridors, by = c("SignalID"))
     
     all_tasks <- tasks %>% 
-        mutate(#Zone_Group = if_else(`Maintained By` == "District 1", 
-            #                  "District 1", 
-            #                  as.character(Zone_Group)),
-            #Zone_Group = if_else(`Maintained By` == "District 6", 
-            #                  "District 6", 
-            #                 as.character(Zone_Group)),
-            `Task Type` = as.character(`Task Type`),
-            `Due Date` = mdy_hms(`Due Date`),
-            `Date Reported` = mdy_hms(`Date Reported`),
-            `Date Resolved` = mdy_hms(`Date Resolved`),
+        mutate(
             `Time To Resolve In Days` = floor((`Date Resolved` - `Date Reported`)/ddays(1)),
             `Time To Resolve In Hours` = floor((`Date Resolved` - `Date Reported`)/dhours(1)),
-            #`Overdue In Days` = as.integer(`Overdue In Days`),
-            #`Overdue In Hours` = as.integer(`Overdue In Hours`),
-            `Created on` = mdy_hms(`Created on`),
-            `Modified on` = mdy_hms(`Modified on`),
-            `Latitude` = as.numeric(`Latitude`),
-            `Longitude` = as.numeric(`Longitude`),
-            
-            `Task Type` = ifelse(`Task Type` == "- Preventative Maintenance", "04 - Preventative Maintenance", `Task Type`),
-            `Task Source` = ifelse(`Task Source` == "P Program", "RTOP Program", `Task Source`),
-            `Task Subtype` = ifelse(`Task Subtype` == "ection Check", "Detection Check", `Task Subtype`),
-            Priority = ifelse(Priority == "mal", "Normal", Priority),
 
-            # -------------------- Needed??            
-            Zone_Group = dplyr::case_when(
-                `Maintained By` == "District 1" ~ "District 1",
-                `Maintained By` == "District 6" ~ "District 6",
-                TRUE ~ as.character(Zone_Group)),
-
-            Zone = dplyr::case_when(
-                Zone_Group == "District 1" ~ "District 1",
-                Zone_Group == "District 6" ~ "District 6",
-                TRUE ~ as.character(Zone)
-            ),
-            # -------------------- Needed??            
-            
             Task_Type = factor(`Task Type`),
             Task_Subtype = factor(`Task Subtype`),
             Task_Source = factor(`Task Source`),
@@ -3447,6 +3431,7 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
     
     # Duplicate RTOP1 and RTOP2 as "All RTOP" and add to tasks
     # --------------------- This was fine while we only wanted to aggregate by Zone Group -------
+    # I think we can replace this through our regular "get_monthly_sum_by" type functions
     all_tasks %>% 
         bind_rows(all_tasks %>% 
                       filter(Zone_Group == "RTOP1") %>% 
@@ -3461,6 +3446,67 @@ get_teams_tasks <- function(tasks, locations = teams_locations) {
                       filter(Zone %in% c("Zone 7m", "Zone 7d")) %>%
                       mutate(Zone_Group = "Zone 7")) %>%
         mutate(Zone_Group = factor(Zone_Group))
+}
+
+
+get_teams_tasks_from_s3 <- function(bucket, teams_locations_key, archived_tasks_prefix, current_tasks_key) {
+    
+    # Teams Locations
+    if (!file.exists(basename(teams_locations_key))) {
+        aws.s3::save_object(teams_locations_key, bucket = bucket)  # "gdot-spm")
+    }
+    teams_locations <- read_feather(basename(teams_locations_key))
+    
+    
+    # Keys for past years' tasks. Not the one actively updated.
+    teams_keys <- aws.s3::get_bucket_df(
+        bucket = bucket,  # "gdot-spm", 
+        prefix = archived_tasks_prefix  # "mark/teams/tasks20"
+    ) %>% 
+        select(Key) %>%
+        unlist(as.list(.))
+    
+    col_spec <- cols(
+        .default = col_character(),
+        `Due Date` = col_datetime(format = ""),
+        `Date Reported` = col_datetime(format = ""),
+        `Date Resolved` = col_datetime(format = ""),
+        `Created on` = col_datetime(format = ""),
+        `Modified on` = col_datetime(format = ""),
+        Latitude = col_double(),
+        Longitude = col_double()
+    )
+    
+    tasks0 <- lapply(teams_keys, 
+                     function(key) {
+                         s3read_using(
+                             function(x) read_csv(x, col_types = col_spec),
+                             bucket = bucket,  # "gdot-spm", 
+                             object = key)
+                     }) %>% 
+        bind_rows() %>% 
+        select(-X1) 
+    
+    col_spec <- cols(
+        .default = col_character(),
+        `Due Date` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
+        `Date Reported` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
+        `Date Resolved` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
+        `Created on` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
+        `Modified on` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
+        Latitude = col_double(),
+        Longitude = col_double()
+    )
+    
+    # Read the file with current teams tasks
+    tasks <- s3read_using(
+        function(x) read_delim(x, delim = ",", col_types = col_spec, escape_double = FALSE), 
+        bucket = bucket,  # "gdot-spm", 
+        object = current_tasks_key)  # "mark/teams/tasks.csv")
+    
+    bind_rows(tasks0, tasks) %>% 
+        distinct() %>%
+        tidy_teams_tasks(teams_locations)
 }
 
 
