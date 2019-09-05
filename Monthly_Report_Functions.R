@@ -257,8 +257,12 @@ get_spark_context <- function() {
 
 # Because of issue with Apache Arrow (feather, parquet)
 # where R wants to convert UTC to local time zone on read
-# Switch date or datetime fields back to UTC. Run on reed.
+# Switch date or datetime fields back to UTC. Run on read.
 convert_to_utc <- function(df) {
+    
+    # -- This may be a more elegant alternative. Needs testing. --
+    #df %>% mutate_if(is.POSIXct, ~with_tz(., "UTC"))
+
     is_datetime <- sapply(names(df), function(x) sum(class(df[[x]]) == "POSIXct"))
     datetimes <- names(is_datetime[is_datetime==1])
     
@@ -3468,27 +3472,6 @@ get_teams_tasks_from_s3 <- function(bucket, teams_locations_key, archived_tasks_
     
     col_spec <- cols(
         .default = col_character(),
-        `Due Date` = col_datetime(format = ""),
-        `Date Reported` = col_datetime(format = ""),
-        `Date Resolved` = col_datetime(format = ""),
-        `Created on` = col_datetime(format = ""),
-        `Modified on` = col_datetime(format = ""),
-        Latitude = col_double(),
-        Longitude = col_double()
-    )
-    
-    tasks0 <- lapply(teams_keys, 
-                     function(key) {
-                         s3read_using(
-                             function(x) read_csv(x, col_types = col_spec),
-                             bucket = bucket,  # "gdot-spm", 
-                             object = key)
-                     }) %>% 
-        bind_rows() %>% 
-        select(-X1) 
-    
-    col_spec <- cols(
-        .default = col_character(),
         `Due Date` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
         `Date Reported` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
         `Date Resolved` = col_datetime(format = "%m/%d/%Y %H:%M:%S %p"),
@@ -3498,11 +3481,30 @@ get_teams_tasks_from_s3 <- function(bucket, teams_locations_key, archived_tasks_
         Longitude = col_double()
     )
     
+    tasks0 <- lapply(teams_keys, 
+                     function(key) {
+                         s3read_using(
+                             function(x) read_delim(
+                                 x, 
+                                 delim = ",", 
+                                 col_types = col_spec, 
+                                 escape_double = FALSE),
+                             bucket = bucket,  # "gdot-spm", 
+                             object = key)
+                     }) %>% 
+        bind_rows() %>% 
+        select(-X1) 
+    
+    
     # Read the file with current teams tasks
     tasks <- s3read_using(
-        function(x) read_delim(x, delim = ",", col_types = col_spec, escape_double = FALSE), 
+        function(x) read_delim(
+            x, 
+            delim = ",", 
+            col_types = col_spec, 
+            escape_double = FALSE), 
         bucket = bucket,  # "gdot-spm", 
-        object = current_tasks_key)  # "mark/teams/tasks.csv")
+        object = current_tasks_key)  # "mark/teams/tasks.csv.zip")
     
     bind_rows(tasks0, tasks) %>% 
         distinct() %>%
