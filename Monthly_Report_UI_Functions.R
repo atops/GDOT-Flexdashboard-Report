@@ -3,11 +3,11 @@
 suppressMessages(library(flexdashboard))
 suppressMessages(library(shiny))
 suppressMessages(library(yaml))
-suppressMessages(library(httr))
+#suppressMessages(library(httr))
 
-suppressMessages(library(data.table))
+#suppressMessages(library(data.table))
 suppressMessages(library(dplyr))
-suppressMessages(library(dbplyr))
+#suppressMessages(library(dbplyr))
 suppressMessages(library(tidyr))
 suppressMessages(library(lubridate))
 suppressMessages(library(stringr))
@@ -18,11 +18,10 @@ suppressMessages(library(forcats))
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
 suppressMessages(library(memoise))
-suppressMessages(library(RSQLite))
-suppressMessages(library(RJDBC))
+#suppressMessages(library(RSQLite))
 suppressMessages(library(future))
-suppressMessages(library(pool))
-suppressMessages(library(RMySQL))
+#suppressMessages(library(pool))
+#suppressMessages(library(RMySQL))
 suppressMessages(library(rsconnect))
 
 
@@ -114,6 +113,35 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
+get_alerts <- function() {
+    
+    objs <- aws.s3::get_bucket(bucket = 'gdot-spm', 
+                               prefix = 'mark/watchdog')
+    lapply(objs, function(obj) {
+        key <- obj$Key
+        if (endsWith(key, "feather.zip")) {
+            f = read_zipped_feather
+        }
+        else if (endsWith(key, "fst")) {
+            f = read_fst
+        }
+        
+        aws.s3::s3read_using(FUN = f, 
+                             object = key, 
+                             bucket = 'gdot-spm') %>% 
+            as_tibble() %>%
+            transmute(Zone_Group = factor(Zone_Group),
+                      Zone = factor(Zone),
+                      Corridor = factor(Corridor),
+                      SignalID = factor(SignalID),
+                      Phase = factor(CallPhase),
+                      DetectorID = factor(DetectorID),
+                      Date = date(Date),
+                      Name = as.character(Name),
+                      Alert = factor(Alert))
+    }) %>% bind_rows()
+}
+
 
 if (conf$mode == "production") {
     
@@ -125,7 +153,7 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    corridors <- aws.s3::s3read_using(read_feather, 
+    corridors %<-% aws.s3::s3read_using(read_feather, 
                                       object = "all_corridors.feather", 
                                       bucket = "gdot-spm")
     sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm",
@@ -137,8 +165,10 @@ if (conf$mode == "production") {
     teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm",
                                         key = aws_conf$AWS_ACCESS_KEY_ID,
                                         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    cor <- aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
+    cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
     
+    alerts %<-% get_alerts()
+
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
@@ -1786,9 +1816,14 @@ cache_plots <- function(pth, upload_to_s3 = TRUE) {
 
 signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
     
-    if (is.na(sigid) || sigid == "Select") {
-        no_data_plot("")
-    } else {
+    if (!"RJDBC" %in% .packages()) {
+        suppressMessages(library(RJDBC))
+    }
+    
+    tryCatch({
+    #if (is.na(sigid) || sigid == "Select") {
+    #    no_data_plot("")
+    #} else {
         #------------------------
         start_date <- ymd(start_date)
         end_date <- start_date + months(1) - days(1)
@@ -2014,38 +2049,12 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
                        shareX = TRUE)
         
         subplot(sr1a, sr1b, sr2)
-    }
+    }, error = function(e) {
+        no_data_plot("")
+    })
 }
 
 
-get_alerts <- function() {
-    
-    objs <- aws.s3::get_bucket(bucket = 'gdot-spm', 
-                               prefix = 'mark/watchdog')
-    lapply(objs, function(obj) {
-        key <- obj$Key
-        if (endsWith(key, "feather.zip")) {
-            f = read_zipped_feather
-        }
-        else if (endsWith(key, "fst")) {
-            f = read_fst
-        }
-        
-        aws.s3::s3read_using(FUN = f, 
-                             object = key, 
-                             bucket = 'gdot-spm') %>% 
-            as_tibble() %>%
-            transmute(Zone_Group = factor(Zone_Group),
-                      Zone = factor(Zone),
-                      Corridor = factor(Corridor),
-                      SignalID = factor(SignalID),
-                      Phase = factor(CallPhase),
-                      DetectorID = factor(DetectorID),
-                      Date = date(Date),
-                      Name = as.character(Name),
-                      Alert = factor(Alert))
-    }) %>% bind_rows()
-}
 
 
 filter_alerts_by_date <- function(alerts, dr) {
@@ -2175,15 +2184,6 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
 
 
 
-
-if (conf$mode == "production") {
-    
-    alerts <- get_alerts()
-    
-} else if (conf$mode == "beta") {
-    
-    alerts %<-% get_alerts()
-}
 
 
 reconstitute <- function(df, col_name) { 
