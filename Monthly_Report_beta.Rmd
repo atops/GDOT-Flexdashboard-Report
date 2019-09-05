@@ -250,20 +250,22 @@ mr_str <- reactive(
 # renderText({"Selected Querter"})
 # renderPrint({current_quarter()})
 # 
-renderText({"Selected Zone Group"})
-renderPrint({zone_group()})
 
-renderText({"Selected Corridor"})
-renderPrint({corridor()})
 
-renderText({"Sub-Corridors selected"})
-renderPrint({input$subcorridors})
-
-renderText({"Filtered Corridors"})
-renderPrint({filtered_corridors()})
-
-renderText({"mr()"})
-renderPrint({mr_str()})
+# renderText({"Selected Zone Group"})
+# renderPrint({zone_group()})
+# 
+# renderText({"Selected Corridor"})
+# renderPrint({corridor()})
+# 
+# renderText({"Sub-Corridors selected"})
+# renderPrint({input$subcorridors})
+# 
+# renderText({"Filtered Corridors"})
+# renderPrint({filtered_corridors()})
+# 
+# renderText({"mr()"})
+# renderPrint({mr_str()})
 
 ```
 
@@ -1898,8 +1900,8 @@ renderPlotly({
      
         get_bar_line_dashboard_plot(
             cor$wk$du,
-            cor$mo$du,
-            var_ = "uptime.all",
+            cor$mo$du %>% rename(uptime = uptime.all),
+            var_ = "uptime",
             num_format = "percent",
             highlight_color = BLUE,
             month_ = current_month(), 
@@ -1908,7 +1910,7 @@ renderPlotly({
             x_line1_title = "Detector Uptime Trend",
             plot_title = "Detector Uptime")
        
-    } else if (corridor() == "All Corridors" | input$subcorridor == "By Sub-corridor") {
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
 
         get_cor_det_uptime_plot(
             mr()$dy$du, 
@@ -1990,7 +1992,21 @@ renderPlotly({
 
 renderPlotly({
 
-    if (corridor() == "All Corridors") {
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$cu,
+            cor$mo$cu,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Comm Uptime (%)"),
+            x_line1_title = "Comm Uptime Trend",
+            plot_title = "Comm Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
         get_cor_comm_uptime_plot(mr()$dy$cu,
                                  mr()$mo$cu,
@@ -2024,7 +2040,21 @@ renderPlotly({
 
 renderPlotly({
 
-    if (corridor() == "All Corridors") {
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$pau,
+            cor$mo$pau,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Ped Detector Uptime (%)"),
+            x_line1_title = "Ped Detector Uptime Trend",
+            plot_title = "Ped Detector Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
         get_cor_comm_uptime_plot(mr()$dy$pau,
                                  mr()$mo$pau,
@@ -2421,8 +2451,10 @@ renderUI({
 fillCol(height = 700,
 
     renderPlotly({
-        sid <- sub(":.+", "", input$signalid)
-        signal_dashboard_athena(sid, current_month())
+        tryCatch ({
+            sid <- sub(":.+", "", input$signalid)
+            signal_dashboard_athena(sid, current_month())
+        })
     })
 )
 ```
