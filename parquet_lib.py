@@ -21,24 +21,15 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
 
+@retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
 def upload_parquet(Bucket, Key, Filename):
-    #print(Key)
     feather_filename = Filename
-    # df = feather.read_dataframe(feather_filename)
     df = pd.read_feather(feather_filename).drop(columns = ['Date'], errors = 'ignore')
-    # parquet_filename = feather_filename.replace('.feather', '.parquet')
     df.to_parquet('s3://{b}/{k}'.format(b=Bucket, k=Key))
 
-    # df.to_parquet(parquet_filename)
-
-    # s3.upload_file(Filename=parquet_filename, 
-    #                Bucket=Bucket, 
-    #                Key=Key)
-    # os.remove(parquet_filename)
-    
     date_ = re.search('\d{4}-\d{2}-\d{2}', Key).group(0)
     table_name = re.search('mark/(.*?)/date', Key).groups()[0]
-    #print(table_name)
+
     template_string = 'ALTER TABLE {t} add partition (date="{d}") location "s3://{b}/{p}/"'
     partition_query = template_string.format(t = table_name,
                                              d = date_, 
