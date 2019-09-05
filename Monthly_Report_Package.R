@@ -838,11 +838,11 @@ tryCatch({
     # Divide into peak/off-peak split failures
     # -------------------------------------------------------------------------
     sfo <- sf %>% filter(!hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))
-    sf <- sf %>% filter(hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))
+    sfp <- sf %>% filter(hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))
     # ------------------------------------------------------------------------- 
     
     weekly_sf_by_day <- get_weekly_avg_by_day(
-        sf, "sf_freq", "cycles", peak_only = FALSE)
+        sfp, "sf_freq", "cycles", peak_only = FALSE)
     weekly_sfo_by_day <- get_weekly_avg_by_day(
         sfo, "sf_freq", "cycles", peak_only = FALSE)
 
@@ -855,7 +855,7 @@ tryCatch({
         filter(!is.na(Corridor))
     
     monthly_sf_by_day <- get_monthly_avg_by_day(
-        sf, "sf_freq", "cycles", peak_only = FALSE)
+        sfp, "sf_freq", "cycles", peak_only = FALSE)
     monthly_sfo_by_day <- get_monthly_avg_by_day(
         sfo, "sf_freq", "cycles", peak_only = FALSE)
     
@@ -882,6 +882,8 @@ tryCatch({
     saveRDS(sub_weekly_sfo_by_day, "sub_wsfo.rds")
     saveRDS(sub_monthly_sfo_by_day, "sub_monthly_sfo.rds")
 
+    rm(sfp)
+    rm(sfo)
     rm(weekly_sf_by_day)
     rm(monthly_sf_by_day)
     rm(cor_weekly_sf_by_day)
@@ -1248,7 +1250,7 @@ tryCatch({
         bucket = "gdot-spm",
         teams_locations_key = "mark/teams/teams_locations.feather",
         archived_tasks_prefix = "mark/teams/tasks20",
-        current_tasks_key = "mark/teams/tasks.csv"
+        current_tasks_key = "mark/teams/tasks.csv.zip"
     ) %>%
         filter(`Date Reported` >= ymd(report_start_date) &
                    `Date Reported` <= ymd(report_end_date))
@@ -1383,6 +1385,9 @@ tryCatch({
     file.remove(bad_det_filename)
 
     # -- Alerts: pedestrian detector downtime --
+    
+    # This could probably be streamlined. We already create bad_ped_detectors.feather
+    # from get_pau. Do it once only.
 
     bad_ped <- readRDS("pa_uptime.rds") %>%
         filter(uptime == 0) %>%
