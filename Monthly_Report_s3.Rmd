@@ -38,7 +38,7 @@ cor <- readRDS("cor.rds")
 sig <- readRDS("sig.rds")
 sub <- readRDS("sub.rds")
 teams_tables <- readRDS("teams_tables.rds")
-alerts <- get_alerts()
+alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 ```
 
 
