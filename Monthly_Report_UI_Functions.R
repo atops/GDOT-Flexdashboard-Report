@@ -113,36 +113,6 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
-get_alerts <- function() {
-    
-    objs <- aws.s3::get_bucket(bucket = 'gdot-spm', 
-                               prefix = 'mark/watchdog')
-    lapply(objs, function(obj) {
-        key <- obj$Key
-        if (endsWith(key, "feather.zip")) {
-            f = read_zipped_feather
-        }
-        else if (endsWith(key, "fst")) {
-            f = read_fst
-        }
-        
-        aws.s3::s3read_using(FUN = f, 
-                             object = key, 
-                             bucket = 'gdot-spm') %>% 
-            as_tibble() %>%
-            transmute(Zone_Group = factor(Zone_Group),
-                      Zone = factor(Zone),
-                      Corridor = factor(Corridor),
-                      SignalID = factor(SignalID),
-                      Phase = factor(CallPhase),
-                      DetectorID = factor(DetectorID),
-                      Date = date(Date),
-                      Name = as.character(Name),
-                      Alert = factor(Alert))
-    }) %>% bind_rows()
-}
-
-
 if (conf$mode == "production") {
     
     # corridors %<-% read_feather("all_corridors.feather")
@@ -167,7 +137,7 @@ if (conf$mode == "production") {
                                         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
     
-    alerts %<-% get_alerts()
+    alerts %<-% aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
