@@ -471,7 +471,8 @@ write_fst_ <- function(df, fn, append = FALSE) {
 
 get_corridors <- function(corr_fn, filter_signals = TRUE) {
     df <- readxl::read_xlsx(corr_fn) %>% 
-        filter(SignalID > 0) %>% 
+        filter(SignalID > 0,
+               Include == TRUE) %>% 
 
         # Get the last modified record for the Signal|Zone|Corridor combination
         replace_na(list=(Modified=ymd("1900-01-01"))) %>% 
@@ -493,6 +494,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Asof = date(Asof)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
+    # Not sure if this is a remnant of some older idea. Not sure what it's for.
     if (filter_signals == TRUE) {
         df <- df %>% filter(as.integer(as.character(SignalID)) > 0)
     }
@@ -2627,7 +2629,7 @@ get_avg_daily_detector_uptime <- function(ddu) {
     full_join(all_daily_uptime, sb_pr,
               by = c("SignalID", "Date")) %>%
         dplyr::select(-starts_with("delta.")) %>%
-        rename(uptime.all = uptime)
+        rename(uptime.all = uptime) # -- this? remove to keep: uptime, all, uptime.sb, all.sb, etc.
 }
 
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {

@@ -17,6 +17,7 @@ suppressMessages(library(fst))
 suppressMessages(library(forcats))
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
+#suppressMessages(library(RJDBC))
 suppressMessages(library(memoise))
 #suppressMessages(library(RSQLite))
 suppressMessages(library(future))
@@ -677,6 +678,8 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
     mott <- filter_mr_data(mott, zone_group_)
     hrtt <- filter_mr_data(hrtt, zone_group_)
     
+    mo_max <- round(max(mott$pti), 1) + .1
+    hr_max <- round(max(hrtt$pti), 1) + .1
 
     if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
         sdb <- SharedData$new(dplyr::filter(mott, Month == month_), 
@@ -728,8 +731,8 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       y = ~tti, 
                       alpha = 0.6) %>%
             layout(xaxis = list(title = "Travel Time Index (TTI"),
-                   yaxis = list(tickformat = tickformat,
-                                range = c(1, 2.5)),
+                   yaxis = list(range = c(1, mo_max),
+                                tickformat = tickformat),
                    showlegend = FALSE)
         
         pttihr <- base_h %>%
@@ -737,7 +740,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       y = ~tti,
                       alpha = 0.6) %>%
             layout(xaxis = list(title = x_line1_title),
-                   yaxis = list(range = c(1, 3),
+                   yaxis = list(range = c(1, hr_max),
                                 tickformat = tickformat),
                    showlegend = FALSE)
         
@@ -746,8 +749,8 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       y = ~pti, 
                       alpha = 0.6) %>%
             layout(xaxis = list(title = "Planning Time Index (PTI)"),
-                   yaxis = list(tickformat = tickformat,
-                                range = c(1, 2.5)),
+                   yaxis = list(range = c(1, mo_max),
+                                tickformat = tickformat),
                    showlegend = FALSE)
         
         pptihr <- base_h %>%
@@ -755,7 +758,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                       y = ~pti,
                       alpha = 0.6) %>%
             layout(xaxis = list(title = x_line2_title),
-                   yaxis = list(range = c(1, 3),
+                   yaxis = list(range = c(1, hr_max),
                                 tickformat = tickformat),
                    showlegend = FALSE)
         
@@ -1798,7 +1801,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
         start_date <- ymd(start_date)
         end_date <- start_date + months(1) - days(1)
         
-        plan(multisession)
+        #plan(multisession)
         #------------------------
         
         p_rc %<-% tryCatch({
