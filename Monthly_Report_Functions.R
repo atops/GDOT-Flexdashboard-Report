@@ -471,6 +471,16 @@ write_fst_ <- function(df, fn, append = FALSE) {
 
 get_corridors <- function(corr_fn, filter_signals = TRUE) {
     df <- readxl::read_xlsx(corr_fn) %>% 
+        filter(SignalID > 0) %>% 
+
+        # Get the last modified record for the Signal|Zone|Corridor combination
+        replace_na(list=(Modified=ymd("1900-01-01"))) %>% 
+        group_by(SignalID, Zone, Corridor) %>% 
+        filter(Modified == max(Modified)) %>% 
+        ungroup() %>%
+
+        filter(!is.na(Corridor)) %>%
+        
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
         transmute(SignalID = factor(SignalID), 
                   Zone = as.factor(Zone), 
@@ -481,7 +491,6 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Agency = Agency,
                   Name = Name,
                   Asof = date(Asof)) %>%
-        filter(!is.na(Corridor)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
     if (filter_signals == TRUE) {
