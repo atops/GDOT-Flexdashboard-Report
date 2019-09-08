@@ -641,6 +641,8 @@ get_tmc_routes <- function(pth = "TMC_Identification") {
 
 get_ped_config <- function(date_) {
     
+    date_ <- max(date_, ymd("2019-01-01"))
+    
     s3key <- glue("maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
     s3bucket <- "gdot-devices"
     
@@ -2629,7 +2631,7 @@ get_avg_daily_detector_uptime <- function(ddu) {
     full_join(all_daily_uptime, sb_pr,
               by = c("SignalID", "Date")) %>%
         dplyr::select(-starts_with("delta.")) %>%
-        rename(uptime.all = uptime) # -- this? remove to keep: uptime, all, uptime.sb, all.sb, etc.
+        rename(uptime = uptime)
 }
 
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
@@ -2645,8 +2647,10 @@ get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corrido
         get_cor_weekly_avg_by_day(corridors, "uptime.pr", "all.pr"))
     
     cor_daily_all_uptime %<-% (avg_daily_detector_uptime %>% 
-        filter(!is.na(uptime.all)) %>%
-        get_cor_weekly_avg_by_day(corridors, "uptime.all", "ones"))
+        filter(!is.na(uptime)) %>%
+        # average corridor by ones instead of all: 
+        #  to treat all signals equally instead of weighted by # of detectors
+        get_cor_weekly_avg_by_day(corridors, "uptime", "ones")) 
     
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
@@ -2681,9 +2685,8 @@ get_weekly_qs_by_day <- function(qs) {
 get_weekly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
         mutate(CallPhase = 0, Week = week(Date)) %>%
-        rename(uptime = uptime.all) %>%
         get_weekly_avg_by_day("uptime", "all", peak_only = FALSE) %>%
-        replace_na(list(uptime.all = 0)) %>%
+        replace_na(list(uptime = 0)) %>%
         arrange(SignalID, Date)
 }
 
@@ -2738,7 +2741,6 @@ get_monthly_qs_by_day <- function(qs) {
 get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
         mutate(CallPhase = 0) %>%
-        rename(uptime = uptime.all) %>%
         get_monthly_avg_by_day("uptime", "all") %>%
         arrange(SignalID, Month)
 }
@@ -2777,9 +2779,9 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
         mutate(Month = Date - days(day(Date) - 1)) %>%
         get_cor_monthly_avg_by_day(corridors, "uptime.pr", "all.pr"))
     cor_daily_all_uptime %<-% (avg_daily_detector_uptime %>% 
-        filter(!is.na(uptime.all)) %>%
+        filter(!is.na(uptime)) %>%
         mutate(Month = Date - days(day(Date) - 1)) %>%
-        get_cor_monthly_avg_by_day(corridors, "uptime.all", "all"))
+        get_cor_monthly_avg_by_day(corridors, "uptime", "all"))
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
               dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
@@ -3901,7 +3903,7 @@ get_pau <- function(df) {
     write_feather(bad_ped_detectors, "bad_ped_detectors.feather")
     
     pau %>% transmute(SignalID = factor(SignalID),
-                      CallPhase = CallPhase,
+                      CallPhase = factor(CallPhase),
                       Date = Date,
                       DOW = DOW,
                       Week = Week,
