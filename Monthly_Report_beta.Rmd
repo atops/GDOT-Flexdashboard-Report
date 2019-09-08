@@ -1287,7 +1287,7 @@ Row
 
 
 ```{r summary_left, eval = TRUE, warning = FALSE}
-#, FALSE = TRUE, dependson="sidebar"}
+
 fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
@@ -1375,7 +1375,6 @@ fillCol(
 ### Volumes and Equipment
 
 ```{r summary_right, eval = TRUE, warning = FALSE} 
-#, FALSE = TRUE, dependson="sidebar"}
 
 fillCol(
     renderPlotly({ 
@@ -2134,7 +2133,6 @@ Row {.tabset .tabset-fade data-height=800}
 ### TEAMS
 
 ```{r TEAMS, warning = FALSE}
-#, cache = TRUE, dependson="sidebar"}
 
 fillRow(
     fillCol(
