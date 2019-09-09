@@ -152,7 +152,10 @@ def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
         dfs = results.get()
 
         df = pd.concat(dfs, sort=True)
-        
+    
+    if signals_list:
+        df = df[df.SignalID.isin(signals_list)]
+    
     feather_filename = '{t}_{d}_{r}.feather'.format(t=table_name, d=start_date, r=random_string(12))
     df.reset_index().drop(columns=['index']).to_feather(feather_filename)
         
@@ -179,7 +182,7 @@ def read_parquet_local(table_name, start_date, end_date, signals_list = None):
     feather_filename = table_name + '.feather'
     fns = list(filter(check, list(glob('/home/rstudio/Code/GDOT/MARK/{t}/*/*'.format(t=table_name)))))
     df = pd.concat([read_parquet(fn) for fn in fns], sort = True)
-    if signals_list is not None:
+    if signals_list:
         df = df[df.SignalID.isin(signals_list)]
     df.reset_index().to_feather(feather_filename)
 
