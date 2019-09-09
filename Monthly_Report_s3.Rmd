@@ -60,6 +60,7 @@ RTOP Concept of Operations can be found
            target = "_blank",
            "here")`
 
+
 ```{r sidebar, warning = FALSE, cache = FALSE}
 # shiny inputs defined here
 
@@ -75,217 +76,105 @@ selectInput("zone_group", "Signal Group:",
 
 
 
-# DRILL DOWN WITHIN CORRIDORS TO SEE ALL SIGNALS
-conditionalPanel("input.zone_group == 'RTOP1'",
-                 selectInput("corridor_rtop1", "Corridor",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone_Group == "RTOP1")$Corridor
-                                         ))),
+# Corridor Selection Drop Down based on Zone/Zone Group ---
+
+conditionalPanel("input.zone_group != 'All RTOP'",
+                 selectInput("corridor_x", "Corridor:",
+                             choices = c("All Corridors"),
                              selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'RTOP2'",
-                 selectInput("corridor_rtop2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone_Group == "RTOP2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+observe({
+    choices_ <- if (is.null(input$zone_group)) {
+                    NULL
+                } else {
+                    if (input$zone_group == "All RTOP") {
+                        c("All Corridors")
+                    } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone_Group == input$zone_group)$Corridor)))
+                    } else {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone == input$zone_group)$Corridor)))
+                    }
+                }
+            
+    updateSelectInput(session, "corridor_x", choices = choices_, selected = "All Corridors")
+})
 
-conditionalPanel("input.zone_group == 'Zone 1'",
-                 selectInput("corridor_z1", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 1")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
 
-conditionalPanel("input.zone_group == 'Zone 2'",
-                 selectInput("corridor_z2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+# --- Sub-Corridor Selection Drop Down based on Corridor ---
 
-conditionalPanel("input.zone_group == 'Zone 3'",
-                 selectInput("corridor_z3", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 3")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+# conditionalPanel(
+#     "input.corridor_x != 'All Corridors'",
+#     checkboxInput(
+#         "subcorridors", "Sub-Corridors", value = FALSE, width = NULL)
+# )
 
-conditionalPanel("input.zone_group == 'Zone 4'",
-                 selectInput("corridor_z4", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 4")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+conditionalPanel(
+    "input.corridor_x != 'All Corridors'",
+    radioButtons(
+        "subcorridors", 
+        label = NULL, 
+        choices = c("By Intersection", "By Sub-corridor"), 
+        selected = "By Intersection",
+        inline = FALSE, 
+        width = NULL, 
+        choiceNames = NULL,
+        choiceValues = NULL)
+)
 
-conditionalPanel("input.zone_group == 'Zone 5'",
-                 selectInput("corridor_z5", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 5")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+# conditionalPanel("input.corridor_x != 'All Corridors'",
+#                  selectInput("subcorridor_x", "Sub-Corridor:",
+#                              choices = c("--"),
+#                              selected = "--"))
+# 
+# observe({
+#     choices_ <- if (is.null(input$zone_group)) {
+#                     NULL
+#                 } else {
+#                     c("--", "All Sub-Corridors",
+#                       as.character(unique(filter(
+#                           corridors, Corridor == input$corridor_x)$Subcorridor)))
+#                 }
+# 
+#     updateSelectInput(session, "subcorridor_x", choices = choices_, selected = "--")
+# })
 
-conditionalPanel("input.zone_group == 'Zone 6'",
-                 selectInput("corridor_z6", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 6")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
+# --- -------------------------------------------------- ---
 
-conditionalPanel("input.zone_group == 'Zone 7'",
-                 selectInput("corridor_z7", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone %in% c("Zone 7m", "Zone 7d"))$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 7m'",
-                 selectInput("corridor_z7m", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 7m")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 7d'",
-                 selectInput("corridor_z7d", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 7d")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 8'",
-                 selectInput("corridor_z8", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 8")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 1'",
-                 selectInput("corridor_d1", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 1")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 2'",
-                 selectInput("corridor_d2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 3'",
-                 selectInput("corridor_d3", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 3")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 4'",
-                 selectInput("corridor_d4", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 4")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 5'",
-                 selectInput("corridor_d5", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 5")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 6'",
-                 selectInput("corridor_d6", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 6")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 7'",
-                 selectInput("corridor_d7", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 7")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Cobb County'",
-                 selectInput("corridor_cb", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Cobb County")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
 
 current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+endof_current_month <- reactive(lubridate::dmy(paste(1, input$month)) + months(1) - days(1))
 current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
 
 
-corridor <- reactive(
-    if (input$zone_group == "RTOP1") {
-        input$corridor_rtop1
-    } else if (input$zone_group == "RTOP2") {
-        input$corridor_rtop2
-    } else if (input$zone_group == "Zone 1") {
-        input$corridor_z1
-    } else if (input$zone_group == "Zone 2") {
-        input$corridor_z2
-    } else if (input$zone_group == "Zone 3") {
-        input$corridor_z3
-    } else if (input$zone_group == "Zone 4") {
-        input$corridor_z4
-    } else if (input$zone_group == "Zone 5") {
-        input$corridor_z5
-    } else if (input$zone_group == "Zone 6") {
-        input$corridor_z6
-    } else if (input$zone_group == "Zone 7") {
-        input$corridor_z7
-    } else if (input$zone_group == "Zone 7m") {
-        input$corridor_z7m
-    } else if (input$zone_group == "Zone 7d") {
-        input$corridor_z7d
-    } else if (input$zone_group == "Zone 8") {
-        input$corridor_z8
-    } else if (input$zone_group == "District 1") {
-        input$corridor_d1
-    } else if (input$zone_group == "District 2") {
-        input$corridor_d2
-    } else if (input$zone_group == "District 3") {
-        input$corridor_d3
-    } else if (input$zone_group == "District 4") {
-        input$corridor_d4
-    } else if (input$zone_group == "District 5") {
-        input$corridor_d5
-    } else if (input$zone_group == "District 6") {
-        input$corridor_d6
-    } else if (input$zone_group == "District 7") {
-        input$corridor_d7
-    } else if (input$zone_group == "Cobb County") {
-        input$corridor_cb
-    } else {
+# This is a simpler version of what is commented out below
+corridor <- reactive({
+    if (input$zone_group == "All RTOP") {
         "All Corridors"
-    })
+    } else {
+        input$corridor_x
+    }
+})
+# corridor <- reactive({
+#     if (input$zone_group %in% c(paste0("RTOP", c(1,2)), 
+#                                 paste("Zone", c(seq(1,7), "7m", "7d", 8)),
+#                                 paste("District", seq(1,7)),
+#                                 "Cobb County")) {
+#         input$corridor_x
+#     } else {
+#         "All Corridors"
+#     }
+# })
 
-    
+
+# subcorridor <- reactive({
+#     input$subcorridor_x
+# })
+
+
 zone_group <- reactive(
     if (corridor() == "All Corridors") {
         input$zone_group
@@ -298,11 +187,12 @@ zone_group <- reactive(
 mr <- reactive(
     if (corridor() == "All Corridors") {
         cor
+    } else if (input$subcorridors == "By Sub-corridor") {
+        sub
     } else {
         sig
     }
 )
-
 
 filtered_corridors <- reactive({
 
@@ -325,45 +215,67 @@ filtered_corridors <- reactive({
         corr <- corridors %>% 
             filter(Zone_Group %in% input$zone_group)
     }
-
-    if (corridor() != "All Corridors") { # if a specific corridor is selected, filter on that
-        corr %>% filter(Corridor == corridor())
-    } else {
-        corr
-    } %>% select(-Description, -Asof)
+    
+    # if a specific corridor is selected, filter on that
+    if (corridor() != "All Corridors") {
+        corr <- corr %>% 
+            filter(Corridor == corridor())
+    } #else {
+      #  corr
+    #}
+    
+    # if (!subcorridor() %in% c("--", "All Corridors")) {
+    #     corr <- corr %>%
+    #       filter(Subcorridor == subcorridor())
+    # }
+    
+  
+    corr %>% select(-Description, -Asof)
 })
+
+
 
 
 filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
                                       filtered_corridors()$Name))
 
-# renderText({"\nSelected Month"})
-# renderPrint({current_month()})
-# 
-# renderText({"Selected Zone Group"})
-# renderPrint({zone_group()})
-# 
-# renderText({"Selected Corridor"})
-# renderPrint({corridor()})
-```
-
-
-```{r}
 
 mr_str <- reactive(
     if (corridor() == "All Corridors") {
         "cor"
+    } else if (input$subcorridors == "By Sub-corridor") {
+        "sub"
     } else {
         "sig"
     }
 )
 
+# renderText({"\nSelected Month"})
+# renderPrint({current_month()})
+# 
+# renderText({"\nEnd of Selected Month"})
+# renderPrint({endof_current_month()})
+# 
+# renderText({"Selected Querter"})
+# renderPrint({current_quarter()})
+# 
 
 
-
+# renderText({"Selected Zone Group"})
+# renderPrint({zone_group()})
+# 
+# renderText({"Selected Corridor"})
+# renderPrint({corridor()})
+# 
+# renderText({"Sub-Corridors selected"})
+# renderPrint({input$subcorridors})
+# 
+# renderText({"Filtered Corridors"})
+# renderPrint({filtered_corridors()})
+# 
+# renderText({"mr()"})
+# renderPrint({mr_str()})
 ```
-
-
 
 
 
@@ -384,14 +296,15 @@ Row
 
 ### Throughput [vph] {.value-box}
 
-```{r cache = FALSE}
+```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$tp, "vph", as_int, 
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-bar-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$tp, "vph", as_int, zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "fa-bar-chart",
+        color = BLUE
+    )
 })
 ```
 
@@ -434,7 +347,7 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
@@ -442,8 +355,24 @@ renderValueBox({
       value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
-    color = BLUE
-  )
+    color = BLUE)
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfo, 
+            "sf_freq", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-car",
+    color = BLUE)
 })
 ```
 
@@ -552,7 +481,7 @@ Row
 #cor$mo$veh
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$mo$du, "uptime.all", as_pct, 
+      value = get_valuebox(mr()$mo$du, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -560,9 +489,23 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [manually collected] {.value-box}
+### Pedestrian Detector Availability [beta] {.value-box}
 
 ```{r}
+renderValueBox({
+  valueBox(
+      value = get_valuebox(mr()$mo$pau, "uptime", as_pct, 
+                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+      icon = "fa-child",
+    color = BLUE
+  )
+})
+```
+
+
+```{r, eval = FALSE}
+### Pedestrian Detector Availability [manually collected] {.value-box}
+
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
@@ -599,18 +542,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [beta] {.value-box}
 
-```{r}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-child",
-    color = BLUE
-  )
-})
-```
 
 Row {data-height = 50}
 -------------------------------------
@@ -754,7 +686,7 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
@@ -766,6 +698,24 @@ renderValueBox({
       icon = "fa-car",
       color = GDOT_BLUE_RGB
   )
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            cor$qu$sfo, 
+            "sf_freq", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            qu = current_quarter(), 
+            break_ = TRUE),
+      icon = "fa-car",
+      color = GDOT_BLUE_RGB)
 })
 ```
 
@@ -885,7 +835,7 @@ Row
 #cor$qu$veh
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$qu$du, "uptime.all", as_pct, 
+      value = get_valuebox(cor$qu$du, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -895,9 +845,25 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [manually collected] {.value-box}
+### Pedestrian Detector Availability [beta] {.value-box}
 
 ```{r}
+
+renderValueBox({
+  valueBox(
+    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
+                         zone = zone_group(), 
+                         mo = current_month(), 
+                         qu = current_quarter(), break_ = TRUE),
+    icon = "fa-child",
+      color = GDOT_BLUE
+  )
+})
+```
+
+
+```{r, eval = FALSE}
+### Pedestrian Detector Availability [manually collected] {.value-box}
 
 renderValueBox({
   valueBox(
@@ -941,21 +907,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [beta] {.value-box}
 
-```{r}
-
-renderValueBox({
-  valueBox(
-    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
-                         zone = zone_group(), 
-                         mo = current_month(), 
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "fa-child",
-      color = GDOT_BLUE
-  )
-})
-```
 
 Row {data- = 50}
 -------------------------------------
@@ -1042,6 +994,7 @@ Row
 
 
 ```{r summary_left, eval = TRUE, warning = FALSE}
+
 fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
@@ -1079,12 +1032,31 @@ fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$sfd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "sf_freq", "Split\nFailure", RED2, 
+        perf_plot_beta(data.set, "sf_freq", "Peak\nSplit Failure", RED2, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_RED, 
                        goal_ = goal$sfd)
     }),
+    ##----------------
+    renderPlotly({ 
+        data.set <- filter(
+            mr()$mo$sfo, 
+            Corridor==zone_group() & Month <= current_month()
+        )
+        shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot_beta(
+            data.set, 
+            "sf_freq", 
+            "Off-Peak\nSplit Failure", 
+            RED2,
+            format_func = as_pct, 
+            hoverformat = ".1%", 
+            fill_color_ = LIGHT_RED, 
+            goal_ = goal$sfd
+        )
+    }),
+    ##----------------
     renderPlotly({ 
         data.set <- filter(cor$mo$tti, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
@@ -1109,7 +1081,7 @@ fillCol(
 
 ### Volumes and Equipment
 
-```{r summary_right, eval = TRUE, warning = FALSE}
+```{r summary_right, eval = TRUE, warning = FALSE} 
 
 fillCol(
     renderPlotly({ 
@@ -1133,9 +1105,9 @@ fillCol(
     }),
 
     renderPlotly({ 
-        data.set <- filter(cor$mo$du, Corridor==zone_group() & Month <= current_month())
+        data.set <- filter(mr()$mo$du, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, 
+        perf_plot_beta(data.set, "uptime", "Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
@@ -1245,15 +1217,36 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
       icon = "fa-car"
   )
+})
+```
+
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfo, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+      icon = "fa-car")
 })
 ```
 
@@ -1288,7 +1281,7 @@ Row {.tabset .tabset-fade}
 
 ### Throughput
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$tp, mr()$mo$tp, NULL,
                                 "vph", "integer", highlight_color = RED2,
@@ -1345,17 +1338,43 @@ renderPlotly({
 ```
 
 
-### Split Failures
+### Peak Period Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(mr()$wk$sf, mr()$mo$sfd, mr()$mo$sfh,
-                                "sf_freq", "percent", highlight_color = RED2,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "Split Failures Rate"),
-                                x_line1_title = "Split Failures Trend",
-                                x_line2_title = paste(input$month, "Split Failures by TOD"),
-                                plot_title = "Split Failures Rate")
+    get_bar_line_dashboard_plot(
+        mr()$wk$sf, 
+        mr()$mo$sfd, 
+        mr()$mo$sfh,
+        "sf_freq", 
+        "percent", 
+        highlight_color = RED2,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "Split Failures Rate"),
+        x_line1_title = "Peak Period Split Failures Trend",
+        x_line2_title = paste(input$month, "Split Failures by TOD"),
+        plot_title = "Peak Period Split Failures Rate")
+})
+```
+
+### Off-Peak Split Failures
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+renderPlotly({
+    get_bar_line_dashboard_plot(
+        mr()$wk$sfo, 
+        mr()$mo$sfo, 
+        mr()$mo$sfh,
+        "sf_freq", 
+        "percent", 
+        highlight_color = RED2,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "Off_Peak Split Failures Rate"),
+        x_line1_title = "Off-Peak Split Failures Trend",
+        x_line2_title = paste(input$month, "Split Failures by TOD"),
+        plot_title = "Off-Peak Split Failures Rate")
 })
 ```
 
@@ -1431,18 +1450,25 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({ # Good version
-    get_bar_line_dashboard_plot(mr()$wk$vpd, mr()$mo$vpd, NULL,
-                                "vpd", "integer", highlight_color = GDOT_BLUE,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "Daily Volume (vpd)"),
-                                x_line1_title = "Vehicles per Day Trend",
-                                plot_title = "Daily Volume (veh/day) Trend")
+    get_bar_line_dashboard_plot(
+        mr()$wk$vpd, 
+        mr()$mo$vpd, 
+        rename(mr()$mo$vph, vpd = vph),
+        "vpd", 
+        "integer", 
+        highlight_color = GDOT_BLUE,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "Daily Volume (vpd)"),
+        x_line1_title = "Vehicles per Day Trend",
+        x_line2_title = "Vehicles per Hour by TOD",
+        plot_title = "Daily Volume (veh/day) Trend")
 })
 ```
 
-### Monthly Change
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Monthly Change
 renderPlotly({
     get_pct_ch_plot(mr()$mo$vpd,
                     month_ = current_month(),
@@ -1450,9 +1476,9 @@ renderPlotly({
 })
 ```
 
-### Peak Hour Volumes
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Peak Hour Volumes
 renderPlotly({
     am_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$am,
                                                mr()$mo$vphp$am, NULL,
@@ -1473,9 +1499,9 @@ renderPlotly({
 ```
 
 
-### Hourly Volumes
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Hourly Volumes
 renderPlotly({
     get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
@@ -1517,8 +1543,8 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$du %>% 
                           group_by(Corridor) %>% 
-                          mutate(delta = uptime.all - lag(uptime.all)), 
-                      "uptime.all", as_pct,
+                          mutate(delta = uptime - lag(uptime)), 
+                      "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1530,7 +1556,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(cor$mo$cctv, "uptime", as_pct,
+    value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
     icon = "glyphicon-facetime-video" 
   )
@@ -1566,7 +1592,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$mo$pau, "uptime", as_pct,
+      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-child" 
   )
@@ -1583,10 +1609,24 @@ Row {.tabset .tabset-fade}
 
 renderPlotly({
     
-    if (corridor() == "All Corridors") {
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$du,
+            cor$mo$du,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Detector Uptime (%)"),
+            x_line1_title = "Detector Uptime Trend",
+            plot_title = "Detector Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
 
         get_cor_det_uptime_plot(
-            mr()$dy$du,
+            mr()$dy$du, 
             mr()$mo$du,
             month_name = input$month,
             month_ = current_month(), 
@@ -1597,7 +1637,7 @@ renderPlotly({
         get_uptime_plot(
             sig$dy$du, 
             sig$mo$du, 
-            var_ = "uptime.all", 
+            var_ = "uptime", 
             num_format = "percent", 
             month_ = current_month(), 
             zone_group_ = zone_group(),
@@ -1665,7 +1705,21 @@ renderPlotly({
 
 renderPlotly({
 
-    if (corridor() == "All Corridors") {
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$cu,
+            cor$mo$cu,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Comm Uptime (%)"),
+            x_line1_title = "Comm Uptime Trend",
+            plot_title = "Comm Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
         get_cor_comm_uptime_plot(mr()$dy$cu,
                                  mr()$mo$cu,
@@ -1699,7 +1753,21 @@ renderPlotly({
 
 renderPlotly({
 
-    if (corridor() == "All Corridors") {
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$pau,
+            cor$mo$pau,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Ped Detector Uptime (%)"),
+            x_line1_title = "Ped Detector Uptime Trend",
+            plot_title = "Ped Detector Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
         get_cor_comm_uptime_plot(mr()$dy$pau,
                                  mr()$mo$pau,
@@ -1778,7 +1846,7 @@ Row {.tabset .tabset-fade data-height=800}
 
 ### TEAMS
 
-```{r eval = TRUE, warning = FALSE}
+```{r TEAMS, warning = FALSE}
 
 fillRow(
     fillCol(
@@ -2082,7 +2150,7 @@ renderDataTable({
 Signal Details
 =====================================
 
-```{r signal_detail}
+```{r signal_detail, eval = FALSE}
 fillCol(height = 100,
 renderUI({
     selectInput("signalid", "SignalID:",
@@ -2095,8 +2163,10 @@ renderUI({
 fillCol(height = 700,
 
     renderPlotly({
-        sid <- sub(":.+", "", input$signalid)
-        signal_dashboard_athena(sid, current_month())
+        tryCatch ({
+            sid <- sub(":.+", "", input$signalid)
+            signal_dashboard_athena(sid, current_month())
+        })
     })
 )
 ```
@@ -2140,12 +2210,17 @@ The calculation takes the ATSPM data, aggregates the counts by cycle and
 interval, and divides the counts in the green intervals by the total counts
 for the cycle, averaged over all cycles.
 
+#### **Progression Ratio**
+
+Progression Ratio is arrivals on green (AOG) percentage divided by the percent green
+for that phase. A ratio of greater than 1 means better than random arrivals.
+
 #### **Queue Spillback Rate**
 
 Queue Spillback Rate is an experimental measure of effectiveness.
 It is a measure of unmet demand in a cycle. Based on the vehicle
-dwell times over setback detectors on the main street through phases, each cycle is
-evaluated for spillback. A spillback condition will be triggered by
+dwell times over setback detectors on the main street through phases, 
+each cycle is evaluated for spillback. A spillback condition will be triggered by
 occupancy readings above what is typical for setback detectors under
 freely flowing conditions. 
 
@@ -2162,17 +2237,16 @@ divided by the number of cycles for main street through phases.
 
 #### **Split Failures**
 
-Split failure is another measure of unmet demand. It identifies cycles where a
-phase has unserved demand. A phase is flagged for split failure when a  detector on event occurs
-before the start of red and the subsequent detector off event occurs after the next
-start of green.
+Split failure is another measure of unmet demand. It identifies cycles 
+where a phase has unserved demand. A phase is flagged for split failure when 
+the average occupancy of the stop bar detectors on the phase are greater than 80%
+during the green phase and greater than 80% during the first five seconds of the
+red phase. The intersection is flagged as a split failure on that cycle if 
+at least one phase meets the criteria for split failure during that phase.
 
-Because this measure requires stop
-bar detection, it is only be calculated for side street and left
-turn phases, i.e., all phases other than main street through phases.
-
-Split Failure Percent is calculated as the number of split failures divided by the total
-number of side street and left turn phases.
+Because this measure requires stop bar detection, it is only be calculated 
+for side street and left turn phases, i.e., all phases other than 
+main street through phases.
 
 #### **Travel Time Index**
 
@@ -2188,9 +2262,9 @@ the month.
 An hourly Travel Time Index is then calculated for each corridor as the
 average travel time for that hour of the day divided by the free flow
 travel time for the corridor. The TTI for each hour is then averaged
-over the day, weighted by the average hourly volume on the main street through phases
-(from ATSPM) to get a TTI for the month (this gives more weight to peak
-periods than off-peak periods).
+over the day, weighted by the average hourly volume on the main street 
+through phases (from ATSPM) to get a TTI for the month (this gives more 
+weight to peak periods than off-peak periods). 
 
 #### **Planning Time Index**
 
@@ -2258,17 +2332,21 @@ all based on observation of the data and can be adjusted as necessary.
 
 #### **Pedestrian Detector Uptime**
 
-Pedestrian Detector Uptime is the percentage of pedestrian pushbuttons operational and is
-reported by Corridor Managers from physically pressing each button in
-the field at some point during the month and observing whether it is
-working.
+Pedestrian Detector Uptime is the percentage of pedestrian inputs operational. 
+It is based on the historical distribution of the daily number of pedestrian actuations.
+Currently, when the number of consecutive days without an input yields a probability
+of failure based on the historical distribution for that input, it is flagged as failed.
+This measure is still experimental and the distributions and thresholds are a work in progress.
 
-There are two reasons why this is currently done manually. The first is that
+In the past, this measure was based on manual testing of pedestrian push buttons and
+was self-reported by the engineers responsible for the corridor. While labor-intensive,
+This had some benefits over the current automated approach. The first is that
 multiple push buttons are often physically wired into the same detector input,
 making it impossible from the controller inputs to determine whether both push
 buttons are working, or just one. The second is due to the relatively infrequent calls,
-it is difficult to tell from the data whether there is no demand or whether the 
-push button has failed.
+we have to rely upon a probabalistic approach to determining whether an input is failed
+because for some push buttons, there is so little demand it can be difficult to say with
+certainty from the data whether that the push button is indeed failed.
 
 #### **CCTV Uptime**
 
