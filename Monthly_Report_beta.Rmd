@@ -774,7 +774,7 @@ Row
 #cor$mo$veh
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$du, "uptime.all", as_pct, 
+      value = get_valuebox(mr()$mo$du, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -1128,7 +1128,7 @@ Row
 #cor$qu$veh
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$qu$du, "uptime.all", as_pct, 
+      value = get_valuebox(cor$qu$du, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -1400,7 +1400,7 @@ fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$du, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "uptime.all", "Detector\nUptime\nGoal: 95%", ORANGE, 
+        perf_plot_beta(data.set, "uptime", "Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
@@ -1829,8 +1829,8 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$du %>% 
                           group_by(Corridor) %>% 
-                          mutate(delta = uptime.all - lag(uptime.all)), 
-                      "uptime.all", as_pct,
+                          mutate(delta = uptime - lag(uptime)), 
+                      "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car"
   )
@@ -1899,7 +1899,7 @@ renderPlotly({
      
         get_bar_line_dashboard_plot(
             cor$wk$du,
-            cor$mo$du %>% rename(uptime = uptime.all),
+            cor$mo$du %>% rename(uptime = uptime),
             var_ = "uptime",
             num_format = "percent",
             highlight_color = BLUE,
@@ -1923,7 +1923,7 @@ renderPlotly({
         get_uptime_plot(
             sig$dy$du, 
             sig$mo$du, 
-            var_ = "uptime.all", 
+            var_ = "uptime", 
             num_format = "percent", 
             month_ = current_month(), 
             zone_group_ = zone_group(),
