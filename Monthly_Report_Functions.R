@@ -470,9 +470,26 @@ write_fst_ <- function(df, fn, append = FALSE) {
 }
 
 get_corridors <- function(corr_fn, filter_signals = TRUE) {
-    df <- readxl::read_xlsx(corr_fn) %>% 
-        filter(SignalID > 0,
-               Include == TRUE) %>% 
+    
+    # Keep this up to date to reflect the Corridors_Latest.xlsx file
+    cols <- list(SignalID = "text",
+                 Zone_Group = "text",
+                 Zone = "text",
+                 Corridor = "text",
+                 Subcorridor = "text",
+                 Agency = "text",
+                 `Main Street Name` = "text",
+                 `Side Street Name` = "text",
+                 Milepost = "numeric",
+                 Asof = "date",
+                 Duplicate = "numeric",
+                 Include = "logical",
+                 Modified = "date",
+                 Note = "text",
+                 Asof2 = "date")
+    
+    df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
+        filter(SignalID > 0) %>% 
 
         # Get the last modified record for the Signal|Zone|Corridor combination
         replace_na(list=(Modified=ymd("1900-01-01"))) %>% 
@@ -480,7 +497,8 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
         filter(Modified == max(Modified)) %>% 
         ungroup() %>%
 
-        filter(!is.na(Corridor)) %>%
+        filter(!is.na(Corridor),
+               Include == TRUE) %>%
         
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
         transmute(SignalID = factor(SignalID), 
