@@ -852,7 +852,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int, 
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.rep), "Reported", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -865,7 +865,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int, 
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.res), "Resolved", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -878,7 +878,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int, 
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.out), "Outstanding", as_int, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -886,9 +886,44 @@ renderValueBox({
 })
 ```
 
-### {.value-box}
+### TEAMS Tasks Over 45 Days [Unresolved] {.value-box}
 
 ```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(
+        mr()$mo$over45, 
+        "over45", as_int, 
+        zone = zone_group(), 
+        mo = current_month(), 
+        break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### TEAMS Tasks Mean Time to Resolve [Days] {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(
+        mr()$mo$mttr, 
+        "mttr", as_2dec, 
+        zone = zone_group(), 
+        mo = current_month(), 
+        break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+
+
+```{r, eval = FALSE}
+### {.value-box}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -1257,9 +1292,43 @@ renderValueBox({
 })
 ```
 
-### {.value-box}
+### TEAMS Tasks Over 45 Days [Unresolved] {.value-box}
 
 ```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(
+        mr()$qu$over45,
+        "over45", as_int,
+        zone = zone_group(), 
+        mo = current_month(), 
+        break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+### TEAMS Tasks Mean Time to Resolve [Days] {.value-box}
+
+```{r}
+renderValueBox({
+  valueBox(
+    value = get_valuebox(
+        mr()$qu$mttr, 
+        "mttr", as_2dec, 
+        zone = zone_group(), 
+        mo = current_month(), 
+        break_ = FALSE),
+    icon = "fa-area-chart",
+    color = BLUE
+  )
+})
+```
+
+
+```{r, eval = FALSE}
+### {.value-box}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -2095,7 +2164,7 @@ Row
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.rep), "Reported", as_int,
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.rep), "Reported", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -2107,7 +2176,7 @@ renderValueBox({
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.res), "Resolved", as_int,
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.res), "Resolved", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -2119,7 +2188,7 @@ renderValueBox({
 ```{r, eval = TRUE, warning = TRUE}
 renderValueBox({
   valueBox(
-    value = get_valuebox(rename(cor$mo$events, delta = delta.out), "Outstanding", as_int,
+    value = get_valuebox(rename(cor$mo$tasks, delta = delta.out), "Outstanding", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart"
   )
@@ -2138,15 +2207,20 @@ fillRow(
     fillCol(
         renderPlotly({ 
             data.set <- gather_outstanding_events(
-                filter(cor$mo$events, Zone_Group == zone_group() & 
-                           Month <= current_month())
+                filter(mr()$mo$tasks, 
+                       Zone_Group == zone_group(), 
+                       Corridor == zone_group(),
+                       Month <= current_month())
             )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             cum_events_plot(data.set)
         }),
         renderPlotly({ 
-            data.set <- filter(teams_tables$type, Zone_Group == zone_group() & 
-                                   Month == current_month())
+            data.set <- filter(mr()$mo$ttyp, 
+                               Zone_Group == zone_group(), 
+                               Corridor == zone_group(),
+                               Month == current_month(),
+                               Reported > 0 | Resolved > 0 | Outstanding > 0)
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Type",
@@ -2154,8 +2228,11 @@ fillRow(
                              height_ = 250) 
         }), 
         renderPlotly({ 
-            data.set <- filter(teams_tables$source, Zone_Group == zone_group() & 
-                                   Month == current_month())
+            data.set <- filter(mr()$mo$tsou, 
+                               Zone_Group == zone_group(), 
+                               Corridor == zone_group(),
+                               Month == current_month(),
+                               Reported > 0 | Resolved > 0 | Outstanding > 0)
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Source", 
@@ -2165,8 +2242,11 @@ fillRow(
         
     fillCol(
         renderPlotly({ 
-            data.set <- filter(teams_tables$subtype, Zone_Group == zone_group() & 
-                                   Month == current_month())
+            data.set <- filter(cor$mo$tsub, 
+                               Zone_Group == zone_group(), 
+                               Corridor == zone_group(),
+                               Month == current_month(),
+                               Reported > 0 | Resolved > 0 | Outstanding > 0)
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
                              var_ = "Task_Subtype",
@@ -2436,21 +2516,27 @@ renderDataTable({
 Signal Details
 =====================================
 
-```{r signal_detail}
+```{r signal_detail, eval = FALSE}
 fillCol(height = 100,
-renderUI({
-    selectInput("signalid", "SignalID:",
-                choices = c("Select", filtered_signalids()),
-                selected = "",
-                width = "600px")
-}))
+    
+    fluidRow(
+        column(width = 3,
+        renderUI(selectInput("signalid", "SignalID:",
+                    choices = c("Select", filtered_signalids()),
+                    selected = "",
+                    width = "600px"))),
+        column(width = 1,
+        actionButton("signal_details_button", "Plot"))
+    )
+)
 
 
 fillCol(height = 700,
-
-    renderPlotly({
-        tryCatch ({
-            sid <- sub(":.+", "", input$signalid)
+    
+    observeEvent(input$signal_details_button, {
+        
+        renderPlotly({
+            sid <- isolate(sub(":.+", "", input$signalid))
             signal_dashboard_athena(sid, current_month())
         })
     })
