@@ -124,21 +124,36 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    corridors %<-% aws.s3::s3read_using(read_feather, 
-                                      object = "all_corridors.feather", 
-                                      bucket = "gdot-spm")
-    sig %<-% aws.s3::s3readRDS("sig_ec2.rds", "gdot-spm",
-                               key = aws_conf$AWS_ACCESS_KEY_ID,
-                               secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sub %<-% aws.s3::s3readRDS("sub_ec2.rds", "gdot-spm",
-                               key = aws_conf$AWS_ACCESS_KEY_ID,
-                               secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    teams_tables %<-% aws.s3::s3readRDS("teams_tables_ec2.rds", "gdot-spm",
-                                        key = aws_conf$AWS_ACCESS_KEY_ID,
-                                        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    cor %<-% aws.s3::s3readRDS("cor_ec2.rds", "gdot-spm")
+    corridors %<-% aws.s3::s3read_using(
+        read_feather, 
+        object = "all_corridors.feather", 
+        bucket = "gdot-spm")
+    cor %<-% aws.s3::s3readRDS(
+        object = "cor_ec2.rds", 
+        bucket = "gdot-spm",
+        key = aws_conf$AWS_ACCESS_KEY_ID,
+        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    sig %<-% aws.s3::s3readRDS(
+        object = "sig_ec2.rds", 
+        bucket = "gdot-spm",
+        key = aws_conf$AWS_ACCESS_KEY_ID,
+        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    sub %<-% aws.s3::s3readRDS(
+        object = "sub_ec2.rds", 
+        bucket = "gdot-spm",
+        key = aws_conf$AWS_ACCESS_KEY_ID,
+        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    teams_tables %<-% aws.s3::s3readRDS(
+        object = "teams_tables_ec2.rds", 
+        bucket = "gdot-spm",
+        key = aws_conf$AWS_ACCESS_KEY_ID,
+        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     
-    alerts %<-% aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
+    alerts %<-% aws.s3::s3readRDS(
+        object = "mark/watchdog/alerts.rds", 
+        bucket = "gdot-spm",
+        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -1012,7 +1027,7 @@ det_uptime_bar_plot <- memoise(det_uptime_bar_plot_)
 
 # Subplots
 det_uptime_line_plot_ <- function(df, corr, showlegend_) {
-    plot_ly()
+    #plot_ly()
     plot_ly(data = df) %>%
         add_lines(x = ~X,
                   y = ~Y,
@@ -1085,7 +1100,7 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
             #filter(Date - days(day(Date) -1) == month_) %>%
             #group_by(Corridor, Zone_Group) %>%
             #summarize(uptime = mean(uptime.all)) %>%
-            rename(uptime = uptime.all) %>%
+            rename(uptime = uptime) %>%
             arrange(uptime) %>% ungroup() %>%
             mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
@@ -1255,6 +1270,7 @@ gather_outstanding_events <- function(cor_monthly_events) {
     
     cor_monthly_events %>% 
         ungroup() %>% 
+        select(Zone_Group, Corridor, Month, Reported, Resolved, Outstanding) %>%
         gather(Events, Status, -c(Month, Corridor, Zone_Group))
 }
 
@@ -1264,16 +1280,16 @@ plot_teams_tasks_ <- function(tab, var_,
     var_ <- as.name(var_)
     
     tab <- tab %>% 
-        arrange(!!var_) %>% 
-        #mutate(var = fct_rev(factor(!!var_, levels = !!var_)))
-        mutate(var = fct_rev(fct_drop(!!var_)))
+        #arrange(!!var_) %>% 
+        #mutate(var = fct_rev(fct_drop(!!var_)))
+        mutate(var = fct_reorder(!!var_, Reported))
     
     p1 <- plot_ly(data = tab, height = height_) %>%
-        add_bars(x = ~Rep, 
+        add_bars(x = ~Reported,  # ~Rep, 
                  y = ~var,
                  color = I(LIGHT_BLUE),
                  name = "Reported",
-                 text = ~Rep,
+                 text = ~Reported, #  ~Rep,
                  textposition = textpos,
                  insidetextfont = list(size = 11, color = "black"),
                  outsidetextfont = list(size = 11)) %>%
@@ -1284,11 +1300,11 @@ plot_teams_tasks_ <- function(tab, var_,
                             zeroline = FALSE),
                margin = list(pad = 4))
     p2 <- plot_ly(data = tab) %>%
-        add_bars(x = ~Res, 
+        add_bars(x = ~Resolved,  # ~Res, 
                  y = ~var,
                  color = I(BLUE),
                  name = "Resolved",
-                 text = ~Res,
+                 text = ~Resolved,  # ~Res,
                  textposition = textpos,
                  insidetextfont = list(size = 11, color = "white"),
                  outsidetextfont = list(size = 11)) %>%
@@ -1299,11 +1315,11 @@ plot_teams_tasks_ <- function(tab, var_,
                             zeroline = FALSE),
                margin = list(pad = 4))
     p3 <- plot_ly(data = tab) %>% 
-        add_bars(x = ~outstanding, 
+        add_bars(x = ~Outstanding,  # ~outstanding, 
                  y = ~var, 
                  color = I(ORANGE),
                  name = "Outstanding",
-                 text = ~outstanding,
+                 text = ~Outstanding, 
                  textposition = textpos, 
                  insidetextfont = list(size = 11, color = "white"),
                  outsidetextfont = list(size = 11)) %>%
@@ -1393,6 +1409,7 @@ cum_events_plot_ <- function(df) {
                   x = ~Month,
                   y = ~Status,
                   type = 'scatter',
+                  mode = 'markers', 
                   name = 'Outstanding',
                   marker = list(color = ORANGE),
                   showlegend = FALSE) %>%
