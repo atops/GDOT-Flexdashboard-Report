@@ -43,7 +43,8 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 # -- Code to update corridors file/table from Excel file
 
 install_corridors_file <- function() {
-    corridors <- s3read_using(get_corridors,
+    corridors <- s3read_using(
+        get_corridors,
         object = "Corridors_Latest.xlsx",
         bucket = "gdot-spm"
     )
@@ -53,7 +54,8 @@ install_corridors_file <- function() {
         bucket = "gdot-spm"
     )
 
-    all_corridors <- s3read_using(function(x) get_corridors(x, filter_signals = FALSE),
+    all_corridors <- s3read_using(
+        function(x) get_corridors(x, filter_signals = FALSE),
         object = "Corridors_Latest.xlsx",
         bucket = "gdot-spm"
     )
@@ -71,6 +73,7 @@ install_corridors_file <- function() {
 
 corridors <- read_feather(conf$corridors_filename)
 signals_list <- unique(corridors$SignalID)
+all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
 
 subcorridors <- corridors %>%
     mutate(
@@ -135,8 +138,8 @@ if (conf$run$counts == TRUE) {
         foreach(date_ = date_range) %dopar% {
             get_counts2(date_, uptime = TRUE, counts = TRUE)
         }
-        registerDoSEQ()
-        gc()
+        #registerDoSEQ()
+        #gc()
     }
 }
 print("\n---------------------- Finished counts ---------------------------\n")
