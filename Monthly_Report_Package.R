@@ -258,20 +258,6 @@ print(glue("{Sys.time()} Daily Pedestrian Activations [3 of 20]"))
 
 tryCatch({
     
-    # papd <- s3_read_parquet(
-    #     bucket = "gdot-spm", 
-    #     table_name = "ped_actuations_pd", 
-    #     start_date = report_start_date, 
-    #     end_date = report_end_date, 
-    #     signals_list = signals_list
-    # ) %>%
-    #     replace_na(list(CallPhase = 0)) %>%
-    #     mutate(
-    #         SignalID = factor(SignalID),
-    #         CallPhase = factor(CallPhase),
-    #         Date = date(Date)
-    #     )
-    
     weekly_papd <- get_weekly_papd(papd)
     
     # Group into corridors --------------------------------------------------------
@@ -1120,28 +1106,38 @@ tryCatch({
 print(glue("{Sys.time()} Uptimes [16 of 20]"))
 
 tryCatch({
-    # # VEH, PED, CCTV UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
-
+    # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
 
     keys <- aws.s3::get_bucket_df("gdot-spm", prefix = "manual_veh_ped_uptime")$Key
+    keys <- keys[endsWith(keys, ".xlsx")]
 
     months <- str_extract(basename(keys), "^\\S+ \\d{4}")
-    xl_uptime_fns <- basename(keys)[!is.na(months)]
-    xl_uptime_mos <- dmy(paste("1", months[!is.na(months)]))
+    #xl_uptime_fns <- basename(keys)[!is.na(months)]
+    #xl_uptime_mos <- dmy(paste("1", months[!is.na(months)]))
 
     # xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
     # xl_uptime_fns <- conf$xl_uptime$filenames
     # xl_uptime_mos <- conf$xl_uptime$months
 
-
-    man_xl <- purrr::map2(
-        xl_uptime_fns,
-        xl_uptime_mos,
-        get_det_uptime_from_manual_xl
-    ) %>%
+    man_xl <- lapply(keys, 
+           function(k) {
+               get_det_uptime_from_manual_xl(
+                   bucket = "gdot-spm", 
+                   key = k, 
+                   corridors = all_corridors)
+            }) %>%
         bind_rows() %>%
-        mutate(Zone_Group = factor(Zone_Group)) %>%
-        filter(Month >= report_start_date)
+        filter(!is.na(Zone_Group)) %>%
+        mutate(Corridor = factor(Corridor))
+    
+    # man_xl <- purrr::map2(
+    #     xl_uptime_fns,
+    #     xl_uptime_mos,
+    #     get_det_uptime_from_manual_xl
+    # ) %>%
+    #     bind_rows() %>%
+    #     mutate(Zone_Group = factor(Zone_Group)) %>%
+    #     filter(Month >= report_start_date)
 
     man_veh_xl <- man_xl %>% filter(Type == "Vehicle")
     man_ped_xl <- man_xl %>% filter(Type == "Pedestrian")
@@ -1156,6 +1152,12 @@ tryCatch({
         dplyr::select(-c(Zone_Group, Type)) %>%
         get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
 
+    saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
+    saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
+    
+    
+    # # CCTV UPTIME From 511 and Encoders
+    
     daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime")
     daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders")
 
@@ -1211,10 +1213,7 @@ tryCatch({
     cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(weekly_cctv_uptime, all_corridors, "uptime", "num")
     cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(monthly_cctv_uptime, all_corridors, "uptime", "num")
 
-    saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
-    saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
-
-
+    
     saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
     saveRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds")
     saveRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds")
@@ -1250,90 +1249,127 @@ tryCatch({
         bucket = "gdot-spm",
         teams_locations_key = "mark/teams/teams_locations.feather",
         archived_tasks_prefix = "mark/teams/tasks20",
-        current_tasks_key = "mark/teams/tasks.csv.zip"
-    ) %>%
-        filter(`Date Reported` >= ymd(report_start_date) &
-                   `Date Reported` <= ymd(report_end_date))
-    
-
-    # saveRDS(teams, "teams.rds")
-    #------------------------------------------------------------------------------
-
-
-    type_table <- get_outstanding_events(teams, "Task_Type", spatial_grouping = "Zone_Group") %>%
-        bind_rows(get_outstanding_events(teams, "Task_Type", spatial_grouping = "Corridor") %>%
-            rename(Zone_Group = Corridor)) %>%
-        mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
-        group_by(Zone_Group, Task_Type, Month) %>%
-        summarize_all(sum) %>%
-        ungroup() %>%
-        mutate(Task_Type = factor(Task_Type))
-
-    subtype_table <- get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Zone_Group") %>%
-        bind_rows(get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Corridor") %>%
-            rename(Zone_Group = Corridor)) %>%
-        mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
-        group_by(Zone_Group, Task_Subtype, Month) %>%
-        summarize_all(sum) %>%
-        ungroup() %>%
-        mutate(Task_Subtype = factor(Task_Subtype))
-
-    source_table <- get_outstanding_events(teams, "Task_Source", spatial_grouping = "Zone_Group") %>%
-        bind_rows(get_outstanding_events(teams, "Task_Source", spatial_grouping = "Corridor") %>%
-            rename(Zone_Group = Corridor)) %>%
-        mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
-        group_by(Zone_Group, Task_Source, Month) %>%
-        summarize_all(sum) %>%
-        ungroup() %>%
-        mutate(Task_Source = factor(Task_Source))
-
-    priority_table <- get_outstanding_events(teams, "Priority", spatial_grouping = "Zone_Group") %>%
-        bind_rows(get_outstanding_events(teams, "Priority", spatial_grouping = "Corridor") %>%
-            rename(Zone_Group = Corridor)) %>%
-        group_by(Zone_Group, Priority, Month) %>%
-        summarize_all(sum) %>%
-        ungroup() %>%
-        mutate(Priority = factor(Priority))
-
-    all_teams_table <- get_outstanding_events(teams, "All", spatial_grouping = "Zone_Group") %>%
-        bind_rows(get_outstanding_events(teams, "All", spatial_grouping = "Corridor") %>%
-            rename(Zone_Group = Corridor)) %>%
-        group_by(Zone_Group, All, Month) %>%
-        summarize_all(sum) %>%
-        ungroup() %>%
-        mutate(All = factor(All))
-
-    teams_tables <- list(
-        "type" = type_table,
-        "subtype" = subtype_table,
-        "source" = source_table,
-        "priority" = priority_table,
-        "all" = all_teams_table
+        current_tasks_key = "mark/teams/tasks.csv.zip",
+        replicate = TRUE
     )
+    
+    tasks_by_type <- get_outstanding_tasks_by_param(
+        teams, "Task_Type", report_start_date)
+    tasks_by_subtype <- get_outstanding_tasks_by_param(
+        teams, "Task_Subtype", report_start_date)
+    tasks_by_priority <- get_outstanding_tasks_by_param(
+        teams, "Priority", report_start_date)
+    tasks_by_source <- get_outstanding_tasks_by_param(
+        teams, "Task_Source", report_start_date)
+    tasks_all <- get_outstanding_tasks_by_param(
+        teams, "All", report_start_date)
 
-    saveRDS(teams_tables, "teams_tables.rds", version = 2)
-
-
-    cor_monthly_events <- teams_tables$all %>%
-        ungroup() %>%
-        transmute(
-            Corridor = Zone_Group,
-            Zone_Group = Zone_Group,
-            Month = Month,
-            Reported = Rep,
-            Resolved = Res,
-            Outstanding = outstanding
+    cor_outstanding_tasks_by_day_range <- lapply(
+        dates, function(x) get_outstanding_tasks_by_day_range(teams, report_start_date, x)
         ) %>%
-        arrange(Corridor, Zone_Group, Month) %>%
-        group_by(Corridor, Zone_Group) %>%
+        bind_rows() %>%
+        mutate(Zone_Group = factor(Zone_Group),
+                   Corridor = factor(Corridor)) %>%
+        
+        arrange(Zone_Group, Corridor, Month) %>%
+        group_by(Zone_Group, Corridor) %>% 
         mutate(
-            delta.rep = (Reported - lag(Reported)) / lag(Reported),
-            delta.res = (Resolved - lag(Resolved)) / lag(Resolved),
-            delta.out = (Outstanding - lag(Outstanding)) / lag(Outstanding)
+            delta.over45 = (over45 - lag(over45))/lag(over45),
+            delta.mttr = (mttr - lag(mttr))/lag(mttr)
         ) %>%
         ungroup()
+    
+    sig_outstanding_tasks_by_day_range <- cor_outstanding_tasks_by_day_range %>% 
+        group_by(Corridor) %>% 
+        filter(as.character(Zone_Group) == min(as.character(Zone_Group))) %>%
+        mutate(Zone_Group = Corridor) %>%
+        filter(Corridor %in% all_corridors$Corridor) %>%
+        ungroup()
+    
+    saveRDS(tasks_by_type, "tasks_by_type.rds") 
+    saveRDS(tasks_by_subtype, "tasks_by_subtype.rds") 
+    saveRDS(tasks_by_priority, "tasks_by_priority.rds") 
+    saveRDS(tasks_by_source, "tasks_by_source.rds") 
+    saveRDS(tasks_all, "tasks_all.rds") 
+    saveRDS(cor_outstanding_tasks_by_day_range, "cor_tasks_by_date.rds")
+    saveRDS(sig_outstanding_tasks_by_day_range, "sig_tasks_by_date.rds")
 
-    saveRDS(cor_monthly_events, "cor_monthly_events.rds")
+
+
+    # type_table <- get_outstanding_events(teams, "Task_Type", spatial_grouping = "Zone_Group") %>%
+    #     bind_rows(get_outstanding_events(teams, "Task_Type", spatial_grouping = "Corridor") %>%
+    #         rename(Zone_Group = Corridor)) %>%
+    #     mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
+    #     group_by(Zone_Group, Task_Type, Month) %>%
+    #     summarize_all(sum) %>%
+    #     ungroup() %>%
+    #     mutate(Task_Type = factor(Task_Type))
+    # 
+    # subtype_table <- get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Zone_Group") %>%
+    #     bind_rows(get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Corridor") %>%
+    #         rename(Zone_Group = Corridor)) %>%
+    #     mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
+    #     group_by(Zone_Group, Task_Subtype, Month) %>%
+    #     summarize_all(sum) %>%
+    #     ungroup() %>%
+    #     mutate(Task_Subtype = factor(Task_Subtype))
+    # 
+    # source_table <- get_outstanding_events(teams, "Task_Source", spatial_grouping = "Zone_Group") %>%
+    #     bind_rows(get_outstanding_events(teams, "Task_Source", spatial_grouping = "Corridor") %>%
+    #         rename(Zone_Group = Corridor)) %>%
+    #     mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
+    #     group_by(Zone_Group, Task_Source, Month) %>%
+    #     summarize_all(sum) %>%
+    #     ungroup() %>%
+    #     mutate(Task_Source = factor(Task_Source))
+    # 
+    # priority_table <- get_outstanding_events(teams, "Priority", spatial_grouping = "Zone_Group") %>%
+    #     bind_rows(get_outstanding_events(teams, "Priority", spatial_grouping = "Corridor") %>%
+    #         rename(Zone_Group = Corridor)) %>%
+    #     group_by(Zone_Group, Priority, Month) %>%
+    #     summarize_all(sum) %>%
+    #     ungroup() %>%
+    #     mutate(Priority = factor(Priority))
+    # 
+    # all_teams_table <- get_outstanding_events(teams, "All", spatial_grouping = "Zone_Group") %>%
+    #     bind_rows(get_outstanding_events(teams, "All", spatial_grouping = "Corridor") %>%
+    #         rename(Zone_Group = Corridor)) %>%
+    #     group_by(Zone_Group, All, Month) %>%
+    #     summarize_all(sum) %>%
+    #     ungroup() %>%
+    #     mutate(All = factor(All))
+    # 
+    # teams_tables <- list(
+    #     "type" = type_table,
+    #     "subtype" = subtype_table,
+    #     "source" = source_table,
+    #     "priority" = priority_table,
+    #     "all" = all_teams_table
+    # )
+    # 
+    # saveRDS(teams_tables, "teams_tables.rds", version = 2)
+    # 
+    # 
+    # cor_monthly_events <- teams_tables$all %>%
+    #     ungroup() %>%
+    #     transmute(
+    #         Corridor = Zone_Group,
+    #         Zone_Group = Zone_Group,
+    #         Month = Month,
+    #         Reported = Rep,
+    #         Resolved = Res,
+    #         Outstanding = outstanding
+    #     ) %>%
+    #     arrange(Corridor, Zone_Group, Month) %>%
+    #     group_by(Corridor, Zone_Group) %>%
+    #     mutate(
+    #         delta.rep = (Reported - lag(Reported)) / lag(Reported),
+    #         delta.res = (Resolved - lag(Resolved)) / lag(Resolved),
+    #         delta.out = (Outstanding - lag(Outstanding)) / lag(Outstanding)
+    #     ) %>%
+    #     ungroup()
+    # 
+    # saveRDS(cor_monthly_events, "cor_monthly_events.rds")
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
@@ -1501,13 +1537,34 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     }
 }
 
+
+# cor$mo$tasks$outstanding = readRDS("cor_monthly_outstanding_tasks.rds")
+# sig$mo$tasks$outstanding = readRDS("sig_monthly_outstanding_tasks.rds")
+# 
+# cor$mo$tasks$priority = readRDS("cor_monthly_priority.rds")
+# cor$mo$tasks$type = readRDS("cor_monthly_type.rds")
+# cor$mo$tasks$subtype = readRDS("cor_monthly_subtype.rds")
+# cor$mo$tasks$source = readRDS("cor_monthly_source.rds")
+# cor$mo$tasks$all = readRDS("cor_monthly_all.rds")
+# 
+# sig$mo$tasks$priority = readRDS("sig_monthly_priority.rds")
+# sig$mo$tasks$type = readRDS("sig_monthly_type.rds")
+# sig$mo$tasks$subtype = readRDS("sig_monthly_subtype.rds")
+# sig$mo$tasks$source = readRDS("sig_monthly_source.rds")
+# sig$mo$tasks$all = readRDS("sig_monthly_all.rds")
+
 tryCatch({
     cor <- list()
     cor$dy <- list(
         "du" = readRDS("cor_avg_daily_detector_uptime.rds"),
         "cu" = readRDS("cor_daily_comm_uptime.rds"),
         "pau" = readRDS("cor_daily_pa_uptime.rds"),
-        "cctv" = readRDS("cor_daily_cctv_uptime.rds")
+        "cctv" = readRDS("cor_daily_cctv_uptime.rds"),
+        "ttyp" = readRDS("tasks_by_type.rds")$cor_daily,
+        "tsub" = readRDS("tasks_by_subtype.rds")$cor_daily,
+        "tpri" = readRDS("tasks_by_priority.rds")$cor_daily,
+        "tsou" = readRDS("tasks_by_source.rds")$cor_daily,
+        "tasks" = readRDS("tasks_all.rds")$cor_daily
     )
     cor$wk <- list(
         "vpd" = readRDS("cor_weekly_vpd.rds"),
@@ -1552,7 +1609,16 @@ tryCatch({
         "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
         "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
         "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
-        "events" = readRDS("cor_monthly_events.rds")
+        #"events" = readRDS("cor_monthly_events.rds"),
+        "ttyp" = readRDS("tasks_by_type.rds")$cor_monthly,
+        "tsub" = readRDS("tasks_by_subtype.rds")$cor_monthly,
+        "tpri" = readRDS("tasks_by_priority.rds")$cor_monthly,
+        "tsou" = readRDS("tasks_by_source.rds")$cor_monthly,
+        "tasks" = readRDS("tasks_all.rds")$cor_monthly,
+        "over45" = readRDS("cor_tasks_by_date.rds") %>%
+            transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
+        "mttr" = readRDS("cor_tasks_by_date.rds") %>%
+            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr)
     )
     cor$qu <- list(
         "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
@@ -1573,9 +1639,14 @@ tryCatch({
         "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
         "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
         "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
-        "reported" = get_quarterly(cor$mo$events, "Reported"),
-        "resolved" = get_quarterly(cor$mo$events, "Resolved"),
-        "outstanding" = get_quarterly(cor$mo$events, "Outstanding", operation = "latest")
+        #"reported" = get_quarterly(cor$mo$events, "Reported"),
+        #"resolved" = get_quarterly(cor$mo$events, "Resolved"),
+        #"outstanding" = get_quarterly(cor$mo$events, "Outstanding", operation = "latest")
+        "reported" = get_quarterly(cor$mo$tasks, "Reported"),
+        "resolved" = get_quarterly(cor$mo$tasks, "Resolved"),
+        "outstanding" = get_quarterly(cor$mo$tasks, "Outstanding", operation = "latest"),
+        "over45" = get_quarterly(cor$mo$over45, "over45", operation = "latest"),
+        "mttr" = get_quarterly(cor$mo$mttr, "mttr", operation = "latest")
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1691,7 +1762,12 @@ tryCatch({
         "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, up)
+            select(Zone_Group, Corridor, Date, up),
+        "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
+        "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
+        "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
+        "tsou" = readRDS("tasks_by_source.rds")$sig_daily,
+        "tasks" = readRDS("tasks_all.rds")$sig_daily
     )
     sig$wk <- list(
         "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
@@ -1771,7 +1847,16 @@ tryCatch({
         "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors) %>%
             select(Zone_Group, Corridor, Month, uptime, delta),
         "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Month, uptime, delta)
+            select(Zone_Group, Corridor, Month, uptime, delta),
+        "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
+        "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
+        "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
+        "tsou" = readRDS("tasks_by_source.rds")$sig_monthly,
+        "tasks" = readRDS("tasks_all.rds")$sig_monthly,
+        "over45" = readRDS("sig_tasks_by_date.rds") %>%
+            transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
+        "mttr" = readRDS("sig_tasks_by_date.rds") %>%
+            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr)
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
