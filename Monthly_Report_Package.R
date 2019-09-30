@@ -1411,7 +1411,6 @@ tryCatch({
 
     # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
 
-
     bad_det_filename <- "bad_detectors.fst"
     write_fst(bad_det, bad_det_filename)
     aws.s3::put_object(bad_det_filename,
