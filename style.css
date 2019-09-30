@@ -3,16 +3,18 @@
 @import url(//fonts.googleapis.com/css?family=Josefin+Sans); /*:700*/
 /*@import url('https://fonts.googleapis.com/css?family=Fira+Sans:500|Noto+Sans:400&display=swap');*/
 
+/*
 @font-face { 
   font-family: "Open Sans";
   src: url(OpenSans-Regular.ttf);
 }
 @font-face {  
   font-family: "Open Sans";
-  /*font-style: bold;*/
+  /*font-style: bold;/
   font-weight: bold;
   src: url(OpenSans-Bold.ttf);
 }
+*/
 
 .navbar {
   background-color:#045594; /*#256194;*/
@@ -44,7 +46,7 @@
     background-color:#2d6797;
 }
 
-/* From Watchdog App */
+/* From Watchdog App * /
 .form-control {
   font-size: 12px;
 }
@@ -54,7 +56,7 @@
 .input-daterange {
   font-size: 12px;
 }
-
+*/
 .tabbable {
   margin-left: 20px;  
 }

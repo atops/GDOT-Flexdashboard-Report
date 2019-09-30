@@ -1,8 +1,8 @@
 
 # Monthly_Report config file (yaml format)
 
-mode: production
-#mode: beta
+#mode: production
+mode: beta
 
 
 # Sections of Monthly_Report_Calcs_ec2 to run
@@ -20,10 +20,10 @@ run:
 start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2018-07-01
+report_start_date: 2018-08-01
 report_end_date: yesterday
 
-production_report_end_date: 2019-07-01
+production_report_end_date: 2019-08-01
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: Corridors_Latest.xlsx
