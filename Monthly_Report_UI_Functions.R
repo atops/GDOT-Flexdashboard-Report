@@ -124,32 +124,32 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    corridors %<-% aws.s3::s3read_using(
+    corridors <- aws.s3::s3read_using(
         read_feather, 
         object = "all_corridors.feather", 
         bucket = "gdot-spm")
-    cor %<-% aws.s3::s3readRDS(
+    cor <- aws.s3::s3readRDS(
         object = "cor_ec2.rds", 
         bucket = "gdot-spm",
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sig %<-% aws.s3::s3readRDS(
+    sig <- aws.s3::s3readRDS(
         object = "sig_ec2.rds", 
         bucket = "gdot-spm",
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sub %<-% aws.s3::s3readRDS(
+    sub <- aws.s3::s3readRDS(
         object = "sub_ec2.rds", 
         bucket = "gdot-spm",
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    teams_tables %<-% aws.s3::s3readRDS(
+    teams_tables <- aws.s3::s3readRDS(
         object = "teams_tables_ec2.rds", 
         bucket = "gdot-spm",
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     
-    alerts %<-% aws.s3::s3readRDS(
+    alerts <- aws.s3::s3readRDS(
         object = "mark/watchdog/alerts.rds", 
         bucket = "gdot-spm",
         key = Sys.getenv("AWS_ACCESS_KEY_ID"),
@@ -1330,7 +1330,7 @@ plot_teams_tasks_ <- function(tab, var_,
                             zeroline = FALSE),
                margin = list(pad = 4))
     subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
-        layout(title = title_)
+        layout(title = title_, titlefont = list(size = 12))
 }
 plot_teams_tasks <- memoise(plot_teams_tasks_)
 
@@ -1415,7 +1415,8 @@ cum_events_plot_ <- function(df) {
                   showlegend = FALSE) %>%
         layout(barmode = "group",
                yaxis = list(title = "Events"),
-               xaxis = list(title = ""))
+               xaxis = list(title = ""),
+               legend = list(x = 0.8, y = 0.9))
 }
 cum_events_plot <- memoise(cum_events_plot_)
 
