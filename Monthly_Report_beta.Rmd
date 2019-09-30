@@ -267,6 +267,12 @@ mr_str <- reactive(
 # renderText({"mr()"})
 # renderPrint({mr_str()})
 
+# renderText({"env"})
+# renderPrint({Sys.getenv("AWS_ACCESS_KEY_ID")})
+# 
+# renderText({"conf"})
+# renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
+
 ```
 
 
@@ -2195,6 +2201,37 @@ renderValueBox({
 })
 ```
 
+### TEAMS Tasks Over 45 Days [Unresolved] {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$over45, 
+            "over45", as_int, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = FALSE),
+        icon = "fa-area-chart"
+    )
+})
+```
+
+### TEAMS Tasks Mean Time to Resolve [Days] {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$mttr, 
+            "mttr", as_2dec, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = FALSE),
+        icon = "fa-area-chart"
+    )
+})
+```
 
 Row {.tabset .tabset-fade data-height=800}
 ------------------------------------------

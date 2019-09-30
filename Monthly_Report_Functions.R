@@ -3500,7 +3500,9 @@ tidy_teams_tasks <- function(tasks, locations, replicate = FALSE) {
     tasks <- tasks %>%
         dplyr::select(-`Maintained by`) %>%
         left_join(locations, by = c("LocationId")) %>%
-        filter(!is.na(m)) %>%
+        filter(!is.na(m),
+               `Date Reported` < today(),
+               (`Date Resolved` < today() | is.na(`Date Resolved`))) %>%
         mutate(SignalID = factor(SignalID)) %>%
         left_join(corridors, by = c("SignalID"))
     
@@ -3859,7 +3861,7 @@ get_outstanding_tasks_by_param <- function(teams, task_param, report_start_date)
     sig_monthly_outstanding_tasks <- get_outstanding_tasks_by_month(sig_daily_outstanding_tasks, task_param_)
     
     # Return Value
-    list("cor_daily" = corridor_daily_outstanding_tasks, 
+    list("cor_daily" = cor_daily_outstanding_tasks, 
          "sig_daily" = sig_daily_outstanding_tasks, 
          "cor_monthly" = cor_monthly_outstanding_tasks, 
          "sig_monthly" = sig_monthly_outstanding_tasks)
@@ -3887,7 +3889,7 @@ get_outstanding_tasks_by_day_range <- function(teams, report_start_date, first_o
     
     mttr <- teams %>%
         filter(`Date Reported` <= last_day,
-               `Date Resolved` > last_day,
+               `Date Resolved` < last_day,
                `Date Reported` > report_start_date,
                !is.na(`Date Resolved`)) %>% 
         mutate(
