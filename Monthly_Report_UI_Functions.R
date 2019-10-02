@@ -1330,7 +1330,8 @@ plot_teams_tasks_ <- function(tab, var_,
                             zeroline = FALSE),
                margin = list(pad = 4))
     subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
-        layout(title = title_, titlefont = list(size = 12))
+        #layout(title = title_, titlefont = list(size = 12))
+        layout(title = list(text = title_, font = list(size = 12)))
 }
 plot_teams_tasks <- memoise(plot_teams_tasks_)
 
@@ -1416,7 +1417,7 @@ cum_events_plot_ <- function(df) {
         layout(barmode = "group",
                yaxis = list(title = "Events"),
                xaxis = list(title = ""),
-               legend = list(x = 0.8, y = 0.9))
+               legend = list(x = 0.5, y = 0.9, orientation = "h"))
 }
 cum_events_plot <- memoise(cum_events_plot_)
 
