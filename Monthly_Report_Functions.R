@@ -514,7 +514,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
     df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
 
         # Get the last modified record for the Signal|Zone|Corridor combination
-        replace_na(list=(Modified=ymd("1900-01-01"))) %>% 
+        replace_na(replace = list(Modified = ymd("1900-01-01"))) %>% 
         group_by(SignalID, Zone, Corridor) %>% 
         filter(Modified == max(Modified)) %>% 
         ungroup() %>%
@@ -1232,108 +1232,7 @@ get_det_config_vol <- function(date_) {
 
 # Multidplyr. Uses a local cluster to partition and parallelize
 # interval (e.g., "1 hour", "15 min")
-get_filtered_counts <- function(counts, interval = "1 hour") {
-    
-    if (interval == "1 hour") {
-        max_volume <- 1000
-        max_delta <- 500
-        max_abs_delta <- 200
-    } else if (interval == "15 min") {
-        max_volume <- 250
-        max_delta <- 125
-        max_abs_delta <- 50
-    } else {
-        stop("interval must be '1 hour' or '15 min'")
-    }
-    
-    counts <- counts %>%
-        ungroup() %>%
-        mutate(SignalID = factor(SignalID),
-               Detector = factor(Detector),
-               CallPhase = factor(CallPhase)) %>%
-        filter(!is.na(CallPhase))
-    
-    # Identify detectors/phases from detector config file. Expand.
-    #  This ensures all detectors are included in the bad detectors calculation.
-    all_days <- unique(date(counts$Timeperiod))
-    det_config <- lapply(all_days, function(d) {
-        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), 
-                               ymd_hms(paste(d, "23:59:00")), 
-                               by = interval)
-        #tz(all_timeperiods) <- "America/New_York"
-        get_det_config(d) %>%
-            expand(nesting(SignalID, Detector, CallPhase), 
-                   Timeperiod = all_timeperiods)
-    }) %>% bind_rows() %>%
-        transmute(SignalID = factor(SignalID),
-                  Timeperiod = Timeperiod,
-                  Detector = factor(Detector),
-                  CallPhase = factor(CallPhase)) 
-    
-    
-    expanded_counts <- full_join(det_config, counts) %>%
-        transmute(SignalID = factor(SignalID), 
-                  Date = date(Timeperiod),
-                  Timeperiod = Timeperiod,
-                  Detector = factor(Detector), 
-                  CallPhase = factor(CallPhase),
-                  vol = as.double(vol),
-                  vol0 = if_else(is.na(vol), 0.0, vol)) %>%
-        arrange(SignalID, CallPhase, Detector, Timeperiod)
-    
-    cluster <- create_cluster(min(2, usable_cores))
-    set_default_cluster(cluster)
-    
-    ec <- partition(expanded_counts, SignalID, CallPhase, Detector)
-    cluster_assign_value(cluster, "max_volume", max_volume)
-    cluster_assign_value(cluster, "max_delta", max_delta)
-    cluster_assign_value(cluster, "max_abs_delta", max_abs_delta)
-    cluster_library(cluster, list("lubridate", "dplyr"))
-    
-    ec <- ec %>% 
-        mutate(delta_vol = vol0 - lag(vol0),
-               Good = ifelse(is.na(vol) | 
-                                 vol > max_volume | 
-                                 is.na(delta_vol) | 
-                                 abs(delta_vol) > max_delta | 
-                                 abs(delta_vol) == 0,
-                             0, 1)) %>%
-        dplyr::select(-vol0)
-    
-    expanded_counts <- ec %>% 
-        collect() %>%
-        ungroup()
-    
-    # bad day = any of the following:
-    #    too many bad hours (60%) based on the above criteria
-    #    mean absolute change in hourly volume > 200 
-    bad_days <- expanded_counts  %>%
-        filter(hour(Timeperiod) >= 5) %>%
-        partition(SignalID, CallPhase, Detector, Date) %>% 
-        summarize(Good = sum(Good, na.rm = TRUE), 
-                  All = n(), 
-                  Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
-        collect() %>%
-        ungroup() %>%
-        
-        # manually calibrated
-        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < max_abs_delta, 1, 0))) %>%
-        dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
-    
-    
-    # counts with the bad days taken out
-    filtered_counts <- left_join(expanded_counts, bad_days) %>%
-        mutate(vol = if_else(Good_Day==1, vol, as.double(NA)),
-               Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
-               Hour = Month_Hour - months(month(Month_Hour) - 1)) %>%
-        ungroup()
-    
-    filtered_counts
-}
-
-# Single threaded
-# get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+# get_filtered_counts <- function(counts, interval = "1 hour") {
 #     
 #     if (interval == "1 hour") {
 #         max_volume <- 1000
@@ -1348,6 +1247,7 @@ get_filtered_counts <- function(counts, interval = "1 hour") {
 #     }
 #     
 #     counts <- counts %>%
+#         ungroup() %>%
 #         mutate(SignalID = factor(SignalID),
 #                Detector = factor(Detector),
 #                CallPhase = factor(CallPhase)) %>%
@@ -1357,7 +1257,10 @@ get_filtered_counts <- function(counts, interval = "1 hour") {
 #     #  This ensures all detectors are included in the bad detectors calculation.
 #     all_days <- unique(date(counts$Timeperiod))
 #     det_config <- lapply(all_days, function(d) {
-#         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
+#         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), 
+#                                ymd_hms(paste(d, "23:59:00")), 
+#                                by = interval)
+#         #tz(all_timeperiods) <- "America/New_York"
 #         get_det_config(d) %>%
 #             expand(nesting(SignalID, Detector, CallPhase), 
 #                    Timeperiod = all_timeperiods)
@@ -1376,38 +1279,48 @@ get_filtered_counts <- function(counts, interval = "1 hour") {
 #                   CallPhase = factor(CallPhase),
 #                   vol = as.double(vol),
 #                   vol0 = if_else(is.na(vol), 0.0, vol)) %>%
-#         group_by(SignalID, CallPhase, Detector) %>% 
-#         arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
-#         
-#         mutate(delta_vol = vol0 - lag(vol0)) %>% 
-#         ungroup() %>% 
-#         mutate(Good = ifelse(is.na(vol) |
-#                                  vol > max_volume |
-#                                  is.na(delta_vol) |
-#                                  abs(delta_vol) > max_delta |
+#         arrange(SignalID, CallPhase, Detector, Timeperiod)
+#     
+#     cluster <- create_cluster(min(2, usable_cores))
+#     set_default_cluster(cluster)
+#     
+#     ec <- partition(expanded_counts, SignalID, CallPhase, Detector)
+#     cluster_assign_value(cluster, "max_volume", max_volume)
+#     cluster_assign_value(cluster, "max_delta", max_delta)
+#     cluster_assign_value(cluster, "max_abs_delta", max_abs_delta)
+#     cluster_library(cluster, list("lubridate", "dplyr"))
+#     
+#     ec <- ec %>% 
+#         mutate(delta_vol = vol0 - lag(vol0),
+#                Good = ifelse(is.na(vol) | 
+#                                  vol > max_volume | 
+#                                  is.na(delta_vol) | 
+#                                  abs(delta_vol) > max_delta | 
 #                                  abs(delta_vol) == 0,
 #                              0, 1)) %>%
-#         dplyr::select(-vol0) %>%
+#         dplyr::select(-vol0)
+#     
+#     expanded_counts <- ec %>% 
+#         collect() %>%
 #         ungroup()
-#     
-#     
-#     
 #     
 #     # bad day = any of the following:
 #     #    too many bad hours (60%) based on the above criteria
 #     #    mean absolute change in hourly volume > 200 
-#     bad_days <- expanded_counts %>% 
+#     bad_days <- expanded_counts  %>%
 #         filter(hour(Timeperiod) >= 5) %>%
-#         group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
+#         partition(SignalID, CallPhase, Detector, Date) %>% 
 #         summarize(Good = sum(Good, na.rm = TRUE), 
 #                   All = n(), 
 #                   Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-#                   mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>%
-#         ungroup() %>% 
+#                   mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
+#         collect() %>%
+#         ungroup() %>%
 #         
 #         # manually calibrated
 #         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < max_abs_delta, 1, 0))) %>%
 #         dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
+#     
 #     
 #     # counts with the bad days taken out
 #     filtered_counts <- left_join(expanded_counts, bad_days) %>%
@@ -1418,6 +1331,93 @@ get_filtered_counts <- function(counts, interval = "1 hour") {
 #     
 #     filtered_counts
 # }
+
+# Single threaded
+get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+
+    if (interval == "1 hour") {
+        max_volume <- 1000
+        max_delta <- 500
+        max_abs_delta <- 200
+    } else if (interval == "15 min") {
+        max_volume <- 250
+        max_delta <- 125
+        max_abs_delta <- 50
+    } else {
+        stop("interval must be '1 hour' or '15 min'")
+    }
+
+    counts <- counts %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase)) %>%
+        filter(!is.na(CallPhase))
+
+    # Identify detectors/phases from detector config file. Expand.
+    #  This ensures all detectors are included in the bad detectors calculation.
+    all_days <- unique(date(counts$Timeperiod))
+    det_config <- lapply(all_days, function(d) {
+        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
+        get_det_config(d) %>%
+            expand(nesting(SignalID, Detector, CallPhase),
+                   Timeperiod = all_timeperiods)
+    }) %>% bind_rows() %>%
+        transmute(SignalID = factor(SignalID),
+                  Timeperiod = Timeperiod,
+                  Detector = factor(Detector),
+                  CallPhase = factor(CallPhase))
+
+
+    expanded_counts <- full_join(det_config, counts) %>%
+        transmute(SignalID = factor(SignalID),
+                  Date = date(Timeperiod),
+                  Timeperiod = Timeperiod,
+                  Detector = factor(Detector),
+                  CallPhase = factor(CallPhase),
+                  vol = as.double(vol),
+                  vol0 = if_else(is.na(vol), 0.0, vol)) %>%
+        group_by(SignalID, CallPhase, Detector) %>%
+        arrange(SignalID, CallPhase, Detector, Timeperiod) %>%
+
+        mutate(delta_vol = vol0 - lag(vol0)) %>%
+        ungroup() %>%
+        mutate(Good = ifelse(is.na(vol) |
+                                 vol > max_volume |
+                                 is.na(delta_vol) |
+                                 abs(delta_vol) > max_delta |
+                                 abs(delta_vol) == 0,
+                             0, 1)) %>%
+        dplyr::select(-vol0) %>%
+        ungroup()
+
+
+
+
+    # bad day = any of the following:
+    #    too many bad hours (60%) based on the above criteria
+    #    mean absolute change in hourly volume > 200
+    bad_days <- expanded_counts %>%
+        filter(hour(Timeperiod) >= 5) %>%
+        group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>%
+        summarize(Good = sum(Good, na.rm = TRUE),
+                  All = n(),
+                  Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
+                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>%
+        ungroup() %>%
+
+        # manually calibrated
+        mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < max_abs_delta, 1, 0))) %>%
+        dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
+
+    # counts with the bad days taken out
+    filtered_counts <- left_join(expanded_counts, bad_days) %>%
+        mutate(vol = if_else(Good_Day==1, vol, as.double(NA)),
+               Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
+               Hour = Month_Hour - months(month(Month_Hour) - 1)) %>%
+        ungroup()
+
+    filtered_counts
+}
 
 
 get_adjusted_counts <- function(filtered_counts) {
