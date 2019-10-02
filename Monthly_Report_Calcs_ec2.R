@@ -115,6 +115,14 @@ if (conf$run$cctv == TRUE) {
     system("python parse_cctvlog_encoders.py", wait = FALSE) # Run python script asynchronously
 }
 
+# # GET RSU UPTIMES ###########################################################
+
+print(glue("{Sys.time()} parse rsu logs [1.1 of 10]"))
+
+if (conf$run$rsus == TRUE) {
+    system("python parse_rsus.py", wait = FALSE) # Run python script asynchronously
+}
+
 # # TRAVEL TIMES FROM RITIS API ###############################################
 
 print(glue("{Sys.time()} travel times [2 of 10]"))
