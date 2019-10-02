@@ -2279,7 +2279,7 @@ fillRow(
         
     fillCol(
         renderPlotly({ 
-            data.set <- filter(cor$mo$tsub, 
+            data.set <- filter(mr()$mo$tsub, 
                                Zone_Group == zone_group(), 
                                Corridor == zone_group(),
                                Month == current_month(),
