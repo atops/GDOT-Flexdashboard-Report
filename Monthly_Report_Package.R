@@ -174,13 +174,6 @@ print(glue("{Sys.time()} Ped Detector Uptime [2 of 22]"))
 
 tryCatch({
 
-    # cb <- function(x) {
-    #     x %>%
-    #         replace_na(list(CallPhase = 0)) %>%
-    #         mutate(Date = date(Date)) %>%
-    #         get_pau()
-    # }
-
     papd <- s3_read_parquet_parallel(
         bucket = "gdot-spm",
         table_name = "ped_actuations_pd",
@@ -198,6 +191,14 @@ tryCatch({
     
     pau <- get_pau(papd)
 
+    # We have do to this here rather than in Monthly_Report_Calcs
+    # because we need the whole time series to calculate ped detector uptime
+    # based on the exponential distribution method.
+    bad_ped_detectors <- get_bad_ped_detectors(pau)
+    s3_upload_parquet_date_split(
+       bad_ped_detectors,
+       prefix = "bad_ped_detectors",
+       table_name = "bad_ped_detectors")
 
     daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
     cor_daily_pa_uptime %<-% 
