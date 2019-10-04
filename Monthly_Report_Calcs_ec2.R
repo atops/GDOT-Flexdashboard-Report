@@ -216,12 +216,19 @@ get_counts_based_measures <- function(month_abbrs) {
                 # BAD DETECTORS
                 print(glue("detectors: {date_}"))
                 bad_detectors <- get_bad_detectors(filtered_counts_1hr)
-                s3_upload_parquet_date_split(bad_detectors, prefix = "bad_detectors", table_name = "bad_detectors")
+                s3_upload_parquet_date_split(
+                    bad_detectors, 
+                    prefix = "bad_detectors", 
+                    table_name = "bad_detectors")
 
                 # DAILY DETECTOR UPTIME
                 print(glue("ddu: {date_}"))
-                daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>% bind_rows()
-                s3_upload_parquet_date_split(daily_detector_uptime, prefix = "ddu", table_name = "detector_uptime_pd")
+                daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>% 
+                    bind_rows()
+                s3_upload_parquet_date_split(
+                    daily_detector_uptime, 
+                    prefix = "ddu", 
+                    table_name = "detector_uptime_pd")
 
                 rm(filtered_counts_1hr)
                 gc()
