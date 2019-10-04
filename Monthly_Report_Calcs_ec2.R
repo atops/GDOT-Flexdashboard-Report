@@ -336,7 +336,18 @@ get_counts_based_measures <- function(month_abbrs) {
         # s3_upload_parquet(papd, sd, glue("papd_{yyyy_mm}"), "ped_actuations_pd")
         # write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
         s3_upload_parquet_date_split(papd, prefix = "papd", table_name = "ped_actuations_pd")
+        
+        # DAILY PED DETECTOR UPTIME
+        pau <- get_pau(papd)
+        s3_upload_parquet_date_split(pau, prefix = "pau", table_name = "ped_detector_uptime_pd")
 
+        # BAD PED DETECTORS
+        print(glue("bad ped detectors: {date_}"))
+        bad_ped_detectors <- get_bad_ped_detectors(pau)
+        s3_upload_parquet_date_split(
+            bad_ped_detectors, 
+            prefix = "bad_ped_detectors", 
+            table_name = "bad_ped_detectors")
 
         # PAPH - pedestrian activations per hour
         print("paph")
