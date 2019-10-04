@@ -1544,7 +1544,11 @@ get_bad_detectors <- function(filtered_counts_1hr) {
         filter(Good_Day == 0)
 }
 
-
+get_bad_ped_detectors <- function(pau) {
+    pau %>% 
+        filter(uptime == 0) %>%
+        dplyr::select(SignalID, CallPhase, Date)
+}
 
 # Volume VPD
 get_vpd <- function(counts, mainline_only = TRUE) {
@@ -4353,12 +4357,6 @@ get_pau <- function(df) {
             all = 1
         )
     
-    bad_ped_detectors <- pau %>% 
-        filter(uptime == 0) %>%
-        dplyr::select(SignalID, CallPhase, Date)
-    
-    write_feather(bad_ped_detectors, "bad_ped_detectors.feather")
-
     pau    
 }
 
