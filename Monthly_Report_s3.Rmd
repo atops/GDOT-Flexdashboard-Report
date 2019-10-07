@@ -15,7 +15,7 @@ runtime: shiny
 ---
 
 
-```{r global, cache = FALSE, cache.lazy=FALSE, include = FALSE, warning = FALSE}
+```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
 
 conf_mode <- "production"

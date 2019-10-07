@@ -276,283 +276,6 @@ mr_str <- reactive(
 ```
 
 
-```{r sidebar_older, warning = FALSE, cache = FALSE, eval=FALSE}
-#knitr::opts_chunk$set(
-#    cache.extra = attr(aws.s3::head_object("cor_ec2.rds", "gdot-spm"), "x-amz-version-id")
-#)
-
-# shiny inputs defined here
-
-
-
-selectInput("month", "Month:",
-                       choices = month_options,
-                       selected = month_options[1]) # Default to current month
-
-selectInput("zone_group", "Signal Group:",
-                       choices = zone_group_options,
-                       selected = "All RTOP")
-
-
-
-# DRILL DOWN WITHIN CORRIDORS TO SEE ALL SIGNALS
-conditionalPanel("input.zone_group == 'RTOP1'",
-                 selectInput("corridor_rtop1", "Corridor",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone_Group == "RTOP1")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'RTOP2'",
-                 selectInput("corridor_rtop2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone_Group == "RTOP2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 1'",
-                 selectInput("corridor_z1", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 1")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 2'",
-                 selectInput("corridor_z2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 3'",
-                 selectInput("corridor_z3", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 3")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 4'",
-                 selectInput("corridor_z4", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 4")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 5'",
-                 selectInput("corridor_z5", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 5")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 6'",
-                 selectInput("corridor_z6", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 6")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 7'",
-                 selectInput("corridor_z7", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone %in% c("Zone 7m", "Zone 7d"))$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 7m'",
-                 selectInput("corridor_z7m", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 7m")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 7d'",
-                 selectInput("corridor_z7d", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 7d")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Zone 8'",
-                 selectInput("corridor_z8", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Zone 8")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 1'",
-                 selectInput("corridor_d1", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 1")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 2'",
-                 selectInput("corridor_d2", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 2")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 3'",
-                 selectInput("corridor_d3", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 3")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 4'",
-                 selectInput("corridor_d4", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 4")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 5'",
-                 selectInput("corridor_d5", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 5")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 6'",
-                 selectInput("corridor_d6", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 6")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'District 7'",
-                 selectInput("corridor_d7", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "District 7")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-conditionalPanel("input.zone_group == 'Cobb County'",
-                 selectInput("corridor_cb", "Corridor:",
-                             choices = c("All Corridors", 
-                                         as.character(unique(filter(
-                                             corridors, Zone == "Cobb County")$Corridor
-                                         ))),
-                             selected = "All Corridors"))
-
-current_month <- reactive(lubridate::dmy(paste(1, input$month)))
-current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
-
-
-corridor <- reactive(
-    if (input$zone_group == "RTOP1") {
-        input$corridor_rtop1
-    } else if (input$zone_group == "RTOP2") {
-        input$corridor_rtop2
-    } else if (input$zone_group == "Zone 1") {
-        input$corridor_z1
-    } else if (input$zone_group == "Zone 2") {
-        input$corridor_z2
-    } else if (input$zone_group == "Zone 3") {
-        input$corridor_z3
-    } else if (input$zone_group == "Zone 4") {
-        input$corridor_z4
-    } else if (input$zone_group == "Zone 5") {
-        input$corridor_z5
-    } else if (input$zone_group == "Zone 6") {
-        input$corridor_z6
-    } else if (input$zone_group == "Zone 7") {
-        input$corridor_z7
-    } else if (input$zone_group == "Zone 7m") {
-        input$corridor_z7m
-    } else if (input$zone_group == "Zone 7d") {
-        input$corridor_z7d
-    } else if (input$zone_group == "Zone 8") {
-        input$corridor_z8
-    } else if (input$zone_group == "District 1") {
-        input$corridor_d1
-    } else if (input$zone_group == "District 2") {
-        input$corridor_d2
-    } else if (input$zone_group == "District 3") {
-        input$corridor_d3
-    } else if (input$zone_group == "District 4") {
-        input$corridor_d4
-    } else if (input$zone_group == "District 5") {
-        input$corridor_d5
-    } else if (input$zone_group == "District 6") {
-        input$corridor_d6
-    } else if (input$zone_group == "District 7") {
-        input$corridor_d7
-    } else if (input$zone_group == "Cobb County") {
-        input$corridor_cb
-    } else {
-        "All Corridors"
-    })
-
-    
-zone_group <- reactive(
-    if (corridor() == "All Corridors") {
-        input$zone_group
-    } else {
-        corridor()
-    }
-)
-
-
-mr <- reactive(
-    if (corridor() == "All Corridors") {
-        cor
-    } else {
-        sig
-    }
-)
-
-
-filtered_corridors <- reactive({
-
-    # All RTOP is the union of RTOP1, RTOP2
-    if (input$zone_group == "All RTOP") {
-        corr <- corridors %>% 
-            filter(Zone_Group %in% c("RTOP1", "RTOP2"))
-
-    # Zone 7 is the union of Zone 7m, 7d
-    } else if (input$zone_group == "Zone 7") {
-        corr <- corridors %>% 
-            filter(grepl("^Zone 7", Zone))
-
-    # Zones filter by Zone rather than Zone_Group
-    } else if (startsWith(input$zone_group, "Zone")) {
-        corr <- corridors %>% 
-            filter(Zone %in% input$zone_group)
-
-    } else {
-        corr <- corridors %>% 
-            filter(Zone_Group %in% input$zone_group)
-    }
-
-    if (corridor() != "All Corridors") { # if a specific corridor is selected, filter on that
-        corr %>% filter(Corridor == corridor())
-    } else {
-        corr
-    } %>% select(-Description, -Asof)
-})
-
 
 filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
                                       filtered_corridors()$Name))
@@ -752,9 +475,28 @@ renderValueBox({
 })
 ```
 
-### {.value-box}
+
+### Pedestrian Activations [pa/day] {.value-box}
 
 ```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$papd, 
+            "papd", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            break_ = FALSE),
+      icon = "fa-area-chart",
+      color = BLUE
+  )
+})
+```
+
+
+
+```{r, eval = FALSE}
+### {.value-box}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -1158,9 +900,28 @@ renderValueBox({
 ```
 
 
-### {.value-box}
+### Pedestrian Activations [pa/day] {.value-box}
 
 ```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            cor$qu$papd, 
+            "papd", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), 
+            break_ = FALSE),
+      icon = "fa-area-chart",
+      color = GDOT_YELLOW
+  )
+})
+```
+
+
+
+```{r, eval = FALSE}
+### {.value-box}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -1562,7 +1323,7 @@ fillCol(
     }),renderPlotly({ 
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, 
+        perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
@@ -2028,7 +1789,7 @@ renderPlotly({
      
         get_bar_line_dashboard_plot(
             cor$wk$du,
-            cor$mo$du %>% rename(uptime = uptime),
+            cor$mo$du,
             var_ = "uptime",
             num_format = "percent",
             highlight_color = BLUE,
@@ -2241,7 +2002,7 @@ renderPlotly({
     } else {
         
         get_uptime_plot(
-            sig$dy$ru, 
+            sig$dy$ru %>% filter(Date <= endof_last_month), 
             sig$mo$ru, 
             var_ = "uptime", 
             num_format = "percent", 
@@ -2431,61 +2192,62 @@ zone_links2 <- function(corrs_, current_month_, rtop_) {
 zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"), current_month(), "RTOP1"))
 ```
 
-**RTOP 1**
-
-Zone 1: 
-`r renderUI({get_progress_report_link("SR 13/42/155", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 141S", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 237", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 9-Atlanta", current_month(), "RTOP1")})`
-
-Zone 2: 
-`r renderUI({get_progress_report_link("SR 120W", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 280", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 360", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 3N", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 92", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 9N", current_month(), "RTOP1")})`
-
-Zone 3: 
-`r renderUI({get_progress_report_link("SR 138", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 3S", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("SR 85", current_month(), "RTOP1")})`
-
-Zone 8:
-`r renderUI({get_progress_report_link("SR 92/140", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("Dunwoody-Brookhaven", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link("Sandy Springs", current_month(), "RTOP1")})`
-
-
-**RTOP 2**
-
-Zone 4: 
-`r renderUI({get_progress_report_link("US 278", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 3", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 5", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 6", current_month(), "RTOP2")})`
-
-Zone 5: 
-`r renderUI({get_progress_report_link("SR 10", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 12", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 154", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 155S", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 42", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 8W-DeKalb", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 8W-Ponce", current_month(), "RTOP2")})`
-
-Zone 6: 
-`r renderUI({get_progress_report_link("SR 120E", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 140-Gwinnett", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 141N", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 20", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 8E", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link("SR 9-Alpharetta", current_month(), "RTOP2")})`
-
-Zone 7: 
-`r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
-
+```{r Wrapper for Unused Code, eval = FALSE}
+# **RTOP 1**
+# 
+# Zone 1:
+# `r renderUI({get_progress_report_link("SR 13/42/155", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 141S", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 237", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 9-Atlanta", current_month(), "RTOP1")})`
+# 
+# Zone 2:
+# `r renderUI({get_progress_report_link("SR 120W", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 280", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 360", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 3N", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 92", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 9N", current_month(), "RTOP1")})`
+# 
+# Zone 3:
+# `r renderUI({get_progress_report_link("SR 138", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 3S", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("SR 85", current_month(), "RTOP1")})`
+# 
+# Zone 8:
+# `r renderUI({get_progress_report_link("SR 92/140", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("Dunwoody-Brookhaven", current_month(), "RTOP1")})` |
+# `r renderUI({get_progress_report_link("Sandy Springs", current_month(), "RTOP1")})`
+# 
+# 
+# **RTOP 2**
+# 
+# Zone 4:
+# `r renderUI({get_progress_report_link("US 278", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 3", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 5", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 6", current_month(), "RTOP2")})`
+# 
+# Zone 5:
+# `r renderUI({get_progress_report_link("SR 10", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 12", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 154", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 155S", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 42", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 8W-DeKalb", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 8W-Ponce", current_month(), "RTOP2")})`
+# 
+# Zone 6:
+# `r renderUI({get_progress_report_link("SR 120E", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 140-Gwinnett", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 141N", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 20", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 8E", current_month(), "RTOP2")})` |
+# `r renderUI({get_progress_report_link("SR 9-Alpharetta", current_month(), "RTOP2")})`
+# 
+# Zone 7:
+# `r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
+```
 
 **February 2019 and later**
 
@@ -2497,6 +2259,11 @@ Zone 7:
 `r renderUI({get_progress_report_link_by_zone("Zone 6", current_month(), "RTOP2")})` | 
 `r renderUI({get_progress_report_link_by_zone("Zone 7", current_month(), "RTOP2")})` | 
 `r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
+
+
+### Zone Summaries
+
+Coming soon.
 
 
 
