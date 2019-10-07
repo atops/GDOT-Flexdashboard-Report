@@ -788,14 +788,14 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [beta] {.value-box}
+### Pedestrian Detector Availability {.value-box}
 
 ```{r}
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$pau, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-child",
+      icon = "fa-walking",
     color = BLUE
   )
 })
@@ -809,7 +809,7 @@ renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-child",
+      icon = "fa-walking",
     color = BLUE
   )
 })
@@ -835,12 +835,29 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "ion-paper-airplane", #"fa-user" #
+      icon = "fa-broadcast-tower",
     color = BLUE
   )
 })
 ```
 
+### Roadside Unit (RSU) Uptime {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$ru, 
+            "uptime", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-wifi",  #"fa-user" #
+    color = BLUE
+    )
+})
+```
 
 
 Row {data-height = 50}
@@ -1179,7 +1196,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability [beta] {.value-box}
+### Pedestrian Detector Availability {.value-box}
 
 ```{r}
 
@@ -1189,7 +1206,7 @@ renderValueBox({
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
-    icon = "fa-child",
+    icon = "fa-walking",
       color = GDOT_BLUE
   )
 })
@@ -1205,7 +1222,7 @@ renderValueBox({
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
-    icon = "fa-child",
+    icon = "fa-walking",
       color = GDOT_BLUE_RGB 
   )
 })
@@ -1235,12 +1252,30 @@ renderValueBox({
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
-      icon = "ion-paper-airplane",
+      icon = "fa-broadcast-tower",
       color = GDOT_BLUE_RGB
   )
 })
 ```
 
+### Roadside Unit (RSU) Uptime {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            cor$qu$ru, 
+            "uptime", 
+            as_pct, 
+            zone = zone_group(), 
+            mo = current_month(), 
+            qu = current_quarter(), 
+            break_ = TRUE),
+        icon = "fa-wifi",
+        color = GDOT_BLUE_RGB
+    )
+})
+```
 
 
 Row {data- = 50}
@@ -1308,9 +1343,10 @@ renderValueBox({
         "over45", as_int,
         zone = zone_group(), 
         mo = current_month(), 
+        qu = current_quarter(),
         break_ = FALSE),
     icon = "fa-area-chart",
-    color = BLUE
+    color = GDOT_YELLOW_RGB
   )
 })
 ```
@@ -1325,9 +1361,10 @@ renderValueBox({
         "mttr", as_2dec, 
         zone = zone_group(), 
         mo = current_month(), 
+        qu = current_quarter(),
         break_ = FALSE),
     icon = "fa-area-chart",
-    color = BLUE
+    color = GDOT_YELLOW
   )
 })
 ```
@@ -1511,6 +1548,18 @@ fillCol(
                        goal_ = goal$cu)
     }),
     renderPlotly({ 
+        data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
+        shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        perf_plot_beta(
+            data.set, 
+            "uptime", 
+            "Roadside Unit (RSU)\nUptime\nGoal: 95%", 
+            ORANGE, 
+            format_func = as_pct, 
+            hoverformat = ".1%",
+            fill_color_ = LIGHT_ORANGE,
+            goal_ = goal$cu)
+    }),renderPlotly({ 
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime [test]\nGoal: 95%", ORANGE, 
@@ -1827,9 +1876,8 @@ renderPlotly({ # Good version
 })
 ```
 
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Monthly Change
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
     get_pct_ch_plot(mr()$mo$vpd,
                     month_ = current_month(),
@@ -1837,9 +1885,8 @@ renderPlotly({
 })
 ```
 
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Peak Hour Volumes
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
     am_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$am,
                                                mr()$mo$vphp$am, NULL,
@@ -1860,9 +1907,9 @@ renderPlotly({
 ```
 
 
-### Hourly Volumes
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Hourly Volumes
 renderPlotly({
     get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
@@ -1929,12 +1976,15 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$mo$ped, "uptime", as_pct,
+      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-child" 
+      icon = "fa-walking" 
   )
 })
 ```
+
+
+
 
 ### Communications Uptime {.value-box}
 
@@ -1943,23 +1993,27 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "ion-paper-airplane"
+      icon = "fa-broadcast-tower",
   )
 })
 ```
 
-### Pedestrian Detector Availability [beta] {.value-box}
+### Roadside Unit (RSU) Uptime {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-child" 
-  )
+    valueBox(
+        value = get_valuebox(
+          mr()$mo$ru, 
+          "uptime", 
+          as_pct,
+          zone = zone_group(), 
+          mo = current_month(), 
+          break_ = TRUE),
+      icon = "fa-wifi"
+    )
 })
 ```
-
 
 Row {.tabset .tabset-fade}
 -------------------------------------
@@ -2010,9 +2064,57 @@ renderPlotly({
 })
 ```
 
+
+
 ### Pedestrian Detector Uptime
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+
+renderPlotly({
+
+    if (zone_group() == "All RTOP") {
+     
+        get_bar_line_dashboard_plot(
+            cor$wk$pau,
+            cor$mo$pau,
+            var_ = "uptime",
+            num_format = "percent",
+            highlight_color = BLUE,
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "Ped Detector Uptime (%)"),
+            x_line1_title = "Ped Detector Uptime Trend",
+            plot_title = "Ped Detector Uptime")
+       
+    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
+        
+        get_cor_comm_uptime_plot(mr()$dy$pau,
+                                 mr()$mo$pau,
+                                 month_name = input$month,
+                                 month_ = current_month(),
+                                 zone_group_ = zone_group())
+    } else {
+        
+        get_uptime_plot(sig$dy$pau, 
+                        sig$mo$pau, 
+                        var_ = "uptime", 
+                        num_format = "percent", 
+                        month_ = current_month(), 
+                        zone_group_ = zone_group(),
+                        x_bar_title = "Current Month Uptime",
+                        x_line1_title = "Daily Uptime",
+                        plot_title = "",
+                        goal = NULL)
+    }
+    
+})
+```
+
+
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Pedestrian Detector Uptime
 renderPlotly({
     
     weekly_ped_df <- rename(cor$mo$ped, Date = Month)
@@ -2107,7 +2209,7 @@ renderPlotly({
 
 
 
-### Pedestrian Detector Uptime [beta]
+### Roadside Unit (RSU) Uptime
 
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
@@ -2117,40 +2219,43 @@ renderPlotly({
     if (zone_group() == "All RTOP") {
      
         get_bar_line_dashboard_plot(
-            cor$wk$pau,
-            cor$mo$pau,
+            cor$wk$ru,
+            cor$mo$ru,
             var_ = "uptime",
             num_format = "percent",
             highlight_color = BLUE,
             month_ = current_month(), 
             zone_group_ = zone_group(),
-            x_bar_title = paste(input$month, "Ped Detector Uptime (%)"),
-            x_line1_title = "Ped Detector Uptime Trend",
-            plot_title = "Ped Detector Uptime")
+            x_bar_title = paste(input$month, "RSU Uptime (%)"),
+            x_line1_title = "RSU Uptime Trend",
+            plot_title = "RSU Uptime")
        
     } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
-        get_cor_comm_uptime_plot(mr()$dy$pau,
-                                 mr()$mo$pau,
-                                 month_name = input$month,
-                                 month_ = current_month(),
-                                 zone_group_ = zone_group())
+        get_cor_comm_uptime_plot(
+            mr()$dy$ru,
+            mr()$mo$ru,
+            month_name = input$month,
+            month_ = current_month(),
+            zone_group_ = zone_group())
     } else {
         
-        get_uptime_plot(sig$dy$pau, 
-                        sig$mo$pau, 
-                        var_ = "uptime", 
-                        num_format = "percent", 
-                        month_ = current_month(), 
-                        zone_group_ = zone_group(),
-                        x_bar_title = "Current Month Uptime",
-                        x_line1_title = "Daily Uptime",
-                        plot_title = "",
-                        goal = NULL)
+        get_uptime_plot(
+            sig$dy$ru, 
+            sig$mo$ru, 
+            var_ = "uptime", 
+            num_format = "percent", 
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = "Current Month Uptime",
+            x_line1_title = "Daily Uptime",
+            plot_title = "",
+            goal = NULL)
     }
     
 })
 ```
+
 
 
 

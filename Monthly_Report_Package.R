@@ -191,10 +191,12 @@ tryCatch({
     
     pau <- get_pau(papd)
 
+
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need the whole time series to calculate ped detector uptime
     # based on the exponential distribution method.
-    bad_ped_detectors <- get_bad_ped_detectors(pau)
+    bad_ped_detectors <- get_bad_ped_detectors(pau) %>%
+        filter(Date > report_end_date - days(90))
     s3_upload_parquet_date_split(
        bad_ped_detectors,
        prefix = "bad_ped_detectors",
@@ -294,6 +296,7 @@ tryCatch({
     rm(sub_weekly_papd)
     rm(sub_monthly_papd)
     # gc()
+    
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
@@ -318,7 +321,6 @@ tryCatch({
             SignalID = factor(SignalID),
             Date = date(Date)
         )
-    
     
     weekly_paph <- get_weekly_paph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
     # weekly_paph_peak <- get_weekly_paph_peak(weekly_paph)
@@ -1156,9 +1158,18 @@ tryCatch({
     saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
     saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
     
-    
-    # # CCTV UPTIME From 511 and Encoders
-    
+
+    print(glue("{Sys.time()} Uptimes [18 of 22]"))
+
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+
+# # CCTV UPTIME From 511 and Encoders
+
+tryCatch({
+
     daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime")
     daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders")
 
@@ -1222,14 +1233,42 @@ tryCatch({
     saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
     saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
     saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
+
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
 })
 
+# # CCTV UPTIME From 511 and Encoders
 
+tryCatch({
+    
+    daily_rsu_uptime <- get_rsu_uptime(report_start_date)
+    cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
+        daily_rsu_uptime, corridors, "uptime")
+    weekly_rsu_uptime <- get_weekly_avg_by_day(
+        mutate(daily_rsu_uptime, CallPhase = 0, Week = week(Date)), "uptime", peak_only = FALSE)
+    cor_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
+        weekly_rsu_uptime, corridors, "uptime")
+    monthly_rsu_uptime <- get_monthly_avg_by_day(
+        mutate(daily_rsu_uptime, CallPhase = 0), "uptime", peak_only = FALSE)
+    cor_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
+        monthly_rsu_uptime, corridors, "uptime")
 
-
+    
+    saveRDS(daily_rsu_uptime, "daily_rsu_uptime.rds")
+    saveRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds")
+    saveRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds")
+    
+    saveRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds")
+    saveRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds")
+    saveRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds")
+    
+    
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
 
 
 
@@ -1396,15 +1435,17 @@ tryCatch({
         filter(Date > today() - months(9)) %>%
         as_tibble() %>%
         left_join(
-            dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), by = c("SignalID")
+            dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
+            by = c("SignalID")
         ) %>%
+        filter(!is.na(Corridor)) %>%
         transmute(
             Zone_Group, 
             Zone, 
             Corridor,
             SignalID = factor(SignalID), 
             CallPhase = factor(0), 
-            DetectorID = Detector,
+            Detector = Detector,
             Date, 
             Alert = factor("Bad Vehicle Detection"), 
             Name = factor(Name)
@@ -1412,40 +1453,60 @@ tryCatch({
 
     # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
 
-    bad_det_filename <- "bad_detectors.fst"
-    write_fst(bad_det, bad_det_filename)
-    aws.s3::put_object(bad_det_filename,
+    s3write_using(
+        bad_det,
+        FUN = write_fst, 
         object = "mark/watchdog/bad_detectors.fst",
-        bucket = "gdot-spm"
-    )
-    file.remove(bad_det_filename)
+        bucket = "gdot-spm")
+    
+    # bad_det_filename <- "bad_detectors.fst"
+    # write_fst(bad_det, bad_det_filename)
+    # aws.s3::put_object(bad_det_filename,
+    #     object = "mark/watchdog/bad_detectors.fst",
+    #     bucket = "gdot-spm"
+    # )
+    # file.remove(bad_det_filename)
 
     # -- Alerts: pedestrian detector downtime --
     
-    # This could probably be streamlined. We already create bad_ped_detectors.feather
-    # from get_pau. Do it once only.
-
-    bad_ped <- readRDS("pa_uptime.rds") %>%
-        filter(uptime == 0) %>%
-        left_join(corridors, by = c("SignalID")) %>%
+    
+    bad_ped <- dbGetQuery(conn, sql("select * from gdot_spm.bad_ped_detectors")) %>%
+        transmute(
+            SignalID = factor(signalid),
+            CallPhase = factor(callphase),
+            Detector = factor(callphase),
+            Date = date(date)
+        ) %>%
+        filter(Date > today() - months(9)) %>%
+        as_tibble() %>%
+        left_join(
+            dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
+            by = c("SignalID")
+        ) %>%
         transmute(Zone_Group,
             Zone,
             Corridor = factor(Corridor),
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
-            DetectorID = factor(CallPhase),
+            Detector = factor(CallPhase),
             Date,
             Alert = factor("Bad Ped Detection"),
             Name = factor(Name)
         )
 
-    bad_det_filename <- "bad_ped_detectors.fst"
-    write_fst(bad_ped, bad_det_filename)
-    aws.s3::put_object(bad_det_filename,
+    s3write_using(
+        bad_ped,
+        FUN = write_fst,
         object = "mark/watchdog/bad_ped_detectors.fst",
-        bucket = "gdot-spm"
-    )
-    file.remove(bad_det_filename)
+        bucket = "gdot-spm")
+    
+    # bad_ped_filename <- "bad_ped_detectors.fst"
+    # write_fst(bad_ped, bad_ped_filename)
+    # aws.s3::put_object(bad_ped_filename,
+    #     object = "mark/watchdog/bad_ped_detectors.fst",
+    #     bucket = "gdot-spm"
+    # )
+    # file.remove(bad_ped_filename)
 
 
     # -- Alerts: CCTV downtime --
@@ -1462,19 +1523,29 @@ tryCatch({
         left_join(cam_config, by = c("CameraID")) %>%
         filter(Date > As_of_Date) %>%
         left_join(distinct(corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
-        transmute(Zone_Group, Zone,
+        transmute(
+            Zone_Group, Zone,
             Corridor = factor(Corridor),
-            SignalID = factor(CameraID), CallPhase = factor(0), DetectorID = factor(0),
-            Date, Alert = factor("No Camera Image"), Name = factor(Location)
+            SignalID = factor(CameraID), 
+            CallPhase = factor(0), 
+            Detector = factor(0),
+            Date, Alert = factor("No Camera Image"), 
+            Name = factor(Location)
         )
 
-    bad_cam_filename <- "bad_cameras.fst"
-    write_fst(bad_cam, bad_cam_filename)
-    aws.s3::put_object(bad_cam_filename,
+    s3write_using(
+        bad_cam,
+        FUN = write_fst,
         object = "mark/watchdog/bad_cameras.fst",
-        bucket = "gdot-spm"
-    )
-    file.remove(bad_cam_filename)
+        bucket = "gdot-spm")
+    
+    # bad_cam_filename <- "bad_cameras.fst"
+    # write_fst(bad_cam, bad_cam_filename)
+    # aws.s3::put_object(bad_cam_filename,
+    #     object = "mark/watchdog/bad_cameras.fst",
+    #     bucket = "gdot-spm"
+    # )
+    # file.remove(bad_cam_filename)
 
     # -- Watchdog Alerts --
 
@@ -1560,6 +1631,7 @@ tryCatch({
         "cu" = readRDS("cor_daily_comm_uptime.rds"),
         "pau" = readRDS("cor_daily_pa_uptime.rds"),
         "cctv" = readRDS("cor_daily_cctv_uptime.rds"),
+        "ru" = readRDS("cor_daily_rsu_uptime.rds"),
         "ttyp" = readRDS("tasks_by_type.rds")$cor_daily,
         "tsub" = readRDS("tasks_by_subtype.rds")$cor_daily,
         "tpri" = readRDS("tasks_by_priority.rds")$cor_daily,
@@ -1581,7 +1653,8 @@ tryCatch({
         "du" = readRDS("cor_weekly_detector_uptime.rds"),
         "cu" = readRDS("cor_weekly_comm_uptime.rds"),
         "pau" = readRDS("cor_weekly_pa_uptime.rds"),
-        "cctv" = readRDS("cor_weekly_cctv_uptime.rds")
+        "cctv" = readRDS("cor_weekly_cctv_uptime.rds"),
+        "ru" = readRDS("cor_weekly_rsu_uptime.rds")
     )
     cor$mo <- list(
         "vpd" = readRDS("cor_monthly_vpd.rds"),
@@ -1609,6 +1682,7 @@ tryCatch({
         "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
         "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
         "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
+        "ru" = readRDS("cor_monthly_rsu_uptime.rds"),
         #"events" = readRDS("cor_monthly_events.rds"),
         "ttyp" = readRDS("tasks_by_type.rds")$cor_monthly,
         "tsub" = readRDS("tasks_by_subtype.rds")$cor_monthly,
@@ -1625,6 +1699,7 @@ tryCatch({
         "vph" = data.frame(), # get_quarterly(cor$mo$vph, "vph"),
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
+        "papd" = get_quarterly(cor$mo$papd, "paph"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
         "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
@@ -1639,6 +1714,7 @@ tryCatch({
         "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
         "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
         "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
+        "ru" = get_quarterly(cor$mo$ru, "uptime"),
         #"reported" = get_quarterly(cor$mo$events, "Reported"),
         #"resolved" = get_quarterly(cor$mo$events, "Resolved"),
         #"outstanding" = get_quarterly(cor$mo$events, "Outstanding", operation = "latest")
@@ -1763,6 +1839,7 @@ tryCatch({
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
             select(Zone_Group, Corridor, Date, up),
+        "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
         "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
@@ -1800,7 +1877,8 @@ tryCatch({
         "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, uptime)
+            select(Zone_Group, Corridor, Date, uptime),
+        "ru" = sigify(readRDS("weekly_rsu_uptime.rds"), cor$wk$ru, corridors)
     )
     sig$mo <- list(
         "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
@@ -1848,6 +1926,7 @@ tryCatch({
             select(Zone_Group, Corridor, Month, uptime, delta),
         "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
             select(Zone_Group, Corridor, Month, uptime, delta),
+        "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
         "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,

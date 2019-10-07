@@ -2123,6 +2123,18 @@ get_daily_cctv_uptime <- function(table) {
                Corridor = factor(Corridor))
 }
 
+get_rsu_uptime <- function(report_start_date) {
+    # rsu <- dbGetQuery(conn, sql(glue("select * from gdot_spm.rsu_uptime"))) %>%
+    rsu <- tbl(conn, sql("select * from gdot_spm.rsu_uptime")) %>%
+        filter(Date >= date_parse(report_start_date, "%Y-%m-%d")) %>%
+        collect() %>%
+        transmute(
+            SignalID = factor(signalid), 
+            Date = ymd(date), 
+            uptime = uptime, 
+            total = count)
+}
+
 # -- Generic Aggregation Functions
 get_Tuesdays <- function(df) {
     dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = "days")
@@ -4301,6 +4313,8 @@ get_pau <- function(df) {
     begin_date <- ymd("2018-08-01")
     #month_abbrs <- "2019-08"
     
+    corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
+    
     papd <- df %>%
         filter(CallPhase != 0) %>%
         complete(nesting(SignalID, CallPhase), 
@@ -4312,17 +4326,18 @@ get_pau <- function(df) {
         arrange(SignalID, CallPhase, Date) %>%
         group_by(SignalID, CallPhase) %>%
         mutate(s0 = runner::streak_run(papd), 
-               s0 = if_else(papd>0, as.integer(0), s0), #--------------this is new
+               s0 = if_else(papd > 0, as.integer(0), s0), #--------------this is new
                ms = ifelse(s0 >= lead(s0), s0, NA)) %>% 
         mutate(ms = if_else(Date == max(Date), s0, ms)) %>%
         fill(ms, .direction = "up") %>%
         mutate(Week = week(Date),
                DOW = wday(Date)) %>%
-        left_join(dplyr::select(corridors, SignalID, Asof), by = c("SignalID")) %>%
+        left_join(corrs, by = c("SignalID")) %>%
         ungroup() %>%
         replace_na(list(Asof = begin_date)) %>%
         filter(Date >= Asof) %>%
-        dplyr::select(-Asof)
+        dplyr::select(-Asof) %>%
+        mutate(SignalID = factor(SignalID))
     
     modres <- papd %>% 
         group_by(SignalID, CallPhase) %>% 

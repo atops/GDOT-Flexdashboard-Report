@@ -55,9 +55,12 @@ RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
 
-colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, "3" = LIGHT_GREEN, "4" = GREEN, 
-           "5" = LIGHT_RED, "6" = RED, "7" = LIGHT_ORANGE, "8" = ORANGE, 
-           "9" = LIGHT_PURPLE, "10" = PURPLE, "11" = LIGHT_BROWN, "12" = BROWN,
+colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
+           "3" = LIGHT_GREEN, "4" = GREEN, 
+           "5" = LIGHT_RED, "6" = RED, 
+           "7" = LIGHT_ORANGE, "8" = ORANGE, 
+           "9" = LIGHT_PURPLE, "10" = PURPLE, 
+           "11" = LIGHT_BROWN, "12" = BROWN,
            "0" = DARK_GRAY)
 
 RTOP1_ZONES <- c("Zone 1", "Zone 2", "Zone 3", "Zone 8")
@@ -2094,7 +2097,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             } else {
                 
                 if (alert_type_ != "Missing Records" & phase_ != "All") {
-                    df <- filter(df, Phase == as.numeric(phase_)) # filter
+                    df <- filter(df, CallPhase == as.numeric(phase_)) # filter
                 }
                 
                 if (nrow(df) == 0) {
@@ -2108,14 +2111,24 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
         
         if (alert_type_ == "Missing Records") {
             
+            
             table_df <- df %>%
-                group_by(Zone, SignalID, Name, Alert) %>% 
+                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+                mutate(Streak = streak[Date == max(Date)]) %>%
+                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
                 summarize(Occurrences = n(),
-                          max_date = max(Date),
-                          Streak = streak[Date == max_date]) %>% 
+                          Streak = max(Streak)) %>% 
                 ungroup() %>%
-                filter(max_date == most_recent_date) %>%
-                select(-max_date)
+                arrange(desc(Streak), desc(Occurrences))
+
+            # table_df <- df %>%
+            #     group_by(Zone, SignalID, Name, Alert) %>% 
+            #     summarize(Occurrences = n(),
+            #               max_date = max(Date),
+            #               Streak = streak[Date == max_date]) %>% 
+            #     ungroup() %>%
+            #     filter(max_date == most_recent_date) %>%
+            #     select(-max_date)
             
             plot_df <- df %>%
                 mutate(SignalID2 = SignalID) %>%
@@ -2125,22 +2138,31 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
         } else if (alert_type_ == "Bad Vehicle Detection") {
             
             table_df <- df %>%
-                group_by(
-                    Zone, 
-                    SignalID, 
-                    Name, 
-                    Detector = as.integer(as.character(DetectorID)), 
-                    Alert) %>% 
+                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+                mutate(Streak = streak[Date == max(Date)]) %>%
+                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
                 summarize(Occurrences = n(),
-                          max_date = max(Date),
-                          Streak = streak[Date == max_date]) %>% 
+                          Streak = max(Streak)) %>% 
                 ungroup() %>%
-                filter(max_date == most_recent_date) %>%
-                select(-max_date)
+                arrange(desc(Streak), desc(Occurrences))
+            
+            # table_df <- df %>%
+            #     group_by(
+            #         Zone, 
+            #         SignalID, 
+            #         Name, 
+            #         Detector = as.integer(as.character(DetectorID)), 
+            #         Alert) %>% 
+            #     summarize(Occurrences = n(),
+            #               max_date = max(Date),
+            #               Streak = streak[Date == max_date]) %>% 
+            #     ungroup() %>%
+            #     filter(max_date == most_recent_date) %>%
+            #     select(-max_date)
             
             plot_df <- df %>%
-                mutate(DetectorID = as.character(DetectorID)) %>%
-                unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
+                mutate(Detector = as.character(Detector)) %>%
+                unite(signal_phase2, Name, Detector, sep = " | det ") %>%
                 
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
@@ -2149,18 +2171,24 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
         } else if (alert_type_ == "No Camera Image") {
             
             table_df <- df %>%
-                group_by(Zone, SignalID, Name, Alert) %>% 
+                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+                mutate(Streak = streak[Date == max(Date)]) %>%
+                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
                 summarize(Occurrences = n(),
-                          max_date = max(Date),
-                          Streak = streak[Date == max_date]) %>% 
+                          Streak = max(Streak)) %>% 
                 ungroup() %>%
-                filter(max_date == most_recent_date) %>%
-                select(-max_date)
+                arrange(desc(Streak), desc(Occurrences))
+            
+            # table_df <- df %>%
+            #     group_by(Zone, SignalID, Name, Alert) %>% 
+            #     summarize(Occurrences = n(),
+            #               max_date = max(Date),
+            #               Streak = streak[Date == max_date]) %>% 
+            #     ungroup() %>%
+            #     filter(max_date == most_recent_date) %>%
+            #     select(-max_date)
             
             plot_df <- df %>%
-                #mutate(DetectorID = as.character(DetectorID)) %>%
-                #unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
-                
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
@@ -2168,17 +2196,26 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
         } else {
             
             table_df <- df %>%
-                group_by(Zone, SignalID, Name, Phase, Alert) %>% 
+                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+                mutate(Streak = streak[Date == max(Date)]) %>%
+                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
                 summarize(Occurrences = n(),
-                          max_date = max(Date),
-                          Streak = streak[Date == max_date]) %>% 
+                          Streak = max(Streak)) %>% 
                 ungroup() %>%
-                filter(max_date == most_recent_date) %>%
-                select(-max_date)
+                arrange(desc(Streak), desc(Occurrences))
+            
+            # table_df <- df %>%
+            #     group_by(Zone, SignalID, Name, Phase, Alert) %>% 
+            #     summarize(Occurrences = n(),
+            #               max_date = max(Date),
+            #               Streak = streak[Date == max_date]) %>% 
+            #     ungroup() %>%
+            #     filter(max_date == most_recent_date) %>%
+            #     select(-max_date)
             
             plot_df <- df %>%
                 # mutate(Phase = as.character(Phase)) %>% 
-                unite(signal_phase2, Name, Phase, sep = " | ph ") %>% # potential problem
+                unite(signal_phase2, Name, CallPhase, sep = " | ph ") %>% # potential problem
                 
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
@@ -2263,14 +2300,14 @@ filter_alerts_prestreak <- function(alerts, alert_type_, zone_group_, phase_, id
                     Zone, 
                     SignalID, 
                     Name, 
-                    Detector = as.integer(as.character(DetectorID)), 
+                    Detector = as.integer(as.character(Detector)), 
                     Alert) %>% 
                 summarize("Occurrences" = n()) %>% 
                 ungroup() 
             
             plot_df <- df %>%
-                mutate(DetectorID = as.character(DetectorID)) %>%
-                unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
+                mutate(Detector = as.character(Detector)) %>%
+                unite(signal_phase2, Name, Detector, sep = " | det ") %>%
                 
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
@@ -2284,9 +2321,6 @@ filter_alerts_prestreak <- function(alerts, alert_type_, zone_group_, phase_, id
                 ungroup() 
             
             plot_df <- df %>%
-                #mutate(DetectorID = as.character(DetectorID)) %>%
-                #unite(signal_phase2, Name, DetectorID, sep = " | det ") %>%
-                
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
