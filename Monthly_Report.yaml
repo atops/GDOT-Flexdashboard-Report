@@ -1,30 +1,30 @@
 
 # Monthly_Report config file (yaml format)
 
-#mode: production
-mode: beta
+mode: production
+#mode: beta
 
 
 # Sections of Monthly_Report_Calcs_ec2 to run
 run:
-    cctv: FALSE
+    cctv: TRUE
     rsus: TRUE
-    travel_times: FALSE
-    counts: FALSE
-    counts_based_measures: FALSE
-    etl: FALSE
-    arrivals_on_green: FALSE
-    queue_spillback: FALSE
+    travel_times: TRUE
+    counts: TRUE
+    counts_based_measures: TRUE
+    etl: TRUE
+    arrivals_on_green: TRUE
+    queue_spillback: TRUE
     split_failures: TRUE
     
 
-start_date: 2019-09-01
+start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2018-08-01
+report_start_date: 2018-09-01
 report_end_date: yesterday
 
-production_report_end_date: 2019-08-01
+production_report_end_date: 2019-09-01
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: Corridors_Latest.xlsx
