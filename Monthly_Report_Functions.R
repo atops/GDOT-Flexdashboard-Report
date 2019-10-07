@@ -15,6 +15,8 @@ suppressMessages(library(purrr))
 suppressMessages(library(lubridate))
 suppressMessages(library(glue))
 suppressMessages(library(data.table))
+suppressMessages(library(formattable))
+
 suppressMessages(library(forcats))
 suppressMessages(library(feather))
 suppressMessages(library(fst))
