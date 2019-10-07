@@ -22,7 +22,7 @@ if [[ ${H#0} -lt 6 ]]; then
     #/usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state=/home/rstudio/logrotate-state --verbose
     aws s3 sync /home/rstudio/ s3://gdot-spm/logs --exclude "*" --include "nightly.lo*"
     
-    systemctl poweroff -i
+    #systemctl poweroff -i
 else
     echo "$(TZ=America/New_York date) - after 6am"
 fi
