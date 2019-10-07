@@ -21,7 +21,7 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
 
-@retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
+@retry(wait_random_min=5000, wait_random_max=10000, stop_max_attempt_number=10)
 def upload_parquet(Bucket, Key, Filename):
     feather_filename = Filename
     df = pd.read_feather(feather_filename).drop(columns = ['Date'], errors = 'ignore')
