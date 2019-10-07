@@ -1699,7 +1699,7 @@ tryCatch({
         "vph" = data.frame(), # get_quarterly(cor$mo$vph, "vph"),
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
-        "papd" = get_quarterly(cor$mo$papd, "paph"),
+        "papd" = get_quarterly(cor$mo$papd, "papd"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
         "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
