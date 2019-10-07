@@ -10,6 +10,7 @@ suppressMessages(library(dplyr))
 #suppressMessages(library(dbplyr))
 suppressMessages(library(tidyr))
 suppressMessages(library(lubridate))
+suppressMessages(library(purrr))
 suppressMessages(library(stringr))
 suppressMessages(library(glue))
 suppressMessages(library(feather))
@@ -24,8 +25,10 @@ suppressMessages(library(future))
 #suppressMessages(library(pool))
 #suppressMessages(library(RMySQL))
 suppressMessages(library(rsconnect))
-
-
+suppressMessages(library(formattable))
+suppressMessages(library(data.table))
+suppressMessages(library(htmltools))
+    
 #plan(multiprocess)
 #plan(sequential)
 plan(multisession)
@@ -65,6 +68,34 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE,
 
 RTOP1_ZONES <- c("Zone 1", "Zone 2", "Zone 3", "Zone 8")
 RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
+
+
+# Constants for Corridor Summary Table
+
+metric.order <- c("du", "pau", "cctvu", "cu", "tp", "aog", "qs", "sf", "tti", "pti")
+metric.names <- c(
+    "Vehicle Detector Availability",
+    "Ped Detector Availability",
+    "CCTV Availability",
+    "Communications Uptime",
+    "Traffic Volume (Throughput)",
+    "Arrivals on Green",
+    "Queue Spillback Rate",
+    "Split Failure",
+    "Travel Time Index",
+    "Planning Time Index"
+)
+metric.goals <- c(rep("> 95%", 4), 
+                  "< 5% dec. from prev. mo", 
+                  "> 80%", 
+                  "< 10%", 
+                  "< 5%", 
+                  rep("< 2.0", 2))
+metric.goals.numeric <- c(rep(0.95, 4), -.05, .8, .10, .05, 2, 2)
+metric.goals.sign <- c(rep(">", 4), ">", ">", rep("<", 4))
+
+yes.color <- "green"
+no.color <- "red"
 
 # ###########################################################
 
@@ -2504,4 +2535,238 @@ get_adjusted_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
 }
 
 
+
+# Functions for Corridor Summary Table
+
+metric_formats <- function(x) { # workaround function to format the metrics differently
+    sapply(x, function(x) {
+        if (!is.na(x)) {
+            if (x <= 1) {
+                as_pct(x)
+            } else if (x <= 10) { # TTI and PTI
+                as_2dec(x)
+            } else { # throughput
+                as_int(x)
+            }
+        } else {
+            return("N/A")
+        }
+    })
+}
+
+
+getcolorder <- function(no.corridors) {
+    getcolorder <- c(1, 2)
+    for (i in 1:no.corridors) {
+        getcolorder <- c(getcolorder, i + 2, i + no.corridors + 2)
+    }
+    for (i in 1:no.corridors) {
+        getcolorder <- c(getcolorder, i + no.corridors * 2 + 2)
+    }
+    getcolorder
+}
+
+
+
+get_corridor_summary_data <- function(cor, current_month) {
     
+    #' Converts cor data set to a single data frame for the current_month
+    #' for use in get_corridor_summary_table function
+    #' 
+    #' @param cor cor data
+    #' @param current_month Current month in date format
+    #' @return A data frame, monthly data of all metrics by Zone and Corridor
+
+    
+    #    current_month <- months[order(months)][match(current_month, months.formatted)]
+    data <- list(
+        cor$mo$du, # detector uptime - note that zone group is factor not character
+        cor$mo$pau,
+        cor$mo$cctv,
+        cor$mo$cu,
+        cor$mo$tp, # no longer pulling from vpd (volume) table - this is throughput
+        cor$mo$aogd,
+        cor$mo$qsd,
+        cor$mo$sfd,
+        cor$mo$tti,
+        cor$mo$pti
+    ) %>%
+        reduce(left_join, by = c("Zone_Group", "Corridor", "Month")) %>%
+        filter(
+            grepl("^Zone", Zone_Group),
+            !grepl("^Zone", Corridor),
+            Month == ymd(current_month)
+        ) %>%
+        select(
+            -uptime.sb,
+            -uptime.pr,
+            -num,
+            -starts_with("ones"),
+            -starts_with("cycles"),
+            -starts_with("pct"),
+            -starts_with("vol")
+        ) %>%
+        rename(
+            du = uptime.x, # looks like this field has been updated 9/10
+            du.delta = delta.x,
+            pau = uptime.y, # updated 9/10
+            pau.delta = delta.y,
+            cctvu = uptime.x.x, # updated 9/10
+            cctvu.delta = delta.x.x,
+            cu = uptime.y.y, # updated 9/10
+            cu.delta = delta.y.y,
+            tp = vph,
+            tp.delta = delta.x.x.x,
+            aog.delta = delta.y.y.y,
+            qs = qs_freq,
+            qs.delta = delta.x.x.x.x,
+            sf = sf_freq,
+            sf.delta = delta.y.y.y.y,
+            tti.delta = delta.x.x.x.x.x,
+            pti.delta = delta.y.y.y.y.y
+        )
+    return(data)
+}
+
+
+get_corridor_summary_table <- function(data, zone_group) {
+    
+    #' Creates an html table for a corridor by zone in a month
+    #' with all metrics color coded by whether they met goal
+    #' and whether they're trending up or down.
+    #' 
+    #' @param data corridor_summary_table
+    #' @param zone_group a Zone Group
+    #' @return An html table for markdown or shiny
+
+    if (zone_group %in% unique(data$Zone_Group)) {
+        # table for plotting
+        dt <- filter(data, Zone_Group == zone_group) %>%
+            select(-c(seq(5, 23, 2)), -Zone_Group, -Month) %>%
+            gather("Metric", "value", 2:11) %>%
+            spread(Corridor, value)
+        dt <- dt[order(match(dt$Metric, metric.order)), ]
+        dt$Metrics <- metric.names
+        dt$Goal <- metric.goals
+        dt <- select(dt, c((ncol(dt) - 1):ncol(dt), 2:(ncol(dt) - 2))) # vary based on # of columns
+        setDT(dt)
+        
+        # table with deltas - to be used for formatting data table
+        dt.deltas <- filter(data, Zone_Group == zone_group) %>%
+            select(-c(seq(4, 22, 2)), -Zone_Group, -Month) %>%
+            rename_at(vars(ends_with(".delta")), funs(str_replace(., ".delta", ""))) %>%
+            gather("Metric", "value", 2:11) %>%
+            spread(Corridor, value)
+        dt.deltas <- dt.deltas[order(match(dt.deltas$Metric, metric.order)), ]
+        dt.deltas$Metrics <- metric.names
+        dt.deltas$Goal <- metric.goals
+        # vary based on # of columns
+        dt.deltas <- select(
+            dt.deltas, 
+            c((ncol(dt.deltas) - 1):ncol(dt.deltas), 2:(ncol(dt.deltas) - 2)))
+        setDT(dt.deltas)
+        
+        # table with checks on whether or not we're meeting 
+        # the various metrics for the month - also to be used formatting data table
+        dt.checks <- copy(dt)
+        setDT(dt.checks)
+        dt.checks[Metrics == "Traffic Volume (Throughput)", (3:ncol(dt.checks)) := dt.deltas[Metrics == "Traffic Volume (Throughput)", 3:ncol(dt.deltas)]] # replace out throughput check with delta
+        dt.checks[, Goal.Numeric := metric.goals.numeric]
+        dt.checks[, Goal.Sign := metric.goals.sign]
+        dt.checks[, (3:(ncol(dt.checks) - 2)) := lapply(.SD, function(x) ifelse((x > Goal.Numeric & Goal.Sign == ">") | (x < Goal.Numeric & Goal.Sign == "<"), "Good", "Bad")), .SDcols = 3:(ncol(dt.checks) - 2)]
+        dt.checks[, c((ncol(dt.checks) - 1):ncol(dt.checks)) := NULL]
+        
+        # overall data table
+        dt.overall <- dt[dt.deltas, on = .(Metrics = Metrics, Goal = Goal)] %>%
+            rename_at(vars(starts_with("i.")), funs(str_replace(., "i.", "Delta.")))
+        dt.overall <- dt.overall[dt.checks, on = .(Metrics = Metrics, Goal = Goal)] %>%
+            rename_at(vars(starts_with("i.")), funs(str_replace(., "i.", "Check.")))
+        
+        no.corridors <- (ncol(dt.overall) - 2) / 3 # how many corridors are we working
+        
+        ###########
+        # DATA TABLE DISPLAY AND FORMATTING
+        ###########
+        
+        # update formatting for individual rows
+        dt.overall[, (3:(3 + no.corridors - 1)) := lapply(.SD, function(x) metric_formats(x)), .SDcols = (3:(3 + no.corridors - 1))]
+        
+        # function to get columns lined up with deltas immediately after the metrics
+        setcolorder(dt.overall, getcolorder(no.corridors))
+        
+        
+        # formatter for just metrics (deltas in separate column)
+        format.metrics <- sapply(names(dt.overall)[seq(3, no.corridors * 2 + 2, 2)], function(x) {
+            eval(
+                parse(
+                    text = sub(
+                        "_SUB_",
+                        paste0("`Check.", x, "`"),
+                        "formatter(\"span\", style = ~ style(display = \"block\",
+                \"border-radius\" = \"4px\", \"padding-right\" = \"4px\",
+                \"color\" = ifelse(_SUB_=='Good', yes.color, no.color)))"
+                    )
+                )
+            )
+        }, simplify = F, USE.NAMES = T)
+        
+        # formatter for deltas (separate column - arrows)
+        format.deltas <- sapply(names(dt.overall)[seq(4, no.corridors * 2 + 2, 2)], function(x) {
+            eval( # evaluate the following expression
+                parse(
+                    text = # parse the following string to an expression
+                    sub(
+                        "_SUB_", # find "_SUB_"
+                        paste0("`", x, "`"), # replace with name of column
+                        "formatter(\"span\",style = x ~ style(display = \"block\", #in the string containing the formatter call
+                                      \"border-radius\" = \"4px\", \"padding-right\" = \"4px\",
+                                      \"color\" =  ifelse(x >= 0, yes.color, no.color)),
+                                      ~ icontext(sapply(_SUB_, function(x) if (!is.na(x)) {if (x >= 0) 'arrow-up' else if (x < 0) 'arrow-down'} else '')))"
+                    )
+                )
+            )
+        }, simplify = F, USE.NAMES = T)
+        
+        
+        # columns checking whether we're meeting checks - HIDE in formattable
+        hide.checks <- sapply(names(dt.overall[, (ncol(dt.overall) - no.corridors + 1):(ncol(dt.overall))]),
+                              function(x) eval(parse(text = sub("_SUB_", as.character(x), "`_SUB_` = F"))),
+                              simplify = F, USE.NAMES = T
+        )
+        
+        
+        formattable::formattable(dt.overall,
+                                 align = c("l", "c", rep(c("r", "l"), no.corridors * 3)),
+                                 c( # `Goal` = formatter("span", style = ~ style(width="1000px")),
+                                     format.metrics,
+                                     format.deltas,
+                                     hide.checks
+                                 )
+        )
+        
+    } else {
+        NULL
+    }
+}
+
+
+get_zone_group_text_table <- function(month, zone_group) {
+
+    #' Creates an html table for a corridor by zone in a month
+    #' 
+    #' @param month Month in date format
+    #' @param zone_group a Zone Group
+    #' @return An html table
+
+    #current_month <- months[order(months)][match(month, months.formatted)]
+    tt <- filter(df.text, Month == ymd(current_month), Zone == zone_group)
+    colnames(tt)[3] <- "&nbsp"
+    formattable::formattable(
+        tt,
+        align = "l",
+        list(
+            Month = F,
+            Zone = F
+        )
+    )
+}

@@ -14,6 +14,21 @@ output:
 runtime: shiny
 ---
 
+<style>
+
+.table thead tr th:nth-child(2n+4) {
+    /*color: white;*/
+    visibility: hidden;
+    font-size:1px;
+    width:"50px";
+}
+
+.table thead tr th:nth-child(2) {
+    width:"1000px";
+}
+
+</style>
+
 
 ```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
@@ -273,7 +288,6 @@ mr_str <- reactive(
 # renderText({"conf"})
 # renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
 
-```
 
 
 
@@ -2263,7 +2277,34 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 
 ### Zone Summaries
 
-Coming soon.
+```{r Summary Table, eval = TRUE}
+
+corridor_summary_data <- reactive({ 
+    get_corridor_summary_data(cor, current_month()) 
+})
+corridor_summary_table <- reactive({
+    get_corridor_summary_table(corridor_summary_data(), input$zone_group)
+})
+
+fillRow(
+    renderFormattable({
+        req(corridor_summary_table())
+        corridor_summary_table()
+    })
+)
+fillRow(
+    renderUI({
+        req(corridor_summary_table())
+        tags$div(
+            p(strong("Legend:")), 
+            p("Green text indicates a metric meeting the monthly goal; ",
+              "red text indicates not meeting goal."),
+            p("Green up arrow indicates improvement from previous month; ",
+              "red down arrow indicates a deterioration."))
+    })
+)
+```
+
 
 
 
