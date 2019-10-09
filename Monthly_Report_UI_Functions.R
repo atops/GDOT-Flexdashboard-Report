@@ -12,6 +12,7 @@ suppressMessages(library(tidyr))
 suppressMessages(library(lubridate))
 suppressMessages(library(purrr))
 suppressMessages(library(stringr))
+suppressMessages(library(readr))
 suppressMessages(library(glue))
 suppressMessages(library(feather))
 suppressMessages(library(fst))
@@ -2093,23 +2094,16 @@ filter_alerts_by_date <- function(alerts, dr) {
 }
 
 
-filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_)  {
+filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, id_filter_)  {
     
-    df_is_empty <- FALSE
     most_recent_date <- max(alerts$Date)
+    #df <- alerts
+    df <- filter(alerts, Alert == alert_type_)
+    
+    if (nrow(df)) {
         
-    if (nrow(alerts) == 0) {
-        df_is_empty <- TRUE
-    } else {
-        df <- filter(alerts, Alert == alert_type_,
-                     grepl(pattern = id_filter_, x = Name, ignore.case = TRUE) |
-                         grepl(pattern = id_filter_, x = Corridor, ignore.case = TRUE) |
-                         grepl(pattern = id_filter_, x = SignalID, ignore.case = TRUE))
-        
-        if (nrow(df) == 0) {
-            df_is_empty <- TRUE
-        } else {
-            
+        # Filter by Zone Group if "All Corridors" selected
+        if (corridor_ == "All Corridors") {
             if (zone_group_ == "All RTOP") {
                 df <- filter(df, Zone_Group %in% c("RTOP1", "RTOP2"))
                 
@@ -2122,74 +2116,47 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             } else {
                 df <- filter(df, Zone_Group == zone_group_)
             }
-            
-            if (nrow(df) == 0) {
-                df_is_empty <- TRUE
-            } else {
-                
-                if (alert_type_ != "Missing Records" & phase_ != "All") {
-                    df <- filter(df, CallPhase == as.numeric(phase_)) # filter
-                }
-                
-                if (nrow(df) == 0) {
-                    df_is_empty <- TRUE
-                }
-            }
+            # Otherwise filter by Corridor
+        } else {
+            df <- filter(df, Corridor == corridor_)
         }
+        
+        # Filter filter bar text (regular expression) within Name, Corridor, SignalID
+        df <- filter(df, grepl(pattern = id_filter_, x = Name, ignore.case = TRUE) |
+                         grepl(pattern = id_filter_, x = Corridor, ignore.case = TRUE) |
+                         grepl(pattern = id_filter_, x = SignalID, ignore.case = TRUE))
     }
     
-    if (!df_is_empty) {
+    # Filter by phase, but not for Missing Records, which doesn't have a phase
+    if (nrow(df)) {
+        if (alert_type_ != "Missing Records" & phase_ != "All") {
+            df <- filter(df, CallPhase == as.numeric(phase_)) # filter
+        }
+        
+    }
+    
+    # If there is anything left in the alerts table, create the table and plots data frames
+    if (nrow(df)) {
+        
+        table_df <- df %>%
+            group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+            mutate(Streak = streak[Date == max(Date)]) %>%
+            summarize(
+                Occurrences = n(), 
+                Streak = max(Streak)) %>% 
+            ungroup() %>%
+            arrange(desc(Streak), desc(Occurrences))
         
         if (alert_type_ == "Missing Records") {
-            
-            
-            table_df <- df %>%
-                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
-                mutate(Streak = streak[Date == max(Date)]) %>%
-                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
-                summarize(Occurrences = n(),
-                          Streak = max(Streak)) %>% 
-                ungroup() %>%
-                arrange(desc(Streak), desc(Occurrences))
-
-            # table_df <- df %>%
-            #     group_by(Zone, SignalID, Name, Alert) %>% 
-            #     summarize(Occurrences = n(),
-            #               max_date = max(Date),
-            #               Streak = streak[Date == max_date]) %>% 
-            #     ungroup() %>%
-            #     filter(max_date == most_recent_date) %>%
-            #     select(-max_date)
             
             plot_df <- df %>%
                 mutate(SignalID2 = SignalID) %>%
                 unite(Name2, SignalID2, Name, sep = ": ") %>%
                 mutate(signal_phase = factor(Name2))
             
+            table_df <- table_df %>% select(-c(CallPhase, Detector))
+            
         } else if (alert_type_ == "Bad Vehicle Detection") {
-            
-            table_df <- df %>%
-                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
-                mutate(Streak = streak[Date == max(Date)]) %>%
-                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
-                summarize(Occurrences = n(),
-                          Streak = max(Streak)) %>% 
-                ungroup() %>%
-                arrange(desc(Streak), desc(Occurrences))
-            
-            # table_df <- df %>%
-            #     group_by(
-            #         Zone, 
-            #         SignalID, 
-            #         Name, 
-            #         Detector = as.integer(as.character(DetectorID)), 
-            #         Alert) %>% 
-            #     summarize(Occurrences = n(),
-            #               max_date = max(Date),
-            #               Streak = streak[Date == max_date]) %>% 
-            #     ungroup() %>%
-            #     filter(max_date == most_recent_date) %>%
-            #     select(-max_date)
             
             plot_df <- df %>%
                 mutate(Detector = as.character(Detector)) %>%
@@ -2201,56 +2168,26 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
             
         } else if (alert_type_ == "No Camera Image") {
             
-            table_df <- df %>%
-                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
-                mutate(Streak = streak[Date == max(Date)]) %>%
-                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
-                summarize(Occurrences = n(),
-                          Streak = max(Streak)) %>% 
-                ungroup() %>%
-                arrange(desc(Streak), desc(Occurrences))
-            
-            # table_df <- df %>%
-            #     group_by(Zone, SignalID, Name, Alert) %>% 
-            #     summarize(Occurrences = n(),
-            #               max_date = max(Date),
-            #               Streak = streak[Date == max_date]) %>% 
-            #     ungroup() %>%
-            #     filter(max_date == most_recent_date) %>%
-            #     select(-max_date)
-            
             plot_df <- df %>%
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
             
-        } else {
+            table_df <- table_df %>% select(-c(CallPhase, Detector))
             
-            table_df <- df %>%
-                group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
-                mutate(Streak = streak[Date == max(Date)]) %>%
-                group_by(Zone, Corridor, SignalID, Name, Alert) %>%
-                summarize(Occurrences = n(),
-                          Streak = max(Streak)) %>% 
-                ungroup() %>%
-                arrange(desc(Streak), desc(Occurrences))
-            
-            # table_df <- df %>%
-            #     group_by(Zone, SignalID, Name, Phase, Alert) %>% 
-            #     summarize(Occurrences = n(),
-            #               max_date = max(Date),
-            #               Streak = streak[Date == max_date]) %>% 
-            #     ungroup() %>%
-            #     filter(max_date == most_recent_date) %>%
-            #     select(-max_date)
+        # "Bad Ped Detection", "Pedestrian Activations", "Force Offs", "Max Outs", "Count"
+        } else { 
             
             plot_df <- df %>%
-                # mutate(Phase = as.character(Phase)) %>% 
                 unite(signal_phase2, Name, CallPhase, sep = " | ph ") %>% # potential problem
                 
                 mutate(SignalID2 = SignalID) %>%
                 unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
                 mutate(signal_phase = factor(signal_phase))
+            
+            if (alert_type_ != "Count") {
+                table_df <- table_df %>% dplyr::select(-Detector)
+            }
         }
         
         intersections <- length(unique(plot_df$signal_phase))
@@ -2266,6 +2203,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, phase_, id_filter_) 
          "table" = table_df, 
          "intersections" = intersections)
 }
+
 
 
 filter_alerts_prestreak <- function(alerts, alert_type_, zone_group_, phase_, id_filter_)  {
@@ -2388,7 +2326,65 @@ filter_alerts_prestreak <- function(alerts, alert_type_, zone_group_, phase_, id
 
 
 
+plot_alerts <- function(df, date_range) {
+    
+    if (nrow(df) > 0) {
+        
+        start_date <- max(min(df$Date), date_range[1])
+        end_date <- max(max(df$Date), date_range[2])
+        
+        p <- ggplot() + 
+            
+            # tile plot
+            geom_tile(data = df, 
+                      aes(x = Date, 
+                          y = signal_phase,
+                          fill = streak), 
+                      color = "white") + 
+            
+            scale_fill_gradient(low = "#fc8d59", high = "#7f0000", limits = c(0,90)) +
+            
+            # fonts, text size and labels and such
+            theme(panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  axis.ticks.x = element_line(color = "gray50"),
+                  axis.text.x = element_text(size = 11),
+                  axis.text.y = element_text(size = 11),
+                  axis.ticks.y = element_blank(),
+                  axis.title = element_text(size = 11)) +
+            
+            scale_x_date(position = "top") + #, limits = date_range) #+
+            scale_y_discrete(limits = rev(levels(df$signal_phase))) +
+            labs(x = "",
+                 y = "") + #Intersection (and phase, if applicable)") +
+            
+            
+            # draw white gridlines between tick labels
+            geom_vline(xintercept = as.numeric(seq(start_date, end_date, by = "1 day")) - 0.5,
+                       color = "white")
+        
+        if (length(unique(df$signal_phase)) > 1) {
+            p <- p +
+                geom_hline(yintercept = seq(1.5, length(unique(df$signal_phase)) - 0.5, by = 1), 
+                           color = "white")
+        }
+        p
+    }
+}
 
+
+
+plot_empty <- function(zone) {
+    
+    ggplot() + 
+        annotate("text", x = 1, y = 1, 
+                 label = "No Data") + 
+        theme(panel.grid.major = element_blank(), 
+              panel.grid.minor = element_blank(), 
+              axis.ticks = element_blank(), 
+              axis.text = element_blank(), 
+              axis.title = element_blank())
+}    
 
 reconstitute <- function(df, col_name) { 
     col_name <- as.name(col_name)
