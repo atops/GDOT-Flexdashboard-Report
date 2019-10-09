@@ -2275,7 +2275,7 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 `r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
 
 
-### Zone Summaries
+### Zone Performance Summaries
 
 ```{r Summary Table, eval = TRUE}
 
@@ -2286,10 +2286,11 @@ corridor_summary_table <- reactive({
     get_corridor_summary_table(corridor_summary_data(), input$zone_group)
 })
 
-fillRow(
-    tags$div(class = "corridor_summary_table",
+tags$div(class = "corridor_summary_table",
+    fillRow(
+    
     renderFormattable({
-        #req(corridor_summary_table())
+                                      
         validate(need(corridor_summary_table(), 
                       "Select a Zone for the Metrics Summary Table"))
         corridor_summary_table()
@@ -2313,6 +2314,10 @@ fillRow(
     })
 )
 ```
+
+### Zone Activity Reports
+
+Coming soon.
 
 
 
