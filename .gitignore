@@ -17,6 +17,7 @@
 /purgatory
 /Signal_Dashboards
 /*monetdb*
+/rsconnect
 
 *.RData
 *.feather
