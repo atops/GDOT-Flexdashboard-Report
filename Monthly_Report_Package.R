@@ -1284,7 +1284,6 @@ print(glue("{Sys.time()} TEAMS [19 of 22]"))
 
 tryCatch({
 
-
     teams <- get_teams_tasks_from_s3(
         bucket = "gdot-spm",
         teams_locations_key = "mark/teams/teams_locations.feather",
@@ -1426,14 +1425,29 @@ print(glue("{Sys.time()} watchdog alerts [20 of 22]"))
 tryCatch({
     # -- Alerts: detector downtime --
 
-    bad_det <- dbGetQuery(conn, sql("select * from gdot_spm.bad_detectors")) %>%
+    bad_detectors <- dbGetQuery(conn, sql("select * from gdot_spm.bad_detectors")) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
             Date = date(date)
         ) %>%
         filter(Date > today() - months(9)) %>%
-        as_tibble() %>%
+        as_tibble() 
+    
+    det_config <- lapply(sort(unique(bad_detectors$Date)), function(date_) {
+        #print(date_)
+        get_det_config(date_) %>% 
+            transmute(SignalID, CallPhase, Detector, Date = date_)
+        }) %>% bind_rows() %>%
+        mutate(
+            SignalID = factor(SignalID),
+            CallPhase = factor(CallPhase),
+            Detector = factor(Detector))
+        
+    bad_det <- bad_detectors %>% 
+        left_join(
+            det_config, by = c("SignalID", "Detector", "Date")
+        ) %>%
         left_join(
             dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
             by = c("SignalID")
@@ -1444,8 +1458,8 @@ tryCatch({
             Zone, 
             Corridor,
             SignalID = factor(SignalID), 
-            CallPhase = factor(0), 
-            Detector = Detector,
+            CallPhase = factor(CallPhase), 
+            Detector = factor(Detector),
             Date, 
             Alert = factor("Bad Vehicle Detection"), 
             Name = factor(Name)
@@ -1522,7 +1536,7 @@ tryCatch({
         filter(Date > today() - months(9)) %>%
         left_join(cam_config, by = c("CameraID")) %>%
         filter(Date > As_of_Date) %>%
-        left_join(distinct(corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
+        left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
         transmute(
             Zone_Group, Zone,
             Corridor = factor(Corridor),
