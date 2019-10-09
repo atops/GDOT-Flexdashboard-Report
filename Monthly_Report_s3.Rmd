@@ -14,6 +14,21 @@ output:
 runtime: shiny
 ---
 
+<style>
+
+.table thead tr th:nth-child(2n+4) {
+    /*color: white;*/
+    visibility: hidden;
+    font-size:1px;
+    width:"50px";
+}
+
+.table thead tr th:nth-child(2) {
+    width:"1000px";
+}
+
+</style>
+
 
 ```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
@@ -2251,120 +2266,96 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 `r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
 
 
-### Zone Summaries
+### Zone Performance Summaries
+
+```{r Summary Table, eval = TRUE}
+
+corridor_summary_data <- reactive({ 
+    get_corridor_summary_data(cor, current_month()) 
+})
+corridor_summary_table <- reactive({
+    get_corridor_summary_table(corridor_summary_data(), input$zone_group)
+})
+
+tags$div(class = "corridor_summary_table",
+    fillRow(
+    
+    renderFormattable({
+        validate(need(corridor_summary_table(), 
+                      "Select a Zone for the Metrics Summary Table"))
+        corridor_summary_table()
+    })
+    )
+)
+fillRow(
+    renderUI({
+        req(corridor_summary_table())
+        #validate(need(corridor_summary_table(), 
+        #              "Select a Zone for the Metrics Summary Table"))
+        tags$div(
+            p(strong("Legend:")), 
+            p("Green text indicates a metric meeting the monthly goal; ",
+              "red text indicates not meeting goal."),
+            
+            p(span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
+              "Green up arrow indicates improvement from previous month; ",
+              span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
+              "red down arrow indicates a deterioration."))
+    })
+)
+```
+
+### Zone Activity Reports
 
 Coming soon.
+
 
 
 
 Watchdog
 =====================================
 
+Row {data-height = 92}
+-------------------------------------
 
-```{r watchdog}
+```{r watchdog, fig.height = 0.92}
 
-#source("filter_SPM_alerts.R")
-source("plot_functions.R")
-
-
-# Main panel with tabs: Map, Table, Plots
-fluidRow(
-    column(width = 3,
-           dateRangeInput("date_range", "Date Range:",
-                        start = today() - days(28),
-                        end = today(),
-                        min = today() - days(365),
-                        max = today(),
-                        format = "mm/dd/yy",
-                        startview = "month",
-                        weekstart = 0,
-                        separator = " - ")
-    ),
-    column(width = 3,
-         selectInput("alert_type", "Alert:",
-                     choices = c("No Camera Image",
-                                 "Bad Vehicle Detection",
-                                 "Bad Ped Detection",
-                                 "Pedestrian Activations",
-                                 "Force Offs",
-                                 "Max Outs",
-                                 "Count",
-                                 "Missing Records"),
-                     selected = "No Camera Image")
-    ),
-    column(width = 2,
-        conditionalPanel("(input.alert_type == 'Missing Records') ||
-                          (input.alert_type == 'Bad Vehicle Detection') ||
-                          (input.alert_type == 'No Camera Image')",
-             selectInput("phase.all", "Phase:",
-                         choices = "All",
-                         selected = "All")),
-        conditionalPanel("(input.alert_type == 'Pedestrian Activations') ||
-                          (input.alert_type == 'Force Offs') ||
-                          (input.alert_type == 'Max Outs') ||
-                          (input.alert_type == 'Count') ||
-                          (input.alert_type == 'Bad Ped Detection')",
-             selectInput("phase.eight", "Phase:",
-                         choices = c("All", seq_len(8)),
-                         selected = "All"))
-    ),
-    column(width = 3,
-         textInput("id_filter", "Intersection Filter:")
-    )
-)
-fluidRow(
-    tabsetPanel(type = "tabs",
-                tabPanel("Plot",
-                         helpText("Plotting up to 40 rows. See table tab for full list. Use the Intersection Filter above to narrow the list for plotting."),
-                         renderPlot({
-                             alerts_plot()
-                         }, height = 600)
-                ),
-                tabPanel("Table",
-                         renderDataTable({
-                             datatable(filtered_alerts()$table, escape = FALSE,
-                                       extensions = 'Scroller', options = list(
-                                           deferRender = TRUE,
-                                           scrollY = 500,
-                                           scroller = TRUE,
-                                           searching = FALSE)
-                            )
-                        })
-                )
-    )
-)
-
-
+plot_height <- reactive({
+    #n <- length(levels(filtered_alerts()$plot$signal_phase))
+    n <- filtered_alerts()$intersections
+    css_px <- as.character(50 + n * 14)
+    paste0(css_px, "px")
+})
 
 filtered_alerts <- reactive({
 
     alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
-
-    ph <- if(input$phase.eight != "All") {
+    
+    phase_ <- if(input$phase.eight != "All") {
         input$phase.eight
     } else {
         "All"
     }
 
-    filter_alerts(alerts_by_date, # filter_mr_data(alerts_by_date, zone_group())
+    filter_alerts(alerts_by_date,
                   input$alert_type,
-                  input$zone_group,
-                  ph, #input$phase,
+                  zone_group(),
+                  corridor(),
+                  phase_,
                   input$id_filter)
 })
+    
 
 
-
-alerts_plot <- reactive({
+output$alerts_plot <- renderPlot({
 
     dataset <- filtered_alerts()
 
     if (nrow(dataset$plot) > 0) {
-
-        plot_df <- dataset$plot %>%
-            filter(SignalID %in% dataset$table$SignalID[1:40]) %>%
+        
+        plot_df <- dataset$plot %>% 
             mutate(signal_phase = factor(signal_phase))
-
+        
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
         } else {
@@ -2375,6 +2366,105 @@ alerts_plot <- reactive({
         plot_empty(zone_group)
     }
 })
+
+
+# Main panel with tabs: Map, Table, Plots
+fluidRow(
+    column(
+        width = 3,
+        dateRangeInput(
+            "date_range", "Date Range:",
+            start = today() - days(28),
+            end = today(),
+            min = today() - days(365),
+            max = today(),
+            format = "mm/dd/yy", 
+            startview = "month", 
+            weekstart = 0,
+            separator = " - ")
+    ),
+    column(
+        width = 3,
+        selectInput(
+            "alert_type", "Alert:",
+            choices = c("No Camera Image",
+                        "Bad Vehicle Detection",
+                        "Bad Ped Detection",
+                        "Pedestrian Activations",
+                        "Force Offs",
+                        "Max Outs",
+                        "Count",
+                        "Missing Records"),
+            selected = "No Camera Image")
+    ),
+    column(
+        width = 2,
+        conditionalPanel(
+            "(input.alert_type == 'Missing Records') ||
+             (input.alert_type == 'No Camera Image')",
+            selectInput("phase.all", "Phase:",
+                        choices = "All",
+                        selected = "All")),
+        conditionalPanel(
+            "(input.alert_type == 'Pedestrian Activations') || 
+            (input.alert_type == 'Force Offs') ||
+            (input.alert_type == 'Max Outs') ||
+            (input.alert_type == 'Count') ||
+            (input.alert_type == 'Bad Vehicle Detection') ||
+            (input.alert_type == 'Bad Ped Detection')",
+            selectInput("phase.eight", "Phase:",
+                        choices = c("All", seq_len(8)),
+                        selected = "All"))
+    ),
+    column(
+        width = 4,
+        textInput("id_filter", "Intersection Filter:")
+    )
+)
+```
+
+Row {data-height = 800}
+-------------------------------------
+
+```{r}
+fillRow(
+    tabsetPanel(
+        type = "tabs",
+        tabPanel(
+            "Plot", 
+            helpText(
+                paste("Use the 'Intersection Filter' to reduce the size of the list.",
+                      "Filter on the intersection name or ID.")),
+                renderUI({
+                    
+                    shiny::validate(
+                        need(filtered_alerts()$intersections < 2000, 
+                             paste("\n\n\nTOO MUCH DATA TO PLOT.",
+                                   "Select a Zone, Corridor of Phase", 
+                                   "to reduce the number of records.")))
+                    
+                    plotOutput("alerts_plot",
+                               height = plot_height())
+                })
+        ),
+        tabPanel(
+            "Table", 
+            renderDataTable({
+                datatable(filtered_alerts()$table, 
+                          escape = FALSE,
+                          extensions = 'Scroller', 
+                          options = list(
+                              deferRender = TRUE,
+                              scrollY = 500,
+                              scroller = TRUE,
+                              searching = FALSE))
+            }),
+            downloadHandler('watchdog_alerts.csv', content = function(file) {
+                write_csv(filtered_alerts()$table, file)
+            })
+        )
+    )
+)
 ```
 
 
