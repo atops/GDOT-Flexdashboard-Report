@@ -73,3 +73,22 @@
     margin-top: 1px;
     margin-bottom: 1px;
 }
+
+.corridor_summary_table {
+    height: 400px !important;
+}
+
+#section-row-data-height-92 {
+    /*background-color: yellow;*/
+    height: 88px !important;
+    flex: 0 0 88px !important;
+}
+
+.datatables {
+    font-size: 14px !important;
+}
+
+.shiny-download-link {
+    background-color: #636363;
+    border-color: #636363;
+}
