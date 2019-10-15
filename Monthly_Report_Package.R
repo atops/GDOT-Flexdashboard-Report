@@ -196,7 +196,7 @@ tryCatch({
     # because we need the whole time series to calculate ped detector uptime
     # based on the exponential distribution method.
     bad_ped_detectors <- get_bad_ped_detectors(pau) %>%
-        filter(Date > report_end_date - days(90))
+        filter(Date > ymd(report_end_date) - days(90))
     s3_upload_parquet_date_split(
        bad_ped_detectors,
        prefix = "bad_ped_detectors",
@@ -1246,15 +1246,23 @@ tryCatch({
     daily_rsu_uptime <- get_rsu_uptime(report_start_date)
     cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
         daily_rsu_uptime, corridors, "uptime")
+    sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
+        daily_rsu_uptime, subcorridors, "uptime")
+
     weekly_rsu_uptime <- get_weekly_avg_by_day(
         mutate(daily_rsu_uptime, CallPhase = 0, Week = week(Date)), "uptime", peak_only = FALSE)
     cor_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
         weekly_rsu_uptime, corridors, "uptime")
+    sub_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
+        weekly_rsu_uptime, subcorridors, "uptime")
+    
     monthly_rsu_uptime <- get_monthly_avg_by_day(
         mutate(daily_rsu_uptime, CallPhase = 0), "uptime", peak_only = FALSE)
     cor_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
         monthly_rsu_uptime, corridors, "uptime")
-
+    sub_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
+        monthly_rsu_uptime, subcorridors, "uptime")
+    
     
     saveRDS(daily_rsu_uptime, "daily_rsu_uptime.rds")
     saveRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds")
@@ -1263,6 +1271,10 @@ tryCatch({
     saveRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds")
     saveRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds")
     saveRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds")
+    
+    saveRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds")
+    saveRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds")
+    saveRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds")
     
     
 }, error = function(e) {
@@ -1758,6 +1770,8 @@ tryCatch({
         "cctv" = cor$dy$cctv %>% 
             filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
             mutate(Zone_Group = Corridor) %>%
+            select(Zone_Group, Corridor, Date, uptime),
+        "ru" = readRDS("sub_daily_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
     sub$wk <- list(
@@ -1792,6 +1806,8 @@ tryCatch({
         "cctv" = cor$wk$cctv %>% 
             filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
             mutate(Zone_Group = Corridor) %>%
+            select(Zone_Group, Corridor, Date, uptime),
+        "ru" = readRDS("sub_weekly_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
     sub$mo <- list(
@@ -1817,7 +1833,8 @@ tryCatch({
         # temp until we choose to group cctv by subcorridor
         "cctv" = cor$mo$cctv %>% 
             filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor)
+            mutate(Zone_Group = Corridor),
+        "ru" = readRDS("sub_monthly_rsu_uptime.rds")
     )
     sub$qu <- list(
         "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
@@ -1833,7 +1850,8 @@ tryCatch({
         "du" = get_quarterly(sub$mo$du, "uptime"),
         "cu" = get_quarterly(sub$mo$cu, "uptime"),
         "pau" = get_quarterly(sub$mo$pau, "uptime"),
-        "cctv" = get_quarterly(sub$mo$cctv, "uptime")
+        "cctv" = get_quarterly(sub$mo$cctv, "uptime"),
+        "ru" = get_quarterly(sub$mo$ru, "uptime")
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
