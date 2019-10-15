@@ -208,7 +208,7 @@ get_cel_connection <- get_maxview_eventlog_connection
 get_athena_connection <- function() {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = "../../AthenaJDBC42_2.0.6.jar",
+                classPath = "../../AthenaJDBC42_2.0.9.jar",
                 identifier.quote = "'")
     
     if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
@@ -4312,7 +4312,7 @@ patch_april <- function(df, df4) {
 # Function to add Probabilities
 get_pau <- function(df) {
     
-    begin_date <- ymd("2018-08-01")
+    begin_date <- max(ymd("2018-08-01"), min(df$Date))
     #month_abbrs <- "2019-08"
     
     corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
@@ -4332,6 +4332,7 @@ get_pau <- function(df) {
                ms = ifelse(s0 >= lead(s0), s0, NA)) %>% 
         mutate(ms = if_else(Date == max(Date), s0, ms)) %>%
         fill(ms, .direction = "up") %>%
+        ungroup() %>%
         mutate(Week = week(Date),
                DOW = wday(Date)) %>%
         left_join(corrs, by = c("SignalID")) %>%

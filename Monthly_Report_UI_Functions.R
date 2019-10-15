@@ -214,7 +214,7 @@ goal <- list("tp" = NULL,
 get_athena_connection <- function() {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = "AthenaJDBC42_2.0.6.jar",
+                classPath = "AthenaJDBC42_2.0.9.jar",
                 identifier.quote = "'")
     
     if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
