@@ -662,7 +662,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$mo$over45,
+        cor$mo$over45,
         "over45", as_int,
         zone = zone_group(),
         mo = current_month(),
@@ -679,7 +679,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$mo$mttr,
+        cor$mo$mttr,
         "mttr", as_2dec,
         zone = zone_group(),
         mo = current_month(),
@@ -764,7 +764,7 @@ renderValueBox({
                            mo = current_month(),
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -779,7 +779,7 @@ renderValueBox({
                            mo = current_month(),
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -794,7 +794,7 @@ renderValueBox({
                            mo = current_month(),
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -973,7 +973,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -989,7 +989,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -1004,7 +1004,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -1019,7 +1019,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
       icon = "fa-broadcast-tower",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -1105,7 +1105,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$qu$over45,
+        cor$qu$over45,
         "over45", as_int,
         zone = zone_group(),
         mo = current_month(),
@@ -1123,7 +1123,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$qu$mttr,
+        cor$qu$mttr,
         "mttr", as_2dec,
         zone = zone_group(),
         mo = current_month(),
@@ -2433,8 +2433,11 @@ fillRow(
         tabPanel(
             "Plot", 
             helpText(
-                paste("Use the 'Intersection Filter' to reduce the size of the list.",
-                      "Filter on the intersection name or ID.")),
+                div(class = "heatmap-explanation", 
+                    paste("Darker colors mean more consecutive days", "
+                          in which the alert condition is active.")),
+                paste("Use the 'Intersection Filter' box to reduce the size of the list.",
+                      "Filter on the intersection name or ID number.")),
                 renderUI({
                     
                     shiny::validate(

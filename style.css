@@ -61,9 +61,9 @@
   margin-left: 20px;  
 }
 
-.help-block {
+/*.help-block {
   
-}
+}*/
 
 .form-group {
     margin-bottom: 5px;
@@ -91,4 +91,8 @@
 .shiny-download-link {
     background-color: #636363;
     border-color: #636363;
+}
+
+.heatmap-explanation {
+    color: #7f0000 !important;
 }
