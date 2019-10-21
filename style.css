@@ -96,3 +96,10 @@
 .heatmap-explanation {
     color: #7f0000 !important;
 }
+
+button#signal_details_button {
+    background-color: #636363;
+    border-color: #636363;
+    margin-top: 25px;
+    padding: 6px 18px;
+}
