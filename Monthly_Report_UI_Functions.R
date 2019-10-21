@@ -29,6 +29,8 @@ suppressMessages(library(rsconnect))
 suppressMessages(library(formattable))
 suppressMessages(library(data.table))
 suppressMessages(library(htmltools))
+suppressMessages(library(leaflet))
+suppressMessages(library(sp))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -186,6 +188,12 @@ if (conf$mode == "production") {
     
     alerts <- aws.s3::s3readRDS(
         object = "mark/watchdog/alerts.rds", 
+        bucket = "gdot-spm",
+        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    
+    map_data <- aws.s3::s3readRDS(
+        object = "map_data.rds",
         bucket = "gdot-spm",
         key = Sys.getenv("AWS_ACCESS_KEY_ID"),
         secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))

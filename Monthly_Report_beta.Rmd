@@ -2511,11 +2511,71 @@ renderDataTable({
 
 
 
+```{r Map, echo = FALSE, eval = FALSE, fig.height = 9}
+#Map
+#=====================================
+
+#map_data <- s3readRDS(bucket = "gdot-spm", object = "map_data.rds")
+
+renderLeaflet({
+
+    line_popups <- function(num, name, corr, tmc) {
+        paste(sep = "<br/>", 
+              glue("<b>Corridor: {corr}</b>"), 
+              glue("<b>Route Number:</b> {num}"),
+              glue("<b>Road Name:</b> {name}"),
+              glue("<b>TMC Code:</b> {tmc}"))
+    }
+    
+    point_popups <- function(description, zone, corridor) {
+          paste(sep = "<br/>", 
+              glue("<b>Signal: {description}</b>"), 
+              glue("<b>Zone:</b> {zone}"),
+              glue("<b>Corridor:</b> {corridor}"))
+    }
+    
+    line_labels <- function(corridor) {
+        glue("Corridor: {corridor}")
+    }
+
+    map <- leaflet() %>% 
+    setView(
+        lat = 33.7995454, 
+        lng = -84.3729367, 
+        zoom = 12) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>% 
+    addPolylines(
+        data = map_data$tmc_sp, 
+        color = ~color,  # "steelblue",
+        popup = ~line_popups(roadNumber, roadName, Corridor, tmc),
+        label = ~line_labels(Corridor)) %>%  # line_labels(roadNumber, roadName, Corridor, tmc)) 
+    addCircleMarkers(
+        data = map_data$signals_sp,
+        lng = ~Longitude,
+        lat = ~Latitude,
+        popup = ~point_popups(Description, Zone, Corridor),
+        label = ~Description,  # point_labels(Description, Zone, Corridor),
+        radius = 3,
+        fillColor = ~fill_color,
+        color = ~stroke_color,
+        stroke = TRUE,
+        fillOpacity = 1,
+        opacity = 1,
+        weight = 1)
+
+})
+```
+
+
+
+
+
+
 
 Signal Details
 =====================================
 
-```{r signal_detail, eval = FALSE}
+```{r signal_detail, eval = TRUE}
 fillCol(height = 100,
     
     fluidRow(
@@ -2523,22 +2583,29 @@ fillCol(height = 100,
         renderUI(selectInput("signalid", "SignalID:",
                     choices = c("Select", filtered_signalids()),
                     selected = "",
-                    width = "600px"))),
+                    width = "800px"))),
         column(width = 1,
-        actionButton("signal_details_button", "Plot"))
+        tags$div(class = "plot-signal-details-button",
+                 actionButton("signal_details_button", "Plot")))
     )
 )
 
+sid <- eventReactive(input$signal_details_button, {
+    req(input$signalid)
+    sub(":.+", "", input$signalid)
+})
+
 
 fillCol(height = 700,
-    
-    observeEvent(input$signal_details_button, {
-        
+
         renderPlotly({
-            sid <- isolate(sub(":.+", "", input$signalid))
-            signal_dashboard_athena(sid, current_month())
+
+            # plot_ly(data = data.frame(x = seq_len(10), y = runif(10))) %>% 
+            #     add_lines(x = ~x, y = ~y) %>%
+            #     layout(annotations = list(text = sid()))
+          
+            signal_dashboard_athena(sid(), current_month())
         })
-    })
 )
 ```
 
