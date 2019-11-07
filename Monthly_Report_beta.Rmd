@@ -144,7 +144,6 @@ corridor <- reactive({
 })
 
 
-
 zone_group <- reactive(
     if (corridor() == "All Corridors") {
         input$zone_group
@@ -191,7 +190,6 @@ filtered_corridors <- reactive({
         corr <- corr %>% 
             filter(Corridor == corridor())
     } 
-    
   
     corr %>% select(-Description, -Asof)
 })
@@ -249,9 +247,6 @@ mr_str <- reactive(
 
 
 
-
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
 
 #renderText({"Mode:"})
 #renderPrint({conf_mode})
@@ -1585,16 +1580,6 @@ renderPlotly({
                     x_line2_title = paste(input_month, "PTI by hr"))
     })
 })
-# renderPlotly({
-#     get_tt_plot(cor$mo$tti, cor$mo$ttih, 
-#                 cor$mo$pti, cor$mo$ptih,
-#                 month_ = current_month(),
-#                 zone_group_ = zone_group(),
-#                 x_bar_title = paste(input$month, "TTI & PTI"),
-#                 x_line1_title = paste(input$month, "TTI by hr"),
-#                 x_line2_title = paste(input$month, "PTI by hr"))
-# })
-#})
 ```
 
 
@@ -2455,8 +2440,11 @@ fillRow(
         tabPanel(
             "Plot", 
             helpText(
-                paste("Use the 'Intersection Filter' to reduce the size of the list.",
-                      "Filter on the intersection name or ID.")),
+                div(class = "heatmap-explanation", 
+                    paste("Darker colors mean more consecutive days", "
+                          in which the alert condition is active.")),
+                paste("Use the 'Intersection Filter' box to reduce the size of the list.",
+                      "Filter on the intersection name or ID number.")),
                 renderUI({
                     
                     shiny::validate(

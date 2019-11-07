@@ -121,12 +121,6 @@ observe({
 
 # --- Sub-Corridor Selection Drop Down based on Corridor ---
 
-# conditionalPanel(
-#     "input.corridor_x != 'All Corridors'",
-#     checkboxInput(
-#         "subcorridors", "Sub-Corridors", value = FALSE, width = NULL)
-# )
-
 conditionalPanel(
     "input.corridor_x != 'All Corridors'",
     radioButtons(
@@ -140,22 +134,6 @@ conditionalPanel(
         choiceValues = NULL)
 )
 
-# conditionalPanel("input.corridor_x != 'All Corridors'",
-#                  selectInput("subcorridor_x", "Sub-Corridor:",
-#                              choices = c("--"),
-#                              selected = "--"))
-#
-# observe({
-#     choices_ <- if (is.null(input$zone_group)) {
-#                     NULL
-#                 } else {
-#                     c("--", "All Sub-Corridors",
-#                       as.character(unique(filter(
-#                           corridors, Corridor == input$corridor_x)$Subcorridor)))
-#                 }
-#
-#     updateSelectInput(session, "subcorridor_x", choices = choices_, selected = "--")
-# })
 
 # --- -------------------------------------------------- ---
 
@@ -173,21 +151,6 @@ corridor <- reactive({
         input$corridor_x
     }
 })
-# corridor <- reactive({
-#     if (input$zone_group %in% c(paste0("RTOP", c(1,2)),
-#                                 paste("Zone", c(seq(1,7), "7m", "7d", 8)),
-#                                 paste("District", seq(1,7)),
-#                                 "Cobb County")) {
-#         input$corridor_x
-#     } else {
-#         "All Corridors"
-#     }
-# })
-
-
-# subcorridor <- reactive({
-#     input$subcorridor_x
-# })
 
 
 zone_group <- reactive(
@@ -235,15 +198,7 @@ filtered_corridors <- reactive({
     if (corridor() != "All Corridors") {
         corr <- corr %>%
             filter(Corridor == corridor())
-    } #else {
-      #  corr
-    #}
-
-    # if (!subcorridor() %in% c("--", "All Corridors")) {
-    #     corr <- corr %>%
-    #       filter(Subcorridor == subcorridor())
-    # }
-
+    }
 
     corr %>% select(-Description, -Asof)
 })
@@ -251,8 +206,10 @@ filtered_corridors <- reactive({
 
 
 
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
+filtered_signalids <- reactive({
+    x <- filtered_corridors() %>% filter(as.integer(as.character(SignalID)) > 0)
+    paste0(x$SignalID, ": ", x$Name)
+})
 
 
 mr_str <- reactive(
@@ -1466,12 +1423,25 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(mr()$wk$tp, mr()$mo$tp, NULL,
-                                "vph", "integer", highlight_color = RED2,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "Throughput (vph)"),
-                                x_line1_title = "Vehicles per Hour Trend",
-                                plot_title = "Throughput (peak veh/hr) Trend")
+    
+    mr_wk_tp <- mr()$wk$tp
+    mr_mo_tp <- mr()$mo$tp
+    current_month_ <- current_month()
+    zone_group_ <- zone_group()
+    input_month <- input$month
+        
+    #future({
+        get_bar_line_dashboard_plot(
+            mr_wk_tp, 
+            mr_mo_tp, 
+            NULL,
+            "vph", "integer", highlight_color = RED2,
+            month_ = current_month_, 
+            zone_group_ = zone_group_,
+            x_bar_title = paste(input_month, "Throughput (vph)"),
+            x_line1_title = "Vehicles per Hour Trend",
+            plot_title = "Throughput (peak veh/hr) Trend")
+    #})
 })
 ```
 
@@ -1480,13 +1450,27 @@ renderPlotly({
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    get_bar_line_dashboard_plot(mr()$wk$aog, mr()$mo$aogd, mr()$mo$aogh,
-                                "aog", "percent", highlight_color = RED2,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "AOG"),
-                                x_line1_title = "AOG Trend",
-                                x_line2_title = paste(input$month, "AOG by TOD"),
-                                plot_title = "Percent Arrivals on Green")
+
+    mr_wk_aogd <- mr()$wk$aogd
+    mr_mo_aogd <- mr()$mo$aogd
+    mr_mo_aogh <- mr()$mo$aogh
+    current_month_ <- current_month()
+    zone_group_ <- zone_group()
+    input_month <- input$month
+    
+    future({
+        get_bar_line_dashboard_plot(
+            mr_wk_aogd,
+            mr_mo_aogd,
+            mr_mo_aogh,
+            "aog", "percent", highlight_color = RED2,
+            month_ = current_month_, 
+            zone_group_ = zone_group_,
+            x_bar_title = paste(input_month, "AOG"),
+            x_line1_title = "AOG Trend",
+            x_line2_title = paste(input_month, "AOG by TOD"),
+            plot_title = "Percent Arrivals on Green")
+    })
 })
 ```
 
@@ -1494,6 +1478,7 @@ renderPlotly({
 ### Progression Ratio
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$pr, mr()$mo$prd, mr()$mo$prh,
                                 "pr", "decimal", highlight_color = RED2,
@@ -1503,12 +1488,14 @@ renderPlotly({
                                 x_line2_title = paste(input$month, "Progression Ratio by TOD"),
                                 plot_title = "Progression Ratio")
 })
+})
 ```
 
 
 ### Queue Spillback Rate
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$qs, mr()$mo$qsd, mr()$mo$mqsh,
                                 "qs_freq", "percent", highlight_color = RED2,
@@ -1518,46 +1505,51 @@ renderPlotly({
                                 x_line2_title = paste(input$month, "Queue Spillback by TOD"),
                                 plot_title = "Queue Spillback Rate")
 })
+})
 ```
 
 
 ### Peak Period Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
-        mr()$wk$sf,
-        mr()$mo$sfd,
+        mr()$wk$sf, 
+        mr()$mo$sfd, 
         mr()$mo$sfh,
-        "sf_freq",
-        "percent",
+        "sf_freq", 
+        "percent", 
         highlight_color = RED2,
-        month_ = current_month(),
+        month_ = current_month(), 
         zone_group_ = zone_group(),
         x_bar_title = paste(input$month, "Split Failures Rate"),
         x_line1_title = "Peak Period Split Failures Trend",
         x_line2_title = paste(input$month, "Split Failures by TOD"),
         plot_title = "Peak Period Split Failures Rate")
 })
+})
 ```
 
 ### Off-Peak Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
-        mr()$wk$sfo,
-        mr()$mo$sfo,
+        mr()$wk$sfo, 
+        mr()$mo$sfo, 
         mr()$mo$sfh,
-        "sf_freq",
-        "percent",
+        "sf_freq", 
+        "percent", 
         highlight_color = RED2,
-        month_ = current_month(),
+        month_ = current_month(), 
         zone_group_ = zone_group(),
         x_bar_title = paste(input$month, "Off_Peak Split Failures Rate"),
         x_line1_title = "Off-Peak Split Failures Trend",
         x_line2_title = paste(input$month, "Split Failures by TOD"),
         plot_title = "Off-Peak Split Failures Rate")
+})
 })
 ```
 
@@ -1565,14 +1557,22 @@ renderPlotly({
 ### Travel Time Metrics
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+#rmarkdown::render_delayed({
 renderPlotly({
-    get_tt_plot(cor$mo$tti, cor$mo$ttih,
-                cor$mo$pti, cor$mo$ptih,
-                month_ = current_month(),
-                zone_group_ = zone_group(),
-                x_bar_title = paste(input$month, "TTI & PTI"),
-                x_line1_title = paste(input$month, "TTI by hr"),
-                x_line2_title = paste(input$month, "PTI by hr"))
+    
+    input_month <- input$month
+    current_month_ <- current_month()
+    zone_group_ <- zone_group() 
+    
+    future({
+        get_tt_plot(cor$mo$tti, cor$mo$ttih, 
+                    cor$mo$pti, cor$mo$ptih,
+                    month_ = current_month_,
+                    zone_group_ = zone_group_,
+                    x_bar_title = paste(input_month, "TTI & PTI"),
+                    x_line1_title = paste(input_month, "TTI by hr"),
+                    x_line2_title = paste(input_month, "PTI by hr"))
+    })
 })
 ```
 
@@ -2508,30 +2508,37 @@ renderDataTable({
 Signal Details
 =====================================
 
-```{r signal_detail, eval = FALSE}
+```{r signal_detail, eval = TRUE}
 fillCol(height = 100,
-
+    
     fluidRow(
         column(width = 3,
         renderUI(selectInput("signalid", "SignalID:",
                     choices = c("Select", filtered_signalids()),
                     selected = "",
-                    width = "600px"))),
+                    width = "800px"))),
         column(width = 1,
-        actionButton("signal_details_button", "Plot"))
+        tags$div(class = "plot-signal-details-button",
+                 actionButton("signal_details_button", "Plot")))
     )
 )
 
+sid <- eventReactive(input$signal_details_button, {
+    req(input$signalid)
+    sub(":.+", "", input$signalid)
+})
 
+                     
 fillCol(height = 700,
 
-    observeEvent(input$signal_details_button, {
-
         renderPlotly({
-            sid <- isolate(sub(":.+", "", input$signalid))
-            signal_dashboard_athena(sid, current_month())
+
+            # plot_ly(data = data.frame(x = seq_len(10), y = runif(10))) %>% 
+            #     add_lines(x = ~x, y = ~y) %>%
+            #     layout(annotations = list(text = sid()))
+          
+            signal_dashboard_athena(sid(), current_month())
         })
-    })
 )
 ```
 
