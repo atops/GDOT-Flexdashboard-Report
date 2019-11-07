@@ -48,18 +48,22 @@ subcorridors <- corridors %>%
 
 conn <- get_athena_connection()
 
-cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = "gdot-spm") %>%
-    rawToChar() %>%
-    read_csv() %>%
-    separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
+cam_config <- get_cam_config(object = "Cameras_Latest.xlsx", bucket = "gdot-spm")
 
-if (class(cam_config$As_of_Date) != "character") {
-    cam_config <- cam_config %>%
-        mutate(As_of_Date = if_else(grepl("\\d{4}-\\d{2}-\\d{2}", As_of_Date),
-                                    ymd(As_of_Date),
-                                    mdy(As_of_Date)
-        ))
-}
+# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = "gdot-spm") %>%
+#     rawToChar() %>%
+#     read_csv() %>%
+#     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
+# 
+# if (class(cam_config$As_of_Date) != "character") {
+#     cam_config <- cam_config %>%
+#         mutate(As_of_Date = if_else(grepl("\\d{4}-\\d{2}-\\d{2}", As_of_Date),
+#                                     ymd(As_of_Date),
+#                                     mdy(As_of_Date)
+#         ))
+# }
+
+
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -1485,16 +1489,8 @@ tryCatch({
         object = "mark/watchdog/bad_detectors.fst",
         bucket = "gdot-spm")
     
-    # bad_det_filename <- "bad_detectors.fst"
-    # write_fst(bad_det, bad_det_filename)
-    # aws.s3::put_object(bad_det_filename,
-    #     object = "mark/watchdog/bad_detectors.fst",
-    #     bucket = "gdot-spm"
-    # )
-    # file.remove(bad_det_filename)
-
-    # -- Alerts: pedestrian detector downtime --
     
+    # -- Alerts: pedestrian detector downtime --
     
     bad_ped <- dbGetQuery(conn, sql("select * from gdot_spm.bad_ped_detectors")) %>%
         transmute(
@@ -1526,14 +1522,6 @@ tryCatch({
         object = "mark/watchdog/bad_ped_detectors.fst",
         bucket = "gdot-spm")
     
-    # bad_ped_filename <- "bad_ped_detectors.fst"
-    # write_fst(bad_ped, bad_ped_filename)
-    # aws.s3::put_object(bad_ped_filename,
-    #     object = "mark/watchdog/bad_ped_detectors.fst",
-    #     bucket = "gdot-spm"
-    # )
-    # file.remove(bad_ped_filename)
-
 
     # -- Alerts: CCTV downtime --
 
@@ -1565,13 +1553,6 @@ tryCatch({
         object = "mark/watchdog/bad_cameras.fst",
         bucket = "gdot-spm")
     
-    # bad_cam_filename <- "bad_cameras.fst"
-    # write_fst(bad_cam, bad_cam_filename)
-    # aws.s3::put_object(bad_cam_filename,
-    #     object = "mark/watchdog/bad_cameras.fst",
-    #     bucket = "gdot-spm"
-    # )
-    # file.remove(bad_cam_filename)
 
     # -- Watchdog Alerts --
 
@@ -1666,7 +1647,7 @@ tryCatch({
     )
     cor$wk <- list(
         "vpd" = readRDS("cor_weekly_vpd.rds"),
-        "vph" = readRDS("cor_weekly_vph.rds"),
+        #"vph" = readRDS("cor_weekly_vph.rds"),
         "vphp" = readRDS("cor_weekly_vph_peak.rds"),
         "papd" = readRDS("cor_weekly_papd.rds"),
         "paph" = readRDS("cor_weekly_paph.rds"),
