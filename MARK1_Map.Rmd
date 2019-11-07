@@ -1,0 +1,274 @@
+---
+title: "MARK1 Map"
+author: "Alan Toppen"
+date: "10/17/2019"
+#output: html_document
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sp)
+library(leaflet)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(stringr)
+library(aws.s3)
+library(readr)
+library(htmltools)
+library(glue)
+library(feather)
+library(forcats)
+
+BLACK <- "#000000"
+WHITE <- "#FFFFFF"
+GRAY <- "#D0D0D0"
+
+# --Copied over from Superbowl_UI_Functions.R -------------
+points_to_line <- function(data, long, lat, id_field = NULL, sort_field = NULL) {
+    
+    # Convert to SpatialPointsDataFrame
+    coordinates(data) <- c(long, lat)
+    
+    # If there is a sort field...
+    if (!is.null(sort_field)) {
+        if (!is.null(id_field)) {
+            data <- data[order(data[[id_field]], data[[sort_field]]), ]
+        } else {
+            data <- data[order(data[[sort_field]]), ]
+        }
+    }
+    
+    # If there is only one path...
+    if (is.null(id_field)) {
+        
+        lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
+        
+        return(lines)
+        
+        # Now, if we have multiple lines...
+    } else if (!is.null(id_field)) {  
+        
+        # Split into a list by ID field
+        paths <- sp::split(data, data[[id_field]])
+        
+        sp_lines <- SpatialLines(list(Lines(list(Line(paths[[1]])), "line1")))
+        
+        if (length(paths) > 1) {
+            # I like for loops, what can I say...
+            for (p in 2:length(paths)) {
+                id <- paste0("line", as.character(p))
+                l <- SpatialLines(list(Lines(list(Line(paths[[p]])), id)))
+                sp_lines <- spRbind(sp_lines, l)
+            }
+        }
+
+        return(sp_lines)
+    }
+}
+#----------------------------------------------------------
+get_tmc_coords <- function(coords_string) {
+    coord2 <- str_extract(coords_string, pattern = "(?<=')(.*?)(?=')")
+    coord_list <- str_split(str_split(coord2, ",")[[1]], " ")
+    
+    tmc_coords <- purrr::transpose(coord_list) %>%
+        lapply(unlist) %>%
+        as.data.frame(., col.names = c("longitude", "latitude")) %>%
+        mutate(latitude = as.numeric(trimws(latitude)),
+               longitude = as.numeric(trimws(longitude)))
+    as_tibble(tmc_coords)
+}
+#----------------------------------------------------------
+```
+
+
+```{r Read Data, echo=FALSE, eval=FALSE}
+
+# This is the source of the signal performance data
+sig <- s3readRDS(bucket = "gdot-spm", object = "sig_ec2.rds")
+
+# This is the corridor-based data
+cor <- s3readRDS(bucket = "gdot-spm", object = "cor_ec2.rds")
+```
+
+
+```{r Corridors, echo=FALSE, eval=TRUE}
+
+# --- Corridors Listing ---
+
+corridor_palette <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3", 
+                      "#ff7f00", "#ffff33", "#a65628", "#f781bf")
+
+corridors <- s3read_using(
+    read_feather,
+    bucket = "gdot-spm",
+    object = "all_corridors.feather")
+
+rtop_corridors <- corridors %>% 
+    filter(grepl("^Zone", Zone)) %>%
+    distinct(Corridor)
+
+num_corridors <- nrow(rtop_corridors)
+
+corridor_colors <- rtop_corridors %>% 
+    mutate(
+        color = rep(corridor_palette, ceiling(num_corridors/8))[1:num_corridors]) %>%
+        #color = rep(RColorBrewer::brewer.pal(7, "Dark2"),
+        #            ceiling(num_corridors/7))[1:num_corridors]) %>%
+    bind_rows(data.frame(Corridor = c("None"), color = GRAY)) %>%
+    mutate(Corridor = factor(Corridor))
+
+corr_levels <- levels(corridor_colors$Corridor)
+ordered_levels <- fct_relevel(corridor_colors$Corridor, c("None", corr_levels[corr_levels != "None"]))
+corridor_colors <- corridor_colors %>% 
+    mutate(Corridor = factor(Corridor, levels = ordered_levels))
+```
+
+```{r Intersections, echo=FALSE, eval=TRUE}
+
+# --- Intersections (Point Layer) ---
+
+ints <- s3read_using(
+    read_csv, 
+    bucket = "gdot-devices", 
+    object = "maxv_atspm_intersections/date=2019-10-16/maxv_atspm_intersections.csv"
+    ) %>% 
+    select(-X1) %>%
+    filter(Latitude != 0, Longitude != 0) %>% 
+    mutate(SignalID = factor(SignalID))
+
+signals <- left_join(ints, corridors, by = c("SignalID")) %>%
+    mutate(
+        Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")) %>%
+    left_join(corridor_colors, by = c("Corridor")) %>%
+    mutate(SignalID = factor(SignalID), Corridor = factor(Corridor),
+           Description = if_else(
+               is.na(Description), 
+               glue("{as.character(SignalID)}: {PrimaryName} @ {SecondaryName}"), 
+               Description)
+    ) %>%
+
+    mutate(
+        # If part of a Zone (RTOP), fill is black, otherwise white
+        fill_color = ifelse(grepl("^Z", Zone), BLACK, WHITE),
+        # If not part of a corridor, gray outer color, otherwise black
+        stroke_color = ifelse(Corridor == "None", GRAY, BLACK),
+        # If part of a Zone (RTOP), override black outer to corridor color
+        stroke_color = ifelse(grepl("^Z", Zone), color, stroke_color))
+```
+
+```{r TMC Segments, echo=FALSE, eval=TRUE}
+
+# --- TMC Segments (Line Layer) ---
+
+raw_tmcs <- s3read_using(
+    read_csv, 
+    bucket = "gdot-spm", 
+    object = "tmc_codes/date=2019-10-15/raw_tmcs.csv.zip") %>%
+    select(-X1)
+
+rtop_tmc_routes <- s3read_using(
+    read_feather, 
+    bucket = "gdot-spm", 
+    object = "tmc_routes.feather"
+    ) %>% 
+    select(tmc, Corridor)
+
+tmcs <-left_join(raw_tmcs, rtop_tmc_routes, by = c("tmc")) %>%
+    mutate(Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")) %>% 
+    left_join(corridor_colors, by = "Corridor") %>%
+    mutate(Corridor = factor(Corridor)) #%>%
+    
+    #filter(funcClass < 4 | Corridor != "None")
+    #filter(!roadClass %in% c("Interstate", "Interchange"), 
+    #       !(!county %in% c("FULTON", "DEKALB") & roadClass == "Other"))
+```
+
+```{r Create SpatialDataFrame, echo=FALSE, eval=TRUE}
+
+# -- This takes a little while
+z <- tmcs %>% 
+    mutate(
+        tmc_coords = purrr::map(coordinates, get_tmc_coords),
+        sp_data = purrr::map(
+            tmc_coords, function(y) {
+                points_to_line(data = y, long = "longitude", lat = "latitude")
+            })
+        )
+
+zed <- do.call(rbind, z$sp_data) %>%
+    SpatialLinesDataFrame(z, match.ID = FALSE)
+
+map_data <- list(tmc_sp = zed, signals_sp = signals)
+
+# == Save locally and to S3 == ==
+saveRDS(map_data,
+        "map_data.rds")
+s3saveRDS(map_data,
+          bucket = "gdot-spm",
+          object = "map_data.rds")
+# == == == ==
+```
+
+```{r Read Data, echo=FALSE}
+map_data <- readRDS("map_data.rds")
+```
+
+
+```{r Map, echo=FALSE, fig.height=14}
+
+# -- The code below is out of date 
+#    and was updated on Monthly_Report_beta.Rmd on EC2 ----
+line_popups <- function(num, name, corr, tmc) {
+    paste(sep = "<br/>", 
+          glue("<b>Corridor: {corr}</b>"), 
+          glue("<b>Route Number:</b> {num}"),
+          glue("<b>Road Name:</b> {name}"),
+          glue("<b>TMC Code:</b> {tmc}"))
+}
+
+point_popups <- function(description, zone, corridor) {
+    paste(sep = "<br/>", 
+          glue("<b>Signal: {description}</b>"), 
+          glue("<b>Zone:</b> {zone}"),
+          glue("<b>Corridor:</b> {corridor}"))
+}
+
+line_labels <- function(corridor) {
+    glue("Corridor: {corridor}")
+}
+
+leaflet(width = "100%", height = 100) %>% 
+    setView(
+        lat = 33.7995454, 
+        lng = -84.3729367, 
+        zoom = 12) %>%
+    addProviderTiles(
+        providers$CartoDB.Positron) %>% 
+    addPolylines(
+        data = map_data$tmc_sp, 
+        color = ~color,  # "steelblue",
+        popup = ~line_popups(roadNumber, roadName, Corridor, tmc),
+        label = ~line_labels(Corridor)) %>%  # line_labels(roadNumber, roadName, Corridor, tmc)) 
+    addCircleMarkers(
+        data = map_data$signals_sp,
+        lng = ~Longitude,
+        lat = ~Latitude,
+        popup = ~point_popups(Description, Zone, Corridor),
+        label = ~Description,  # point_labels(Description, Zone, Corridor),
+        radius = 3,
+        fillColor = ~fill_color,
+        color = ~stroke_color,
+        stroke = TRUE,
+        fillOpacity = 1,
+        opacity = 1,
+        weight = 1)
+#s3saveRDS(map, bucket = "gdot-spm", object = "mark1_leaflet_map.rds")
+```
