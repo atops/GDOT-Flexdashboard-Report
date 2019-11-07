@@ -55,8 +55,6 @@ BLACK = "#000000"
 DARK_GRAY_BAR = "#252525"
 LIGHT_GRAY_BAR = "#bdbdbd"
 
-#GDOT_BLUE = "#256194"; GDOT_BLUE_RGB = "rgba(37, 97, 148, 0.80)"
-#2d6797
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
@@ -192,11 +190,11 @@ if (conf$mode == "production") {
         key = Sys.getenv("AWS_ACCESS_KEY_ID"),
         secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
     
-    map_data <- aws.s3::s3readRDS(
-        object = "map_data.rds",
-        bucket = "gdot-spm",
-        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    # map_data <- aws.s3::s3readRDS(
+    #     object = "map_data.rds",
+    #     bucket = "gdot-spm",
+    #     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+    #     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -239,8 +237,10 @@ get_athena_connection <- function() {
         
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
                   s3_staging_dir = 's3://gdot-spm-athena',
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                  user = aws_conf$AWS_ACCESS_KEY_ID,
+                  password =  aws_conf$AWS_SECRET_ACCESS_KEY,
+                  #user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                  #password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
 }
@@ -1865,225 +1865,250 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
         
         #plan(multisession)
         #------------------------
-        
-        p_rc %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>%
-                select(signalid, detector, callphase, timeperiod, vol) %>%
-                collect()
-            dbDisconnect(conn)
-            #------------------------
+        withProgress(message = "Loading chart", value = 0, {
             
-            df <- df %>%
-                mutate(vol = ifelse(is.na(vol), 0, vol),
-                       SignalID = factor(signalid),
-                       Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Timeperiod = as_datetime(timeperiod))
-            volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
-                layout(showlegend = FALSE)
-        },
-        error = function(cond) {
-            plot_ly()
+            p_rc %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>%
+                    select(signalid, detector, callphase, timeperiod, vol) %>%
+                    collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>%
+                    mutate(vol = ifelse(is.na(vol), 0, vol),
+                           SignalID = factor(signalid),
+                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Timeperiod = as_datetime(timeperiod))
+                volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
+                    layout(showlegend = FALSE)
+            },
+            error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.01)
+            
+            p_fc %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% 
+                    select(signalid, detector, callphase, timeperiod, vol) %>%
+                    collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>% 
+                    mutate(vol = ifelse(is.na(vol), 0, vol),
+                           SignalID = factor(signalid),
+                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Timeperiod = as_datetime(timeperiod))
+                volplot_plotly(df, title = "Filtered 1 hr Aggregated Counts") %>% 
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+
+            incProgress(amount = 0.01)
+            
+            p_vpd %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.vehicles_pd")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>% 
+                    filter(!is.na(vpd)) %>%
+                    mutate(SignalID = factor(signalid),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Date = as_date(date))
+                df_ <- df %>% group_by(SignalID, CallPhase) %>% filter(Date == max(Date)) %>% ungroup() %>% mutate(Date = Date + days(1))
+                df <- df %>% bind_rows(df, df_)
+                perf_plotly_by_phase(df, "Date", "vpd", 
+                                     range_max = max(df$vpd), 
+                                     number_format = ",.0",
+                                     title = "Daily Volume by Phase") %>% 
+                    layout(showlegend = TRUE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.01)
+            
+            p_ddu %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>% 
+                    mutate(vol = good_day,
+                           SignalID = factor(signalid),
+                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Timeperiod = as_datetime(timeperiod))
+                volplot_plotly(df, title = "Daily Detector Uptime", ymax = 1.1) %>% 
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.01)
+            
+            p_com %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.comm_uptime")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                # df <- dbReadTable(conn, "comm_uptime")
+                df <- df %>%
+                    mutate(SignalID = factor(signalid),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Date_Hour = as_datetime(date_hour),
+                           Date = as_date(date))
+                perf_plotly(df, 
+                            "Date", "uptime", 
+                            title = "Daily Communications Uptime") %>% 
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.015)
+            
+            p_aog %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.arrivals_on_green")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>%
+                    mutate(SignalID = factor(signalid),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Date_Hour = as_datetime(date_hour),
+                           Date = as_date(date)) %>% 
+                    complete(nesting(SignalID, CallPhase), 
+                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                             fill = list("aog" = 0)) %>% 
+                    arrange(SignalID, CallPhase, Date_Hour)
+                perf_plotly_by_phase(df,
+                                     "Date_Hour", "aog", 
+                                     title = "Arrivals on Green") %>% 
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                print(paste("ERROR:", cond))
+            })
+            
+            incProgress(amount = 0.015)
+            
+            p_qs %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.queue_spillback")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>%
+                    mutate(SignalID = factor(signalid),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Date_Hour = as_datetime(date_hour),
+                           Date = as_date(date)) %>% 
+                    complete(nesting(SignalID, CallPhase), 
+                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                             fill = list("qs_freq" = 0)) %>% 
+                    arrange(SignalID, CallPhase, Date_Hour)
+                perf_plotly_by_phase(df,
+                                     "Date_Hour", "qs_freq", 
+                                     range_max = 0.5, 
+                                     title = "Queue Spillback Rate") %>% 
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.015)
+            
+            p_sf %<-% tryCatch({
+                conn <- get_athena_connection()
+                #------------------------
+                df <- tbl(conn, sql("select * from gdot_spm.split_failures")) %>%
+                    filter(signalid == sigid,
+                           between(date, start_date, end_date)) %>% collect()
+                dbDisconnect(conn)
+                #------------------------
+                
+                df <- df %>%
+                    mutate(SignalID = factor(signalid),
+                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
+                           Date_Hour = as_datetime(date_hour),
+                           Date = as_date(date)) %>%
+                    complete(nesting(SignalID, CallPhase),
+                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
+                             fill = list("sf_freq" = 0)) %>%
+                    arrange(SignalID, CallPhase, Date_Hour)
+                
+                perf_plotly_by_phase(df,
+                                     "Date_Hour", "sf_freq",
+                                     range_max = 1.0,
+                                     title = "Split Failure Rate") %>%
+                    layout(showlegend = FALSE)
+            }, error = function(cond) {
+                plot_ly()
+            })
+            
+            incProgress(amount = 0.015)
+            
+            sr1a %<-% subplot(list(p_rc, p_vpd), 
+                              nrows = 2, 
+                              margin = 0.04, 
+                              heights = c(0.6, 0.4), 
+                              shareX = TRUE)
+            
+            incProgress(amount = 0.3)
+            
+            sr1b %<-% subplot(list(p_fc, p_ddu), 
+                              nrows = 2, 
+                              margin = 0.04, 
+                              heights = c(0.6, 0.4), 
+                              shareX = TRUE)
+            
+            incProgress(amount = 0.3)
+            
+            sr2 %<-% subplot(list(p_com, p_aog, p_qs, p_sf), 
+                             nrows = 4, 
+                             margin = 0.04, 
+                             heights = c(0.1, 0.2, 0.2, 0.5), 
+                             shareX = TRUE)
+
+            incProgress(amount = 0.3)
+            
+            subplot(sr1a, sr1b, sr2)
         })
         
-        p_fc %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% 
-                select(signalid, detector, callphase, timeperiod, vol) %>%
-                collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>% 
-                mutate(vol = ifelse(is.na(vol), 0, vol),
-                       SignalID = factor(signalid),
-                       Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Timeperiod = as_datetime(timeperiod))
-            volplot_plotly(df, title = "Filtered 1 hr Aggregated Counts") %>% 
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            plot_ly()
-        })
-        
-        p_vpd %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.vehicles_pd")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>% 
-                filter(!is.na(vpd)) %>%
-                mutate(SignalID = factor(signalid),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Date = as_date(date))
-            df_ <- df %>% group_by(SignalID, CallPhase) %>% filter(Date == max(Date)) %>% ungroup() %>% mutate(Date = Date + days(1))
-            df <- df %>% bind_rows(df, df_)
-            perf_plotly_by_phase(df, "Date", "vpd", 
-                                 range_max = max(df$vpd), 
-                                 number_format = ",.0",
-                                 title = "Daily Volume by Phase") %>% 
-                layout(showlegend = TRUE)
-        }, error = function(cond) {
-            plot_ly()
-        })
-        
-        p_ddu %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>% 
-                mutate(vol = good_day,
-                       SignalID = factor(signalid),
-                       Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Timeperiod = as_datetime(timeperiod))
-            volplot_plotly(df, title = "Daily Detector Uptime", ymax = 1.1) %>% 
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            plot_ly()
-        })
         
         
-        
-        p_com %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.comm_uptime")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            # df <- dbReadTable(conn, "comm_uptime")
-            df <- df %>%
-                mutate(SignalID = factor(signalid),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Date_Hour = as_datetime(date_hour),
-                       Date = as_date(date))
-            perf_plotly(df, 
-                        "Date", "uptime", 
-                        title = "Daily Communications Uptime") %>% 
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            plot_ly()
-        })
-        
-        p_aog %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.arrivals_on_green")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>%
-                mutate(SignalID = factor(signalid),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Date_Hour = as_datetime(date_hour),
-                       Date = as_date(date)) %>% 
-                complete(nesting(SignalID, CallPhase), 
-                         Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                         fill = list("aog" = 0)) %>% 
-                arrange(SignalID, CallPhase, Date_Hour)
-            perf_plotly_by_phase(df,
-                                 "Date_Hour", "aog", 
-                                 title = "Arrivals on Green") %>% 
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            print(paste("ERROR:", cond))
-        })
-        
-        p_qs %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.queue_spillback")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>%
-                mutate(SignalID = factor(signalid),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Date_Hour = as_datetime(date_hour),
-                       Date = as_date(date)) %>% 
-                complete(nesting(SignalID, CallPhase), 
-                         Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                         fill = list("qs_freq" = 0)) %>% 
-                arrange(SignalID, CallPhase, Date_Hour)
-            perf_plotly_by_phase(df,
-                                 "Date_Hour", "qs_freq", 
-                                 range_max = 0.5, 
-                                 title = "Queue Spillback Rate") %>% 
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            plot_ly()
-        })
-        
-        p_sf %<-% tryCatch({
-            conn <- get_athena_connection()
-            #------------------------
-            df <- tbl(conn, sql("select * from gdot_spm.split_failures")) %>%
-                filter(signalid == sigid,
-                       between(date, start_date, end_date)) %>% collect()
-            dbDisconnect(conn)
-            #------------------------
-            
-            df <- df %>%
-                mutate(SignalID = factor(signalid),
-                       CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                       Date_Hour = as_datetime(date_hour),
-                       Date = as_date(date)) %>%
-                complete(nesting(SignalID, CallPhase),
-                         Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                         fill = list("sf_freq" = 0)) %>%
-                arrange(SignalID, CallPhase, Date_Hour)
-            
-            perf_plotly_by_phase(df,
-                                 "Date_Hour", "sf_freq",
-                                 range_max = 1.0,
-                                 title = "Split Failure Rate") %>%
-                layout(showlegend = FALSE)
-        }, error = function(cond) {
-            plot_ly()
-        })
-        
-        
-        sr1a %<-% subplot(list(p_rc, p_vpd), 
-                        nrows = 2, 
-                        margin = 0.04, 
-                        heights = c(0.6, 0.4), 
-                        shareX = TRUE)
-        sr1b %<-% subplot(list(p_fc, p_ddu), 
-                        nrows = 2, 
-                        margin = 0.04, 
-                        heights = c(0.6, 0.4), 
-                        shareX = TRUE)
-        
-        sr2 %<-% subplot(list(p_com, p_aog, p_qs, p_sf), 
-                       nrows = 4, 
-                       margin = 0.04, 
-                       heights = c(0.1, 0.2, 0.2, 0.5), 
-                       shareX = TRUE)
-        
-        subplot(sr1a, sr1b, sr2)
     }, error = function(e) {
         no_data_plot("")
     })
@@ -2130,9 +2155,9 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, i
         }
         
         # Filter filter bar text (regular expression) within Name, Corridor, SignalID
-        df <- filter(df, grepl(pattern = id_filter_, x = Name, ignore.case = TRUE) |
-                         grepl(pattern = id_filter_, x = Corridor, ignore.case = TRUE) |
-                         grepl(pattern = id_filter_, x = SignalID, ignore.case = TRUE))
+        df <- filter(df, grepl(pattern = id_filter_, x = Name, ignore.case = TRUE, perl = TRUE) |
+                         grepl(pattern = id_filter_, x = Corridor, ignore.case = TRUE, perl = TRUE) |
+                         grepl(pattern = id_filter_, x = SignalID, ignore.case = TRUE, perl = TRUE))
     }
     
     # Filter by phase, but not for Missing Records, which doesn't have a phase
