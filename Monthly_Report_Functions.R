@@ -657,6 +657,19 @@ get_corridor_name <- function(string) {
         # Catchall. Return itself.
         TRUE ~ string)
 }
+
+get_cam_config <- function(object, bucket) {
+    aws.s3::s3read_using(read_excel, object = object, bucket = bucket) %>%
+        transmute(
+            CameraID = factor(CameraID), 
+            Location, 
+            Corridor = factor(Corridor), 
+            #Zone = factor(Zone), 
+            As_of_Date = date(As_of_Date)) %>%
+        distinct()
+
+}
+
 get_tmc_routes <- function(pth = "TMC_Identification") {
     
     lapply(aws.s3::get_bucket(bucket = 'gdot-spm', prefix = pth), function(x) { 
@@ -4273,36 +4286,7 @@ readRDS_multiple <- function(pattern) {
 
 
 
-patch_april <- function(df, df4) {
-    
-    f <- function(df_, df4_) {
-        
-        if ("Date" %in% names(df4_)) {
-            dat <- as.name("Date")
-        } else if ("Hour" %in% names(df4_)) {
-            dat <- as.name("Hour")
-        } else if ("Month" %in% names(df4_)) {
-            dat <- as.name("Month")
-        }
-        
-        df_ <- df_ %>% filter(month(!!dat) != 4)
-        df4_ <- df4_ %>% filter(month(!!dat) == 4)
-        
-        bind_rows(df_, df4_) %>% 
-            arrange(Zone_Group, Corridor, !!dat) %>%
-            mutate(Corridor = factor(Corridor),
-                   Zone_Group = factor(Zone_Group))
-    }
-    
-    if (names(df4)[1] == "am") {
-        am <- f(df$am, df4$am)
-        pm <- f(df$pm, df4$pm)
-        result <- list("am" = am, "pm" = pm)
-    } else {
-        result <- f(df, df4)
-    }
-    result
-}
+
 
 
 
@@ -4312,7 +4296,7 @@ patch_april <- function(df, df4) {
 # Function to add Probabilities
 get_pau <- function(df) {
     
-    begin_date <- max(ymd("2018-08-01"), min(df$Date))
+    begin_date <- ymd("2018-08-01")
     #month_abbrs <- "2019-08"
     
     corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
@@ -4329,10 +4313,11 @@ get_pau <- function(df) {
         group_by(SignalID, CallPhase) %>%
         mutate(s0 = runner::streak_run(papd), 
                s0 = if_else(papd > 0, as.integer(0), s0), #--------------this is new
-               ms = ifelse(s0 >= lead(s0), s0, NA)) %>% 
+               ## New code to prevent old report months from updating based on new report month
+               ## Fills max streak up to the last day of the month
+               ms = ifelse(s0 >= lead(s0) | Date == rollback(Date), s0, NA)) %>% 
         mutate(ms = if_else(Date == max(Date), s0, ms)) %>%
         fill(ms, .direction = "up") %>%
-        ungroup() %>%
         mutate(Week = week(Date),
                DOW = wday(Date)) %>%
         left_join(corrs, by = c("SignalID")) %>%
