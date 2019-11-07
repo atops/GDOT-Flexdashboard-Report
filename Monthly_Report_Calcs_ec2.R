@@ -71,9 +71,18 @@ install_corridors_file <- function() {
 
 # -- ----------------------------------------------------
 
-corridors <- read_feather(conf$corridors_filename)
+corridors <- s3read_using(
+    read_feather,
+    object = "corridors.feather",
+    bucket = "gdot-spm")
+all_corridors <- s3read_using(
+    read_feather,
+    object = "all_corridors.feather",
+    bucket = "gdot-spm")
+
+#corridors <- read_feather(conf$corridors_filename)
 signals_list <- unique(corridors$SignalID)
-all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
+#all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
 
 subcorridors <- corridors %>%
     mutate(
