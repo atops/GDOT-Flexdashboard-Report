@@ -1781,55 +1781,20 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
                intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
                date = ymd(date)) %>%
         select(-eventcode)
+    rm(cd) 
     
-    
-    # grn_interval <- cd %>% 
-    #     filter(eventcode == 1) %>%
-    #     select(signalid, 
-    #            phase, 
-    #            cyclestart, 
-    #            phasestart, 
-    #            phaseend,
-    #            date) %>% 
-    #     
-    #     collect() %>% 
-    #     mutate(signalid = factor(signalid),
-    #            phase = factor(phase),
-    #            cyclestart = ymd_hms(cyclestart),
-    #            intervalstart = ymd_hms(phasestart),
-    #            intervalend = ymd_hms(phaseend),
-    #            date = ymd(date))
-    # cat('.')
-    # 
-    # 
-    # sor_interval <- cd %>% 
-    #     filter(eventcode == 9) %>%
-    #     select(signalid,
-    #            phase,
-    #            cyclestart,
-    #            phasestart,
-    #            date) %>%
-    #     
-    #     collect() %>%
-    #     mutate(signalid = factor(signalid),
-    #            phase = factor(phase),
-    #            cyclestart = ymd_hms(cyclestart),
-    #            intervalstart = ymd_hms(phasestart),
-    #            intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
-    #            date = ymd(date))
     cat('.')
-
-    
+   
     
     de_dt <- data.table(de)
+    rm(de)
+    gc()
     gr_dt <- data.table(grn_interval)
     sr_dt <- data.table(sor_interval)
     
     setkey(de_dt, signalid, phase, deton, detoff)
     setkey(gr_dt, signalid, phase, intervalstart, intervalend)
     setkey(sr_dt, signalid, phase, intervalstart, intervalend)
-    
-    
     
     ## ---
     
