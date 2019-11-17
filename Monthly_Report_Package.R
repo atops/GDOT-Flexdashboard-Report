@@ -1,118 +1,23 @@
 
 # Monthly_Report_Package.R
 
-library(yaml)
-library(glue)
-library(future)
-
-plan(multiprocess)
-
-print(glue("{Sys.time()} Starting Package Script"))
-
-
-if (Sys.info()["sysname"] == "Windows") {
-    working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else if (Sys.info()["sysname"] == "Linux") {
-    working_directory <- file.path("~", "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else {
-    stop("Unknown operating system.")
-}
-setwd(working_directory)
-
-source("Monthly_Report_Functions.R")
-# source("mark1_dynamodb.R")
-conf <- read_yaml("Monthly_Report.yaml")
-
-# startsWith(Sys.info()["nodename"], "ip-") # check for if on AWS EC2 instance
-
-corridors <- read_feather(conf$corridors_filename)
-signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
-all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
-
-# This is in testing as of 8/26
-subcorridors <- corridors %>% 
-    select(-Zone_Group) %>% 
-    rename(
-        Zone_Group = Zone, 
-        Zone = Corridor, 
-        Corridor = Subcorridor)
-
-# First attempt. Only replace Corridor with Subcorridor. Lost the actual corridor. Didn't work.
-# subcorridors <- corridors %>%
-#     mutate(
-#         Subcorridor = as.character(Subcorridor),
-#         Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))
-#     ) %>%
-#     mutate(Corridor = factor(Subcorridor)) %>%
-#     select(-Subcorridor)
-
-conn <- get_athena_connection()
-
-cam_config <- get_cam_config(object = "Cameras_Latest.xlsx", bucket = "gdot-spm")
-
-# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = "gdot-spm") %>%
-#     rawToChar() %>%
-#     read_csv() %>%
-#     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
-# 
-# if (class(cam_config$As_of_Date) != "character") {
-#     cam_config <- cam_config %>%
-#         mutate(As_of_Date = if_else(grepl("\\d{4}-\\d{2}-\\d{2}", As_of_Date),
-#                                     ymd(As_of_Date),
-#                                     mdy(As_of_Date)
-#         ))
-# }
-
-
-
-usable_cores <- get_usable_cores()
-doParallel::registerDoParallel(cores = usable_cores)
-
-# system("aws s3 sync s3://gdot-spm/mark MARK --exclude *counts_*")
-
-# # ###########################################################################
-
-# # Package everything up for Monthly Report back 13 months
-
-#----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-
-report_start_date <- conf$report_start_date
-if (conf$report_end_date == "yesterday") {
-    report_end_date <- Sys.Date() - days(1)
-} else {
-    report_end_date <- conf$report_end_date
-}
-
-
-dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
-month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
-
-report_start_date <- as.character(report_start_date)
-report_end_date <- as.character(report_end_date)
-print(month_abbrs)
-
-date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
-date_range_str <- paste0("{", paste0(as.character(date_range), collapse = ","), "}")
-
-
-
-
+source("Monthly_Report_Package_init.R")
 
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 22]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 23]"))
 
 tryCatch({
     cb <- function(x) {
         get_avg_daily_detector_uptime(x) %>%
             mutate(Date = date(Date))
     }
-
+    
     avg_daily_detector_uptime <- s3_read_parquet_parallel(
         bucket = "gdot-spm",
         table_name = "detector_uptime_pd",
-        start_date = report_start_date,
+        start_date = calcs_start_date,
         end_date = report_end_date,
         signals_list = signals_list,
         callback = cb
@@ -120,13 +25,16 @@ tryCatch({
         mutate(
             SignalID = factor(SignalID)
         )
-
+    
+    plan(sequential)
+    plan(multiprocess)
+    
     cor_avg_daily_detector_uptime %<-% 
         get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
     sub_avg_daily_detector_uptime %<-% 
         (get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
-        filter(!is.na(Corridor)))
-
+             filter(!is.na(Corridor)))
+    
     weekly_detector_uptime %<-% 
         get_weekly_detector_uptime(avg_daily_detector_uptime)
     cor_weekly_detector_uptime %<-% 
@@ -141,20 +49,20 @@ tryCatch({
         get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
     sub_monthly_detector_uptime %<-% 
         (get_cor_monthly_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
-        filter(!is.na(Corridor)))
-
-    saveRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds")
-    saveRDS(weekly_detector_uptime, "weekly_detector_uptime.rds")
-    saveRDS(monthly_detector_uptime, "monthly_detector_uptime.rds")
-
-    saveRDS(cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds")
-    saveRDS(cor_weekly_detector_uptime, "cor_weekly_detector_uptime.rds")
-    saveRDS(cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds")
-
-    saveRDS(sub_avg_daily_detector_uptime, "sub_avg_daily_detector_uptime.rds")
-    saveRDS(sub_weekly_detector_uptime, "sub_weekly_detector_uptime.rds")
-    saveRDS(sub_monthly_detector_uptime, "sub_monthly_detector_uptime.rds")
-
+             filter(!is.na(Corridor)))
+    
+    addtoRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(weekly_detector_uptime, "weekly_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_detector_uptime, "monthly_detector_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_detector_uptime, "cor_weekly_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(sub_avg_daily_detector_uptime, "sub_avg_daily_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_detector_uptime, "sub_weekly_detector_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_detector_uptime, "sub_monthly_detector_uptime.rds", report_start_date, calcs_start_date)
+    
     # rm(ddu)
     # rm(daily_detector_uptime)
     rm(avg_daily_detector_uptime)
@@ -174,14 +82,14 @@ tryCatch({
 
 # DAILY PEDESTRIAN DETECTOR UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Detector Uptime [2 of 22]"))
+print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
 
 tryCatch({
-
+    
     papd <- s3_read_parquet_parallel(
         bucket = "gdot-spm",
         table_name = "ped_actuations_pd",
-        start_date = report_start_date,
+        start_date = report_start_date, # We have to look at the entire report period for pau
         end_date = report_end_date,
         signals_list = signals_list
     ) %>%
@@ -194,54 +102,58 @@ tryCatch({
         )
     
     pau <- get_pau(papd)
-
-
+    
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need the whole time series to calculate ped detector uptime
     # based on the exponential distribution method.
     bad_ped_detectors <- get_bad_ped_detectors(pau) %>%
         filter(Date > ymd(report_end_date) - days(90))
     s3_upload_parquet_date_split(
-       bad_ped_detectors,
-       prefix = "bad_ped_detectors",
-       table_name = "bad_ped_detectors")
-
-    daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
+        bad_ped_detectors,
+        prefix = "bad_ped_detectors",
+        table_name = "bad_ped_detectors")
+    
+    plan(sequential)
+    plan(multiprocess)
+    
+    daily_pa_uptime %<-% get_daily_avg(pau, "uptime", peak_only = FALSE)
+    weekly_pa_uptime %<-% get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
+    monthly_pa_uptime %<-% get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
+    
     cor_daily_pa_uptime %<-% 
         get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
     sub_daily_pa_uptime %<-% 
         (get_cor_weekly_avg_by_day(daily_pa_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
-    weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
+             filter(!is.na(Corridor)))
+    
     cor_weekly_pa_uptime %<-% 
         get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
     sub_weekly_pa_uptime %<-% 
         (get_cor_weekly_avg_by_day(weekly_pa_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
-    monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
+             filter(!is.na(Corridor)))
+    
     cor_monthly_pa_uptime %<-% 
         get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
     sub_monthly_pa_uptime %<-% 
         (get_cor_monthly_avg_by_day(monthly_pa_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
-    saveRDS(pau, "pa_uptime.rds")
-
-    saveRDS(daily_pa_uptime, "daily_pa_uptime.rds")
-    saveRDS(cor_daily_pa_uptime, "cor_daily_pa_uptime.rds")
-    saveRDS(sub_daily_pa_uptime, "sub_daily_pa_uptime.rds")
-
-    saveRDS(weekly_pa_uptime, "weekly_pa_uptime.rds")
-    saveRDS(cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds")
-    saveRDS(sub_weekly_pa_uptime, "sub_weekly_pa_uptime.rds")
-
-    saveRDS(monthly_pa_uptime, "monthly_pa_uptime.rds")
-    saveRDS(cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds")
-    saveRDS(sub_monthly_pa_uptime, "sub_monthly_pa_uptime.rds")
-
+             filter(!is.na(Corridor)))
+    
+    addtoRDS(pau, "pa_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(daily_pa_uptime, "daily_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_daily_pa_uptime, "cor_daily_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_daily_pa_uptime, "sub_daily_pa_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(weekly_pa_uptime, "weekly_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_pa_uptime, "sub_weekly_pa_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(monthly_pa_uptime, "monthly_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pa_uptime, "sub_monthly_pa_uptime.rds", report_start_date, calcs_start_date)
+    
     # rm(papd)
+    rm(bad_ped_detectors)
     rm(pau)
     rm(daily_pa_uptime)
     rm(weekly_pa_uptime)
@@ -261,7 +173,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [3 of 22]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [3 of 23]"))
 
 tryCatch({
     
@@ -285,12 +197,12 @@ tryCatch({
         filter(!is.na(Corridor))
     
     # Monthly % change from previous month by corridor ----------------------------
-    saveRDS(weekly_papd, "weekly_papd.rds")
-    saveRDS(monthly_papd, "monthly_papd.rds")
-    saveRDS(cor_weekly_papd, "cor_weekly_papd.rds")
-    saveRDS(cor_monthly_papd, "cor_monthly_papd.rds")
-    saveRDS(sub_weekly_papd, "sub_weekly_papd.rds")
-    saveRDS(sub_monthly_papd, "sub_monthly_papd.rds")
+    addtoRDS(weekly_papd, "weekly_papd.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_papd, "monthly_papd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_papd, "cor_weekly_papd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_papd, "cor_monthly_papd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_papd, "sub_weekly_papd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_papd, "sub_monthly_papd.rds", report_start_date, calcs_start_date)
     
     rm(papd)
     rm(weekly_papd)
@@ -310,14 +222,14 @@ tryCatch({
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [4 of 22]"))
+print(glue("{Sys.time()} Hourly Pedestrian Activations [4 of 23]"))
 
 tryCatch({
     
     paph <- s3_read_parquet(
         bucket = "gdot-spm", 
         table_name = "ped_actuations_ph", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -326,8 +238,11 @@ tryCatch({
             Date = date(Date)
         )
     
-    weekly_paph <- get_weekly_paph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
-    # weekly_paph_peak <- get_weekly_paph_peak(weekly_paph)
+    plan(sequential)
+    plan(multiprocess)
+    
+    weekly_paph %<-% get_weekly_paph(mutate(paph, CallPhase = 2)) # Hack because next function needs a CallPhase
+    monthly_paph %<-% get_monthly_paph(paph)
     
     # Group into corridors --------------------------------------------------------
     cor_weekly_paph <- get_cor_weekly_paph(weekly_paph, corridors)
@@ -335,26 +250,23 @@ tryCatch({
     sub_weekly_paph <- get_cor_weekly_paph(weekly_paph, subcorridors) %>%
         filter(!is.na(Corridor))
     
-    monthly_paph <- get_monthly_paph(paph)
-    # monthly_paph_peak <- get_monthly_vph_peak(monthly_paph)
-    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_paph <- get_cor_monthly_paph(monthly_paph, corridors)
     # cor_monthly_paph_peak <- get_cor_monthly_vph_peak(cor_monthly_paph)
     sub_monthly_paph <- get_cor_monthly_paph(monthly_paph, subcorridors) %>%
         filter(!is.na(Corridor))
     
-    saveRDS(weekly_paph, "weekly_paph.rds")
-    saveRDS(monthly_paph, "monthly_paph.rds")
-    saveRDS(cor_weekly_paph, "cor_weekly_paph.rds")
-    saveRDS(cor_monthly_paph, "cor_monthly_paph.rds")
-    saveRDS(sub_weekly_paph, "sub_weekly_paph.rds")
-    saveRDS(sub_monthly_paph, "sub_monthly_paph.rds")
+    addtoRDS(weekly_paph, "weekly_paph.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_paph, "monthly_paph.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_paph, "cor_weekly_paph.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_paph, "cor_monthly_paph.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_paph, "sub_weekly_paph.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_paph, "sub_monthly_paph.rds", report_start_date, calcs_start_date)
     
-    # saveRDS(weekly_paph_peak, "weekly_paph_peak.rds")
-    # saveRDS(monthly_paph_peak, "monthly_paph_peak.rds")
-    # saveRDS(cor_weekly_paph_peak, "cor_weekly_paph_peak.rds")
-    # saveRDS(cor_monthly_paph_peak, "cor_monthly_paph_peak.rds")
+    # addtoRDS(weekly_paph_peak, "weekly_paph_peak.rds", report_start_date, calcs_start_date)
+    # addtoRDS(monthly_paph_peak, "monthly_paph_peak.rds", report_start_date, calcs_start_date)
+    # addtoRDS(cor_weekly_paph_peak, "cor_weekly_paph_peak.rds", report_start_date, calcs_start_date)
+    # addtoRDS(cor_monthly_paph_peak, "cor_monthly_paph_peak.rds", report_start_date, calcs_start_date)
     
     rm(paph)
     rm(weekly_paph)
@@ -375,16 +287,79 @@ tryCatch({
 
 
 
+# GET PEDESTRIAN DELAY ###################################################
+
+print(glue("{Sys.time()} Communication Uptime [5 of 23]"))
+
+tryCatch({
+    cb <- function(x) {
+        filter(x,
+               Duration < 300) %>%
+            transmute(
+                SignalID,
+                CallPhase = EventParam,
+                Date = date(Date),
+                Date_Hour = Begin_Walk,
+                DOW = wday(Date),
+                Week = week(Date),
+                Duration)
+    }
+    
+    ped_delay <- s3_read_parquet(
+        bucket = "gdot-spm", 
+        table_name = "ped_delay", 
+        start_date = calcs_start_date,
+        end_date = report_end_date, 
+        signals_list = signals_list,
+        callback = cb
+    ) %>%
+        mutate(
+            SignalID = factor(SignalID),
+            CallPhase = factor(CallPhase))
+    
+    
+    daily_pd <- get_daily_avg(ped_delay, "Duration")
+    weekly_pd_by_day <- get_weekly_avg_by_day(ped_delay, "Duration", peak_only = FALSE)
+    monthly_pd_by_day <- get_monthly_avg_by_day(ped_delay, "Duration", peak_only = FALSE)
+    
+    cor_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, corridors, "Duration")
+    cor_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, corridors, "Duration")
+    
+    sub_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, subcorridors, "Duration") %>%
+        filter(!is.na(Corridor))
+    sub_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, subcorridors, "Duration") %>%
+        filter(!is.na(Corridor))
+    
+    addtoRDS(weekly_pd_by_day, "weekly_pd_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_pd_by_day, "monthly_pd_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_pd_by_day, "cor_weekly_pd_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pd_by_day, "cor_monthly_pd_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_pd_by_day, "sub_weekly_pd_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pd_by_day, "sub_monthly_pd_by_day.rds", report_start_date, calcs_start_date)
+    
+    rm(daily_pd)
+    rm(weekly_pd_by_day)
+    rm(monthly_pd_by_day)
+    rm(cor_weekly_pd_by_day)
+    rm(cor_monthly_pd_by_day)
+    rm(sub_weekly_pd_by_day)
+    rm(sub_monthly_pd_by_day)
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+
+
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [5 of 22]"))
+print(glue("{Sys.time()} Communication Uptime [6 of 23]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
         bucket = "gdot-spm", 
         table_name = "comm_uptime", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -393,41 +368,44 @@ tryCatch({
             CallPhase = factor(CallPhase),
             Date = date(Date)
         )
-
+    
+    plan(sequential)
+    plan(multiprocess)
+    
     daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
     cor_daily_comm_uptime %<-% 
         get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
     sub_daily_comm_uptime %<-% 
         (get_cor_weekly_avg_by_day(daily_comm_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
+             filter(!is.na(Corridor)))
+    
     weekly_comm_uptime <- get_weekly_avg_by_day(cu, "uptime", peak_only = FALSE)
     cor_weekly_comm_uptime %<-% 
         get_cor_weekly_avg_by_day(weekly_comm_uptime, corridors, "uptime")
     sub_weekly_comm_uptime %<-% 
         (get_cor_weekly_avg_by_day(weekly_comm_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
+             filter(!is.na(Corridor)))
+    
     monthly_comm_uptime <- get_monthly_avg_by_day(cu, "uptime", peak_only = FALSE)
     cor_monthly_comm_uptime %<-% 
         get_cor_monthly_avg_by_day(monthly_comm_uptime, corridors, "uptime")
     sub_monthly_comm_uptime %<-% 
         (get_cor_monthly_avg_by_day(monthly_comm_uptime, subcorridors, "uptime") %>%
-        filter(!is.na(Corridor)))
-
-
-    saveRDS(daily_comm_uptime, "daily_comm_uptime.rds")
-    saveRDS(cor_daily_comm_uptime, "cor_daily_comm_uptime.rds")
-    saveRDS(sub_daily_comm_uptime, "sub_daily_comm_uptime.rds")
-
-    saveRDS(weekly_comm_uptime, "weekly_comm_uptime.rds")
-    saveRDS(cor_weekly_comm_uptime, "cor_weekly_comm_uptime.rds")
-    saveRDS(sub_weekly_comm_uptime, "sub_weekly_comm_uptime.rds")
-
-    saveRDS(monthly_comm_uptime, "monthly_comm_uptime.rds")
-    saveRDS(cor_monthly_comm_uptime, "cor_monthly_comm_uptime.rds")
-    saveRDS(sub_monthly_comm_uptime, "sub_monthly_comm_uptime.rds")
-
+             filter(!is.na(Corridor)))
+    
+    
+    addtoRDS(daily_comm_uptime, "daily_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_daily_comm_uptime, "cor_daily_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_daily_comm_uptime, "sub_daily_comm_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(weekly_comm_uptime, "weekly_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_comm_uptime, "cor_weekly_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_comm_uptime, "sub_weekly_comm_uptime.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(monthly_comm_uptime, "monthly_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_comm_uptime, "cor_monthly_comm_uptime.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_comm_uptime, "sub_monthly_comm_uptime.rds", report_start_date, calcs_start_date)
+    
     rm(cu)
     rm(daily_comm_uptime)
     rm(weekly_comm_uptime)
@@ -448,14 +426,14 @@ tryCatch({
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [6 of 22]"))
+print(glue("{Sys.time()} Daily Volumes [7 of 23]"))
 
 tryCatch({
     
     vpd <- s3_read_parquet_parallel(
         bucket = "gdot-spm", 
         table_name = "vehicles_pd", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -464,34 +442,37 @@ tryCatch({
             CallPhase = factor(CallPhase),
             Date = date(Date)
         )
-
+    
     weekly_vpd <- get_weekly_vpd(vpd)
-
+    
+    plan(sequential)
+    plan(multiprocess)
+    
     # Group into corridors --------------------------------------------------------
     cor_weekly_vpd %<-% get_cor_weekly_vpd(weekly_vpd, corridors)
     # Subcorridors
     sub_weekly_vpd %<-% 
         (get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
-        filter(!is.na(Corridor)))
-
+             filter(!is.na(Corridor)))
+    
     # Monthly volumes for bar charts and % change ---------------------------------
     monthly_vpd <- get_monthly_vpd(vpd)
-
+    
     # Group into corridors
     cor_monthly_vpd %<-% get_cor_monthly_vpd(monthly_vpd, corridors)
     # Subcorridors
     sub_monthly_vpd %<-% 
         (get_cor_monthly_vpd(monthly_vpd, subcorridors) %>%
-        filter(!is.na(Corridor)))
-
+             filter(!is.na(Corridor)))
+    
     # Monthly % change from previous month by corridor ----------------------------
-    saveRDS(weekly_vpd, "weekly_vpd.rds")
-    saveRDS(monthly_vpd, "monthly_vpd.rds")
-    saveRDS(cor_weekly_vpd, "cor_weekly_vpd.rds")
-    saveRDS(cor_monthly_vpd, "cor_monthly_vpd.rds")
-    saveRDS(sub_weekly_vpd, "sub_weekly_vpd.rds")
-    saveRDS(sub_monthly_vpd, "sub_monthly_vpd.rds")
-
+    addtoRDS(weekly_vpd, "weekly_vpd.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_vpd, "monthly_vpd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_vpd, "cor_weekly_vpd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_vpd, "cor_monthly_vpd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_vpd, "sub_weekly_vpd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_vpd, "sub_monthly_vpd.rds", report_start_date, calcs_start_date)
+    
     rm(vpd)
     rm(weekly_vpd)
     rm(monthly_vpd)
@@ -509,14 +490,14 @@ tryCatch({
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [7 of 22]"))
+print(glue("{Sys.time()} Hourly Volumes [8 of 23]"))
 
 tryCatch({
-
+    
     vph <- s3_read_parquet_parallel(
         bucket = "gdot-spm", 
         table_name = "vehicles_ph", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -525,53 +506,54 @@ tryCatch({
             CallPhase = factor(2), # Hack because next function needs a CallPhase
             Date = date(Date)
         )
-
+    
     weekly_vph <- get_weekly_vph(vph)
     weekly_vph_peak <- get_weekly_vph_peak(weekly_vph)
-
+    
     # Group into corridors --------------------------------------------------------
     cor_weekly_vph <- get_cor_weekly_vph(weekly_vph, corridors)
     cor_weekly_vph_peak <- get_cor_weekly_vph_peak(cor_weekly_vph)
-
+    
     # Group into Subcorridors --------------------------------------------------------
     sub_weekly_vph <- get_cor_weekly_vph(weekly_vph, subcorridors) %>%
         filter(!is.na(Corridor))
     sub_weekly_vph_peak <- get_cor_weekly_vph_peak(sub_weekly_vph) %>%
         map(~filter(., !is.na(Corridor)))
-
+    
     monthly_vph <- get_monthly_vph(vph)
     monthly_vph_peak <- get_monthly_vph_peak(monthly_vph)
-
+    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_vph <- get_cor_monthly_vph(monthly_vph, corridors)
     cor_monthly_vph_peak <- get_cor_monthly_vph_peak(cor_monthly_vph)
-
+    
     # Hourly volumes by Subcorridor --------------------------------------------------
     sub_monthly_vph <- get_cor_monthly_vph(monthly_vph, subcorridors) %>%
         filter(!is.na(Corridor))
     sub_monthly_vph_peak <- get_cor_monthly_vph_peak(sub_monthly_vph) %>%
         map(~filter(., !is.na(Corridor)))
-
-    saveRDS(weekly_vph, "weekly_vph.rds")
-    saveRDS(monthly_vph, "monthly_vph.rds")
-    saveRDS(cor_weekly_vph, "cor_weekly_vph.rds")
-    saveRDS(cor_monthly_vph, "cor_monthly_vph.rds")
-    saveRDS(sub_weekly_vph, "sub_weekly_vph.rds")
-    saveRDS(sub_monthly_vph, "sub_monthly_vph.rds")
-
-    saveRDS(weekly_vph_peak, "weekly_vph_peak.rds")
-    saveRDS(monthly_vph_peak, "monthly_vph_peak.rds")
-    saveRDS(cor_weekly_vph_peak, "cor_weekly_vph_peak.rds")
-    saveRDS(cor_monthly_vph_peak, "cor_monthly_vph_peak.rds")
-    saveRDS(sub_weekly_vph_peak, "sub_weekly_vph_peak.rds")
-    saveRDS(sub_monthly_vph_peak, "sub_monthly_vph_peak.rds")
-
+    
+    addtoRDS(weekly_vph, "weekly_vph.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_vph, "monthly_vph.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_vph, "cor_weekly_vph.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_vph, "cor_monthly_vph.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_vph, "sub_weekly_vph.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_vph, "sub_monthly_vph.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(weekly_vph_peak, "weekly_vph_peak.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_vph_peak, "monthly_vph_peak.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_vph_peak, "cor_weekly_vph_peak.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_vph_peak, "cor_monthly_vph_peak.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_vph_peak, "sub_weekly_vph_peak.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_vph_peak, "sub_monthly_vph_peak.rds", report_start_date, calcs_start_date)
+    
     rm(vph)
     rm(weekly_vph)
     rm(monthly_vph)
     rm(cor_weekly_vph)
     rm(sub_weekly_vph)
-    # rm(cor_monthly_vph)
+    rm(cor_monthly_vph)
+    rm(sub_monthly_vph)
     rm(weekly_vph_peak)
     rm(monthly_vph_peak)
     rm(cor_weekly_vph_peak)
@@ -591,15 +573,15 @@ tryCatch({
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [8 of 22]"))
+print(glue("{Sys.time()} Daily Throughput [9 of 23]"))
 
 tryCatch({
     # throughput <- f("tp_", month_abbrs)
-
+    
     throughput <- s3_read_parquet(
         bucket = "gdot-spm", 
         table_name = "throughput", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -608,32 +590,33 @@ tryCatch({
             CallPhase = factor(as.integer(CallPhase)),
             Date = date(Date)
         )
-
-    weekly_throughput <- get_weekly_thruput(throughput)
-
-    # Group into corridors --------------------------------------------------------
+    
+    plan(sequential)
+    plan(multiprocess)
+    
+    weekly_throughput %<-% get_weekly_thruput(throughput)
+    monthly_throughput %<-% get_monthly_thruput(throughput)
+    
+    # Weekly throughput - Group into corridors ---------------------------------
     cor_weekly_throughput <- get_cor_weekly_thruput(weekly_throughput, corridors)
     sub_weekly_throughput <- get_cor_weekly_thruput(weekly_throughput, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    # Monthly throughput for bar charts and % change ---------------------------------
-    monthly_throughput <- get_monthly_thruput(throughput)
-
-    # Group into corridors
+    
+    # Monthly throughput - Group into corridors
     cor_monthly_throughput <- get_cor_monthly_thruput(monthly_throughput, corridors)
     sub_monthly_throughput <- get_cor_monthly_thruput(monthly_throughput, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    # Monthly % change from previous month by corridor ----------------------------
+    
+    # Monthly % change from previous month by corridor -------------------------
     # cor_mo_pct_throughput <- get_cor_monthly_pct_change_thruput(cor_monthly_throughput)
-
-    saveRDS(weekly_throughput, "weekly_throughput.rds")
-    saveRDS(monthly_throughput, "monthly_throughput.rds")
-    saveRDS(cor_weekly_throughput, "cor_weekly_throughput.rds")
-    saveRDS(cor_monthly_throughput, "cor_monthly_throughput.rds")
-    saveRDS(sub_weekly_throughput, "sub_weekly_throughput.rds")
-    saveRDS(sub_monthly_throughput, "sub_monthly_throughput.rds")
-
+    
+    addtoRDS(weekly_throughput, "weekly_throughput.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_throughput, "monthly_throughput.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_throughput, "cor_weekly_throughput.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_throughput, "cor_monthly_throughput.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_throughput, "sub_weekly_throughput.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_throughput, "sub_monthly_throughput.rds", report_start_date, calcs_start_date)
+    
     rm(throughput)
     rm(weekly_throughput)
     rm(monthly_throughput)
@@ -649,16 +632,16 @@ tryCatch({
 
 
 
+
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [9 of 22]"))
+print(glue("{Sys.time()} Daily AOG [10 of 23]"))
 
 tryCatch({
-    # aog <- f("aog_", month_abbrs, combine = TRUE)
     aog <- s3_read_parquet(
         bucket = "gdot-spm", 
         table_name = "arrivals_on_green", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -666,27 +649,27 @@ tryCatch({
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
             Date = date(Date)
-        )
-
+        ) #%>% write_fst("aog.fst")
+    
     daily_aog <- get_daily_aog(aog)
     weekly_aog_by_day <- get_weekly_aog_by_day(aog)
     monthly_aog_by_day <- get_monthly_aog_by_day(aog)
-
+    
     cor_weekly_aog_by_day <- get_cor_weekly_aog_by_day(weekly_aog_by_day, corridors)
     cor_monthly_aog_by_day <- get_cor_monthly_aog_by_day(monthly_aog_by_day, corridors)
-
+    
     sub_weekly_aog_by_day <- get_cor_weekly_aog_by_day(weekly_aog_by_day, subcorridors) %>%
         filter(!is.na(Corridor))
     sub_monthly_aog_by_day <- get_cor_monthly_aog_by_day(monthly_aog_by_day, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    saveRDS(weekly_aog_by_day, "weekly_aog_by_day.rds")
-    saveRDS(monthly_aog_by_day, "monthly_aog_by_day.rds")
-    saveRDS(cor_weekly_aog_by_day, "cor_weekly_aog_by_day.rds")
-    saveRDS(cor_monthly_aog_by_day, "cor_monthly_aog_by_day.rds")
-    saveRDS(sub_weekly_aog_by_day, "sub_weekly_aog_by_day.rds")
-    saveRDS(sub_monthly_aog_by_day, "sub_monthly_aog_by_day.rds")
-
+    
+    addtoRDS(weekly_aog_by_day, "weekly_aog_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_aog_by_day, "monthly_aog_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_aog_by_day, "cor_weekly_aog_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_aog_by_day, "cor_monthly_aog_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_aog_by_day, "sub_weekly_aog_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_aog_by_day, "sub_monthly_aog_by_day.rds", report_start_date, calcs_start_date)
+    
     rm(daily_aog)
     rm(weekly_aog_by_day)
     rm(monthly_aog_by_day)
@@ -704,23 +687,23 @@ tryCatch({
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [10 of 22]"))
+print(glue("{Sys.time()} Hourly AOG [11 of 23]"))
 
 tryCatch({
     aog_by_hr <- get_aog_by_hr(aog)
     monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
-
+    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, corridors)
     sub_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, subcorridors) %>%
         filter(!is.na(Corridor))
-
+    
     # cor_monthly_aog_peak <- get_cor_monthly_aog_peak(cor_monthly_aog_by_hr)
-
-    saveRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds")
-    saveRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds")
-    saveRDS(sub_monthly_aog_by_hr, "sub_monthly_aog_by_hr.rds")
-
+    
+    addtoRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_aog_by_hr, "sub_monthly_aog_by_hr.rds", report_start_date, calcs_start_date)
+    
     # rm(aog)
     rm(aog_by_hr)
     # rm(cor_monthly_aog_peak)
@@ -737,29 +720,29 @@ tryCatch({
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [11 of 22]"))
+print(glue("{Sys.time()} Daily Progression Ratio [12 of 23]"))
 
 tryCatch({
-    daily_pr <- get_daily_pr(aog)
+    #daily_pr <- get_daily_pr(aog)
     weekly_pr_by_day <- get_weekly_pr_by_day(aog)
     monthly_pr_by_day <- get_monthly_pr_by_day(aog)
-
+    
     cor_weekly_pr_by_day <- get_cor_weekly_pr_by_day(weekly_pr_by_day, corridors)
     cor_monthly_pr_by_day <- get_cor_monthly_pr_by_day(monthly_pr_by_day, corridors)
-
+    
     sub_weekly_pr_by_day <- get_cor_weekly_pr_by_day(weekly_pr_by_day, subcorridors) %>%
         filter(!is.na(Corridor))
     sub_monthly_pr_by_day <- get_cor_monthly_pr_by_day(monthly_pr_by_day, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    saveRDS(weekly_pr_by_day, "weekly_pr_by_day.rds")
-    saveRDS(monthly_pr_by_day, "monthly_pr_by_day.rds")
-    saveRDS(cor_weekly_pr_by_day, "cor_weekly_pr_by_day.rds")
-    saveRDS(cor_monthly_pr_by_day, "cor_monthly_pr_by_day.rds")
-    saveRDS(sub_weekly_pr_by_day, "sub_weekly_pr_by_day.rds")
-    saveRDS(sub_monthly_pr_by_day, "sub_monthly_pr_by_day.rds")
-
-    rm(daily_pr)
+    
+    addtoRDS(weekly_pr_by_day, "weekly_pr_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_pr_by_day, "monthly_pr_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_pr_by_day, "cor_weekly_pr_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pr_by_day, "cor_monthly_pr_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_pr_by_day, "sub_weekly_pr_by_day.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pr_by_day, "sub_monthly_pr_by_day.rds", report_start_date, calcs_start_date)
+    
+    #rm(daily_pr)
     rm(weekly_pr_by_day)
     rm(monthly_pr_by_day)
     rm(cor_weekly_pr_by_day)
@@ -776,23 +759,23 @@ tryCatch({
 
 # HOURLY PROGESSION RATIO ####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [12 of 22]"))
+print(glue("{Sys.time()} Hourly Progression Ratio [13 of 23]"))
 
 tryCatch({
     pr_by_hr <- get_pr_by_hr(aog)
     monthly_pr_by_hr <- get_monthly_pr_by_hr(pr_by_hr)
-
+    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_pr_by_hr <- get_cor_monthly_pr_by_hr(monthly_pr_by_hr, corridors)
     sub_monthly_pr_by_hr <- get_cor_monthly_pr_by_hr(monthly_pr_by_hr, subcorridors) %>%
         filter(!is.na(Corridor))
-
+    
     # cor_monthly_pr_peak <- get_cor_monthly_pr_peak(cor_monthly_pr_by_hr)
-
-    saveRDS(monthly_pr_by_hr, "monthly_pr_by_hr.rds")
-    saveRDS(cor_monthly_pr_by_hr, "cor_monthly_pr_by_hr.rds")
-    saveRDS(sub_monthly_pr_by_hr, "sub_monthly_pr_by_hr.rds")
-
+    
+    addtoRDS(monthly_pr_by_hr, "monthly_pr_by_hr.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pr_by_hr, "cor_monthly_pr_by_hr.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pr_by_hr, "sub_monthly_pr_by_hr.rds", report_start_date, calcs_start_date)
+    
     rm(aog)
     rm(pr_by_hr)
     # rm(cor_monthly_pr_peak)
@@ -812,12 +795,12 @@ tryCatch({
 # DAILY SPLIT FAILURES #####################################################
 
 tryCatch({
-    print(glue("{Sys.time()} Daily Split Failures [13 of 22]"))
-
+    print(glue("{Sys.time()} Daily Split Failures [14 of 23]"))
+    
     sf <- s3_read_parquet_parallel(
         bucket = "gdot-spm",
         table_name = "split_failures", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list,
         callback = function(x) filter(x, CallPhase == 0)
@@ -838,7 +821,7 @@ tryCatch({
         sfp, "sf_freq", "cycles", peak_only = FALSE)
     weekly_sfo_by_day <- get_weekly_avg_by_day(
         sfo, "sf_freq", "cycles", peak_only = FALSE)
-
+    
     cor_weekly_sf_by_day <- get_cor_weekly_sf_by_day(weekly_sf_by_day, corridors)
     cor_weekly_sfo_by_day <- get_cor_weekly_sf_by_day(weekly_sfo_by_day, corridors)
     
@@ -860,21 +843,21 @@ tryCatch({
     sub_monthly_sfo_by_day <- get_cor_monthly_sf_by_day(monthly_sfo_by_day, subcorridors) %>%
         filter(!is.na(Corridor))
     
-
-    saveRDS(weekly_sf_by_day, "wsf.rds")
-    saveRDS(monthly_sf_by_day, "monthly_sfd.rds")
-    saveRDS(cor_weekly_sf_by_day, "cor_wsf.rds")
-    saveRDS(cor_monthly_sf_by_day, "cor_monthly_sfd.rds")
-    saveRDS(sub_weekly_sf_by_day, "sub_wsf.rds")
-    saveRDS(sub_monthly_sf_by_day, "sub_monthly_sfd.rds")
-
-    saveRDS(weekly_sfo_by_day, "wsfo.rds")
-    saveRDS(monthly_sfo_by_day, "monthly_sfo.rds")
-    saveRDS(cor_weekly_sfo_by_day, "cor_wsfo.rds")
-    saveRDS(cor_monthly_sfo_by_day, "cor_monthly_sfo.rds")
-    saveRDS(sub_weekly_sfo_by_day, "sub_wsfo.rds")
-    saveRDS(sub_monthly_sfo_by_day, "sub_monthly_sfo.rds")
-
+    
+    addtoRDS(weekly_sf_by_day, "wsf.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_sf_by_day, "monthly_sfd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_sf_by_day, "cor_wsf.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_sf_by_day, "cor_monthly_sfd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_sf_by_day, "sub_wsf.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_sf_by_day, "sub_monthly_sfd.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(weekly_sfo_by_day, "wsfo.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_sfo_by_day, "monthly_sfo.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_sfo_by_day, "cor_wsfo.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_sfo_by_day, "cor_monthly_sfo.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_sfo_by_day, "sub_wsfo.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_sfo_by_day, "sub_monthly_sfo.rds", report_start_date, calcs_start_date)
+    
     rm(sfp)
     rm(sfo)
     rm(weekly_sf_by_day)
@@ -899,21 +882,21 @@ tryCatch({
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [14 of 22]"))
+print(glue("{Sys.time()} Hourly Split Failures [15 of 23]"))
 
 tryCatch({
     sfh <- get_sf_by_hr(sf)
     msfh <- get_monthly_sf_by_hr(sfh)
-
+    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_msfh <- get_cor_monthly_sf_by_hr(msfh, corridors)
     sub_msfh <- get_cor_monthly_sf_by_hr(msfh, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    saveRDS(msfh, "msfh.rds")
-    saveRDS(cor_msfh, "cor_msfh.rds")
-    saveRDS(sub_msfh, "sub_msfh.rds")
-
+    
+    addtoRDS(msfh, "msfh.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_msfh, "cor_msfh.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_msfh, "sub_msfh.rds", report_start_date, calcs_start_date)
+    
     
     # Peak/Off-Peak Split Failures
     
@@ -937,8 +920,8 @@ tryCatch({
     # sub_wsfp <- wsfp %>% 
     #     map(~get_cor_weekly_sf_by_day(., subcorridors)) %>%
     #     map(~filter(., !is.na(Corridor)))
-
-        
+    
+    
     # saveRDS(msfp, "msfp.rds")
     # saveRDS(wsfp, "wsfp.rds")
     # saveRDS(cor_msfp, "cor_monthly_sf_peak.rds")
@@ -959,7 +942,7 @@ tryCatch({
     # rm(cor_wsfp)
     # rm(sub_msfp)
     # rm(sub_wsfp)
-
+    
     gc()
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -970,14 +953,14 @@ tryCatch({
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [15 of 22]"))
+print(glue("{Sys.time()} Daily Queue Spillback [16 of 23]"))
 
 tryCatch({
-
+    
     qs <- s3_read_parquet_parallel(
         bucket = "gdot-spm", 
         table_name = "queue_spillback", 
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date, 
         signals_list = signals_list
     ) %>%
@@ -986,24 +969,24 @@ tryCatch({
             CallPhase = factor(CallPhase),
             Date = date(Date)
         )
-
+    
     wqs <- get_weekly_qs_by_day(qs)
     cor_wqs <- get_cor_weekly_qs_by_day(wqs, corridors)
     sub_wqs <- get_cor_weekly_qs_by_day(wqs, subcorridors) %>%
         filter(!is.na(Corridor))
-
+    
     monthly_qsd <- get_monthly_qs_by_day(qs)
     cor_monthly_qsd <- get_cor_monthly_qs_by_day(monthly_qsd, corridors)
     sub_monthly_qsd <- get_cor_monthly_qs_by_day(monthly_qsd, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    saveRDS(wqs, "wqs.rds")
-    saveRDS(monthly_qsd, "monthly_qsd.rds")
-    saveRDS(cor_wqs, "cor_wqs.rds")
-    saveRDS(cor_monthly_qsd, "cor_monthly_qsd.rds")
-    saveRDS(sub_wqs, "sub_wqs.rds")
-    saveRDS(sub_monthly_qsd, "sub_monthly_qsd.rds")
-
+    
+    addtoRDS(wqs, "wqs.rds", report_start_date, calcs_start_date)
+    addtoRDS(monthly_qsd, "monthly_qsd.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_wqs, "cor_wqs.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_qsd, "cor_monthly_qsd.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_wqs, "sub_wqs.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_qsd, "sub_monthly_qsd.rds", report_start_date, calcs_start_date)
+    
     rm(wqs)
     rm(monthly_qsd)
     rm(cor_wqs)
@@ -1021,21 +1004,21 @@ tryCatch({
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [16 of 22]"))
+print(glue("{Sys.time()} Hourly Queue Spillback [17 of 23]"))
 
 tryCatch({
     qsh <- get_qs_by_hr(qs)
     mqsh <- get_monthly_qs_by_hr(qsh)
-
+    
     # Hourly volumes by Corridor --------------------------------------------------
     cor_mqsh <- get_cor_monthly_qs_by_hr(mqsh, corridors)
     sub_mqsh <- get_cor_monthly_qs_by_hr(mqsh, subcorridors) %>%
         filter(!is.na(Corridor))
-
-    saveRDS(mqsh, "mqsh.rds")
-    saveRDS(cor_mqsh, "cor_mqsh.rds")
-    saveRDS(sub_mqsh, "sub_mqsh.rds")
-
+    
+    addtoRDS(mqsh, "mqsh.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_mqsh, "cor_mqsh.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_mqsh, "sub_mqsh.rds", report_start_date, calcs_start_date)
+    
     rm(qs)
     rm(qsh)
     rm(mqsh)
@@ -1051,51 +1034,52 @@ tryCatch({
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [17 of 22]"))
+print(glue("{Sys.time()} Travel Time Indexes [18 of 23]"))
 
 tryCatch({
-
+    
     tt <- s3_read_parquet_parallel(
         bucket = "gdot-spm",
         table_name = "travel_time_metrics",
-        start_date = report_start_date, 
+        start_date = calcs_start_date, 
         end_date = report_end_date
     ) %>%
         mutate(
             Corridor = factor(Corridor)
         )
-
+    
     tti <- tt %>%
         dplyr::select(-pti) %>%
         collect() %>%
         mutate(Corridor = factor(Corridor))
-
-
+    
+    
     pti <- tt %>%
         dplyr::select(-tti) %>%
         collect() %>%
         mutate(Corridor = factor(Corridor))
-
+    
     cor_monthly_vph <- readRDS("cor_monthly_vph.rds")
-
+    
     cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, all_corridors)
-
+    
     cor_monthly_tti <- get_cor_monthly_ti_by_day(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti <- get_cor_monthly_ti_by_day(pti, cor_monthly_vph, all_corridors)
-
+    
     write_fst(tti, "tti.fst")
     write_fst(pti, "pti.fst")
-
-    saveRDS(cor_monthly_tti, "cor_monthly_tti.rds")
-    saveRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds")
-
-    saveRDS(cor_monthly_pti, "cor_monthly_pti.rds")
-    saveRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds")
-
+    
+    addtoRDS(cor_monthly_tti, "cor_monthly_tti.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(cor_monthly_pti, "cor_monthly_pti.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds", report_start_date, calcs_start_date)
+    
     rm(tt)
     rm(tti)
     rm(pti)
+    rm(cor_monthly_vph)
     rm(cor_monthly_tti)
     rm(cor_monthly_tti_by_hr)
     rm(cor_monthly_pti)
@@ -1110,29 +1094,29 @@ tryCatch({
 
 # DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
 
-print(glue("{Sys.time()} Uptimes [18 of 22]"))
+print(glue("{Sys.time()} Uptimes [19 of 23]"))
 
 tryCatch({
     # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
-
+    
     keys <- aws.s3::get_bucket_df("gdot-spm", prefix = "manual_veh_ped_uptime")$Key
     keys <- keys[endsWith(keys, ".xlsx")]
-
+    
     months <- str_extract(basename(keys), "^\\S+ \\d{4}")
     #xl_uptime_fns <- basename(keys)[!is.na(months)]
     #xl_uptime_mos <- dmy(paste("1", months[!is.na(months)]))
-
+    
     # xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
     # xl_uptime_fns <- conf$xl_uptime$filenames
     # xl_uptime_mos <- conf$xl_uptime$months
-
+    
     man_xl <- lapply(keys, 
-           function(k) {
-               get_det_uptime_from_manual_xl(
-                   bucket = "gdot-spm", 
-                   key = k, 
-                   corridors = all_corridors)
-            }) %>%
+                     function(k) {
+                         get_det_uptime_from_manual_xl(
+                             bucket = "gdot-spm", 
+                             key = k, 
+                             corridors = all_corridors)
+                     }) %>%
         bind_rows() %>%
         filter(!is.na(Zone_Group)) %>%
         mutate(Corridor = factor(Corridor))
@@ -1145,26 +1129,24 @@ tryCatch({
     #     bind_rows() %>%
     #     mutate(Zone_Group = factor(Zone_Group)) %>%
     #     filter(Month >= report_start_date)
-
+    
     man_veh_xl <- man_xl %>% filter(Type == "Vehicle")
     man_ped_xl <- man_xl %>% filter(Type == "Pedestrian")
-
-
+    
+    
     cor_monthly_xl_veh_uptime <- man_veh_xl %>% # bind_rows(mrs_veh_xl, man_veh_xl) %>%
         dplyr::select(-c(Zone_Group, Type)) %>%
         get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
-
-
+    
+    
     cor_monthly_xl_ped_uptime <- man_ped_xl %>% # bind_rows(mrs_ped_xl, man_ped_xl) %>%
         dplyr::select(-c(Zone_Group, Type)) %>%
         get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
-
+    
     saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
     saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
     
-
-    print(glue("{Sys.time()} Uptimes [18 of 22]"))
-
+    
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
@@ -1173,18 +1155,18 @@ tryCatch({
 # # CCTV UPTIME From 511 and Encoders
 
 tryCatch({
-
+    
     daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime")
     daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders")
-
+    
     # up:
     #   2-on 511 (dark brown)
     #   1-working at encoder but not on 511 (light brown)
     #   0-not working on either (gray)
     daily_cctv_uptime <- full_join(daily_cctv_uptime_511,
-        daily_cctv_uptime_encoders,
-        by = c("Corridor", "CameraID", "Date"),
-        suffix = c("_511", "_enc")
+                                   daily_cctv_uptime_encoders,
+                                   by = c("Corridor", "CameraID", "Date"),
+                                   suffix = c("_511", "_enc")
     ) %>%
         replace(is.na(.), 0) %>%
         select(Corridor, CameraID, Date, up_511, up_enc) %>%
@@ -1193,16 +1175,16 @@ tryCatch({
                up = pmax(up_511 * 2, up_enc),
                Corridor = factor(Corridor),
                CameraID = factor(CameraID))
-
-
+    
+    
     # daily_cctv_uptime <- left_join(daily_cctv_uptime,
     #                                daily_cctv_uptime_encoders,
     #                                by=c("Corridor", "CameraID", "Date")) %>%
     #     mutate(up = up.x,
     #            num = num.x,
     #            uptime = uptime.x)
-
-
+    
+    
     # Find the days where uptime across the board is very low (close to 0)
     #  This is symptomatic of a problem with the acquisition rather than the camreras themselves
     bad_days <- daily_cctv_uptime %>%
@@ -1213,31 +1195,31 @@ tryCatch({
             suptime = sum(uptime) / sum(num)
         ) %>%
         filter(suptime < 0.2)
-
+    
     monthly_cctv_uptime <- daily_cctv_uptime %>%
         group_by(Corridor, CameraID, Month = floor_date(Date, unit = "months")) %>%
         summarize(up = sum(uptime), uptime = weighted.mean(uptime, num), num = sum(num)) %>%
         ungroup()
-
+    
     cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
         daily_cctv_uptime,
         all_corridors, "uptime", "num"
     )
-
+    
     weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
-
+    
     cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(weekly_cctv_uptime, all_corridors, "uptime", "num")
     cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(monthly_cctv_uptime, all_corridors, "uptime", "num")
-
+    
     
     saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
     saveRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds")
     saveRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds")
-
+    
     saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
     saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
     saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
-
+    
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
@@ -1252,7 +1234,7 @@ tryCatch({
         daily_rsu_uptime, corridors, "uptime")
     sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
         daily_rsu_uptime, subcorridors, "uptime")
-
+    
     weekly_rsu_uptime <- get_weekly_avg_by_day(
         mutate(daily_rsu_uptime, CallPhase = 0, Week = week(Date)), "uptime", peak_only = FALSE)
     cor_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
@@ -1296,10 +1278,10 @@ tryCatch({
 
 # ACTIVITIES ##############################
 
-print(glue("{Sys.time()} TEAMS [19 of 22]"))
+print(glue("{Sys.time()} TEAMS [20 of 23]"))
 
 tryCatch({
-
+    
     teams <- get_teams_tasks_from_s3(
         bucket = "gdot-spm",
         teams_locations_key = "mark/teams/teams_locations.feather",
@@ -1318,13 +1300,13 @@ tryCatch({
         teams, "Task_Source", report_start_date)
     tasks_all <- get_outstanding_tasks_by_param(
         teams, "All", report_start_date)
-
+    
     cor_outstanding_tasks_by_day_range <- lapply(
         dates, function(x) get_outstanding_tasks_by_day_range(teams, report_start_date, x)
-        ) %>%
+    ) %>%
         bind_rows() %>%
         mutate(Zone_Group = factor(Zone_Group),
-                   Corridor = factor(Corridor)) %>%
+               Corridor = factor(Corridor)) %>%
         
         arrange(Zone_Group, Corridor, Month) %>%
         group_by(Zone_Group, Corridor) %>% 
@@ -1348,9 +1330,9 @@ tryCatch({
     saveRDS(tasks_all, "tasks_all.rds") 
     saveRDS(cor_outstanding_tasks_by_day_range, "cor_tasks_by_date.rds")
     saveRDS(sig_outstanding_tasks_by_day_range, "sig_tasks_by_date.rds")
-
-
-
+    
+    
+    
     # type_table <- get_outstanding_events(teams, "Task_Type", spatial_grouping = "Zone_Group") %>%
     #     bind_rows(get_outstanding_events(teams, "Task_Type", spatial_grouping = "Corridor") %>%
     #         rename(Zone_Group = Corridor)) %>%
@@ -1436,11 +1418,11 @@ tryCatch({
 
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [20 of 22]"))
+print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 
 tryCatch({
     # -- Alerts: detector downtime --
-
+    
     bad_detectors <- dbGetQuery(conn, sql("select * from gdot_spm.bad_detectors")) %>%
         transmute(
             SignalID = factor(signalid),
@@ -1454,12 +1436,12 @@ tryCatch({
         #print(date_)
         get_det_config(date_) %>% 
             transmute(SignalID, CallPhase, Detector, Date = date_)
-        }) %>% bind_rows() %>%
+    }) %>% bind_rows() %>%
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
             Detector = factor(Detector))
-        
+    
     bad_det <- bad_detectors %>% 
         left_join(
             det_config, by = c("SignalID", "Detector", "Date")
@@ -1480,9 +1462,9 @@ tryCatch({
             Alert = factor("Bad Vehicle Detection"), 
             Name = factor(Name)
         )
-
+    
     # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
-
+    
     s3write_using(
         bad_det,
         FUN = write_fst, 
@@ -1506,25 +1488,25 @@ tryCatch({
             by = c("SignalID")
         ) %>%
         transmute(Zone_Group,
-            Zone,
-            Corridor = factor(Corridor),
-            SignalID = factor(SignalID),
-            CallPhase = factor(CallPhase),
-            Detector = factor(CallPhase),
-            Date,
-            Alert = factor("Bad Ped Detection"),
-            Name = factor(Name)
+                  Zone,
+                  Corridor = factor(Corridor),
+                  SignalID = factor(SignalID),
+                  CallPhase = factor(CallPhase),
+                  Detector = factor(CallPhase),
+                  Date,
+                  Alert = factor("Bad Ped Detection"),
+                  Name = factor(Name)
         )
-
+    
     s3write_using(
         bad_ped,
         FUN = write_fst,
         object = "mark/watchdog/bad_ped_detectors.fst",
         bucket = "gdot-spm")
     
-
+    
     # -- Alerts: CCTV downtime --
-
+    
     bad_cam <- tbl(conn, sql("select * from gdot_spm.cctv_uptime")) %>%
         dplyr::select(-starts_with("__")) %>%
         filter(size == 0) %>%
@@ -1546,21 +1528,21 @@ tryCatch({
             Date, Alert = factor("No Camera Image"), 
             Name = factor(Location)
         )
-
+    
     s3write_using(
         bad_cam,
         FUN = write_fst,
         object = "mark/watchdog/bad_cameras.fst",
         bucket = "gdot-spm")
     
-
+    
     # -- Watchdog Alerts --
-
+    
     # Nothing to do here
-
-
+    
+    
     # -- --------------- --
-
+    
     # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1574,7 +1556,7 @@ tryCatch({
 
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [21 of 22]"))
+print(glue("{Sys.time()} Package for Monthly Report [22 of 23]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
@@ -1593,11 +1575,11 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     } else {
         stop("bad identifier. Must be SignalID (default) or CameraID")
     }
-
+    
     cor_df_ <- cor_df %>%
         filter(Corridor %in% unique(df_$Zone_Group)) %>%
         mutate(Zone_Group = Corridor)
-
+    
     br <- bind_rows(df_, cor_df_) %>%
         mutate(Corridor = factor(Corridor))
     
@@ -1605,7 +1587,7 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
         br <- br %>%
             mutate(Zone_Group = factor(Zone_Group))
     }
-
+    
     if ("Month" %in% names(br)) {
         br %>% arrange(Zone_Group, Corridor, Month)
     } else if ("Hour" %in% names(br)) {
@@ -1961,7 +1943,7 @@ saveRDS(cor, "cor.rds")
 saveRDS(sig, "sig.rds")
 saveRDS(sub, "sub.rds")
 
-print(glue("{Sys.time()} Upload to AWS [22 of 22]"))
+print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
 
 aws.s3::put_object(
     file = "cor.rds",
@@ -1986,221 +1968,3 @@ aws.s3::put_object(
     object = "teams_tables_ec2.rds",
     bucket = "gdot-spm"
 )
-
-# print(glue("{Sys.time()} Build Signal Dashboards [20 of 22]"))
-
-# db_build_data_for_signal_dashboard_ec2(month_abbrs = month_abbrs[length(month_abbrs)],
-#                                       corridors = corridors,
-#                                       pth = 'Signal_Dashboards',
-#                                       upload_to_s3 = TRUE)
-
-
-if (FALSE) {
-    gc()
-
-    # asof should be the start of the previous month
-    asof <- ifelse(conf$start_date == "yesterday",
-        format(today() - months(1) - days(day(today()) - 1), "%Y-%m-%d"),
-        ymd(conf$start_date) - days(day(ymd(conf$start_date)) - 1)
-    )
-
-    # aurora <- get_aurora_connection()
-
-    # asof is the start of the month, unless we're less than 7 days into the month,
-    # in which case it is the start of the previous month
-    if (conf$start_date == "yesterday") {
-        asof <- today() - days(7)
-        asof <- asof - days(day(asof) - 1)
-        asof <- format(asof, "%Y-%m-%d")
-    } else {
-        asof <- ymd(conf$start_date) - days(day(ymd(conf$start_date)) - 1)
-    }
-    # asof <- ymd("2019-06-01")
-
-    print(glue("As of: {asof}"))
-
-
-    # system(paste("aws dynamodb update-table",
-    #              "--table-name MARK1_beta2",
-    #              "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=1000"))
-
-
-
-    tryCatch({
-
-        # New Dynamodb Upload Code. Write to table by Partition Key.
-
-        # Corridors
-
-        batch_write_items(cor$dy$du, "cor-dy-du", asof)
-        batch_write_items(cor$dy$cu, "cor-dy-cu", asof)
-        batch_write_items(cor$dy$pau, "cor-dy-pau", asof)
-        batch_write_items(cor$dy$cctv, "cor-dy-cctv", asof)
-
-        batch_write_items(cor$wk$vpd, "cor-wk-vpd", asof)
-        batch_write_items(cor$wk$vph, "cor-wk-vph", asof)
-        batch_write_items(cor$wk$vphp$am, "cor-wk-vphpa", asof)
-        batch_write_items(cor$wk$vphp$pm, "cor-wk-vphpp", asof)
-        batch_write_items(cor$wk$papd, "cor-wk-papd", asof)
-        batch_write_items(cor$wk$paph, "cor-wk-paph", asof)
-        batch_write_items(cor$wk$tp, "cor-wk-tp", asof)
-        batch_write_items(cor$wk$aog, "cor-wk-aog", asof)
-        batch_write_items(cor$wk$pr, "cor-wk-pr", asof)
-        batch_write_items(cor$wk$qs, "cor-wk-qs", asof)
-        batch_write_items(cor$wk$sf, "cor-wk-sf", asof)
-        batch_write_items(cor$wk$cu, "cor-wk-cu", asof)
-        batch_write_items(cor$wk$pau, "cor-wk-pau", asof)
-        batch_write_items(cor$wk$cctv, "cor-wk-cctv", asof)
-
-        batch_write_items(cor$mo$vpd, "cor-mo-vpd", asof)
-        batch_write_items(cor$mo$vph, "cor-mo-vph", asof)
-        batch_write_items(cor$mo$vphp$am, "cor-mo-vphpa", asof)
-        batch_write_items(cor$mo$vphp$pm, "cor-mo-vphpp", asof)
-        batch_write_items(cor$mo$papd, "cor-mo-papd", asof)
-        batch_write_items(cor$mo$paph, "cor-mo-paph", asof)
-        batch_write_items(cor$mo$tp, "cor-mo-tp", asof)
-        batch_write_items(cor$mo$aogd, "cor-mo-aogd", asof)
-        batch_write_items(cor$mo$aogh, "cor-mo-aogh", asof)
-        batch_write_items(cor$mo$prd, "cor-mo-prd", asof)
-        batch_write_items(cor$mo$prh, "cor-mo-prh", asof)
-        batch_write_items(cor$mo$qsd, "cor-mo-qsd", asof)
-        batch_write_items(cor$mo$qsh, "cor-mo-qsh", asof)
-        batch_write_items(cor$mo$sfd, "cor-mo-sfd", asof)
-        batch_write_items(cor$mo$sfh, "cor-mo-sfh", asof)
-        batch_write_items(cor$mo$tti, "cor-mo-tti", asof)
-        batch_write_items(cor$mo$ttih, "cor-mo-ttih", asof)
-        batch_write_items(cor$mo$pti, "cor-mo-pti", asof)
-        batch_write_items(cor$mo$ptih, "cor-mo-ptih", asof)
-        batch_write_items(cor$mo$du, "cor-mo-du", asof)
-        batch_write_items(cor$mo$cu, "cor-mo-cu", asof)
-        batch_write_items(cor$mo$pau, "cor-mo-pau", asof)
-        batch_write_items(cor$mo$veh, "cor-mo-veh", asof)
-        batch_write_items(cor$mo$ped, "cor-mo-ped", asof)
-        batch_write_items(cor$mo$cctv, "cor-mo-cctv", asof)
-        batch_write_items(cor$mo$events, "cor-mo-events", asof)
-
-        batch_write_items(cor$qu$vpd, "cor-qu-vpd")
-        batch_write_items(cor$qu$vphpa, "cor-qu-vphpa")
-        batch_write_items(cor$qu$vphpp, "cor-qu-vphpp")
-        batch_write_items(cor$qu$tp, "cor-qu-tp")
-        batch_write_items(cor$qu$aogd, "cor-qu-aogd")
-        batch_write_items(cor$qu$prd, "cor-qu-prd")
-        batch_write_items(cor$qu$qsd, "cor-qu-qsd")
-        batch_write_items(cor$qu$sfd, "cor-qu-sfd")
-        batch_write_items(cor$qu$tti, "cor-qu-tti")
-        batch_write_items(cor$qu$pti, "cor-qu-pti")
-        batch_write_items(cor$qu$du, "cor-qu-du")
-        batch_write_items(cor$qu$cu, "cor-qu-cu")
-        batch_write_items(cor$qu$pau, "cor-qu-pau")
-        batch_write_items(cor$qu$veh, "cor-qu-veh")
-        batch_write_items(cor$qu$ped, "cor-qu-ped")
-        batch_write_items(cor$qu$cctv, "cor-qu-cctv")
-        batch_write_items(cor$qu$reported, "cor-qu-reported")
-        batch_write_items(cor$qu$resolved, "cor-qu-resolved")
-        batch_write_items(cor$qu$outstanding, "cor-qu-outstanding")
-
-        # Sub-Corridors
-
-        batch_write_items(sub$dy$du, "sub-dy-du", asof)
-        batch_write_items(sub$dy$cu, "sub-dy-cu", asof)
-        batch_write_items(sub$dy$pau, "sub-dy-pau", asof)
-
-        batch_write_items(sub$wk$vpd, "sub-wk-vpd", asof)
-        batch_write_items(sub$wk$vph, "sub-wk-vph", asof)
-        batch_write_items(sub$wk$vphp$am, "sub-wk-vphpa", asof)
-        batch_write_items(sub$wk$vphp$pm, "sub-wk-vphpp", asof)
-        batch_write_items(sub$wk$papd, "sub-wk-papd", asof)
-        batch_write_items(sub$wk$paph, "sub-wk-paph", asof)
-        batch_write_items(sub$wk$tp, "sub-wk-tp", asof)
-        batch_write_items(sub$wk$aog, "sub-wk-aog", asof)
-        batch_write_items(sub$wk$pr, "sub-wk-pr", asof)
-        batch_write_items(sub$wk$qs, "sub-wk-qs", asof)
-        batch_write_items(sub$wk$sf, "sub-wk-sf", asof)
-        batch_write_items(sub$wk$cu, "sub-wk-cu", asof)
-        batch_write_items(sub$wk$pau, "sub-wk-pau", asof)
-
-        batch_write_items(sub$mo$vpd, "sub-mo-vpd", asof)
-        batch_write_items(sub$mo$vph, "sub-mo-vph", asof)
-        batch_write_items(sub$mo$vphp$am, "sub-mo-vphpa", asof)
-        batch_write_items(sub$mo$vphp$pm, "sub-mo-vphpp", asof)
-        batch_write_items(sub$mo$papd, "sub-mo-papd", asof)
-        batch_write_items(sub$mo$paph, "sub-mo-paph", asof)
-        batch_write_items(sub$mo$tp, "sub-mo-tp", asof)
-        batch_write_items(sub$mo$aogd, "sub-mo-aogd", asof)
-        batch_write_items(sub$mo$aogh, "sub-mo-aogh", asof)
-        batch_write_items(sub$mo$prd, "sub-mo-prd", asof)
-        batch_write_items(sub$mo$prh, "sub-mo-prh", asof)
-        batch_write_items(sub$mo$qsd, "sub-mo-qsd", asof)
-        batch_write_items(sub$mo$qsh, "sub-mo-qsh", asof)
-        batch_write_items(sub$mo$sfd, "sub-mo-sfd", asof)
-        # batch_write_items(sub$mo$sfh, "sub-mo-sfh", asof)
-        batch_write_items(sub$mo$du, "sub-mo-du", asof)
-        batch_write_items(sub$mo$cu, "sub-mo-cu", asof)
-        batch_write_items(sub$mo$pau, "sub-mo-pau", asof)
-
-        batch_write_items(sub$qu$vpd, "sub-qu-vpd")
-        batch_write_items(sub$qu$vphpa, "sub-qu-vphpa")
-        batch_write_items(sub$qu$vphpp, "sub-qu-vphpp")
-        batch_write_items(sub$qu$tp, "sub-qu-tp")
-        batch_write_items(sub$qu$aogd, "sub-qu-aogd")
-        batch_write_items(sub$qu$prd, "sub-qu-prd")
-        batch_write_items(sub$qu$qsd, "sub-qu-qsd")
-        batch_write_items(sub$qu$sfd, "sub-qu-sfd")
-        # batch_write_items(sub$qu$tti, "sub-qu-tti")
-        # batch_write_items(sub$qu$pti, "sub-qu-pti")
-        batch_write_items(sub$qu$du, "sub-qu-du")
-        batch_write_items(sub$qu$cu, "sub-qu-cu")
-        batch_write_items(sub$qu$pau, "sub-qu-pau")
-
-
-
-        # Signals
-
-        batch_write_items(sig$dy$du, "sig-dy-du", asof)
-        batch_write_items(sig$dy$cu, "sig-dy-cu", asof)
-        batch_write_items(sig$dy$pau, "sig-dy-pau", asof)
-        batch_write_items(sig$dy$cctv, "sig-dy-cctv", asof)
-
-        batch_write_items(sig$wk$vpd, "sig-wk-vpd", asof)
-        # batch_write_items(sig$wk$vph, "sig-wk-vph", asof)
-        # batch_write_items(sig$wk$vphp$am, "sig-wk-vphpa", asof)
-        # batch_write_items(sig$wk$vphp$pm, "sig-wk-vphpp", asof)
-        batch_write_items(sig$wk$papd, "sig-wk-papd", asof)
-        # batch_write_items(sig$wk$paph, "sig-wk-paph", asof)
-        batch_write_items(sig$wk$tp, "sig-wk-tp", asof)
-        batch_write_items(sig$wk$aog, "sig-wk-aog", asof)
-        batch_write_items(sig$wk$pr, "sig-wk-pr", asof)
-        batch_write_items(sig$wk$qs, "sig-wk-qs", asof)
-        batch_write_items(sig$wk$sf, "sig-wk-sf", asof)
-        batch_write_items(sig$wk$cu, "sig-wk-cu", asof)
-        batch_write_items(sig$wk$pau, "sig-wk-pau", asof)
-        batch_write_items(sig$wk$cctv, "sig-wk-cctv", asof)
-        #
-        batch_write_items(sig$mo$vpd, "sig-mo-vpd", asof)
-        batch_write_items(sig$mo$vph, "sig-mo-vph", asof)
-        batch_write_items(sig$mo$vphp$am, "sig-mo-vphpa", asof)
-        batch_write_items(sig$mo$vphp$pm, "sig-mo-vphpp", asof)
-        batch_write_items(sig$mo$papd, "sig-mo-papd", asof)
-        batch_write_items(sig$mo$paph, "sig-mo-paph", asof)
-        batch_write_items(sig$mo$tp, "sig-mo-tp", asof)
-        batch_write_items(sig$mo$aogd, "sig-mo-aogd", asof)
-        batch_write_items(sig$mo$aogh, "sig-mo-aogh", asof)
-        batch_write_items(sig$mo$prd, "sig-mo-prd", asof)
-        batch_write_items(sig$mo$prh, "sig-mo-prh", asof)
-        batch_write_items(sig$mo$qsd, "sig-mo-qsd", asof)
-        batch_write_items(sig$mo$qsh, "sig-mo-qsh", asof)
-        batch_write_items(sig$mo$sfd, "sig-mo-sfd", asof)
-        batch_write_items(sig$mo$sfh, "sig-mo-sfh", asof)
-        # batch_write_items(sig$mo$tti, "sig-mo-tti", asof)
-        # batch_write_items(sig$mo$pti, "sig-mo-pti", asof)
-        batch_write_items(sig$mo$du, "sig-mo-du", asof)
-        batch_write_items(sig$mo$cu, "sig-mo-cu", asof)
-        batch_write_items(sig$mo$pau, "sig-mo-pau", asof)
-        batch_write_items(sig$mo$cctv, "sig-mo-cctv", asof)
-    })
-
-    # system(paste("aws dynamodb update-table",
-    #              "--table-name MARK1_beta2",
-    #              "--provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=10"))
-    # system("aws dynamodb describe-table --table-name MARK1_beta2")
-}
