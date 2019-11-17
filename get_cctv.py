@@ -19,7 +19,13 @@ def get_camids(camids_file):
             
 
 def get_camera_data(camid):
-    response = requests.get('http://cdn.511ga.org/cameras/{}.jpg'.format(camid))
+    if 'GWIN-CAM' in camid or 'GCDOT-CAM' in camid:
+        url = 'http://dotatis.gwinnettcounty.com/atis/snapshots/{}.jpg'.format(camid.replace('GWIN', 'GCDOT'))
+    else:
+        #url = 'http://navigator-c2c.dot.ga.gov/snapshots/{}.jpg'.format(camid)
+        url = 'http://cdn.511ga.org/cameras/{}.jpg'.format(camid)
+
+    response = requests.get(url, timeout=2)
     print(camid, end=': ')
 
     if response.status_code == 200:
