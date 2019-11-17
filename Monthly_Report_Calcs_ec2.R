@@ -463,8 +463,8 @@ print(glue("{Sys.time()} split failures [10 of 10]"))
 get_sf_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
 
-    #lapply(date_range, function(date_) {
-    foreach(date_ = date_range) %dopar% {
+    lapply(date_range, function(date_) {
+    #foreach(date_ = date_range) %dopar% {
         print(date_)
         cycle_data <- get_cycle_data(date_, date_, signals_list)
         detection_events <- get_detection_events(date_, date_, signals_list)
@@ -472,7 +472,7 @@ get_sf_date_range <- function(start_date, end_date) {
             sf <- get_sf_utah(cycle_data, detection_events)
             s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures")
         }
-    }#)
+    })
     registerDoSEQ()
     gc()
 }
