@@ -21,10 +21,11 @@ run:
 start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2018-09-01
+report_start_date: 2018-10-01
 report_end_date: yesterday
+calcs_start_date: auto
 
-production_report_end_date: 2019-09-01
+production_report_end_date: 2019-10-01
 
 corridors_filename: corridors.feather
 corridors_xlsx_filename: Corridors_Latest.xlsx
