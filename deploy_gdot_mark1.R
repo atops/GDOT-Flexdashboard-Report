@@ -9,7 +9,7 @@
 
 library(rsconnect)
 
-deployApp(appPrimaryDoc = "Monthly_Report_beta.Rmd", 
+deployApp(appPrimaryDoc = "Monthly_Report_beta_async.Rmd", 
           appFileManifest = "GDOT_MARK1_beta.manifest", 
           appName="GDOT_MARK1_beta", 
           logLevel="normal")
