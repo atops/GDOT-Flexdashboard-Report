@@ -465,10 +465,10 @@ get_month_abbrs <- function(start_date, end_date) {
 bind_rows_keep_factors <- function(dfs) {
     ## Identify all factors
     factors <- unique(unlist(
-        map(list(...), ~ select_if(..., is.factor) %>% names())
+        map(list(dfs[[1]]), ~ select_if(dfs[[1]], is.factor) %>% names())
     ))
     ## Bind dataframes, convert characters back to factors
-    suppressWarnings(bind_rows(...)) %>% 
+    suppressWarnings(bind_rows(dfs)) %>% 
         mutate_at(vars(one_of(factors)), factor)  
 }
 
@@ -476,7 +476,32 @@ match_type <- function(val, val_type_to_match) {
     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
 }
 
-
+addtoRDS <- function(df, fn, rsd, csd) {
+    
+    #' combines data frame in local rds file with newly calculated data
+    #' trimming the current data and appending the new data to prevent overlaps
+    #' and/or duplicates. Used throughout Monthly_Report_Package code
+    #' to avoid having to recalculate entire report period (13 months) every time
+    #' which takes too long and runs into memory issues frequently.
+    #' 
+    #' @param df newly calculated data frame on most recent data
+    #' @param fn filename of same data over entire reporting period (13 months)
+    #' @param rsd report_start_date: start of current report period (13 months prior)
+    #' @param csd calculation_start_date: start date of most recent data
+    #' @return a combined data frame
+    #' @examples
+    #' addtoRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", report_start_date, calc_start_date)
+    
+    df0 <- readRDS(fn)
+    if ("Date" %in% names(df0)) {
+        df0 <- df0 %>% filter(Date >= rsd, Date < csd)
+    } else if ("Month" %in% names(df0)) {
+        df0 <- df0 %>% filter(Month >= rsd, Month < csd)
+    }
+    x <- bind_rows_keep_factors(list(df0, df))
+    saveRDS(x, fn)
+    x
+}
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
