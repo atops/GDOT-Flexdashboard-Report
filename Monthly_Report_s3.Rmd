@@ -1449,18 +1449,19 @@ renderPlotly({
 ### Arrivals on Green
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+rmarkdown::render_delayed({
 renderPlotly({
 
-    mr_wk_aogd <- mr()$wk$aogd
+    mr_wk_aog <- mr()$wk$aog
     mr_mo_aogd <- mr()$mo$aogd
     mr_mo_aogh <- mr()$mo$aogh
     current_month_ <- current_month()
     zone_group_ <- zone_group()
     input_month <- input$month
     
-    future({
+    #future({
         get_bar_line_dashboard_plot(
-            mr_wk_aogd,
+            mr_wk_aog,
             mr_mo_aogd,
             mr_mo_aogh,
             "aog", "percent", highlight_color = RED2,
@@ -1470,7 +1471,8 @@ renderPlotly({
             x_line1_title = "AOG Trend",
             x_line2_title = paste(input_month, "AOG by TOD"),
             plot_title = "Percent Arrivals on Green")
-    })
+    #})
+})
 })
 ```
 
