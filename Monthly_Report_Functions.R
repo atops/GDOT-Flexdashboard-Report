@@ -492,13 +492,36 @@ addtoRDS <- function(df, fn, rsd, csd) {
     #' @examples
     #' addtoRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", report_start_date, calc_start_date)
     
-    df0 <- readRDS(fn)
-    if ("Date" %in% names(df0)) {
-        df0 <- df0 %>% filter(Date >= rsd, Date < csd)
-    } else if ("Month" %in% names(df0)) {
-        df0 <- df0 %>% filter(Month >= rsd, Month < csd)
+    combine_dfs <- function(df0, df, rsd, csd) {
+        
+        if ("Date" %in% names(df0)) {
+            df0 <- df0 %>% filter(Date >= rsd, Date < csd)
+        } else if ("Month" %in% names(df0)) {
+            df0 <- df0 %>% filter(Month >= rsd, Month < csd)
+        } else if ("Hour" %in% names(df0)) {
+            df0 <- df0 %>% filter(Hour >= rsd, Hour < csd)
+        }
+        
+        x <- bind_rows_keep_factors(list(df0, df))
+        
+        # if ("Date" %in% names(x)) {
+        #     x <- x %>% arrange(Date)
+        # } else if ("Month" %in% names(x)) {
+        #     x <- x %>% arrange(Month)
+        # } else if ("Hour" %in% names(x)) {
+        #     x <- x %>% arrange(Hour)
+        # }
+        x
     }
-    x <- bind_rows_keep_factors(list(df0, df))
+    
+    df0 <- readRDS(fn)
+    if (is.list(df) && is.list(df0) && 
+        !is.data.frame(df) && !is.data.frame(df0) && 
+        (names(df) == names(df0))) {
+        x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+    } else {
+        x <- combine_dfs(df0, df, rsd, csd)
+    }
     saveRDS(x, fn)
     x
 }
@@ -2916,7 +2939,8 @@ get_monthly_vph <- function(vph) {
         group_by(SignalID, Hour) %>% summarize(vph = sum(vph, na.rm = TRUE)) %>%
         mutate(Hour = Hour - days(day(Hour)) + days(1)) %>%
         group_by(SignalID, Hour) %>%
-        summarize(vph = mean(vph, na.rm = TRUE))
+        summarize(vph = mean(vph, na.rm = TRUE)) %>%
+        ungroup()
     
     # SignalID | CallPhase | Hour | vph
 }
