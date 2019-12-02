@@ -50,6 +50,8 @@ suppressMessages(library(arrow))
 select <- dplyr::select
 filter <- dplyr::filter
 
+conf <- read_yaml("Monthly_Report.yaml")
+
 if (Sys.info()["sysname"] == "Windows") {
     home_path <- dirname(path.expand("~"))
     python_path <- file.path(home_path, "Anaconda3", "python.exe")
@@ -64,8 +66,7 @@ if (Sys.info()["sysname"] == "Windows") {
 
 use_python(python_path)
 
-#pqlib <- reticulate::import_from_path("upload_parquet", path = "~")
-pqlib <- reticulate::import_from_path("parquet_lib", path = file.path(home_path, "Code/GDOT/GDOT-Flexdashboard-Report/"))
+pqlib <- reticulate::import_from_path("parquet_lib", path = ".")
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
@@ -80,12 +81,8 @@ GDOT_BLUE = "#256194"
 
 SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
-AM_PEAK_HOURS = c(6,7,8,9); PM_PEAK_HOURS = c(15,16,17,18)
-
-# aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-# Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-#            "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-#            "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+AM_PEAK_HOURS = conf$AM_PEAK_HOURS
+PM_PEAK_HOURS = conf$PM_PEAK_HOURS
 
 if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     set_config(
@@ -159,23 +156,23 @@ read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
 
-get_atspm_connection <- function() {
+get_atspm_connection <- function(conf_atspm) {
     
     if (Sys.info()["sysname"] == "Windows") {
         
         dbConnect(odbc::odbc(),
-                  dsn = "atspm", #"sqlodbc",
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+                  dsn = conf_atspm$odbc_dsn,
+                  uid = Sys.getenv(conf_atspm$uid_env),
+                  pwd = Sys.getenv(conf_atspm$pwd_env))
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
         dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
-                  server = Sys.getenv("ATSPM_SERVER_INSTANCE"),
-                  database = Sys.getenv("ATSPM_DB"),
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+                  server = Sys.getenv(conf_atspm$svr_env),
+                  database = Sys.getenv(conf_atspm$db_env),
+                  uid = Sys.getenv(conf_atspm$uid_env),
+                  pwd = Sys.getenv(conf_atspm$pwd_env))
     }
 }
 
@@ -205,16 +202,16 @@ get_maxview_eventlog_connection <- function() {
 
 get_cel_connection <- get_maxview_eventlog_connection
 
-get_athena_connection <- function() {
+get_athena_connection <- function(conf_athena) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = "../../AthenaJDBC42_2.0.9.jar",
+                classPath = conf_athena$jar_path,
                 identifier.quote = "'")
     
     if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
         
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = 's3://gdot-spm-athena',
+                  s3_staging_dir = conf_athena$staging_dir,
                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   ProxyHost = "gdot-enterprise",
@@ -224,7 +221,7 @@ get_athena_connection <- function() {
     } else {
         
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = 's3://gdot-spm-athena',
+                  s3_staging_dir = conf_athena$staging_dir,
                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
@@ -298,7 +295,7 @@ convert_to_utc <- function(df) {
 }
 
 # Use Python to upload R dataframe to s3 in parquet format
-s3_upload_parquet <- function(df, date_, fn, table_name) {
+s3_upload_parquet <- function(df, date_, fn, bucket, table_name, athena_db) {
     
     df <- ungroup(df)
     
@@ -311,19 +308,20 @@ s3_upload_parquet <- function(df, date_, fn, table_name) {
     
     # s3write_using(select(df, -Date),
     #               write_parquet,
-    #               bucket = "gdot-spm",
+    #               bucket = bucket,
     #               object = glue("mark/{table_name}/date={date_}/{fn}.parquet"))
     
     feather_filename = paste0(fn, ".feather")
     write_feather(df, feather_filename)
 
-    pqlib$upload_parquet(Bucket = "gdot-spm",
+    pqlib$upload_parquet(Bucket = bucket,
                          Key = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
-                         Filename = feather_filename)
+                         Filename = feather_filename,
+                         Database = athena_db)
     file.remove(feather_filename)
 }
 
-s3_upload_parquet_date_split <- function(df, prefix, table_name) {
+s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, athena_db) {
     
     if (!("Date" %in% names(df))) {
         if ("Timeperiod" %in% names(df)) { df <- mutate(df, Date = date(Timeperiod)) }
@@ -336,7 +334,9 @@ s3_upload_parquet_date_split <- function(df, prefix, table_name) {
             date_ <- as.character(x$Date[1])
             s3_upload_parquet(x, date_,
                               fn = glue("{prefix}_{date_}"), 
-                              table_name = table_name)
+                              bucket = bucket,
+                              table_name = table_name, 
+                              athena_db = athena_db)
             Sys.sleep(1)
         })
 }
@@ -900,11 +900,11 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
 }
 
 
-get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
+get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE) {
     
     #gc()
     
-    conn <- get_athena_connection()
+    conn <- get_athena_connection(conf_athena)
     
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
@@ -948,7 +948,9 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         s3_upload_parquet(cu, date_, 
                           fn = glue("cu_{date_}"), 
-                          table_name = "comm_uptime")
+                          bucket = bucket,
+                          table_name = "comm_uptime",
+                          athena_db = conf_athena$database)
     }
     
     if (counts == TRUE) {
@@ -974,7 +976,9 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
 
         s3_upload_parquet(counts_1hr, date_, 
                           fn = counts_1hr_fn, 
-                          table_name = "counts_1hr")
+                          bucket = bucket,
+                          table_name = "counts_1hr", 
+                          athena_db = conf_athena$database)
         
         print("1-hr filtered counts")
         filtered_counts_1hr <- get_filtered_counts(
@@ -983,7 +987,9 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         s3_upload_parquet(filtered_counts_1hr, date_, 
                           fn = filtered_counts_1hr_fn, 
-                          table_name = "filtered_counts_1hr")
+                          bucket = bucket,
+                          table_name = "filtered_counts_1hr", 
+                          athena_db = conf_athena$database)
         
         
         
@@ -1001,7 +1007,9 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
 
         s3_upload_parquet(counts_ped_1hr, date_, 
                           fn = counts_ped_1hr_fn, 
-                          table_name = "counts_ped_1hr")
+                          bucket = bucket,
+                          table_name = "counts_ped_1hr", 
+                          athena_db = conf_athena$database)
         
         
         
@@ -1019,14 +1027,18 @@ get_counts2 <- function(date_, uptime = TRUE, counts = TRUE) {
         
         s3_upload_parquet(counts_15min, date_, 
                           fn = counts_15min_fn, 
-                          table_name = "counts_15min")
+                          bucket = bucket,
+                          table_name = "counts_15min", 
+                          athena_db = conf_athena$database)
         
         # get 15min filtered counts
         print("15-minute filtered counts")
         filtered_counts_15min <- get_filtered_counts(counts_15min, interval = "15 min")
         s3_upload_parquet(filtered_counts_15min, date_, 
                           fn = filtered_counts_15min_fn, 
-                          table_name = "filtered_counts_15min")
+                          bucket = bucket,
+                          table_name = "filtered_counts_15min", 
+                          athena_db = conf_athena$database)
         
     }
     
@@ -1546,9 +1558,9 @@ get_adjusted_counts <- function(filtered_counts) {
 ## -- --- End of Adds CountPriority from detector config file -------------- -- ##
 
 
-get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
+get_spm_data <- function(start_date, end_date, signals_list, conf_atspm, table, TWR_only=TRUE) {
     
-    conn <- get_atspm_connection()
+    conn <- get_atspm_connection(conf_atspm)
     
     if (TWR_only==TRUE) {
         query_where <- "WHERE DATEPART(dw, CycleStart) in (3,4,5)"
@@ -1565,9 +1577,9 @@ get_spm_data <- function(start_date, end_date, signals_list, table, TWR_only=TRU
     dplyr::filter(df, CycleStart >= start_date & CycleStart < end_date1 &
                       SignalID %in% signals_list)
 }
-get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only=TRUE) {
+get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, table, TWR_only=TRUE) {
     
-    conn <- get_athena_connection()
+    conn <- get_athena_connection(conf_athena)
     
     if (TWR_only == TRUE) {
         query_where <- "WHERE date_format(date_parse(date, '%Y-%m-%d'), '%W') in ('Tuesday','Wednesday','Thursday')"
@@ -1575,7 +1587,8 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, table, TWR_only
         query_where <- ""
     }
     
-    query <- paste("SELECT * FROM", paste0("gdot_spm.", tolower(table)), query_where)
+    #query <- paste("SELECT * FROM", paste0(conf_athena$database, ".", tolower(table)), query_where)
+    query <- glue("SELECT * FROM {conf_athena$database}.{tolower(table)} {query_where}")
     
     df <- tbl(conn, sql(query))
     

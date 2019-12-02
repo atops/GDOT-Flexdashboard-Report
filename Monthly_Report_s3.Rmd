@@ -2281,28 +2281,33 @@ corridor_summary_table <- reactive({
 
 tags$div(class = "corridor_summary_table",
     fillRow(
-    
-    renderFormattable({
-        validate(need(corridor_summary_table(), 
-                      "Select a Zone for the Metrics Summary Table"))
-        corridor_summary_table()
-    })
+        renderFormattable({
+            validate(need(corridor_summary_table(), 
+                          "Select a Zone for the Metrics Summary Table"))
+            corridor_summary_table()
+        })
     )
 )
 fillRow(
     renderUI({
         req(corridor_summary_table())
-        #validate(need(corridor_summary_table(), 
-        #              "Select a Zone for the Metrics Summary Table"))
         tags$div(
             p(strong("Legend:")), 
             p("Green text indicates a metric meeting the monthly goal; ",
               "red text indicates not meeting goal."),
             
             p(span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
-              "Green up arrow indicates improvement from previous month; ",
+              "Green up arrow indicates an improvement from previous month ",
+              "(where an increase in value represents an improvement); ",
+              span(class = "glyphicon glyphicon-arrow-down", style = "color: green"),
+              "green down arrow indicates an improvement from previous month ",
+              "(where a decrease in value represents an improvement); ",
               span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
-              "red down arrow indicates a deterioration."))
+              "red up arrow indicates a deterioration from previous month ",
+              "(where an increase in value represents a deterioration);",
+              span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
+              "red down arrow indicates a deterioration from previous month ",
+              "(where a decrease in value represents a deterioration)."))
     })
 )
 ```

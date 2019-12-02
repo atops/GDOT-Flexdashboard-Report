@@ -16,13 +16,13 @@ def random_string(length):
     x = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)]) 
     return x +  datetime.now().strftime('%H%M%S%f')
 
-os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+#os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
 
 @retry(wait_random_min=5000, wait_random_max=10000, stop_max_attempt_number=10)
-def upload_parquet(Bucket, Key, Filename):
+def upload_parquet(Bucket, Key, Filename, Database):
     feather_filename = Filename
     df = pd.read_feather(feather_filename).drop(columns = ['Date'], errors = 'ignore')
     df.to_parquet('s3://{b}/{k}'.format(b=Bucket, k=Key))
@@ -38,8 +38,8 @@ def upload_parquet(Bucket, Key, Filename):
     print(partition_query)
     
     response = ath.start_query_execution(QueryString = partition_query, 
-                                         QueryExecutionContext={'Database': 'gdot_spm'},
-                                         ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+                                         QueryExecutionContext={'Database': Database},
+                                         ResultConfiguration={'OutputLocation': 's3://{}-athena'.format(Bucket)})
     #print('Response HTTPStatusCode:', response['HTTPStatusCode'])
 
 @retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
@@ -130,9 +130,9 @@ def get_keys(bucket, table_name, start_date, end_date):
 #     return feather_filename
 
 
-def download_and_read_parquet(key):
-    df = (pd.read_parquet('s3://gdot-spm/{}'.format(key)).
-            assign(Date = re.search('\d{4}-\d{2}-\d{2}', key).group(0)))
+def download_and_read_parquet(bucket_key):
+    df = (pd.read_parquet('s3://{}'.format(bucket_key)).
+            assign(Date = re.search('\d{4}-\d{2}-\d{2}', bucket_key).group(0)))
 
     return df
 
@@ -143,10 +143,11 @@ def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
     if not keys:
         return None
     elif len(keys) == 1:
-        df = download_and_read_parquet(keys[0])
+        df = download_and_read_parquet(bucket + '/' + keys[0])
     else: #len(keys) > 1:
+        bucket_keys = [bucket + '/' + key for key in keys]
         with Pool() as pool:
-            results = pool.map_async(download_and_read_parquet, keys)
+            results = pool.map_async(download_and_read_parquet, bucket_keys)
             pool.close()
             pool.join()
         dfs = results.get()
@@ -194,8 +195,8 @@ def read_parquet_file(bucket, key):
         
         date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
         
-        df = (pd.read_parquet('s3://{b}/{k}'.format(b = bucket, k = key))
-                .assign(Date = lambda x: pd.to_datetime(date_, format = '%Y-%m-%d'))
+        df = (pd.read_parquet('s3://{b}/{k}'.format(b=bucket, k=key))
+                .assign(Date = lambda x: pd.to_datetime(date_, format='%Y-%m-%d'))
                 .rename(columns = {'Timestamp': 'TimeStamp'}))
 
     else:

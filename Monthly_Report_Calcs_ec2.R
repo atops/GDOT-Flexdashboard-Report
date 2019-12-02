@@ -6,17 +6,8 @@ library(glue)
 
 print(glue("{Sys.time()} Starting Calcs Script"))
 
-if (Sys.info()["sysname"] == "Windows") {
-    working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else if (Sys.info()["sysname"] == "Linux") {
-    working_directory <- file.path("~", "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else {
-    stop("Unknown operating system.")
-}
-setwd(working_directory)
 
 source("Monthly_Report_Functions.R")
-conf <- read_yaml("Monthly_Report.yaml")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -42,47 +33,20 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 # -- Code to update corridors file/table from Excel file
 
-install_corridors_file <- function() {
-    corridors <- s3read_using(
-        get_corridors,
-        object = "Corridors_Latest.xlsx",
-        bucket = "gdot-spm"
-    )
-    write_feather(corridors, conf$corridors_filename)
-    aws.s3::put_object(conf$corridors_filename,
-        object = conf$corridors_filename,
-        bucket = "gdot-spm"
-    )
-
-    all_corridors <- s3read_using(
-        function(x) get_corridors(x, filter_signals = FALSE),
-        object = "Corridors_Latest.xlsx",
-        bucket = "gdot-spm"
-    )
-    write_feather(all_corridors, glue("all_{conf$corridors_filename}"))
-    aws.s3::put_object(glue("all_{conf$corridors_filename}"),
-        object = glue("all_{conf$corridors_filename}"),
-        bucket = "gdot-spm"
-    )
-}
-
-# install_corridors_file()
-
-
-# -- ----------------------------------------------------
-
 corridors <- s3read_using(
-    read_feather,
-    object = "corridors.feather",
-    bucket = "gdot-spm")
-all_corridors <- s3read_using(
-    read_feather,
-    object = "all_corridors.feather",
-    bucket = "gdot-spm")
+    function(x) get_corridors(x, filter_signals = TRUE),
+    object = conf$corridors_filename_s3,
+    bucket = conf$bucket
+)
 
-#corridors <- read_feather(conf$corridors_filename)
+all_corridors <- s3read_using(
+    function(x) get_corridors(x, filter_signals = FALSE),
+    object = conf$corridors_filename_s3,
+    bucket = conf$bucket
+)
+
+
 signals_list <- unique(corridors$SignalID)
-#all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
 
 subcorridors <- corridors %>%
     mutate(
@@ -95,7 +59,7 @@ subcorridors <- corridors %>%
 # -- TMC Codes for Corridors
 # tmc_routes <- get_tmc_routes()
 # write_feather(tmc_routes, "tmc_routes.feather")
-# aws.s3::put_object("tmc_routes.feather", object = "tmc_routes.feather", bucket = "gdot-spm")
+# aws.s3::put_object("tmc_routes.feather", object = "tmc_routes.feather", bucket = conf$bucket)
 
 
 # -- Teams Locations
@@ -108,7 +72,7 @@ subcorridors <- corridors %>%
 # write_feather(teams_locations, "teams_locations.feather")
 # put_object(file = "teams_locations.feather",
 #            object = "teams_locations.feather",
-#            bucket = "gdot-spm")
+#            bucket = conf$bucket)
 
 
 
@@ -149,11 +113,21 @@ if (conf$run$counts == TRUE) {
 
     if (length(date_range) == 1) {
         lapply(date_range, function(date_) {
-            get_counts2(date_, uptime = TRUE, counts = TRUE)
+            get_counts2(
+                date_, 
+                bucket = conf$bucket, 
+                conf_athena = conf$athena, 
+                uptime = TRUE, 
+                counts = TRUE)
         })
     } else {
         foreach(date_ = date_range) %dopar% {
-            get_counts2(date_, uptime = TRUE, counts = TRUE)
+            get_counts2(
+                date_, 
+                bucket = conf$bucket, 
+                conf_athena = conf$athena,
+                uptime = TRUE, 
+                counts = TRUE)
         }
         #registerDoSEQ()
         #gc()
@@ -198,7 +172,7 @@ get_counts_based_measures <- function(month_abbrs) {
         s3_read_parquet_parallel("filtered_counts_1hr",
             as.character(sd),
             as.character(ed),
-            bucket = "gdot-spm"
+            bucket = conf$bucket
         ) %>%
             mutate(
                 Date = date(Date),
@@ -208,8 +182,10 @@ get_counts_based_measures <- function(month_abbrs) {
             ) %>%
             get_adjusted_counts() %>%
             s3_upload_parquet_date_split(
+                bucket = conf$bucket, 
                 prefix = "adjusted_counts_1hr",
-                table_name = "adjusted_counts_1hr"
+                table_name = "adjusted_counts_1hr",
+                athena_db = conf$athena$database
             )
         gc()
 
@@ -221,7 +197,7 @@ get_counts_based_measures <- function(month_abbrs) {
                     "filtered_counts_1hr",
                     as.character(date_),
                     as.character(date_),
-                    bucket = "gdot-spm"
+                    bucket = conf$bucket
                 ) %>%
                     mutate(
                         Date = date(Date),
@@ -235,8 +211,10 @@ get_counts_based_measures <- function(month_abbrs) {
                 bad_detectors <- get_bad_detectors(filtered_counts_1hr)
                 s3_upload_parquet_date_split(
                     bad_detectors, 
+                    bucket = conf$bucket, 
                     prefix = "bad_detectors", 
-                    table_name = "bad_detectors")
+                    table_name = "bad_detectors",
+                    athena_db = conf$athena$database)
 
                 # DAILY DETECTOR UPTIME
                 print(glue("ddu: {date_}"))
@@ -244,8 +222,10 @@ get_counts_based_measures <- function(month_abbrs) {
                     bind_rows()
                 s3_upload_parquet_date_split(
                     daily_detector_uptime, 
+                    bucket = conf$bucket, 
                     prefix = "ddu", 
-                    table_name = "detector_uptime_pd")
+                    table_name = "detector_uptime_pd",
+                    athena_db = conf$athena$database)
 
                 rm(filtered_counts_1hr)
                 gc()
@@ -256,7 +236,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 "adjusted_counts_1hr",
                 as.character(date_),
                 as.character(date_),
-                bucket = "gdot-spm"
+                bucket = conf$bucket
             )
 
             if (nrow(adjusted_counts_1hr) > 0) {
@@ -271,12 +251,22 @@ get_counts_based_measures <- function(month_abbrs) {
                 # VPD
                 print(glue("vpd: {date_}"))
                 vpd <- get_vpd(adjusted_counts_1hr) # calculate over current period
-                s3_upload_parquet_date_split(vpd, prefix = "vpd", table_name = "vehicles_pd")
+                s3_upload_parquet_date_split(
+                    vpd, 
+                    bucket = conf$bucket, 
+                    prefix = "vpd", 
+                    table_name = "vehicles_pd",
+                    athena_db = conf$athena$database)
 
                 # VPH
                 print(glue("vph: {date_}"))
                 vph <- get_vph(adjusted_counts_1hr)
-                s3_upload_parquet_date_split(vph, prefix = "vph", table_name = "vehicles_ph")
+                s3_upload_parquet_date_split(
+                    vph, 
+                    bucket = conf$bucket, 
+                    prefix = "vph", 
+                    table_name = "vehicles_ph",
+                    athena_db = conf$athena$database)
             }
         })
         registerDoSEQ()
@@ -294,7 +284,7 @@ get_counts_based_measures <- function(month_abbrs) {
             if (between(date_, start_date, end_date)) {
                 date_ <- as.character(date_)
                 print(date_)
-                s3_read_parquet("filtered_counts_15min", date_, date_, bucket = "gdot-spm") %>%
+                s3_read_parquet("filtered_counts_15min", date_, date_, bucket = conf$bucket) %>%
                     transmute(
                         SignalID = factor(SignalID),
                         CallPhase = factor(CallPhase),
@@ -323,7 +313,12 @@ get_counts_based_measures <- function(month_abbrs) {
             throughput <- get_thruput(adjusted_counts_15min)
             # throughput <- get_thruput(filtered_counts_15min)
 
-            s3_upload_parquet_date_split(throughput, prefix = "tp", table_name = "throughput")
+            s3_upload_parquet_date_split(
+                throughput, 
+                bucket = conf$bucket, 
+                prefix = "tp", 
+                table_name = "throughput",
+                athena_db = conf$athena$database)
         }
 
         registerDoSEQ()
@@ -335,14 +330,14 @@ get_counts_based_measures <- function(month_abbrs) {
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
 
-        conn <- get_athena_connection()
+        conn <- get_athena_connection(conf$athena)
 
 
         counts_ped_1hr <- s3_read_parquet_parallel(
             "counts_ped_1hr",
             as.character(start_date),
             as.character(end_date),
-            bucket = "gdot-spm"
+            bucket = conf$bucket
         )
 
         # PAPD - pedestrian activations per day
@@ -352,17 +347,23 @@ get_counts_based_measures <- function(month_abbrs) {
             rename(papd = vpd)
         # s3_upload_parquet(papd, sd, glue("papd_{yyyy_mm}"), "ped_actuations_pd")
         # write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
-        s3_upload_parquet_date_split(papd, prefix = "papd", table_name = "ped_actuations_pd")
+        s3_upload_parquet_date_split(
+            papd, 
+            bucket = conf$bucket, 
+            prefix = "papd", 
+            table_name = "ped_actuations_pd",
+            athena_db = conf$athena$database)
         
         # DAILY PED DETECTOR UPTIME
         #pau <- get_pau(papd)
-        #s3_upload_parquet_date_split(pau, prefix = "pau", table_name = "ped_detector_uptime_pd")
+        #s3_upload_parquet_date_split(pau, bucket = conf$bucket, prefix = "pau", table_name = "ped_detector_uptime_pd")
 
         # BAD PED DETECTORS
         #print(glue("bad ped detectors: {date_}"))
         #bad_ped_detectors <- get_bad_ped_detectors(pau)
         #s3_upload_parquet_date_split(
         #    bad_ped_detectors, 
+        #    bucket = conf$bucket, 
         #    prefix = "bad_ped_detectors", 
         #    table_name = "bad_ped_detectors")
 
@@ -372,7 +373,12 @@ get_counts_based_measures <- function(month_abbrs) {
             rename(paph = vph)
         # s3_upload_parquet(paph, sd, glue("paph_{yyyy_mm}"), "ped_actuations_ph")
         # write_fst(paph, paste0("paph_", yyyy_mm, ".fst"))
-        s3_upload_parquet_date_split(paph, prefix = "paph", table_name = "ped_actuations_ph")
+        s3_upload_parquet_date_split(
+            paph, 
+            bucket = conf$bucket, 
+            prefix = "paph", 
+            table_name = "ped_actuations_ph",
+            athena_db = conf$athena$database)
     })
 }
 if (conf$run$counts_based_measures == TRUE) {
@@ -388,12 +394,12 @@ print("--- Finished counts-based measures ---")
 print(glue("{Sys.time()} etl [7 of 10]"))
 
 if (conf$run$etl == TRUE) {
-    library(reticulate)
+    #library(reticulate)
 
-    python_path <- file.path("~", "miniconda3", "bin", "python")
-    use_python(python_path)
+    #python_path <- file.path("~", "miniconda3", "bin", "python")
+    #use_python(python_path)
 
-    etl <- reticulate::import_from_path("etl_dashboard", path = "~/Code/GDOT/GDOT-Flexdashboard-Report/")
+    etl <- reticulate::import_from_path("etl_dashboard", path = ".")
 
     etl$main(start_date, end_date)
 
@@ -421,7 +427,12 @@ get_aog_date_range <- function(start_date, end_date) {
         cycle_data <- get_cycle_data(date_, date_, signals_list)
         if (nrow(collect(head(cycle_data))) > 0) {
             aog <- get_aog(cycle_data)
-            s3_upload_parquet_date_split(aog, prefix = "aog", table_name = "arrivals_on_green")
+            s3_upload_parquet_date_split(
+                aog,  
+                bucket = conf$bucket, 
+                prefix = "aog",
+                table_name = "arrivals_on_green",
+                athena_db = conf$athena$database)
         }
     })
 }
@@ -443,7 +454,12 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
         detection_events <- get_detection_events(date_, date_, signals_list)
         if (nrow(collect(head(detection_events))) > 0) {
             qs <- get_qs(detection_events)
-            s3_upload_parquet_date_split(qs, prefix = "qs", table_name = "queue_spillback")
+            s3_upload_parquet_date_split(
+                qs, 
+                bucket = conf$bucket, 
+                prefix = "qs", 
+                table_name = "queue_spillback",
+                athena_db = conf$athena$database)
         }
     })
 }
@@ -469,7 +485,12 @@ get_sf_date_range <- function(start_date, end_date) {
         detection_events <- get_detection_events(date_, date_, signals_list)
         if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
             sf <- get_sf_utah(cycle_data, detection_events)
-            s3_upload_parquet_date_split(sf, prefix = "sf", table_name = "split_failures")
+            s3_upload_parquet_date_split(
+                sf, 
+                bucket = conf$bucket, 
+                prefix = "sf", 
+                table_name = "split_failures",
+                athena_db = conf$athena$database)
         }
     })
     registerDoSEQ()
@@ -479,15 +500,6 @@ get_sf_date_range <- function(start_date, end_date) {
 if (conf$run$split_failures == TRUE) {
     get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
 }
-
-
-
-# # GET TEAMS TASKS ###########################################################
-
-# Download all TEAMS tasks via API. Shell command. Windows only.
-# if (Sys.info()["sysname"] == "Windows") {
-#     system('"DocumentClient.exe" TEAMS_Reports/tasks.csv')
-# }
 
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")
