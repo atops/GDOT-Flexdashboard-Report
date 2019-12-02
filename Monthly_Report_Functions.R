@@ -708,6 +708,7 @@ get_corridor_name <- function(string) {
 
 get_cam_config <- function(object, bucket) {
     aws.s3::s3read_using(read_excel, object = object, bucket = bucket) %>%
+        filter(!is.na(Corridor)) %>%
         transmute(
             CameraID = factor(CameraID), 
             Location, 
@@ -2120,7 +2121,7 @@ get_tt_csv <- function(fns) {
     # Corridor | hour | idx | value
 }
 
-get_daily_cctv_uptime <- function(table) {
+get_daily_cctv_uptime <- function(table, cam_config) {
     dbGetQuery(conn, sql(glue("select cameraid, date, size from gdot_spm.{table}"))) %>% 
         transmute(CameraID = factor(cameraid),
                   Date = date(date),

@@ -126,7 +126,7 @@ if (conf$run$cctv == TRUE) {
 
 # # GET RSU UPTIMES ###########################################################
 
-print(glue("{Sys.time()} parse rsu logs [1.1 of 10]"))
+print(glue("{Sys.time()} parse rsu logs [2 of 10]"))
 
 if (conf$run$rsus == TRUE) {
     system("python parse_rsus.py", wait = FALSE) # Run python script asynchronously
@@ -134,7 +134,7 @@ if (conf$run$rsus == TRUE) {
 
 # # TRAVEL TIMES FROM RITIS API ###############################################
 
-print(glue("{Sys.time()} travel times [2 of 10]"))
+print(glue("{Sys.time()} travel times [3 of 10]"))
 
 if (conf$run$travel_times == TRUE) {
     system("python get_travel_times.py", wait = FALSE) # Run python script asynchronously
@@ -142,7 +142,7 @@ if (conf$run$travel_times == TRUE) {
 
 # # COUNTS ####################################################################
 
-print(glue("{Sys.time()} counts [3 of 10]"))
+print(glue("{Sys.time()} counts [4 of 10]"))
 
 if (conf$run$counts == TRUE) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
@@ -161,7 +161,7 @@ if (conf$run$counts == TRUE) {
 }
 print("\n---------------------- Finished counts ---------------------------\n")
 
-print(glue("{Sys.time()} monthly cu [4 of 10]"))
+print(glue("{Sys.time()} monthly cu [5 of 10]"))
 
 
 # --- Everything up to here needs the ATSPM Database ---
@@ -178,7 +178,7 @@ signals_list <- unique(as.character(signals_list[signals_list > 0]))
 #   adjusted_counts_1hr
 #   BadDetectors
 
-print(glue("{Sys.time()} counts-based measures [5 of 10]"))
+print(glue("{Sys.time()} counts-based measures [6 of 10]"))
 
 get_counts_based_measures <- function(month_abbrs) {
     lapply(month_abbrs, function(yyyy_mm) {
@@ -379,7 +379,6 @@ if (conf$run$counts_based_measures == TRUE) {
     get_counts_based_measures(month_abbrs)
 }
 
-# print(glue("{Sys.time()} bad detectors [4 of 10]"))
 
 print("--- Finished counts-based measures ---")
 

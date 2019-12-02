@@ -1156,8 +1156,8 @@ tryCatch({
 
 tryCatch({
     
-    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime")
-    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders")
+    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime", cam_config)
+    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders", cam_config)
     
     # up:
     #   2-on 511 (dark brown)
@@ -1225,7 +1225,7 @@ tryCatch({
     print(e)
 })
 
-# # CCTV UPTIME From 511 and Encoders
+# # RSU UPTIME
 
 tryCatch({
     
@@ -1633,6 +1633,7 @@ tryCatch({
         "vphp" = readRDS("cor_weekly_vph_peak.rds"),
         "papd" = readRDS("cor_weekly_papd.rds"),
         "paph" = readRDS("cor_weekly_paph.rds"),
+        "pd" = readRDS("cor_weekly_pd_by_day.rds"),
         "tp" = readRDS("cor_weekly_throughput.rds"),
         "aog" = readRDS("cor_weekly_aog_by_day.rds"),
         "pr" = readRDS("cor_weekly_pr_by_day.rds"),
@@ -1651,6 +1652,7 @@ tryCatch({
         "vphp" = readRDS("cor_monthly_vph_peak.rds"),
         "papd" = readRDS("cor_monthly_papd.rds"),
         "paph" = readRDS("cor_monthly_paph.rds"),
+        "pd" = readRDS("cor_monthly_pd_by_day.rds"),
         "tp" = readRDS("cor_monthly_throughput.rds"),
         "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
         "aogh" = readRDS("cor_monthly_aog_by_hr.rds"),
@@ -1689,6 +1691,7 @@ tryCatch({
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
         "papd" = get_quarterly(cor$mo$papd, "papd"),
+        "pd" = get_quarterly(cor$mo$pd, "Duration"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
         "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
@@ -1746,6 +1749,8 @@ tryCatch({
         "papd" = readRDS("sub_weekly_papd.rds") %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = readRDS("sub_weekly_paph.rds"),
+        "pd" = readRDS("sub_weekly_pd_by_day.rds") %>%
+            select(Zone_Group, Corridor, Date, Duration),
         "tp" = readRDS("sub_weekly_throughput.rds") %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = readRDS("sub_weekly_aog_by_day.rds") %>%
@@ -1779,6 +1784,7 @@ tryCatch({
         "vphp" = readRDS("sub_monthly_vph_peak.rds"),
         "papd" = readRDS("sub_monthly_papd.rds"),
         "paph" = readRDS("sub_monthly_paph.rds"),
+        "pd" = readRDS("sub_monthly_pd_by_day.rds"),
         "tp" = readRDS("sub_monthly_throughput.rds"),
         "aogd" = readRDS("sub_monthly_aog_by_day.rds"),
         "aogh" = readRDS("sub_monthly_aog_by_hr.rds"),
@@ -1855,6 +1861,8 @@ tryCatch({
         "papd" = sigify(readRDS("weekly_papd.rds"), cor$wk$papd, corridors) %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
+        "pd" = sigify(readRDS("weekly_pd_by_day.rds"), cor$wk$pd, corridors) %>%
+            select(Zone_Group, Corridor, Date, Duration),
         "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors) %>%
@@ -1890,6 +1898,8 @@ tryCatch({
         "papd" = sigify(readRDS("monthly_papd.rds"), cor$mo$papd, corridors) %>%
             select(-c(Name, ones)),
         "paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
+            select(-c(Name, ones)),
+        "pd" = sigify(readRDS("monthly_pd_by_day.rds"), cor$mo$pd, corridors) %>%
             select(-c(Name, ones)),
         "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors) %>%
             select(-c(Name, ones)),
