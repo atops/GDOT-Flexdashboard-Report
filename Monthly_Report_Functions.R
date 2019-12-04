@@ -4309,21 +4309,30 @@ readRDS_multiple <- function(pattern) {
 
 ## Gui's improved function
 # Function to add Probabilities
-get_pau <- function(df) {
+get_pau <- function(df, corridors) {
     
     begin_date <- ymd("2018-08-01")
-    #month_abbrs <- "2019-08"
-    
+
     corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
     
-    papd <- df %>%
+    ped_config <- lapply(unique(df$Date), function(d) {
+        get_ped_config(d) %>% mutate(Date = d)
+    }) %>% 
+        bind_rows() %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase))
+    
+    papd <- df %>% left_join(ped_config) %>%
+        transmute(SignalID = factor(SignalID),
+                  Date = Date,
+                  CallPhase = factor(CallPhase),
+                  Detector = factor(Detector),
+                  Week = Week,
+                  DOW = DOW,
+                  papd = papd) %>%
         filter(CallPhase != 0) %>%
-        complete(nesting(SignalID, CallPhase), 
-                 Date = seq(begin_date, 
-                            #min(today()-days(1), ymd(paste(last(month_abbrs), 1, sep="-")) + months(1) - days(1)),
-                            today()-days(1),
-                            by="day"),
-                 fill = list(papd = 0)) %>%
+        replace_na(list(papd = 0)) %>%
         arrange(SignalID, CallPhase, Date) %>%
         group_by(SignalID, CallPhase) %>%
         mutate(s0 = runner::streak_run(papd), 
@@ -4377,76 +4386,6 @@ get_pau <- function(df) {
     
     pau    
 }
-
-
-get_pau_ajt <- function(df) {
-    
-    begin_date <- min(df$Date) # ymd("2018-08-01")
-    
-    papd <- df %>%
-        filter(CallPhase != 0) %>% #-- this is new 8/5/19
-        complete(nesting(SignalID, CallPhase), 
-                 Date = seq(begin_date, 
-                            min(today()-days(1), ymd(paste(last(month_abbrs), 1, sep="-")) + months(1) - days(1)),
-                            by="day"),
-                 fill = list(papd = 0)) %>%
-        arrange(SignalID, CallPhase, Date) %>%
-        group_by(SignalID, CallPhase) %>%
-        mutate(s0 = runner::streak_run(papd), 
-               s0 = if_else(papd>0, as.integer(0), s0), #--------------this is new 8/5/19
-               ms = ifelse(s0 >= lead(s0), s0, NA)) %>% 
-        mutate(ms = if_else(Date == max(Date), s0, ms)) %>%
-        fill(ms, .direction = "up") %>%
-        mutate(Week = week(Date),
-               DOW = wday(Date)) %>%
-        
-        left_join(select(corridors, SignalID, Asof), by = c("SignalID")) %>% 
-        ungroup() %>% 
-        replace_na(list(Asof = begin_date)) %>% 
-        filter(Date >= Asof) %>%
-        select(-Asof)
-    
-    modres <- papd %>% 
-        #filter(s0 <= 10) %>% #-- this is new 8/5/19
-        group_by(SignalID, CallPhase) %>% 
-        mutate(cnt = n()) %>% 
-        ungroup() %>% 
-        filter(cnt > 2) %>%
-        
-        nest(-c(SignalID, CallPhase)) %>% 
-        mutate(model = purrr::map(data, function(x) {fitdist(x$papd, "exp", method = "mme")}))
-    
-    pz <- modres %>% 
-        mutate(lambda = purrr::map(model, function(x) {x$estimate})) %>% 
-        unnest(lambda) %>%
-        dplyr::select(-(data:model)) %>%
-        mutate(mean = lambda ** -1, # property of exponential distribution
-               var = lambda ** -2) # property of exponential distribution
-    
-    pau <- left_join(papd, pz, by = c("SignalID", "CallPhase")) %>%
-        ungroup() %>%
-        mutate(SignalID = as.character(SignalID),
-               CallPhase = as.character(CallPhase),
-               probbad = if_else(papd == 0,  1 - exp(-lambda * ms), 0))
-    
-    bad_ped_detectors <- pau %>% 
-        filter(probbad > 0.99) %>%
-        #mutate(bad_day = 1) %>%
-        dplyr::select(SignalID, CallPhase, Date)
-    
-    write_feather(bad_ped_detectors, "bad_ped_detectors.feather")
-    
-    pau %>% transmute(SignalID = factor(SignalID),
-                      CallPhase = factor(CallPhase),
-                      Date = Date,
-                      DOW = DOW,
-                      Week = Week,
-                      uptime = if_else(probbad > 0, 0, 1),
-                      all = 1) %>%
-        ungroup()
-    
-}
-
 
 
 dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
