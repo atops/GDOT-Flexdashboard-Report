@@ -35,14 +35,8 @@ end_date: 2019-11-25
 
 report_start_date: 2018-11-01
 report_end_date: yesterday
-<<<<<<< HEAD
 calcs_start_date: auto
 production_report_end_date: 2019-10-01
-=======
-calcs_start_date: 2019-09-01
-
-production_report_end_date: 2019-11-01
->>>>>>> 13f200f9f0a8c2cc54911e39e37b647d83cd4d43
 
 corridors_filename_s3: Corridors_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
