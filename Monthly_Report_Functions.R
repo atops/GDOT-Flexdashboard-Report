@@ -779,29 +779,24 @@ get_ped_config <- function(date_) {
     s3key <- glue("maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
     s3bucket <- "gdot-devices"
     
-    aws.s3::get_object(s3key, bucket = s3bucket) %>%
-        rawToChar() %>%
-        read_csv() %>%
+    col_spec <- cols(
+        .default = col_character(),
+        SignalID = col_character(),
+        IP = col_character(),
+        PrimaryName = col_character(),
+        SecondaryName = col_character(),
+        Detector = col_character(),
+        CallPhase = col_character())
+        
+    s3read_using(function(x) read_csv(x, col_types = col_spec), 
+                 object = s3key, 
+                 bucket = s3bucket) %>%
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
-                  CallPhase = factor(CallPhase))
+                  CallPhase = factor(CallPhase)) %>%
+        distinct()
 }
 
-# get_ped_config_older <- function(date_) {
-#     
-#     s3path <- glue("maxtime_ped_plans/date={date_}")
-#     s3key <- "MaxTime_Ped_Plans.csv"
-#     s3bucket <- "gdot-devices"
-#     local_filename <- sub(".csv", glue("_{date_}.csv"), s3key)
-#     
-#     aws.s3::save_object(object = file.path(s3path, s3key), 
-#                         bucket = s3bucket,
-#                         file = local_filename)
-#     read_csv(local_filename) %>%
-#         transmute(SignalID = factor(SignalID), 
-#                   Detector = factor(Detector), 
-#                   CallPhase = factor(CallPhase))
-# }
 
 get_unique_timestamps <- function(df) {
     df %>% 
@@ -4316,14 +4311,16 @@ get_pau <- function(df, corridors) {
     corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
     
     ped_config <- lapply(unique(df$Date), function(d) {
-        get_ped_config(d) %>% mutate(Date = d)
+        get_ped_config(d) %>% 
+            mutate(Date = d) %>%
+            filter(SignalID %in% df$SignalID)
     }) %>% 
         bind_rows() %>%
         mutate(SignalID = factor(SignalID),
                Detector = factor(Detector),
                CallPhase = factor(CallPhase))
     
-    papd <- df %>% left_join(ped_config) %>%
+    papd <- df %>% full_join(ped_config, by = c("SignalID", "CallPhase", "Date")) %>%
         transmute(SignalID = factor(SignalID),
                   Date = Date,
                   CallPhase = factor(CallPhase),
@@ -4342,10 +4339,10 @@ get_pau <- function(df, corridors) {
                ms = ifelse(s0 >= lead(s0) | Date == rollback(Date), s0, NA)) %>% 
         mutate(ms = if_else(Date == max(Date), s0, ms)) %>%
         fill(ms, .direction = "up") %>%
+        ungroup() %>%
         mutate(Week = week(Date),
                DOW = wday(Date)) %>%
         left_join(corrs, by = c("SignalID")) %>%
-        ungroup() %>%
         replace_na(list(Asof = begin_date)) %>%
         filter(Date >= Asof) %>%
         dplyr::select(-Asof) %>%
