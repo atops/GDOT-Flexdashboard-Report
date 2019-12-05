@@ -101,7 +101,7 @@ tryCatch({
             papd = as.numeric(papd)
         )
     
-    pau <- get_pau(papd)
+    pau <- get_pau(papd, corridors)
     
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need the whole time series to calculate ped detector uptime
