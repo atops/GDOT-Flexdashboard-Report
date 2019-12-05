@@ -1481,6 +1481,7 @@ tryCatch({
             Detector = factor(callphase),
             Date = date(date)
         ) %>%
+        distinct() %>%
         filter(Date > today() - months(9)) %>%
         as_tibble() %>%
         left_join(
