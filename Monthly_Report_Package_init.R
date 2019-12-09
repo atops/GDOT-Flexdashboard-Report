@@ -9,25 +9,24 @@ plan(multiprocess)
 
 print(glue("{Sys.time()} Starting Package Script"))
 
-
-if (Sys.info()["sysname"] == "Windows") {
-    working_directory <- file.path(dirname(path.expand("~")), "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else if (Sys.info()["sysname"] == "Linux") {
-    working_directory <- file.path("~", "Code", "GDOT", "GDOT-Flexdashboard-Report")
-} else {
-    stop("Unknown operating system.")
-}
-setwd(working_directory)
-
 source("Monthly_Report_Functions.R")
-# source("mark1_dynamodb.R")
+
 conf <- read_yaml("Monthly_Report.yaml")
 
-# startsWith(Sys.info()["nodename"], "ip-") # check for if on AWS EC2 instance
+corridors <- s3read_using(
+    function(x) get_corridors(x, filter_signals = TRUE),
+    object = conf$corridors_filename_s3,
+    bucket = conf$bucket
+)
 
-corridors <- read_feather(conf$corridors_filename)
-signals_list <- corridors$SignalID[!is.na(corridors$SignalID)]
-all_corridors <- read_feather(glue("all_{conf$corridors_filename}"))
+all_corridors <- s3read_using(
+    function(x) get_corridors(x, filter_signals = FALSE),
+    object = conf$corridors_filename_s3,
+    bucket = conf$bucket
+)
+
+
+signals_list <- unique(corridors$SignalID)
 
 # This is in testing as of 8/26
 subcorridors <- corridors %>% 
@@ -37,20 +36,12 @@ subcorridors <- corridors %>%
         Zone = Corridor, 
         Corridor = Subcorridor)
 
-# First attempt. Only replace Corridor with Subcorridor. Lost the actual corridor. Didn't work.
-# subcorridors <- corridors %>%
-#     mutate(
-#         Subcorridor = as.character(Subcorridor),
-#         Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))
-#     ) %>%
-#     mutate(Corridor = factor(Subcorridor)) %>%
-#     select(-Subcorridor)
 
-conn <- get_athena_connection()
+conn <- get_athena_connection(conf_athena)
 
-cam_config <- get_cam_config(object = "Cameras_Latest.xlsx", bucket = "gdot-spm")
+cam_config <- get_cam_config(object = conf$cctv_config_filename, bucket = conf$bucket)
 
-# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = "gdot-spm") %>%
+# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = conf$bucket) %>%
 #     rawToChar() %>%
 #     read_csv() %>%
 #     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")

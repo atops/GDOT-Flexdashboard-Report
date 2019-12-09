@@ -38,23 +38,18 @@ corridors <- s3read_using(
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )
+write_feather(corridors, sub("\\..*", ".feather", conf$corridors_filename_s3))
 
 all_corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = FALSE),
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )
+write_feather(all_corridors, sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
 
 
 signals_list <- unique(corridors$SignalID)
 
-subcorridors <- corridors %>%
-    mutate(
-        Subcorridor = as.character(Subcorridor),
-        Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))
-    ) %>%
-    mutate(Corridor = factor(Subcorridor)) %>%
-    select(-Subcorridor)
 
 # -- TMC Codes for Corridors
 # tmc_routes <- get_tmc_routes()

@@ -20,6 +20,7 @@ import boto3
 import yaml
 import feather
 import io
+import re
 from parquet_lib import *
 
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
@@ -120,7 +121,7 @@ def main(start_date, end_date):
     
     dates = pd.date_range(start_date, end_date, freq='1D')
 
-    corridors_filename = conf['corridors_filename']
+    corridors_filename = re.sub('\..*', '.feather', conf['corridors_filename_s3'])
     corridors = feather.read_dataframe(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]
     
