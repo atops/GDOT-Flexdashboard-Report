@@ -1228,13 +1228,36 @@ multicore_decorator <- function(FUN) {
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 get_det_config <- function(date_) {
     
-    s3bucket <- "gdot-devices"
+    read_det_config <- function(s3object, s3bucket) {
+        aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
+    }
+    
+    s3bucket <- "gdot-devices"  # conf$bucket 
     s3object = glue("atspm_det_config_good/date={date_}/ATSPM_Det_Config_Good.feather")
     
-    aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket) %>%
-        mutate(SignalID = as.character(SignalID),
-               Detector = as.integer(Detector), 
-               CallPhase = as.integer(CallPhase))
+    # Are there any files for this date?
+    s3objects <- aws.s3::get_bucket_df(
+        bucket = s3bucket, 
+        prefix = dirname(s3object))
+    
+    # If the s3 object exists, read it and return the data frame
+    if (aws.s3::object_exists(s3object, s3bucket)) {
+        read_det_config(s3object, s3bucket) %>%
+            mutate(SignalID = as.character(SignalID),
+                   Detector = as.integer(Detector), 
+                   CallPhase = as.integer(CallPhase))
+    
+    # If the s3 object does not exist, but where there are objects for this date,
+    # read all files and bind rows (for when multiple ATSPM databases are contributing)
+    } else if (nrow(s3objects) > 0) {
+        lapply(s3objects$Key, function(x) {read_det_config(x, s3bucket)})  %>%
+            rbindlist() %>% as_tibble() %>%
+            mutate(SignalID = as.character(SignalID),
+                   Detector = as.integer(Detector), 
+                   CallPhase = as.integer(CallPhase))
+    } else {
+        stop(glue("No detector config file for {date_}"))
+    }
 }
 
 get_det_config_aog <- function(date_) {
@@ -1595,12 +1618,24 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
     #signalid %in% signals_list)
 }
 # Query Cycle Data
-get_cycle_data <- function(start_date, end_date, signals_list = NULL) {
-    get_spm_data_aws(start_date, end_date, signals_list, table = "CycleData", TWR_only = FALSE)
+get_cycle_data <- function(start_date, end_date, conf_athena, signals_list = NULL) {
+    get_spm_data_aws(
+        start_date, 
+        end_date, 
+        signals_list, 
+        conf_athena, 
+        table = "CycleData", 
+        TWR_only = FALSE)
 }
 # Query Detection Events
-get_detection_events <- function(start_date, end_date, signals_list = NULL) {
-    get_spm_data_aws(start_date, end_date, signals_list, table = "DetectionEvents", TWR_only = FALSE)
+get_detection_events <- function(start_date, end_date, conf_athena, signals_list = NULL) {
+    get_spm_data_aws(
+        start_date, 
+        end_date, 
+        signals_list, 
+        conf_athena, 
+        table = "DetectionEvents", 
+        TWR_only = FALSE)
 }
 
 get_detector_uptime <- function(filtered_counts_1hr) {

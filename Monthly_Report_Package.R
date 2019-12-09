@@ -15,7 +15,7 @@ tryCatch({
     }
     
     avg_daily_detector_uptime <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "detector_uptime_pd",
         start_date = calcs_start_date,
         end_date = report_end_date,
@@ -87,7 +87,7 @@ print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
 tryCatch({
     
     papd <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "ped_actuations_pd",
         start_date = report_start_date, # We have to look at the entire report period for pau
         end_date = report_end_date,
@@ -227,7 +227,7 @@ print(glue("{Sys.time()} Hourly Pedestrian Activations [4 of 23]"))
 tryCatch({
     
     paph <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "ped_actuations_ph", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -306,7 +306,7 @@ tryCatch({
     }
     
     ped_delay <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "ped_delay", 
         start_date = calcs_start_date,
         end_date = report_end_date, 
@@ -357,7 +357,7 @@ print(glue("{Sys.time()} Communication Uptime [6 of 23]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "comm_uptime", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -431,7 +431,7 @@ print(glue("{Sys.time()} Daily Volumes [7 of 23]"))
 tryCatch({
     
     vpd <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "vehicles_pd", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -495,7 +495,7 @@ print(glue("{Sys.time()} Hourly Volumes [8 of 23]"))
 tryCatch({
     
     vph <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "vehicles_ph", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -579,7 +579,7 @@ tryCatch({
     # throughput <- f("tp_", month_abbrs)
     
     throughput <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "throughput", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -639,7 +639,7 @@ print(glue("{Sys.time()} Daily AOG [10 of 23]"))
 
 tryCatch({
     aog <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "arrivals_on_green", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -798,7 +798,7 @@ tryCatch({
     print(glue("{Sys.time()} Daily Split Failures [14 of 23]"))
     
     sf <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "split_failures", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -958,7 +958,7 @@ print(glue("{Sys.time()} Daily Queue Spillback [16 of 23]"))
 tryCatch({
     
     qs <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "queue_spillback", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -1039,7 +1039,7 @@ print(glue("{Sys.time()} Travel Time Indexes [18 of 23]"))
 tryCatch({
     
     tt <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "travel_time_metrics",
         start_date = calcs_start_date, 
         end_date = report_end_date
@@ -1099,7 +1099,7 @@ print(glue("{Sys.time()} Uptimes [19 of 23]"))
 tryCatch({
     # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
     
-    keys <- aws.s3::get_bucket_df("gdot-spm", prefix = "manual_veh_ped_uptime")$Key
+    keys <- aws.s3::get_bucket_df(conf$bucket, prefix = "manual_veh_ped_uptime")$Key
     keys <- keys[endsWith(keys, ".xlsx")]
     
     months <- str_extract(basename(keys), "^\\S+ \\d{4}")
@@ -1113,7 +1113,7 @@ tryCatch({
     man_xl <- lapply(keys, 
                      function(k) {
                          get_det_uptime_from_manual_xl(
-                             bucket = "gdot-spm", 
+                             bucket = conf$bucket, 
                              key = k, 
                              corridors = all_corridors)
                      }) %>%
@@ -1283,7 +1283,7 @@ print(glue("{Sys.time()} TEAMS [20 of 23]"))
 tryCatch({
     
     teams <- get_teams_tasks_from_s3(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         teams_locations_key = "mark/teams/teams_locations.feather",
         archived_tasks_prefix = "mark/teams/tasks20",
         current_tasks_key = "mark/teams/tasks.csv.zip",
@@ -1423,7 +1423,7 @@ print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_detectors <- dbGetQuery(conn, sql("select * from gdot_spm.bad_detectors")) %>%
+    bad_detectors <- dbGetQuery(conn, sql(glue("select * from {conf_athena$database}.bad_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
@@ -1469,12 +1469,12 @@ tryCatch({
         bad_det,
         FUN = write_fst, 
         object = "mark/watchdog/bad_detectors.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql("select * from gdot_spm.bad_ped_detectors")) %>%
+    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf_athena$database}.bad_ped_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             CallPhase = factor(callphase),
@@ -1503,12 +1503,12 @@ tryCatch({
         bad_ped,
         FUN = write_fst,
         object = "mark/watchdog/bad_ped_detectors.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql("select * from gdot_spm.cctv_uptime")) %>%
+    bad_cam <- tbl(conn, sql(glue("select * from {conf_athena$database}.cctv_uptime"))) %>%
         dplyr::select(-starts_with("__")) %>%
         filter(size == 0) %>%
         collect() %>%
@@ -1534,7 +1534,7 @@ tryCatch({
         bad_cam,
         FUN = write_fst,
         object = "mark/watchdog/bad_cameras.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Watchdog Alerts --
@@ -1959,23 +1959,23 @@ print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
 aws.s3::put_object(
     file = "cor.rds",
     object = "cor_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sig.rds",
     object = "sig_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sub.rds",
     object = "sub_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "teams_tables.rds",
     object = "teams_tables_ec2.rds",
-    bucket = "gdot-spm"
+    bucket = conf$bucket
 )
