@@ -7,7 +7,7 @@ suppressMessages(library(yaml))
 
 #suppressMessages(library(data.table))
 suppressMessages(library(dplyr))
-#suppressMessages(library(dbplyr))
+suppressMessages(library(dbplyr))
 suppressMessages(library(tidyr))
 suppressMessages(library(lubridate))
 suppressMessages(library(purrr))
@@ -31,6 +31,7 @@ suppressMessages(library(data.table))
 suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
+suppressMessages(library(RJDBC))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -219,16 +220,16 @@ goal <- list("tp" = NULL,
              "cu" = 0.95,
              "pau" = 0.95)
 
-get_athena_connection <- function() {
+get_athena_connection <- function(conf_athena) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = "AthenaJDBC42_2.0.9.jar",
+                classPath = conf_athena$jar_path,
                 identifier.quote = "'")
     
     if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
         
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = 's3://gdot-spm-athena',
+                  s3_staging_dir = conf_athena$staging_dir,
                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   ProxyHost = "gdot-enterprise",
@@ -238,11 +239,9 @@ get_athena_connection <- function() {
     } else {
         
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = 's3://gdot-spm-athena',
-                  user = aws_conf$AWS_ACCESS_KEY_ID,
-                  password =  aws_conf$AWS_SECRET_ACCESS_KEY,
-                  #user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  #password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                  s3_staging_dir = conf_athena$staging_dir,
+                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
+                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
 }
@@ -1851,16 +1850,12 @@ cache_plots <- function(pth, upload_to_s3 = TRUE) {
 
 
 
-signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
-    
-    if (!"RJDBC" %in% .packages()) {
-        suppressMessages(library(RJDBC))
-    }
-    
-    tryCatch({
-    #if (is.na(sigid) || sigid == "Select") {
-    #    no_data_plot("")
-    #} else {
+signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") {
+
+    #tryCatch({
+    if (is.na(sigid) || sigid == "Select") {
+        no_data_plot("")
+    } else {
         #------------------------
         start_date <- ymd(start_date)
         end_date <- start_date + months(1) - days(1)
@@ -1870,7 +1865,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
         withProgress(message = "Loading chart", value = 0, {
             
             p_rc %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
                     filter(signalid == sigid,
@@ -1896,7 +1891,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.01)
             
             p_fc %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
                     filter(signalid == sigid,
@@ -1921,11 +1916,12 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.01)
             
             p_vpd %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.vehicles_pd")) %>%
                     filter(signalid == sigid,
-                           between(date, start_date, end_date)) %>% collect()
+                           between(date, start_date, end_date)) %>% 
+                    collect()
                 dbDisconnect(conn)
                 #------------------------
                 
@@ -1934,7 +1930,11 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
                     mutate(SignalID = factor(signalid),
                            CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
                            Date = as_date(date))
-                df_ <- df %>% group_by(SignalID, CallPhase) %>% filter(Date == max(Date)) %>% ungroup() %>% mutate(Date = Date + days(1))
+                df_ <- df %>% 
+                    group_by(SignalID, CallPhase) %>% 
+                    filter(Date == max(Date)) %>% 
+                    ungroup() %>% 
+                    mutate(Date = Date + days(1))
                 df <- df %>% bind_rows(df, df_)
                 perf_plotly_by_phase(df, "Date", "vpd", 
                                      range_max = max(df$vpd), 
@@ -1948,7 +1948,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.01)
             
             p_ddu %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
                     filter(signalid == sigid,
@@ -1971,7 +1971,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.01)
             
             p_com %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.comm_uptime")) %>%
                     filter(signalid == sigid,
@@ -1996,7 +1996,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.015)
             
             p_aog %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.arrivals_on_green")) %>%
                     filter(signalid == sigid,
@@ -2024,7 +2024,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.015)
             
             p_qs %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.queue_spillback")) %>%
                     filter(signalid == sigid,
@@ -2053,7 +2053,7 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             incProgress(amount = 0.015)
             
             p_sf %<-% tryCatch({
-                conn <- get_athena_connection()
+                conn <- get_athena_connection(conf_athena)
                 #------------------------
                 df <- tbl(conn, sql("select * from gdot_spm.split_failures")) %>%
                     filter(signalid == sigid,
@@ -2108,12 +2108,12 @@ signal_dashboard_athena <- function(sigid, start_date, pth = "s3") {
             
             subplot(sr1a, sr1b, sr2)
         })
+    }    
         
         
-        
-    }, error = function(e) {
-        no_data_plot("")
-    })
+    #}, error = function(e) {
+    #    no_data_plot("")
+    #})
 }
 
 
@@ -2530,14 +2530,14 @@ rds_pp_query <- memoise(rds_pp_query_)
 
 
 
-get_counts_plot <- function(sigid, start_date, end_date, pth = "s3", table_name) {
+get_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3", table_name) {
     #------------------------
     start_date <- ymd(start_date)
     end_date <- ymd(end_date)
     
-    conn <- get_athena_connection()
+    conn <- get_athena_connection(conf_athena)
     #------------------------
-    df <- tbl(conn, sql(glue("select * from gdot_spm.{table_name}"))) %>%
+    df <- tbl(conn, sql(glue("select * from {conf_athena$database}.{table_name}"))) %>%
         filter(signalid == sigid,
                between(date, start_date, end_date)) %>%
         select(signalid, detector, callphase, timeperiod, vol) %>%
@@ -2555,14 +2555,14 @@ get_counts_plot <- function(sigid, start_date, end_date, pth = "s3", table_name)
         layout(showlegend = TRUE)
 }
 
-get_raw_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "counts_1hr")
+get_raw_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "counts_1hr")
 }
-get_filtered_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "filtered_counts_1hr")
+get_filtered_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "filtered_counts_1hr")
 }
-get_adjusted_counts_plot <- function(sigid, start_date, end_date, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, pth = "s3", table_name = "adjusted_counts_1hr")
+get_adjusted_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
+    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "adjusted_counts_1hr")
 }
 
 

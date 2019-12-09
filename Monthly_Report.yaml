@@ -19,9 +19,9 @@ atspm:
 
 # Sections of Monthly_Report_Calcs_ec2 to run
 run:
-    cctv: FALSE
-    rsus: FALSE
-    travel_times: FALSE
+    cctv: TRUE
+    rsus: TRUE
+    travel_times: TRUE
     counts: TRUE
     counts_based_measures: TRUE
     etl: TRUE
@@ -30,8 +30,8 @@ run:
     split_failures: TRUE
 
 
-start_date: 2019-11-23
-end_date: 2019-11-25
+start_date: 2019-12-01
+end_date: yesterday
 
 report_start_date: 2018-11-01
 report_end_date: yesterday
@@ -41,7 +41,7 @@ production_report_end_date: 2019-10-01
 corridors_filename_s3: Corridors_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
 
-cctv_config_filename: Camera_IDs_Latest.csv
+cctv_config_filename: Cameras_Latest.xlsx
 cctv_parsed_filename: parsed_cctv.feather
 
 teams_tasks_filename: TEAMS_Reports/tasks.csv
