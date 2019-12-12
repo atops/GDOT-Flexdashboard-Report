@@ -477,7 +477,7 @@ get_sf_date_range <- function(start_date, end_date) {
     #foreach(date_ = date_range) %dopar% {
         print(date_)
         cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
-        detection_events <- get_detection_events(date_, date_, signals_list)
+        detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
         if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
             sf <- get_sf_utah(cycle_data, detection_events)
             s3_upload_parquet_date_split(

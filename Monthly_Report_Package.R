@@ -106,12 +106,14 @@ tryCatch({
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need the whole time series to calculate ped detector uptime
     # based on the exponential distribution method.
-    bad_ped_detectors <- get_bad_ped_detectors(pau) %>%
-        filter(Date > ymd(report_end_date) - days(90))
-    s3_upload_parquet_date_split(
-        bad_ped_detectors,
-        prefix = "bad_ped_detectors",
-        table_name = "bad_ped_detectors")
+    get_bad_ped_detectors(pau) %>%
+        filter(Date > ymd(report_end_date) - days(90)) %>%
+    
+        s3_upload_parquet_date_split(
+            bucket = conf$bucket,
+            prefix = "bad_ped_detectors",
+            table_name = "bad_ped_detectors",
+            athena_db = conf$athena$database)
     
     plan(sequential)
     plan(multiprocess)
@@ -1423,7 +1425,7 @@ print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_detectors <- dbGetQuery(conn, sql(glue("select * from {conf_athena$database}.bad_detectors"))) %>%
+    bad_detectors <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
@@ -1474,7 +1476,7 @@ tryCatch({
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf_athena$database}.bad_ped_detectors"))) %>%
+    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_ped_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             CallPhase = factor(callphase),
@@ -1508,7 +1510,7 @@ tryCatch({
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql(glue("select * from {conf_athena$database}.cctv_uptime"))) %>%
+    bad_cam <- tbl(conn, sql(glue("select * from {conf$athena$database}.cctv_uptime"))) %>%
         dplyr::select(-starts_with("__")) %>%
         filter(size == 0) %>%
         collect() %>%
