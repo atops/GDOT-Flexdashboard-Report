@@ -30,11 +30,12 @@ signals_list <- unique(corridors$SignalID)
 
 # This is in testing as of 8/26
 subcorridors <- corridors %>% 
+    filter(!is.na(Subcorridor)) %>%
     select(-Zone_Group) %>% 
     rename(
         Zone_Group = Zone, 
         Zone = Corridor, 
-        Corridor = Subcorridor)
+        Corridor = Subcorridor) 
 
 
 conn <- get_athena_connection(conf$athena)

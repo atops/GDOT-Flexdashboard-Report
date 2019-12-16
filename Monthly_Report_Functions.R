@@ -103,7 +103,6 @@ get_most_recent_monday <- function(date_) {
 }
 
 get_usable_cores <- function() {
-    
     # Usable cores is one per 8 GB of RAM. 
     # Get RAM from system file and divide
     
@@ -513,17 +512,21 @@ addtoRDS <- function(df, fn, rsd, csd) {
         # }
         x
     }
-    
-    df0 <- readRDS(fn)
-    if (is.list(df) && is.list(df0) && 
-        !is.data.frame(df) && !is.data.frame(df0) && 
-        (names(df) == names(df0))) {
-        x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+    if (!file.exists(fn)) {
+        saveRDS(df, fn)
     } else {
-        x <- combine_dfs(df0, df, rsd, csd)
+        df0 <- readRDS(fn)
+        if (is.list(df) && is.list(df0) && 
+            !is.data.frame(df) && !is.data.frame(df0) && 
+            (names(df) == names(df0))) {
+            x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+        } else {
+            x <- combine_dfs(df0, df, rsd, csd)
+        }
+        saveRDS(x, fn)
+        x
     }
-    saveRDS(x, fn)
-    x
+    
 }
 
 write_fst_ <- function(df, fn, append = FALSE) {
@@ -1892,7 +1895,7 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     
     get_occupancy <- function(de_dt, int_dt, interval) {
         occdf <- foverlaps(de_dt, int_dt, type = "any") %>% 
-            filter(!is.na(intervalstart))%>% 
+            filter(!is.na(intervalstart)) %>% 
             
             mutate(signalid = factor(signalid),
                    detector = as.integer(as.character(detector)),
@@ -3069,6 +3072,8 @@ get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
         tindx = "tti"
     } else if ("pti" %in% colnames(ti)) {
         tindx = "pti"
+    } else if ("bi" %in% colnames(ti)) {
+        tindx = "bi"
     } else {
         tindx = "oops"
     }
@@ -3083,6 +3088,8 @@ get_cor_monthly_ti_by_day <- function(ti, cor_monthly_vph, corridors) {
         tindx = "tti"
     } else if ("pti" %in% colnames(ti)) {
         tindx = "pti"
+    } else if ("bi" %in% colnames(ti)) {
+        tindx = "bi"
     } else {
         tindx = "oops"
     }
