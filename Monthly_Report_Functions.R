@@ -103,7 +103,6 @@ get_most_recent_monday <- function(date_) {
 }
 
 get_usable_cores <- function() {
-    
     # Usable cores is one per 8 GB of RAM. 
     # Get RAM from system file and divide
     
@@ -513,17 +512,21 @@ addtoRDS <- function(df, fn, rsd, csd) {
         # }
         x
     }
-    
-    df0 <- readRDS(fn)
-    if (is.list(df) && is.list(df0) && 
-        !is.data.frame(df) && !is.data.frame(df0) && 
-        (names(df) == names(df0))) {
-        x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+    if (!file.exists(fn)) {
+        saveRDS(df, fn)
     } else {
-        x <- combine_dfs(df0, df, rsd, csd)
+        df0 <- readRDS(fn)
+        if (is.list(df) && is.list(df0) && 
+            !is.data.frame(df) && !is.data.frame(df0) && 
+            (names(df) == names(df0))) {
+            x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+        } else {
+            x <- combine_dfs(df0, df, rsd, csd)
+        }
+        saveRDS(x, fn)
+        x
     }
-    saveRDS(x, fn)
-    x
+    
 }
 
 write_fst_ <- function(df, fn, append = FALSE) {
@@ -1228,13 +1231,36 @@ multicore_decorator <- function(FUN) {
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 get_det_config <- function(date_) {
     
-    s3bucket <- "gdot-devices"
+    read_det_config <- function(s3object, s3bucket) {
+        aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
+    }
+    
+    s3bucket <- "gdot-devices"  # conf$bucket 
     s3object = glue("atspm_det_config_good/date={date_}/ATSPM_Det_Config_Good.feather")
     
-    aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket) %>%
-        mutate(SignalID = as.character(SignalID),
-               Detector = as.integer(Detector), 
-               CallPhase = as.integer(CallPhase))
+    # Are there any files for this date?
+    s3objects <- aws.s3::get_bucket_df(
+        bucket = s3bucket, 
+        prefix = dirname(s3object))
+    
+    # If the s3 object exists, read it and return the data frame
+    if (aws.s3::object_exists(s3object, s3bucket)) {
+        read_det_config(s3object, s3bucket) %>%
+            mutate(SignalID = as.character(SignalID),
+                   Detector = as.integer(Detector), 
+                   CallPhase = as.integer(CallPhase))
+    
+    # If the s3 object does not exist, but where there are objects for this date,
+    # read all files and bind rows (for when multiple ATSPM databases are contributing)
+    } else if (nrow(s3objects) > 0) {
+        lapply(s3objects$Key, function(x) {read_det_config(x, s3bucket)})  %>%
+            rbindlist() %>% as_tibble() %>%
+            mutate(SignalID = as.character(SignalID),
+                   Detector = as.integer(Detector), 
+                   CallPhase = as.integer(CallPhase))
+    } else {
+        stop(glue("No detector config file for {date_}"))
+    }
 }
 
 get_det_config_aog <- function(date_) {
@@ -1595,12 +1621,24 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
     #signalid %in% signals_list)
 }
 # Query Cycle Data
-get_cycle_data <- function(start_date, end_date, signals_list = NULL) {
-    get_spm_data_aws(start_date, end_date, signals_list, table = "CycleData", TWR_only = FALSE)
+get_cycle_data <- function(start_date, end_date, conf_athena, signals_list = NULL) {
+    get_spm_data_aws(
+        start_date, 
+        end_date, 
+        signals_list, 
+        conf_athena, 
+        table = "CycleData", 
+        TWR_only = FALSE)
 }
 # Query Detection Events
-get_detection_events <- function(start_date, end_date, signals_list = NULL) {
-    get_spm_data_aws(start_date, end_date, signals_list, table = "DetectionEvents", TWR_only = FALSE)
+get_detection_events <- function(start_date, end_date, conf_athena, signals_list = NULL) {
+    get_spm_data_aws(
+        start_date, 
+        end_date, 
+        signals_list, 
+        conf_athena, 
+        table = "DetectionEvents", 
+        TWR_only = FALSE)
 }
 
 get_detector_uptime <- function(filtered_counts_1hr) {
@@ -1857,7 +1895,7 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     
     get_occupancy <- function(de_dt, int_dt, interval) {
         occdf <- foverlaps(de_dt, int_dt, type = "any") %>% 
-            filter(!is.na(intervalstart))%>% 
+            filter(!is.na(intervalstart)) %>% 
             
             mutate(signalid = factor(signalid),
                    detector = as.integer(as.character(detector)),
@@ -2277,6 +2315,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
                      all_rtop1,
                      all_rtop2,
                      all_zone7) %>%
+        distinct() %>%
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }
@@ -3034,6 +3073,8 @@ get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
         tindx = "tti"
     } else if ("pti" %in% colnames(ti)) {
         tindx = "pti"
+    } else if ("bi" %in% colnames(ti)) {
+        tindx = "bi"
     } else {
         tindx = "oops"
     }
@@ -3048,6 +3089,8 @@ get_cor_monthly_ti_by_day <- function(ti, cor_monthly_vph, corridors) {
         tindx = "tti"
     } else if ("pti" %in% colnames(ti)) {
         tindx = "pti"
+    } else if ("bi" %in% colnames(ti)) {
+        tindx = "bi"
     } else {
         tindx = "oops"
     }

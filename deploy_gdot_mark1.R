@@ -3,6 +3,21 @@
 
 # Deploy GDOT_MARK1_beta to shinyapps.io
 
+
+#
+# -- PRE-RENDERED (test) --
+#
+
+library(rsconnect)
+
+deployApp(appPrimaryDoc = "Monthly_Report_s3_prerendered.Rmd", 
+          appFileManifest = "GDOT_MARK1_prerendered.manifest", 
+          appName="GDOT_MARK1_prerendered", 
+          logLevel="normal")
+
+
+
+
 #
 # -- BETA --
 #

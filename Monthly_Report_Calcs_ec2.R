@@ -38,23 +38,32 @@ corridors <- s3read_using(
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )
+feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
+write_feather(corridors, feather_filename)
+aws.s3::put_object(
+    file = feather_filename,
+    object = feather_filename,
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
 all_corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = FALSE),
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )
+feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
+write_feather(all_corridors, feather_filename)
+aws.s3::put_object(
+    file = feather_filename,
+    object = feather_filename,
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
 
 signals_list <- unique(corridors$SignalID)
 
-subcorridors <- corridors %>%
-    mutate(
-        Subcorridor = as.character(Subcorridor),
-        Subcorridor = if_else(!is.na(Subcorridor), Subcorridor, as.character(Corridor))
-    ) %>%
-    mutate(Corridor = factor(Subcorridor)) %>%
-    select(-Subcorridor)
 
 # -- TMC Codes for Corridors
 # tmc_routes <- get_tmc_routes()
@@ -424,7 +433,7 @@ get_aog_date_range <- function(start_date, end_date) {
         # foreach(date_ = date_range) %dopar% {
         print(date_)
 
-        cycle_data <- get_cycle_data(date_, date_, signals_list)
+        cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
         if (nrow(collect(head(cycle_data))) > 0) {
             aog <- get_aog(cycle_data)
             s3_upload_parquet_date_split(
@@ -451,7 +460,7 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
         # foreach(date_ = date_range) %dopar% {
         print(date_)
 
-        detection_events <- get_detection_events(date_, date_, signals_list)
+        detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
         if (nrow(collect(head(detection_events))) > 0) {
             qs <- get_qs(detection_events)
             s3_upload_parquet_date_split(
@@ -481,8 +490,8 @@ get_sf_date_range <- function(start_date, end_date) {
     lapply(date_range, function(date_) {
     #foreach(date_ = date_range) %dopar% {
         print(date_)
-        cycle_data <- get_cycle_data(date_, date_, signals_list)
-        detection_events <- get_detection_events(date_, date_, signals_list)
+        cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
+        detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
         if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
             sf <- get_sf_utah(cycle_data, detection_events)
             s3_upload_parquet_date_split(

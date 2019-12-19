@@ -15,7 +15,7 @@ tryCatch({
     }
     
     avg_daily_detector_uptime <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "detector_uptime_pd",
         start_date = calcs_start_date,
         end_date = report_end_date,
@@ -87,7 +87,7 @@ print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
 tryCatch({
     
     papd <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "ped_actuations_pd",
         start_date = report_start_date, # We have to look at the entire report period for pau
         end_date = report_end_date,
@@ -106,12 +106,14 @@ tryCatch({
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need the whole time series to calculate ped detector uptime
     # based on the exponential distribution method.
-    bad_ped_detectors <- get_bad_ped_detectors(pau) %>%
-        filter(Date > ymd(report_end_date) - days(90))
-    s3_upload_parquet_date_split(
-        bad_ped_detectors,
-        prefix = "bad_ped_detectors",
-        table_name = "bad_ped_detectors")
+    get_bad_ped_detectors(pau) %>%
+        filter(Date > ymd(report_end_date) - days(90)) %>%
+    
+        s3_upload_parquet_date_split(
+            bucket = conf$bucket,
+            prefix = "bad_ped_detectors",
+            table_name = "bad_ped_detectors",
+            athena_db = conf$athena$database)
     
     plan(sequential)
     plan(multiprocess)
@@ -227,7 +229,7 @@ print(glue("{Sys.time()} Hourly Pedestrian Activations [4 of 23]"))
 tryCatch({
     
     paph <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "ped_actuations_ph", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -306,7 +308,7 @@ tryCatch({
     }
     
     ped_delay <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "ped_delay", 
         start_date = calcs_start_date,
         end_date = report_end_date, 
@@ -357,7 +359,7 @@ print(glue("{Sys.time()} Communication Uptime [6 of 23]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "comm_uptime", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -431,7 +433,7 @@ print(glue("{Sys.time()} Daily Volumes [7 of 23]"))
 tryCatch({
     
     vpd <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "vehicles_pd", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -495,7 +497,7 @@ print(glue("{Sys.time()} Hourly Volumes [8 of 23]"))
 tryCatch({
     
     vph <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "vehicles_ph", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -579,7 +581,7 @@ tryCatch({
     # throughput <- f("tp_", month_abbrs)
     
     throughput <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "throughput", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -639,7 +641,7 @@ print(glue("{Sys.time()} Daily AOG [10 of 23]"))
 
 tryCatch({
     aog <- s3_read_parquet(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "arrivals_on_green", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -798,7 +800,7 @@ tryCatch({
     print(glue("{Sys.time()} Daily Split Failures [14 of 23]"))
     
     sf <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         table_name = "split_failures", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -958,7 +960,7 @@ print(glue("{Sys.time()} Daily Queue Spillback [16 of 23]"))
 tryCatch({
     
     qs <- s3_read_parquet_parallel(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         table_name = "queue_spillback", 
         start_date = calcs_start_date, 
         end_date = report_end_date, 
@@ -1038,9 +1040,11 @@ print(glue("{Sys.time()} Travel Time Indexes [18 of 23]"))
 
 tryCatch({
     
+    # ------- Corridor Travel Time Metrics ------- #
+    
     tt <- s3_read_parquet_parallel(
-        bucket = "gdot-spm",
-        table_name = "travel_time_metrics",
+        bucket = conf$bucket,
+        table_name = "cor_travel_time_metrics_refactored",
         start_date = calcs_start_date, 
         end_date = report_end_date
     ) %>%
@@ -1049,26 +1053,23 @@ tryCatch({
         )
     
     tti <- tt %>%
-        dplyr::select(-pti) %>%
-        collect() %>%
-        mutate(Corridor = factor(Corridor))
-    
+        dplyr::select(-c(pti, bi))
     
     pti <- tt %>%
-        dplyr::select(-tti) %>%
-        collect() %>%
-        mutate(Corridor = factor(Corridor))
+        dplyr::select(-c(tti, bi))
+    
+    bi <- tt %>%
+        dplyr::select(-c(tti, pti))
     
     cor_monthly_vph <- readRDS("cor_monthly_vph.rds")
     
     cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, all_corridors)
+    cor_monthly_bi_by_hr <- get_cor_monthly_ti_by_hr(bi, cor_monthly_vph, all_corridors)
     
     cor_monthly_tti <- get_cor_monthly_ti_by_day(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti <- get_cor_monthly_ti_by_day(pti, cor_monthly_vph, all_corridors)
-    
-    write_fst(tti, "tti.fst")
-    write_fst(pti, "pti.fst")
+    cor_monthly_bi <- get_cor_monthly_ti_by_day(bi, cor_monthly_vph, all_corridors)
     
     addtoRDS(cor_monthly_tti, "cor_monthly_tti.rds", report_start_date, calcs_start_date)
     addtoRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds", report_start_date, calcs_start_date)
@@ -1076,14 +1077,72 @@ tryCatch({
     addtoRDS(cor_monthly_pti, "cor_monthly_pti.rds", report_start_date, calcs_start_date)
     addtoRDS(cor_monthly_pti_by_hr, "cor_monthly_pti_by_hr.rds", report_start_date, calcs_start_date)
     
+    addtoRDS(cor_monthly_bi, "cor_monthly_bi.rds", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_bi_by_hr, "cor_monthly_bi_by_hr.rds", report_start_date, calcs_start_date)
+    
+    # ------- Subcorridor Travel Time Metrics ------- #
+    
+    tt <- s3_read_parquet_parallel(
+        bucket = conf$bucket,
+        table_name = "sub_travel_time_metrics_refactored",
+        start_date = calcs_start_date, 
+        end_date = report_end_date
+    ) %>%
+        mutate(
+            Corridor = factor(Corridor),
+            Subcorridor = factor(Subcorridor)
+        ) %>%
+        rename(Zone_Group = Corridor,
+               Corridor = Subcorridor)
+    
+    tti <- tt %>%
+        dplyr::select(-c(pti, bi))
+    
+    pti <- tt %>%
+        dplyr::select(-c(tti, bi))
+    
+    bi <- tt %>%
+        dplyr::select(-c(tti, pti))
+    
+    sub_monthly_vph <- readRDS("sub_monthly_vph.rds")
+    
+    sub_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, sub_monthly_vph, subcorridors)
+    sub_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, sub_monthly_vph, subcorridors)
+    sub_monthly_bi_by_hr <- get_cor_monthly_ti_by_hr(bi, sub_monthly_vph, subcorridors)
+    
+    sub_monthly_tti <- get_cor_monthly_ti_by_day(tti, sub_monthly_vph, subcorridors)
+    sub_monthly_pti <- get_cor_monthly_ti_by_day(pti, sub_monthly_vph, subcorridors)
+    sub_monthly_bi <- get_cor_monthly_ti_by_day(bi, sub_monthly_vph, subcorridors)
+    
+    addtoRDS(sub_monthly_tti, "sub_monthly_tti.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_tti_by_hr, "sub_monthly_tti_by_hr.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(sub_monthly_pti, "sub_monthly_pti.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pti_by_hr, "sub_monthly_pti_by_hr.rds", report_start_date, calcs_start_date)
+    
+    addtoRDS(sub_monthly_bi, "sub_monthly_bi.rds", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_bi_by_hr, "sub_monthly_bi_by_hr.rds", report_start_date, calcs_start_date)
+    
+    
     rm(tt)
     rm(tti)
     rm(pti)
+    rm(bi)
     rm(cor_monthly_vph)
     rm(cor_monthly_tti)
     rm(cor_monthly_tti_by_hr)
     rm(cor_monthly_pti)
     rm(cor_monthly_pti_by_hr)
+    rm(cor_monthly_bi)
+    rm(cor_monthly_bi_by_hr)
+    
+    rm(sub_monthly_tti)
+    rm(sub_monthly_tti_by_hr)
+    rm(sub_monthly_pti)
+    rm(sub_monthly_pti_by_hr)
+    rm(sub_monthly_bi)
+    rm(sub_monthly_bi_by_hr)
+
     # gc()
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1099,7 +1158,7 @@ print(glue("{Sys.time()} Uptimes [19 of 23]"))
 tryCatch({
     # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
     
-    keys <- aws.s3::get_bucket_df("gdot-spm", prefix = "manual_veh_ped_uptime")$Key
+    keys <- aws.s3::get_bucket_df(conf$bucket, prefix = "manual_veh_ped_uptime")$Key
     keys <- keys[endsWith(keys, ".xlsx")]
     
     months <- str_extract(basename(keys), "^\\S+ \\d{4}")
@@ -1113,7 +1172,7 @@ tryCatch({
     man_xl <- lapply(keys, 
                      function(k) {
                          get_det_uptime_from_manual_xl(
-                             bucket = "gdot-spm", 
+                             bucket = conf$bucket, 
                              key = k, 
                              corridors = all_corridors)
                      }) %>%
@@ -1283,7 +1342,7 @@ print(glue("{Sys.time()} TEAMS [20 of 23]"))
 tryCatch({
     
     teams <- get_teams_tasks_from_s3(
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         teams_locations_key = "mark/teams/teams_locations.feather",
         archived_tasks_prefix = "mark/teams/tasks20",
         current_tasks_key = "mark/teams/tasks.csv.zip",
@@ -1423,7 +1482,7 @@ print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_detectors <- dbGetQuery(conn, sql("select * from gdot_spm.bad_detectors")) %>%
+    bad_detectors <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
@@ -1469,12 +1528,12 @@ tryCatch({
         bad_det,
         FUN = write_fst, 
         object = "mark/watchdog/bad_detectors.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql("select * from gdot_spm.bad_ped_detectors")) %>%
+    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_ped_detectors"))) %>%
         transmute(
             SignalID = factor(signalid),
             CallPhase = factor(callphase),
@@ -1503,12 +1562,12 @@ tryCatch({
         bad_ped,
         FUN = write_fst,
         object = "mark/watchdog/bad_ped_detectors.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql("select * from gdot_spm.cctv_uptime")) %>%
+    bad_cam <- tbl(conn, sql(glue("select * from {conf$athena$database}.cctv_uptime"))) %>%
         dplyr::select(-starts_with("__")) %>%
         filter(size == 0) %>%
         collect() %>%
@@ -1534,7 +1593,7 @@ tryCatch({
         bad_cam,
         FUN = write_fst,
         object = "mark/watchdog/bad_cameras.fst",
-        bucket = "gdot-spm")
+        bucket = conf$bucket)
     
     
     # -- Watchdog Alerts --
@@ -1668,6 +1727,8 @@ tryCatch({
         "ttih" = readRDS("cor_monthly_tti_by_hr.rds"),
         "pti" = readRDS("cor_monthly_pti.rds"),
         "ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
+        "bi" = readRDS("cor_monthly_bi.rds"),
+        "bih" = readRDS("cor_monthly_bi_by_hr.rds"),
         "du" = readRDS("cor_monthly_detector_uptime.rds"),
         "cu" = readRDS("cor_monthly_comm_uptime.rds"),
         "pau" = readRDS("cor_monthly_pa_uptime.rds"),
@@ -1701,6 +1762,7 @@ tryCatch({
         "sfo" = get_quarterly(cor$mo$sfo, "sf_freq"),
         "tti" = get_quarterly(cor$mo$tti, "tti"),
         "pti" = get_quarterly(cor$mo$pti, "pti"),
+        "bi" = get_quarterly(cor$mo$bi, "bi"),
         "du" = get_quarterly(cor$mo$du, "uptime"),
         "cu" = get_quarterly(cor$mo$cu, "uptime"),
         "pau" = get_quarterly(cor$mo$pau, "uptime"),
@@ -1796,6 +1858,12 @@ tryCatch({
         "sfd" = readRDS("sub_monthly_sfd.rds"),
         "sfo" = readRDS("sub_monthly_sfo.rds"),
         "sfh" = readRDS("sub_msfh.rds"),
+        "tti" = readRDS("sub_monthly_tti.rds"),
+        "ttih" = readRDS("sub_monthly_tti_by_hr.rds"),
+        "pti" = readRDS("sub_monthly_pti.rds"),
+        "ptih" = readRDS("sub_monthly_pti_by_hr.rds"),
+        "bi" = readRDS("sub_monthly_bi.rds"),
+        "bih" = readRDS("sub_monthly_bi_by_hr.rds"),
         "du" = readRDS("sub_monthly_detector_uptime.rds"),
         "cu" = readRDS("sub_monthly_comm_uptime.rds"),
         "pau" = readRDS("sub_monthly_pa_uptime.rds"),
@@ -1924,6 +1992,7 @@ tryCatch({
             select(-c(Name, cycles)),
         "tti" = data.frame(),
         "pti" = data.frame(),
+        "bi" = data.frame(),
         "du" = sigify(readRDS("monthly_detector_uptime.rds"), cor$mo$du, corridors) %>%
             select(Zone_Group, Corridor, Month, uptime, uptime.sb, uptime.pr, delta),
         "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors) %>%
@@ -1959,23 +2028,23 @@ print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
 aws.s3::put_object(
     file = "cor.rds",
     object = "cor_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sig.rds",
     object = "sig_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sub.rds",
     object = "sub_ec2.rds",
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "teams_tables.rds",
     object = "teams_tables_ec2.rds",
-    bucket = "gdot-spm"
+    bucket = conf$bucket
 )

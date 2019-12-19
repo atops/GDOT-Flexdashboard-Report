@@ -89,7 +89,7 @@ get_tmc_coords <- function(coords_string) {
 ```
 
 
-```{r Read Data, echo=FALSE, eval=FALSE}
+```{r Read MARK1 Data, echo=FALSE, eval=FALSE}
 
 # This is the source of the signal performance data
 sig <- s3readRDS(bucket = "gdot-spm", object = "sig_ec2.rds")
@@ -164,14 +164,15 @@ signals <- left_join(ints, corridors, by = c("SignalID")) %>%
         stroke_color = ifelse(grepl("^Z", Zone), color, stroke_color))
 ```
 
-```{r TMC Segments, echo=FALSE, eval=TRUE}
+```{r TMC Segments, echo=FALSE, eval=FALSE}
 
 # --- TMC Segments (Line Layer) ---
 
 raw_tmcs <- s3read_using(
     read_csv, 
     bucket = "gdot-spm", 
-    object = "tmc_codes/date=2019-10-15/raw_tmcs.csv.zip") %>%
+    # object = "tmc_codes/date=2019-10-15/raw_tmcs.csv.zip") %>%
+    object = "raw_tmcs.csv") %>%
     select(-X1)
 
 rtop_tmc_routes <- s3read_using(
@@ -189,6 +190,16 @@ tmcs <-left_join(raw_tmcs, rtop_tmc_routes, by = c("tmc")) %>%
     #filter(funcClass < 4 | Corridor != "None")
     #filter(!roadClass %in% c("Interstate", "Interchange"), 
     #       !(!county %in% c("FULTON", "DEKALB") & roadClass == "Other"))
+```
+
+```{r TMC Segments from s3 xlsx, echo=FALSE, eval=TRUE}
+tmcs <- s3read_using(
+    read_excel,
+    bucket = "gdot-spm",
+    object = "Corridor_TMCs_Latest.xlsx"
+) %>%
+    left_join(corridor_colors, by = "Corridor") %>%
+    mutate(Corridor = factor(Corridor))
 ```
 
 ```{r Create SpatialDataFrame, echo=FALSE, eval=TRUE}
@@ -217,7 +228,7 @@ s3saveRDS(map_data,
 # == == == ==
 ```
 
-```{r Read Data, echo=FALSE}
+```{r Read Map Data, echo=FALSE}
 map_data <- readRDS("map_data.rds")
 ```
 
@@ -245,7 +256,7 @@ line_labels <- function(corridor) {
     glue("Corridor: {corridor}")
 }
 
-leaflet(width = "100%", height = 100) %>% 
+leaflet(width = "100%", height = 1000) %>% 
     setView(
         lat = 33.7995454, 
         lng = -84.3729367, 

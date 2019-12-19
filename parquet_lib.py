@@ -16,7 +16,7 @@ def random_string(length):
     x = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)]) 
     return x +  datetime.now().strftime('%H%M%S%f')
 
-#os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
