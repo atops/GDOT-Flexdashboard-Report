@@ -121,14 +121,13 @@ if (conf$run$counts == TRUE) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
 
     if (length(date_range) == 1) {
-        lapply(date_range, function(date_) {
-            get_counts2(
-                date_, 
-                bucket = conf$bucket, 
-                conf_athena = conf$athena, 
-                uptime = TRUE, 
-                counts = TRUE)
-        })
+        date_ <- date_range
+        get_counts2(
+            date_, 
+            bucket = conf$bucket, 
+            conf_athena = conf$athena, 
+            uptime = TRUE, 
+            counts = TRUE)
     } else {
         foreach(date_ = date_range) %dopar% {
             get_counts2(
