@@ -173,7 +173,7 @@ def main(start_date, end_date):
             ncores = os.cpu_count()
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=ncores-1) as pool: #24
+            with Pool(processes=ncores * 3) as pool: #24
                 result = pool.starmap_async(etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
                 pool.close()
                 pool.join()
