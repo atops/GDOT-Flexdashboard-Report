@@ -2315,6 +2315,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
                      all_rtop1,
                      all_rtop2,
                      all_zone7) %>%
+        distinct() %>%
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }
