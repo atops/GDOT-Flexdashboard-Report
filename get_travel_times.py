@@ -172,8 +172,10 @@ if __name__=='__main__':
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
     
     
-    tmc_df = pd.read_excel('s3://gdot-spm/Corridor_TMCs_Latest.xlsx').rename(columns={'length': 'miles'})
-    tmc_df = tmc_df.fillna(value={'Corridor': 'None', 'Subcorridor': 'None'})
+    tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
+                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']))
+                .rename(columns={'length': 'miles'})
+                .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
     tmc_df = tmc_df[tmc_df.Corridor != 'None']
 
     tmc_list = list(set(tmc_df.tmc.values))
@@ -204,15 +206,15 @@ if __name__=='__main__':
         df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
              
         get_corridor_travel_times(
-                df, ['Corridor'], 'gdot-spm', 'cor_travel_times_refactored')
+                df, ['Corridor'], conf['bucket'], 'cor_travel_times')
             
         get_corridor_travel_time_metrics(
-                df, ['Corridor'], 'gdot-spm', 'cor_travel_time_metrics_refactored')
+                df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
     
         get_corridor_travel_times(
-                df, ['Corridor', 'Subcorridor'], 'gdot-spm', 'sub_travel_times_refactored')
+                df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_times')
             
         get_corridor_travel_time_metrics(
-                df, ['Corridor', 'Subcorridor'], 'gdot-spm', 'sub_travel_time_metrics_refactored')
+                df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
     else:
         print('No records returned.')
