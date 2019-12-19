@@ -722,36 +722,36 @@ get_cam_config <- function(object, bucket) {
 
 }
 
-get_tmc_routes <- function(pth = "TMC_Identification") {
-    
-    lapply(aws.s3::get_bucket(bucket = 'gdot-spm', prefix = pth), function(x) { 
-        print(x$Key)
-        if (!file.exists(file.path(pth, basename(x$Key)))) { 
-            print("downloading...")
-            aws.s3::save_object(x$Key, file = file.path(pth, basename(x$Key)), bucket = 'gdot-spm')
-        }
-    })
-
-    fns <- list.files(pth, pattern = "*.zip", recursive = TRUE)
-    
-    df <- lapply(fns, function(fn) {
-        x <- read_csv(unz(file.path(pth, fn), "TMC_Identification.csv"))
-        
-        # there may be multiple segments, differentiated by "active_start_date"
-        # take the most recent
-        if ("active_start_date" %in% names(x)) {
-            x <- x %>% 
-                group_by_at(vars(-active_start_date)) %>% 
-                filter(active_start_date == max(active_start_date)) %>%
-                ungroup()
-        }
-        x <- x %>%
-            mutate(Corridor = get_corridor_name(fn),
-                   Filename = fn) %>% 
-            dplyr::select(c("tmc", "road", "direction", "intersection", "state", "county", "zip", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "miles", "road_order", "timezone_name", "type", "country", "Corridor", "Filename"))
-    }) %>% bind_rows()
-    df
-}
+# get_tmc_routes <- function(pth = "TMC_Identification") {
+#     
+#     lapply(aws.s3::get_bucket(bucket = 'gdot-spm', prefix = pth), function(x) { 
+#         print(x$Key)
+#         if (!file.exists(file.path(pth, basename(x$Key)))) { 
+#             print("downloading...")
+#             aws.s3::save_object(x$Key, file = file.path(pth, basename(x$Key)), bucket = 'gdot-spm')
+#         }
+#     })
+# 
+#     fns <- list.files(pth, pattern = "*.zip", recursive = TRUE)
+#     
+#     df <- lapply(fns, function(fn) {
+#         x <- read_csv(unz(file.path(pth, fn), "TMC_Identification.csv"))
+#         
+#         # there may be multiple segments, differentiated by "active_start_date"
+#         # take the most recent
+#         if ("active_start_date" %in% names(x)) {
+#             x <- x %>% 
+#                 group_by_at(vars(-active_start_date)) %>% 
+#                 filter(active_start_date == max(active_start_date)) %>%
+#                 ungroup()
+#         }
+#         x <- x %>%
+#             mutate(Corridor = get_corridor_name(fn),
+#                    Filename = fn) %>% 
+#             dplyr::select(c("tmc", "road", "direction", "intersection", "state", "county", "zip", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "miles", "road_order", "timezone_name", "type", "country", "Corridor", "Filename"))
+#     }) %>% bind_rows()
+#     df
+# }
 
 # get_det_config_precountpriority <- function(date_) {
 #     
@@ -917,7 +917,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             dplyr::select(SignalID, Detector, CallPhase)
     }
     
-    df <- tbl(conn, sql("select distinct * from gdot_spm.atspm2")) %>%
+    df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
         filter(date == start_date)
     
     print(head(arrange(df, timestamp)))

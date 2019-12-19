@@ -10,6 +10,7 @@ athena:
     staging_dir: s3://gdot-spm-athena  # this has to be <bucket>-athena
     jar_path: AthenaJDBC42_2.0.9.jar
     database: gdot_spm
+    atspm_table: atspm2
 atspm:
     odbc_dsn: atspm
     uid_env: ATSPM_USERNAME
