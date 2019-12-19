@@ -105,7 +105,7 @@ no.color <- "red"
 
 conf <- read_yaml("Monthly_Report.yaml")
 
-#$conf$mode <- conf_mode
+conf$mode <- conf_mode
 
 #if (conf$mode == "beta") {
 #    source("mark1_dynamodb.R")
@@ -164,7 +164,7 @@ if (conf$mode == "production") {
     
     corridors <- aws.s3::s3read_using(
         read_feather, 
-        object = "all_corridors.feather", 
+        object = "all_Corridors_Latest.feather", 
         bucket = "gdot-spm")
     cor <- aws.s3::s3readRDS(
         object = "cor_ec2.rds", 
@@ -181,11 +181,11 @@ if (conf$mode == "production") {
         bucket = "gdot-spm",
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    teams_tables <- aws.s3::s3readRDS(
-        object = "teams_tables_ec2.rds", 
-        bucket = "gdot-spm",
-        key = aws_conf$AWS_ACCESS_KEY_ID,
-        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    # teams_tables <- aws.s3::s3readRDS(
+    #     object = "teams_tables_ec2.rds", 
+    #     bucket = "gdot-spm",
+    #     key = aws_conf$AWS_ACCESS_KEY_ID,
+    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     
     alerts <- aws.s3::s3readRDS(
         object = "mark/watchdog/alerts.rds", 
