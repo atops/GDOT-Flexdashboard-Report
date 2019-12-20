@@ -1678,14 +1678,7 @@ tryCatch({
     cor$dy <- list(
         "du" = readRDS("cor_avg_daily_detector_uptime.rds"),
         "cu" = readRDS("cor_daily_comm_uptime.rds"),
-        "pau" = readRDS("cor_daily_pa_uptime.rds"),
-        "cctv" = readRDS("cor_daily_cctv_uptime.rds"),
-        "ru" = readRDS("cor_daily_rsu_uptime.rds"),
-        "ttyp" = readRDS("tasks_by_type.rds")$cor_daily,
-        "tsub" = readRDS("tasks_by_subtype.rds")$cor_daily,
-        "tpri" = readRDS("tasks_by_priority.rds")$cor_daily,
-        "tsou" = readRDS("tasks_by_source.rds")$cor_daily,
-        "tasks" = readRDS("tasks_all.rds")$cor_daily
+        "pau" = readRDS("cor_daily_pa_uptime.rds")
     )
     cor$wk <- list(
         "vpd" = readRDS("cor_weekly_vpd.rds"),
@@ -1693,7 +1686,7 @@ tryCatch({
         "vphp" = readRDS("cor_weekly_vph_peak.rds"),
         "papd" = readRDS("cor_weekly_papd.rds"),
         "paph" = readRDS("cor_weekly_paph.rds"),
-        "pd" = readRDS("cor_weekly_pd_by_day.rds"),
+        #"pd" = readRDS("cor_weekly_pd_by_day.rds"),
         "tp" = readRDS("cor_weekly_throughput.rds"),
         "aog" = readRDS("cor_weekly_aog_by_day.rds"),
         "pr" = readRDS("cor_weekly_pr_by_day.rds"),
@@ -1702,9 +1695,7 @@ tryCatch({
         "sfo" = readRDS("cor_wsfo.rds"),
         "du" = readRDS("cor_weekly_detector_uptime.rds"),
         "cu" = readRDS("cor_weekly_comm_uptime.rds"),
-        "pau" = readRDS("cor_weekly_pa_uptime.rds"),
-        "cctv" = readRDS("cor_weekly_cctv_uptime.rds"),
-        "ru" = readRDS("cor_weekly_rsu_uptime.rds")
+        "pau" = readRDS("cor_weekly_pa_uptime.rds")
     )
     cor$mo <- list(
         "vpd" = readRDS("cor_monthly_vpd.rds"),
@@ -1712,7 +1703,7 @@ tryCatch({
         "vphp" = readRDS("cor_monthly_vph_peak.rds"),
         "papd" = readRDS("cor_monthly_papd.rds"),
         "paph" = readRDS("cor_monthly_paph.rds"),
-        "pd" = readRDS("cor_monthly_pd_by_day.rds"),
+        #"pd" = readRDS("cor_monthly_pd_by_day.rds"),
         "tp" = readRDS("cor_monthly_throughput.rds"),
         "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
         "aogh" = readRDS("cor_monthly_aog_by_hr.rds"),
@@ -1723,29 +1714,15 @@ tryCatch({
         "sfd" = readRDS("cor_monthly_sfd.rds"),
         "sfh" = readRDS("cor_msfh.rds"),
         "sfo" = readRDS("cor_monthly_sfo.rds"),
-        "tti" = readRDS("cor_monthly_tti.rds"),
-        "ttih" = readRDS("cor_monthly_tti_by_hr.rds"),
-        "pti" = readRDS("cor_monthly_pti.rds"),
-        "ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
-        "bi" = readRDS("cor_monthly_bi.rds"),
-        "bih" = readRDS("cor_monthly_bi_by_hr.rds"),
+        #"tti" = readRDS("cor_monthly_tti.rds"),
+        #"ttih" = readRDS("cor_monthly_tti_by_hr.rds"),
+        #"pti" = readRDS("cor_monthly_pti.rds"),
+        #"ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
+        #"bi" = readRDS("cor_monthly_bi.rds"),
+        #"bih" = readRDS("cor_monthly_bi_by_hr.rds"),
         "du" = readRDS("cor_monthly_detector_uptime.rds"),
         "cu" = readRDS("cor_monthly_comm_uptime.rds"),
-        "pau" = readRDS("cor_monthly_pa_uptime.rds"),
-        "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
-        "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
-        "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
-        "ru" = readRDS("cor_monthly_rsu_uptime.rds"),
-        #"events" = readRDS("cor_monthly_events.rds"),
-        "ttyp" = readRDS("tasks_by_type.rds")$cor_monthly,
-        "tsub" = readRDS("tasks_by_subtype.rds")$cor_monthly,
-        "tpri" = readRDS("tasks_by_priority.rds")$cor_monthly,
-        "tsou" = readRDS("tasks_by_source.rds")$cor_monthly,
-        "tasks" = readRDS("tasks_all.rds")$cor_monthly,
-        "over45" = readRDS("cor_tasks_by_date.rds") %>%
-            transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
-        "mttr" = readRDS("cor_tasks_by_date.rds") %>%
-            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr)
+        "pau" = readRDS("cor_monthly_pa_uptime.rds")
     )
     cor$qu <- list(
         "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
@@ -1753,31 +1730,19 @@ tryCatch({
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
         "papd" = get_quarterly(cor$mo$papd, "papd"),
-        "pd" = get_quarterly(cor$mo$pd, "Duration"),
+        #"pd" = get_quarterly(cor$mo$pd, "Duration"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
         "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
         "qsd" = get_quarterly(cor$mo$qsd, "qs_freq"),
         "sfd" = get_quarterly(cor$mo$sfd, "sf_freq"),
         "sfo" = get_quarterly(cor$mo$sfo, "sf_freq"),
-        "tti" = get_quarterly(cor$mo$tti, "tti"),
-        "pti" = get_quarterly(cor$mo$pti, "pti"),
-        "bi" = get_quarterly(cor$mo$bi, "bi"),
+        #"tti" = get_quarterly(cor$mo$tti, "tti"),
+        #"pti" = get_quarterly(cor$mo$pti, "pti"),
+        #"bi" = get_quarterly(cor$mo$bi, "bi"),
         "du" = get_quarterly(cor$mo$du, "uptime"),
         "cu" = get_quarterly(cor$mo$cu, "uptime"),
-        "pau" = get_quarterly(cor$mo$pau, "uptime"),
-        "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
-        "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
-        "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
-        "ru" = get_quarterly(cor$mo$ru, "uptime"),
-        #"reported" = get_quarterly(cor$mo$events, "Reported"),
-        #"resolved" = get_quarterly(cor$mo$events, "Resolved"),
-        #"outstanding" = get_quarterly(cor$mo$events, "Outstanding", operation = "latest")
-        "reported" = get_quarterly(cor$mo$tasks, "Reported"),
-        "resolved" = get_quarterly(cor$mo$tasks, "Resolved"),
-        "outstanding" = get_quarterly(cor$mo$tasks, "Outstanding", operation = "latest"),
-        "over45" = get_quarterly(cor$mo$over45, "over45", operation = "latest"),
-        "mttr" = get_quarterly(cor$mo$mttr, "mttr", operation = "latest")
+        "pau" = get_quarterly(cor$mo$pau, "uptime")
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1793,14 +1758,6 @@ tryCatch({
         "cu" = readRDS("sub_daily_comm_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = readRDS("sub_daily_pa_uptime.rds") %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        
-        # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$dy$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor) %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        "ru" = readRDS("sub_daily_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
     sub$wk <- list(
@@ -1812,8 +1769,8 @@ tryCatch({
         "papd" = readRDS("sub_weekly_papd.rds") %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = readRDS("sub_weekly_paph.rds"),
-        "pd" = readRDS("sub_weekly_pd_by_day.rds") %>%
-            select(Zone_Group, Corridor, Date, Duration),
+        #"pd" = readRDS("sub_weekly_pd_by_day.rds") %>%
+        #    select(Zone_Group, Corridor, Date, Duration),
         "tp" = readRDS("sub_weekly_throughput.rds") %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = readRDS("sub_weekly_aog_by_day.rds") %>%
@@ -1831,14 +1788,6 @@ tryCatch({
         "cu" = readRDS("sub_weekly_comm_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = readRDS("sub_weekly_pa_uptime.rds") %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        
-        # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$wk$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor) %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        "ru" = readRDS("sub_weekly_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
     sub$mo <- list(
@@ -1847,7 +1796,7 @@ tryCatch({
         "vphp" = readRDS("sub_monthly_vph_peak.rds"),
         "papd" = readRDS("sub_monthly_papd.rds"),
         "paph" = readRDS("sub_monthly_paph.rds"),
-        "pd" = readRDS("sub_monthly_pd_by_day.rds"),
+        #"pd" = readRDS("sub_monthly_pd_by_day.rds"),
         "tp" = readRDS("sub_monthly_throughput.rds"),
         "aogd" = readRDS("sub_monthly_aog_by_day.rds"),
         "aogh" = readRDS("sub_monthly_aog_by_hr.rds"),
@@ -1858,21 +1807,15 @@ tryCatch({
         "sfd" = readRDS("sub_monthly_sfd.rds"),
         "sfo" = readRDS("sub_monthly_sfo.rds"),
         "sfh" = readRDS("sub_msfh.rds"),
-        "tti" = readRDS("sub_monthly_tti.rds"),
-        "ttih" = readRDS("sub_monthly_tti_by_hr.rds"),
-        "pti" = readRDS("sub_monthly_pti.rds"),
-        "ptih" = readRDS("sub_monthly_pti_by_hr.rds"),
-        "bi" = readRDS("sub_monthly_bi.rds"),
-        "bih" = readRDS("sub_monthly_bi_by_hr.rds"),
+        #"tti" = readRDS("sub_monthly_tti.rds"),
+        #"ttih" = readRDS("sub_monthly_tti_by_hr.rds"),
+        #"pti" = readRDS("sub_monthly_pti.rds"),
+        #"ptih" = readRDS("sub_monthly_pti_by_hr.rds"),
+        #"bi" = readRDS("sub_monthly_bi.rds"),
+        #"bih" = readRDS("sub_monthly_bi_by_hr.rds"),
         "du" = readRDS("sub_monthly_detector_uptime.rds"),
         "cu" = readRDS("sub_monthly_comm_uptime.rds"),
-        "pau" = readRDS("sub_monthly_pa_uptime.rds"),
-        
-        # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$mo$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor),
-        "ru" = readRDS("sub_monthly_rsu_uptime.rds")
+        "pau" = readRDS("sub_monthly_pa_uptime.rds")
     )
     sub$qu <- list(
         "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
@@ -1887,9 +1830,7 @@ tryCatch({
         "sfo" = get_quarterly(sub$mo$sfo, "sf_freq"),
         "du" = get_quarterly(sub$mo$du, "uptime"),
         "cu" = get_quarterly(sub$mo$cu, "uptime"),
-        "pau" = get_quarterly(sub$mo$pau, "uptime"),
-        "cctv" = get_quarterly(sub$mo$cctv, "uptime"),
-        "ru" = get_quarterly(sub$mo$ru, "uptime")
+        "pau" = get_quarterly(sub$mo$pau, "uptime")
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1906,15 +1847,7 @@ tryCatch({
         "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, up),
-        "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors),
-        "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
-        "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
-        "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
-        "tsou" = readRDS("tasks_by_source.rds")$sig_daily,
-        "tasks" = readRDS("tasks_all.rds")$sig_daily
+            select(Zone_Group, Corridor, Date, uptime)
     )
     sig$wk <- list(
         "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
@@ -1930,8 +1863,8 @@ tryCatch({
         "papd" = sigify(readRDS("weekly_papd.rds"), cor$wk$papd, corridors) %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
-        "pd" = sigify(readRDS("weekly_pd_by_day.rds"), cor$wk$pd, corridors) %>%
-            select(Zone_Group, Corridor, Date, Duration),
+        #"pd" = sigify(readRDS("weekly_pd_by_day.rds"), cor$wk$pd, corridors) %>%
+        #    select(Zone_Group, Corridor, Date, Duration),
         "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors) %>%
@@ -1947,10 +1880,7 @@ tryCatch({
         "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, uptime),
-        "ru" = sigify(readRDS("weekly_rsu_uptime.rds"), cor$wk$ru, corridors)
+            select(Zone_Group, Corridor, Date, uptime)
     )
     sig$mo <- list(
         "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
@@ -1968,8 +1898,8 @@ tryCatch({
             select(-c(Name, ones)),
         "paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
             select(-c(Name, ones)),
-        "pd" = sigify(readRDS("monthly_pd_by_day.rds"), cor$mo$pd, corridors) %>%
-            select(-c(Name, ones)),
+        #"pd" = sigify(readRDS("monthly_pd_by_day.rds"), cor$mo$pd, corridors) %>%
+        #    select(-c(Name, ones)),
         "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors) %>%
             select(-c(Name, ones)),
         "aogd" = sigify(readRDS("monthly_aog_by_day.rds"), cor$mo$aogd, corridors) %>%
@@ -1998,19 +1928,7 @@ tryCatch({
         "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors) %>%
             select(Zone_Group, Corridor, Month, uptime, delta),
         "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors) %>%
-            select(Zone_Group, Corridor, Month, uptime, delta),
-        "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Month, uptime, delta),
-        "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors),
-        "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
-        "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
-        "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
-        "tsou" = readRDS("tasks_by_source.rds")$sig_monthly,
-        "tasks" = readRDS("tasks_all.rds")$sig_monthly,
-        "over45" = readRDS("sig_tasks_by_date.rds") %>%
-            transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
-        "mttr" = readRDS("sig_tasks_by_date.rds") %>%
-            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr)
+            select(Zone_Group, Corridor, Month, uptime, delta)
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")

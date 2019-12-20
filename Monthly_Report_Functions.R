@@ -1235,7 +1235,7 @@ get_det_config <- function(date_) {
         aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
     }
     
-    s3bucket <- "gdot-devices"  # conf$bucket 
+    s3bucket <- conf$bucket 
     s3object = glue("atspm_det_config_good/date={date_}/ATSPM_Det_Config_Good.feather")
     
     # Are there any files for this date?
