@@ -45,7 +45,7 @@ ath = boto3.client('athena')
         Call Phase [int64]
 '''
 
-def etl2(s, date_, det_config):
+def etl2(s, date_, det_config, conf):
     
     date_str = date_.strftime('%Y-%m-%d')
 
@@ -62,7 +62,7 @@ def etl2(s, date_, det_config):
     try:
         #print('|{} reading from database...'.format(s)) 
         key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
-        df = read_parquet_file('gdot-spm', key)
+        df = read_parquet_file(conf['bucket'], key)
         
     
         if len(df)==0:
@@ -78,19 +78,15 @@ def etl2(s, date_, det_config):
     
             if len(c) > 0 and len(d) > 0:
     
-                # print('writing to files...')
+                c.to_parquet(
+                    's3://{b}/cycles/date={d}/cd_{s}_{d}.parquet'.format(
+                        b=conf['bucket'], d=date_str, s=s), 
+                    allow_truncated_timestamps=True)
     
-                # if not os.path.exists('../CycleData/' + date_str):
-                #     os.mkdir('../CycleData/' + date_str)
-                # if not os.path.exists('../DetectionEvents/' + date_str):
-                #     os.mkdir('../DetectionEvents/' + date_str)
-    
-    
-                c.to_parquet('s3://gdot-spm-cycles/date={}/cd_{}_{}.parquet'.format(date_str, s, date_str), 
-                             allow_truncated_timestamps=True)
-    
-                d.to_parquet('s3://gdot-spm-detections/date={}/de_{}_{}.parquet'.format(date_str, s, date_str), 
-                             allow_truncated_timestamps=True)
+                d.to_parquet(
+                    's3://{b}/detections/date={d}/de_{s}_{d}.parquet'.format(
+                        b=conf['bucket'], d=date_str, s=s), 
+                    allow_truncated_timestamps=True)
     
     
                 print('{}: {} seconds'.format(s, round(time.time()-t0, 1)))
@@ -142,17 +138,32 @@ def main(start_date, end_date):
 
         print(date_str)
 
-        with io.BytesIO() as data:
-            s3.download_fileobj(Bucket='gdot-devices', Key='atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str), Fileobj=data)
+        def f(bucket, key):
+    
+            with io.BytesIO() as data:
+                s3.download_fileobj(
+                    Bucket=bucket,
+                    Key=key, 
+                    Fileobj=data)
 
-            det_config_raw = feather.read_dataframe(data)\
-                .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
-                .assign(Detector = lambda x: x.Detector.astype('int64'))\
-                .rename(columns={'CallPhase': 'Call Phase'})
+                det_config_raw = feather.read_dataframe(data)\
+                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
+                    .assign(Detector = lambda x: x.Detector.astype('int64'))\
+                    .rename(columns={'CallPhase': 'Call Phase'})
+            return det_config_raw
 
+        response = s3.list_objects_v2(
+            Bucket = conf['bucket'], 
+            Prefix = "atspm_det_config_good/date={}".format(date_str))
+        keys = [res['Key'] for res in response['Contents']]
 
+        det_config_raw = (pd.concat([f(conf['bucket'], key) for key in keys])
+                .assign(SignalID = lambda x: x.SignalID.astype('int64'))
+                .assign(Detector = lambda x: x.Detector.astype('int64'))
+                .rename(columns={'CallPhase': 'Call Phase'}))
 
-        bad_detectors = pd.read_parquet('s3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str))\
+        bad_detectors = pd.read_parquet('s3://{b}/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(
+                            b=conf['bucket'], d=date_str))\
                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                     .assign(Detector = lambda x: x.Detector.astype('int64'))
 
@@ -173,8 +184,9 @@ def main(start_date, end_date):
             ncores = os.cpu_count()
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=ncores * 3) as pool: #24
-                result = pool.starmap_async(etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
+            with Pool(processes=ncores * 4) as pool: #24
+                result = pool.starmap_async(
+                    etl2, list(itertools.product(signalids, [date_], [det_config], [conf])), chunksize=(ncores-1)*4)
                 pool.close()
                 pool.join()
             #-----------------------------------------------------------------------------------------
@@ -182,35 +194,28 @@ def main(start_date, end_date):
             print('No good detectors. Skip this day.') 
         
         
-        #for s in signalids:
-        #etl2(7314, date_)
-    
-        #template_string = 'ALTER TABLE cycle_data add partition (date="{d}") location "s3://gdot-spm-cycles/"'
-        #partition_query = template_string.format(d = date_str)
-        #print(partition_query)
-        
-        #response = ath.start_query_execution(QueryString = partition_query, 
-        #                                         QueryExecutionContext={'Database': 'gdot_spm'},
-        #                                         ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
-        
     os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         
     response_repair_cycledata = ath.start_query_execution(
                 QueryString='MSCK REPAIR TABLE cycledata', 
-                QueryExecutionContext={'Database': 'gdot_spm'},
-                ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+                QueryExecutionContext={'Database': conf['athena']['database']},
+                ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
 
     response_repair_detection_events = ath.start_query_execution(
                 QueryString='MSCK REPAIR TABLE detectionevents', 
-                QueryExecutionContext={'Database': 'gdot_spm'},
-                ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+                QueryExecutionContext={'Database': conf['athena']['database']},
+                ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
         
     print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len(dates), int((time.time()-t0)/60)))
 
         
     while True:
-        response1 = s3.list_objects(Bucket='gdot-spm-athena', Prefix=response_repair_cycledata['QueryExecutionId'])
-        response2 = s3.list_objects(Bucket='gdot-spm-athena', Prefix=response_repair_detection_events['QueryExecutionId'])
+        response1 = s3.list_objects(
+            Bucket=os.path.basename(conf['athena']['staging_dir']), 
+            Prefix=response_repair_cycledata['QueryExecutionId'])
+        response2 = s3.list_objects(
+            Bucket=os.path.basename(conf['athena']['staging_dir']), 
+            Prefix=response_repair_detection_events['QueryExecutionId'])
         if 'Contents' in response1 and 'Contents' in response2:
             print('done.')
             break
