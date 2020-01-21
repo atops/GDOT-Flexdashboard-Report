@@ -1997,7 +1997,7 @@ renderPlotly({
 
 renderPlotly({
     
-    current_zone_ <- current_zone()
+    zone_group_ <- zone_group()
     current_month_ <- current_month()
     input_month <- input$month
   
@@ -2039,7 +2039,7 @@ renderPlotly({
     mr_dy_cu <- mr()$dy$cu
     mr_mo_cu <- mr()$mo$cu
                                  mr()$mo$cu
-    current_zone_ <- current_zone()
+    zone_group_ <- zone_group()
     current_month_ <- current_month()
     input_month <- input$month
   
