@@ -93,7 +93,8 @@ month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
 
 report_start_date <- as.character(report_start_date)
 report_end_date <- as.character(report_end_date)
-print(month_abbrs)
+print(calcs_start_date)
+print(report_end_date)
 
 date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
 date_range_str <- paste0("{", paste0(as.character(date_range), collapse = ","), "}")

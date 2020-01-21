@@ -2191,7 +2191,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, i
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
             
-        } else if (alert_type_ == "Bad Vehicle Detection") {
+        } else if (alert_type_ == "Bad Vehicle Detection" || alert_type_ == "Bad Ped Detection") {
             
             plot_df <- df %>%
                 mutate(Detector = as.character(Detector)) %>%

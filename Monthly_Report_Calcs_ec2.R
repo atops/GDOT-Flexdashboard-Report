@@ -23,8 +23,8 @@ end_date <- ifelse(conf$end_date == "yesterday",
 )
 
 # Manual overrides
-# start_date <- "2019-06-28"
-# end_date <- "2019-06-30"
+# start_date <- "2020-01-04"
+# end_date <- "2020-01-04"
 
 month_abbrs <- get_month_abbrs(start_date, end_date)
 #-----------------------------------------------------------------------------#
@@ -206,7 +206,9 @@ get_counts_based_measures <- function(month_abbrs) {
                     as.character(date_),
                     as.character(date_),
                     bucket = conf$bucket
-                ) %>%
+                )
+                if (!is.null(filtered_counts_1hr)) {
+                    filtered_counts_1hr <- filtered_counts_1hr %>%
                     mutate(
                         Date = date(Date),
                         SignalID = factor(SignalID),
@@ -214,29 +216,27 @@ get_counts_based_measures <- function(month_abbrs) {
                         Detector = factor(Detector)
                     )
 
-                # BAD DETECTORS
-                print(glue("detectors: {date_}"))
-                bad_detectors <- get_bad_detectors(filtered_counts_1hr)
-                s3_upload_parquet_date_split(
-                    bad_detectors, 
-                    bucket = conf$bucket, 
-                    prefix = "bad_detectors", 
-                    table_name = "bad_detectors",
-                    athena_db = conf$athena$database)
-
-                # DAILY DETECTOR UPTIME
-                print(glue("ddu: {date_}"))
-                daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>% 
-                    bind_rows()
-                s3_upload_parquet_date_split(
-                    daily_detector_uptime, 
-                    bucket = conf$bucket, 
-                    prefix = "ddu", 
-                    table_name = "detector_uptime_pd",
-                    athena_db = conf$athena$database)
-
-                rm(filtered_counts_1hr)
-                gc()
+                    # BAD DETECTORS
+                    print(glue("detectors: {date_}"))
+                    bad_detectors <- get_bad_detectors(filtered_counts_1hr)
+                    s3_upload_parquet_date_split(
+                        bad_detectors, 
+                        bucket = conf$bucket, 
+                        prefix = "bad_detectors", 
+                        table_name = "bad_detectors",
+                        athena_db = conf$athena$database)
+    
+                    # DAILY DETECTOR UPTIME
+                    print(glue("ddu: {date_}"))
+                    daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>% 
+                        bind_rows()
+                    s3_upload_parquet_date_split(
+                        daily_detector_uptime, 
+                        bucket = conf$bucket, 
+                        prefix = "ddu", 
+                        table_name = "detector_uptime_pd",
+                        athena_db = conf$athena$database)
+                }
             }
 
             print(glue("reading adjusted_counts_1hr: {date_}"))
@@ -247,7 +247,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 bucket = conf$bucket
             )
 
-            if (nrow(adjusted_counts_1hr) > 0) {
+            if (!is.null(adjusted_counts_1hr) && nrow(adjusted_counts_1hr) > 0) {
                 adjusted_counts_1hr <- adjusted_counts_1hr %>%
                     mutate(
                         Date = date(Date),
@@ -289,6 +289,7 @@ get_counts_based_measures <- function(month_abbrs) {
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
 
         filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
+        #filtered_counts_15min <- lapply(date_range_twr, function(date_) {
             if (between(date_, start_date, end_date)) {
                 date_ <- as.character(date_)
                 print(date_)
@@ -319,7 +320,6 @@ get_counts_based_measures <- function(month_abbrs) {
 
             # Calculate and write Throughput
             throughput <- get_thruput(adjusted_counts_15min)
-            # throughput <- get_thruput(filtered_counts_15min)
 
             s3_upload_parquet_date_split(
                 throughput, 
@@ -347,46 +347,32 @@ get_counts_based_measures <- function(month_abbrs) {
             as.character(end_date),
             bucket = conf$bucket
         )
-
-        # PAPD - pedestrian activations per day
-        print("papd")
-        papd <- get_vpd(counts_ped_1hr, mainline_only = FALSE) %>%
-            ungroup() %>%
-            rename(papd = vpd)
-        # s3_upload_parquet(papd, sd, glue("papd_{yyyy_mm}"), "ped_actuations_pd")
-        # write_fst(papd, paste0("papd_", yyyy_mm, ".fst"))
-        s3_upload_parquet_date_split(
-            papd, 
-            bucket = conf$bucket, 
-            prefix = "papd", 
-            table_name = "ped_actuations_pd",
-            athena_db = conf$athena$database)
         
-        # DAILY PED DETECTOR UPTIME
-        #pau <- get_pau(papd)
-        #s3_upload_parquet_date_split(pau, bucket = conf$bucket, prefix = "pau", table_name = "ped_detector_uptime_pd")
+        if (!is.null(counts_ped_1hr) && nrow(counts_ped_1hr) > 0) {
 
-        # BAD PED DETECTORS
-        #print(glue("bad ped detectors: {date_}"))
-        #bad_ped_detectors <- get_bad_ped_detectors(pau)
-        #s3_upload_parquet_date_split(
-        #    bad_ped_detectors, 
-        #    bucket = conf$bucket, 
-        #    prefix = "bad_ped_detectors", 
-        #    table_name = "bad_ped_detectors")
-
-        # PAPH - pedestrian activations per hour
-        print("paph")
-        paph <- get_vph(counts_ped_1hr, mainline_only = FALSE) %>%
-            rename(paph = vph)
-        # s3_upload_parquet(paph, sd, glue("paph_{yyyy_mm}"), "ped_actuations_ph")
-        # write_fst(paph, paste0("paph_", yyyy_mm, ".fst"))
-        s3_upload_parquet_date_split(
-            paph, 
-            bucket = conf$bucket, 
-            prefix = "paph", 
-            table_name = "ped_actuations_ph",
-            athena_db = conf$athena$database)
+            # PAPD - pedestrian activations per day
+            print("papd")
+            papd <- get_vpd(counts_ped_1hr, mainline_only = FALSE) %>%
+                ungroup() %>%
+                rename(papd = vpd)
+            s3_upload_parquet_date_split(
+                papd, 
+                bucket = conf$bucket, 
+                prefix = "papd", 
+                table_name = "ped_actuations_pd",
+                athena_db = conf$athena$database)
+            
+            # PAPH - pedestrian activations per hour
+            print("paph")
+            paph <- get_vph(counts_ped_1hr, mainline_only = FALSE) %>%
+                rename(paph = vph)
+            s3_upload_parquet_date_split(
+                paph, 
+                bucket = conf$bucket, 
+                prefix = "paph", 
+                table_name = "ped_actuations_ph",
+                athena_db = conf$athena$database)
+        }
     })
 }
 if (conf$run$counts_based_measures == TRUE) {

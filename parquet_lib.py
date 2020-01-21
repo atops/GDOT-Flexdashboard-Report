@@ -58,7 +58,7 @@ def get_keys_(bucket, prefix):
         Bucket=bucket, 
         Prefix=prefix)
 
-    for contents in [page['Contents'] for page in page_iterator]:
+    for contents in [page['Contents'] for page in page_iterator if 'Contents' in page]:
         keys = [content['Key'] for content in contents]
         for key in keys:
             yield key

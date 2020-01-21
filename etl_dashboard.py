@@ -137,61 +137,54 @@ def main(start_date, end_date):
 
     for date_ in dates:
 
-        
         date_str = date_.strftime('%Y-%m-%d')
 
         print(date_str)
 
         with io.BytesIO() as data:
-            s3.download_fileobj(Bucket='gdot-devices', Key='atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str), Fileobj=data)
+            s3.download_fileobj(
+                Bucket='gdot-devices', 
+                Key='atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str), Fileobj=data)
 
             det_config_raw = feather.read_dataframe(data)\
                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                 .assign(Detector = lambda x: x.Detector.astype('int64'))\
                 .rename(columns={'CallPhase': 'Call Phase'})
 
+        try:
+            bad_detectors = pd.read_parquet(
+                's3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str))\
+                        .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
+                        .assign(Detector = lambda x: x.Detector.astype('int64'))
+
+            left = det_config_raw.set_index(['SignalID', 'Detector'])
+            right = bad_detectors.set_index(['SignalID', 'Detector'])
 
 
-        bad_detectors = pd.read_parquet('s3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str))\
-                    .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
-                    .assign(Detector = lambda x: x.Detector.astype('int64'))
+            det_config = left.join(right, how='left')\
+                .fillna(value={'Good_Day': 1})\
+                .query('Good_Day == 1')\
+                .groupby(['SignalID','Call Phase'])\
+                .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
+                .reset_index()
 
-        left = det_config_raw.set_index(['SignalID', 'Detector'])
-        right = bad_detectors.set_index(['SignalID', 'Detector'])
+            print(det_config.head())
+
+        except FileNotFoundError:
+            det_config = pd.DataFrame()
         
-        
-        det_config = left.join(right, how='left')\
-            .fillna(value={'Good_Day': 1})\
-            .query('Good_Day == 1')\
-            .groupby(['SignalID','Call Phase'])\
-            .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
-            .reset_index()
-
-        print(det_config.head())
-
         if len(det_config) > 0:    
             ncores = os.cpu_count()
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=ncores * 3) as pool: #24
-                result = pool.starmap_async(etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
+            with Pool(processes=ncores * 4) as pool: #24
+                result = pool.starmap_async(
+                    etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
                 pool.close()
                 pool.join()
             #-----------------------------------------------------------------------------------------
         else:
             print('No good detectors. Skip this day.') 
-        
-        
-        #for s in signalids:
-        #etl2(7314, date_)
-    
-        #template_string = 'ALTER TABLE cycle_data add partition (date="{d}") location "s3://gdot-spm-cycles/"'
-        #partition_query = template_string.format(d = date_str)
-        #print(partition_query)
-        
-        #response = ath.start_query_execution(QueryString = partition_query, 
-        #                                         QueryExecutionContext={'Database': 'gdot_spm'},
-        #                                         ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         
     os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         
