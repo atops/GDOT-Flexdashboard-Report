@@ -183,20 +183,22 @@ if __name__=='__main__':
     #start_date = '2019-11-01'
     #end_date = '2019-12-01'
 
+    print(start_date)
+    print(end_date)
+
     try:
         tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
 
     except Exception as e:
-        print('error retrieving records')
+        print('ERROR retrieving records')
         print(e)
         tt_df = pd.DataFrame()
     
-           
-    df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], tt_df, left_on=['tmc'], right_on=['tmc_code'])
-            .drop(columns=['tmc'])
-            .sort_values(['Corridor', 'tmc_code', 'measurement_tstamp']))
+    if len(tt_df) > 0:
+        df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], tt_df, left_on=['tmc'], right_on=['tmc_code'])
+                .drop(columns=['tmc'])
+                .sort_values(['Corridor', 'tmc_code', 'measurement_tstamp']))
 
-    if len(df) > 0:
         df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
         df = (df.reset_index(drop=True)
                 .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),

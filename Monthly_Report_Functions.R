@@ -475,7 +475,7 @@ match_type <- function(val, val_type_to_match) {
     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
 }
 
-addtoRDS <- function(df, fn, rsd, csd) {
+addtoRDS <- function(df, fn, delta_var, rsd, csd) {
     
     #' combines data frame in local rds file with newly calculated data
     #' trimming the current data and appending the new data to prevent overlaps
@@ -491,27 +491,40 @@ addtoRDS <- function(df, fn, rsd, csd) {
     #' @examples
     #' addtoRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", report_start_date, calc_start_date)
     
-    combine_dfs <- function(df0, df, rsd, csd) {
+    combine_dfs <- function(df0, df, delta_var, rsd, csd) {
         
-        if ("Date" %in% names(df0)) {
-            df0 <- df0 %>% filter(Date >= rsd, Date < csd)
-        } else if ("Month" %in% names(df0)) {
-            df0 <- df0 %>% filter(Month >= rsd, Month < csd)
-        } else if ("Hour" %in% names(df0)) {
-            df0 <- df0 %>% filter(Hour >= rsd, Hour < csd)
-        }
+        # Extract aggregation period from the data fields
+        periods <- intersect(c("Month", "Date", "Hour"), names(df0))
+        per_ <- as.name(periods)
         
-        x <- bind_rows_keep_factors(list(df0, df))
+        # Remove everything after calcs_start_date (csd) in original df
+        df0 <- df0 %>% filter(!!per_ >= rsd, !!per_ < csd)
         
-        # if ("Date" %in% names(x)) {
-        #     x <- x %>% arrange(Date)
-        # } else if ("Month" %in% names(x)) {
-        #     x <- x %>% arrange(Month)
-        # } else if ("Hour" %in% names(x)) {
-        #     x <- x %>% arrange(Hour)
-        # }
+        # Extract aggregation groupings from the data fields
+        # to calculate period-to-period deltas
+        
+        groupings <- intersect(c("Zone_Group", "Corridor", "SignalID"), names(df0))
+        groups_ <- sapply(groupings, as.name)
+
+        group_arrange <- c(periods, groupings) %>%
+            sapply(as.name)
+        
+        var_ <- as.name(delta_var)
+        
+        # Combine old and new
+        x <- bind_rows_keep_factors(list(df0, df)) %>% 
+            
+            # Recalculate deltas from prior periods over combined df
+            group_by(!!!groups_) %>% 
+            arrange(!!!group_arrange) %>% 
+            mutate(lag_ = lag(!!var_), 
+                   delta = ((!!var_) - lag_)/lag_) %>%
+            ungroup() %>%
+            dplyr::select(-lag_)
+        
         x
     }
+    
     if (!file.exists(fn)) {
         saveRDS(df, fn)
     } else {
@@ -519,9 +532,9 @@ addtoRDS <- function(df, fn, rsd, csd) {
         if (is.list(df) && is.list(df0) && 
             !is.data.frame(df) && !is.data.frame(df0) && 
             (names(df) == names(df0))) {
-            x <- purrr::map2(df0, df, combine_dfs, rsd, csd)
+            x <- purrr::map2(df0, df, combine_dfs, delta_var, rsd, csd)
         } else {
-            x <- combine_dfs(df0, df, rsd, csd)
+            x <- combine_dfs(df0, df, delta_var, rsd, csd)
         }
         saveRDS(x, fn)
         x
@@ -782,22 +795,27 @@ get_ped_config <- function(date_) {
     s3key <- glue("maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
     s3bucket <- "gdot-devices"
     
-    col_spec <- cols(
-        .default = col_character(),
-        SignalID = col_character(),
-        IP = col_character(),
-        PrimaryName = col_character(),
-        SecondaryName = col_character(),
-        Detector = col_character(),
-        CallPhase = col_character())
+    if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
+        col_spec <- cols(
+            .default = col_character(),
+            SignalID = col_character(),
+            IP = col_character(),
+            PrimaryName = col_character(),
+            SecondaryName = col_character(),
+            Detector = col_character(),
+            CallPhase = col_character())
         
-    s3read_using(function(x) read_csv(x, col_types = col_spec), 
-                 object = s3key, 
-                 bucket = s3bucket) %>%
-        transmute(SignalID = factor(SignalID), 
-                  Detector = factor(Detector), 
-                  CallPhase = factor(CallPhase)) %>%
-        distinct()
+        s3read_using(function(x) read_csv(x, col_types = col_spec), 
+                     object = s3key, 
+                     bucket = s3bucket) %>%
+            transmute(SignalID = factor(SignalID), 
+                      Detector = factor(Detector), 
+                      CallPhase = factor(CallPhase)) %>%
+            distinct()
+    } else {
+        data.frame()
+    }
+    
 }
 
 
@@ -979,16 +997,32 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           athena_db = conf_athena$database)
         
         print("1-hr filtered counts")
-        filtered_counts_1hr <- get_filtered_counts(
-            counts_1hr, 
-            interval = "1 hour")
-        
-        s3_upload_parquet(filtered_counts_1hr, date_, 
-                          fn = filtered_counts_1hr_fn, 
-                          bucket = bucket,
-                          table_name = "filtered_counts_1hr", 
-                          athena_db = conf_athena$database)
-        
+        if (nrow(counts_1hr) > 0) {
+            filtered_counts_1hr <- get_filtered_counts(
+                counts_1hr, 
+                interval = "1 hour")
+            s3_upload_parquet(filtered_counts_1hr, date_, 
+                              fn = filtered_counts_1hr_fn, 
+                              bucket = bucket,
+                              table_name = "filtered_counts_1hr", 
+                              athena_db = conf_athena$database)
+        # } else { # empty data frame
+        #     filtered_counts_1hr <- data.frame(
+        #         SignalID = character(),
+        #         Timeperiod = as.POSIXct(character()),
+        #         Detector = character(),
+        #         CallPhase = character(),
+        #         vol = numeric(),
+        #         delta_vol = numeric(),
+        #         Good = numeric(),
+        #         mean_abs_delta = numeric(),
+        #         Good_Day = integer(),
+        #         Month_Hour = as.POSIXct(character()),
+        #         Hour = as.POSIXct(character()),
+        #         stringsAsFactors = FALSE)
+        #     
+        }
+    
         
         
         # get 1hr ped counts
@@ -1008,7 +1042,6 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           bucket = bucket,
                           table_name = "counts_ped_1hr", 
                           athena_db = conf_athena$database)
-        
         
         
         # get 15min counts
@@ -1031,12 +1064,16 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         
         # get 15min filtered counts
         print("15-minute filtered counts")
-        filtered_counts_15min <- get_filtered_counts(counts_15min, interval = "15 min")
-        s3_upload_parquet(filtered_counts_15min, date_, 
-                          fn = filtered_counts_15min_fn, 
-                          bucket = bucket,
-                          table_name = "filtered_counts_15min", 
-                          athena_db = conf_athena$database)
+        if (nrow(counts_15min) > 0) {
+            filtered_counts_15min <- get_filtered_counts(
+                counts_15min, 
+                interval = "15 min")
+            s3_upload_parquet(filtered_counts_15min, date_, 
+                              fn = filtered_counts_15min_fn, 
+                              bucket = bucket,
+                              table_name = "filtered_counts_15min", 
+                              athena_db = conf_athena$database)
+        }
         
     }
     
@@ -1244,7 +1281,7 @@ get_det_config <- function(date_) {
         prefix = dirname(s3object))
     
     # If the s3 object exists, read it and return the data frame
-    if (aws.s3::object_exists(s3object, s3bucket)) {
+if (nrow(aws.s3::get_bucket_df(s3bucket, s3object)) > 0) {
         read_det_config(s3object, s3bucket) %>%
             mutate(SignalID = as.character(SignalID),
                    Detector = as.integer(Detector), 
@@ -1488,8 +1525,6 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
         ungroup()
 
 
-
-
     # bad day = any of the following:
     #    too many bad hours (60%) based on the above criteria
     #    mean absolute change in hourly volume > 200
@@ -1657,7 +1692,7 @@ get_bad_detectors <- function(filtered_counts_1hr) {
 get_bad_ped_detectors <- function(pau) {
     pau %>% 
         filter(uptime == 0) %>%
-        dplyr::select(SignalID, CallPhase, Date)
+        dplyr::select(SignalID, Detector, Date)
 }
 
 # Volume VPD
@@ -4362,32 +4397,45 @@ readRDS_multiple <- function(pattern) {
 # Function to add Probabilities
 get_pau <- function(df, corridors) {
     
-    begin_date <- ymd("2018-08-01")
-
+    begin_date <- min(df$Date)  #ymd("2018-08-01")
+    
     corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
     
-    ped_config <- lapply(unique(df$Date), function(d) {
+    # ped_config <- lapply(unique(df$Date), function(d) {
+    #     get_ped_config(d) %>% 
+    #         mutate(Date = d) %>%
+    #         filter(SignalID %in% df$SignalID)
+    # }) %>% 
+    #     bind_rows() %>%
+    #     mutate(SignalID = factor(SignalID),
+    #            Detector = factor(Detector),
+    #            CallPhase = factor(CallPhase))
+    doParallel::registerDoParallel(cores = usable_cores)
+    
+    ped_config <- foreach(d = unique(df$Date), .combine = rbind) %dopar% {
+        
         get_ped_config(d) %>% 
             mutate(Date = d) %>%
             filter(SignalID %in% df$SignalID)
-    }) %>% 
-        bind_rows() %>%
+    } %>% 
         mutate(SignalID = factor(SignalID),
                Detector = factor(Detector),
-               CallPhase = factor(CallPhase))
+               CallPhase = factor(CallPhase)) 
     
-    papd <- df %>% full_join(ped_config, by = c("SignalID", "CallPhase", "Date")) %>%
+    papd <- df %>% 
+        
+        full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
         transmute(SignalID = factor(SignalID),
                   Date = Date,
                   CallPhase = factor(CallPhase),
                   Detector = factor(Detector),
-                  Week = Week,
-                  DOW = DOW,
+                  Week = week(Date),
+                  DOW = wday(Date),
                   papd = papd) %>%
         filter(CallPhase != 0) %>%
         replace_na(list(papd = 0)) %>%
-        arrange(SignalID, CallPhase, Date) %>%
-        group_by(SignalID, CallPhase) %>%
+        arrange(SignalID, Detector, CallPhase, Date) %>%
+        group_by(SignalID, Detector, CallPhase) %>%
         mutate(s0 = runner::streak_run(papd), 
                s0 = if_else(papd > 0, as.integer(0), s0), #--------------this is new
                ## New code to prevent old report months from updating based on new report month
@@ -4405,11 +4453,11 @@ get_pau <- function(df, corridors) {
         mutate(SignalID = factor(SignalID))
     
     modres <- papd %>% 
-        group_by(SignalID, CallPhase) %>% 
+        group_by(SignalID, Detector, CallPhase) %>% 
         mutate(cnt = n()) %>% 
         ungroup() %>% 
         filter(cnt > 2) %>%
-        nest(-c(SignalID, CallPhase)) %>% 
+        nest(-c(SignalID, Detector, CallPhase)) %>% 
         mutate(model = purrr::map(data, function(x) {fitdist(x$papd, "exp", method = "mme")}))
     
     pz <- modres %>% 
@@ -4419,15 +4467,17 @@ get_pau <- function(df, corridors) {
         mutate(mean = lambda ** -1, # property of exponential distribution
                var = lambda ** -2) # property of exponential distribution
     
-    pau <- left_join(papd, pz, by = c("SignalID", "CallPhase")) %>%
+    pau <- left_join(papd, pz, by = c("SignalID", "Detector", "CallPhase")) %>%
         ungroup() %>%
         mutate(
             SignalID = as.character(SignalID),
+            Detector = as.character(Detector),
             CallPhase = as.character(CallPhase),
             probbad = if_else(papd == 0,  1 - exp(-lambda * ms), 0)
         ) %>%
         transmute(
             SignalID = factor(SignalID),
+            Detector = factor(Detector),
             CallPhase = factor(CallPhase),
             Date = Date,
             DOW = DOW,
@@ -4437,10 +4487,8 @@ get_pau <- function(df, corridors) {
             all = 1
         )
     
-    pau    
+    pau
 }
-
-
 dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
     # per is Month|Date|Hour|Quarter
     if ("Date" %in% names(df)) {

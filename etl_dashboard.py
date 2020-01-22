@@ -133,7 +133,6 @@ def main(start_date, end_date):
 
     for date_ in dates:
 
-        
         date_str = date_.strftime('%Y-%m-%d')
 
         print(date_str)
@@ -162,24 +161,27 @@ def main(start_date, end_date):
                 .assign(Detector = lambda x: x.Detector.astype('int64'))
                 .rename(columns={'CallPhase': 'Call Phase'}))
 
-        bad_detectors = pd.read_parquet('s3://{b}/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(
+        try:
+            bad_detectors = pd.read_parquet('s3://{b}/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(
                             b=conf['bucket'], d=date_str))\
                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                     .assign(Detector = lambda x: x.Detector.astype('int64'))
 
-        left = det_config_raw.set_index(['SignalID', 'Detector'])
-        right = bad_detectors.set_index(['SignalID', 'Detector'])
-        
-        
-        det_config = left.join(right, how='left')\
-            .fillna(value={'Good_Day': 1})\
-            .query('Good_Day == 1')\
-            .groupby(['SignalID','Call Phase'])\
-            .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
-            .reset_index()
+            left = det_config_raw.set_index(['SignalID', 'Detector'])
+            right = bad_detectors.set_index(['SignalID', 'Detector'])
 
-        print(det_config.head())
+            det_config = left.join(right, how='left')\
+                .fillna(value={'Good_Day': 1})\
+                .query('Good_Day == 1')\
+                .groupby(['SignalID','Call Phase'])\
+                .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
+                .reset_index()
 
+            print(det_config.head())
+
+        except FileNotFoundError:
+            det_config = pd.DataFrame()
+        
         if len(det_config) > 0:    
             ncores = os.cpu_count()
 
@@ -192,7 +194,6 @@ def main(start_date, end_date):
             #-----------------------------------------------------------------------------------------
         else:
             print('No good detectors. Skip this day.') 
-        
         
     os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         
