@@ -104,21 +104,6 @@ print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
 
 tryCatch({
 
-    # papd <- s3_read_parquet_parallel(
-    #     bucket = conf$bucket,
-    #     table_name = "ped_actuations_pd",
-    #     start_date = report_start_date, # We have to look at the entire report period for pau
-    #     end_date = report_end_date,
-    #     signals_list = signals_list
-    # ) %>%
-    #     replace_na(list(CallPhase = 0)) %>%
-    #     mutate(
-    #         SignalID = factor(SignalID),
-    #         CallPhase = factor(CallPhase),
-    #         Date = date(Date),
-    #         papd = as.numeric(papd)
-    #     )
-
     counts_ped_hourly <- s3_read_parquet_parallel(
         bucket = conf$bucket,
         table_name = "counts_ped_1hr",
@@ -301,18 +286,6 @@ tryCatch({
 print(glue("{Sys.time()} Hourly Pedestrian Activations [4 of 23]"))
 
 tryCatch({
-    
-    # paph <- s3_read_parquet(
-    #     bucket = conf$bucket,
-    #     table_name = "ped_actuations_ph",
-    #     start_date = calcs_start_date,
-    #     end_date = report_end_date,
-    #     signals_list = signals_list
-    # ) %>%
-    #     mutate(
-    #         SignalID = factor(SignalID),
-    #         Date = date(Date)
-    #     )
     
     plan(sequential)
     plan(multiprocess)
@@ -1463,83 +1436,7 @@ tryCatch({
     saveRDS(tasks_all, "tasks_all.rds") 
     saveRDS(cor_outstanding_tasks_by_day_range, "cor_tasks_by_date.rds")
     saveRDS(sig_outstanding_tasks_by_day_range, "sig_tasks_by_date.rds")
-    
-    
-    
-    # type_table <- get_outstanding_events(teams, "Task_Type", spatial_grouping = "Zone_Group") %>%
-    #     bind_rows(get_outstanding_events(teams, "Task_Type", spatial_grouping = "Corridor") %>%
-    #         rename(Zone_Group = Corridor)) %>%
-    #     mutate(Task_Type = if_else(Task_Type == "", "Unknown", Task_Type)) %>%
-    #     group_by(Zone_Group, Task_Type, Month) %>%
-    #     summarize_all(sum) %>%
-    #     ungroup() %>%
-    #     mutate(Task_Type = factor(Task_Type))
-    # 
-    # subtype_table <- get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Zone_Group") %>%
-    #     bind_rows(get_outstanding_events(teams, "Task_Subtype", spatial_grouping = "Corridor") %>%
-    #         rename(Zone_Group = Corridor)) %>%
-    #     mutate(Task_Subtype = if_else(Task_Subtype == "", "Unknown", Task_Subtype)) %>%
-    #     group_by(Zone_Group, Task_Subtype, Month) %>%
-    #     summarize_all(sum) %>%
-    #     ungroup() %>%
-    #     mutate(Task_Subtype = factor(Task_Subtype))
-    # 
-    # source_table <- get_outstanding_events(teams, "Task_Source", spatial_grouping = "Zone_Group") %>%
-    #     bind_rows(get_outstanding_events(teams, "Task_Source", spatial_grouping = "Corridor") %>%
-    #         rename(Zone_Group = Corridor)) %>%
-    #     mutate(Task_Source = if_else(Task_Source == "", "Unknown", Task_Source)) %>%
-    #     group_by(Zone_Group, Task_Source, Month) %>%
-    #     summarize_all(sum) %>%
-    #     ungroup() %>%
-    #     mutate(Task_Source = factor(Task_Source))
-    # 
-    # priority_table <- get_outstanding_events(teams, "Priority", spatial_grouping = "Zone_Group") %>%
-    #     bind_rows(get_outstanding_events(teams, "Priority", spatial_grouping = "Corridor") %>%
-    #         rename(Zone_Group = Corridor)) %>%
-    #     group_by(Zone_Group, Priority, Month) %>%
-    #     summarize_all(sum) %>%
-    #     ungroup() %>%
-    #     mutate(Priority = factor(Priority))
-    # 
-    # all_teams_table <- get_outstanding_events(teams, "All", spatial_grouping = "Zone_Group") %>%
-    #     bind_rows(get_outstanding_events(teams, "All", spatial_grouping = "Corridor") %>%
-    #         rename(Zone_Group = Corridor)) %>%
-    #     group_by(Zone_Group, All, Month) %>%
-    #     summarize_all(sum) %>%
-    #     ungroup() %>%
-    #     mutate(All = factor(All))
-    # 
-    # teams_tables <- list(
-    #     "type" = type_table,
-    #     "subtype" = subtype_table,
-    #     "source" = source_table,
-    #     "priority" = priority_table,
-    #     "all" = all_teams_table
-    # )
-    # 
-    # saveRDS(teams_tables, "teams_tables.rds", version = 2)
-    # 
-    # 
-    # cor_monthly_events <- teams_tables$all %>%
-    #     ungroup() %>%
-    #     transmute(
-    #         Corridor = Zone_Group,
-    #         Zone_Group = Zone_Group,
-    #         Month = Month,
-    #         Reported = Rep,
-    #         Resolved = Res,
-    #         Outstanding = outstanding
-    #     ) %>%
-    #     arrange(Corridor, Zone_Group, Month) %>%
-    #     group_by(Corridor, Zone_Group) %>%
-    #     mutate(
-    #         delta.rep = (Reported - lag(Reported)) / lag(Reported),
-    #         delta.res = (Resolved - lag(Resolved)) / lag(Resolved),
-    #         delta.out = (Outstanding - lag(Outstanding)) / lag(Outstanding)
-    #     ) %>%
-    #     ungroup()
-    # 
-    # saveRDS(cor_monthly_events, "cor_monthly_events.rds")
+
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
@@ -1556,16 +1453,20 @@ print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_det <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_detectors"))) %>%
+    bad_detectors <- s3_read_parquet_parallel(
+        bucket = conf$bucket,
+        table_name = "bad_detectors",
+        start_date = ymd(report_end_date) - months(9),
+        end_date = report_end_date
+    ) %>%
         transmute(
-            SignalID = factor(signalid),
-            Detector = factor(detector),
-            Date = date(date)
-        ) %>%
-        filter(Date > today() - months(3)) %>%
-        as_tibble() 
+            SignalID = factor(SignalID),
+            CallPhase = factor(CallPhase),
+            Detector = factor(Detector),
+            Date = date(Date)
+        ) %>% as_tibble()
     
-    det_config <- lapply(sort(unique(bad_det$Date)), function(date_) {
+    det_config <- lapply(sort(unique(bad_detectors$Date)), function(date_) {
         #print(date_)
         get_det_config(date_) %>% 
             transmute(SignalID, CallPhase, Detector, Date = date_)
@@ -1573,9 +1474,10 @@ tryCatch({
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
-            Detector = factor(Detector))
+            Detector = factor(Detector)
+        )
     
-    bad_det <- bad_det %>% 
+    bad_det <- bad_detectors %>% 
         left_join(
             det_config, by = c("SignalID", "Detector", "Date")
         ) %>%
@@ -1608,15 +1510,19 @@ tryCatch({
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_ped_detectors 
-                                         where date >='{today() - months(6)}'"))) %>%
+    bad_ped <- s3_read_parquet_parallel(
+        bucket = conf$bucket,
+        table_name = "bad_ped_detectors",
+        start_date = ymd(report_end_date) - months(9),
+        end_date = report_end_date
+    ) %>%
         transmute(
-            SignalID = factor(signalid),
-            Detector = factor(detector),
-            Date = date(date)
+            SignalID = factor(SignalID),
+            CallPhase = factor(CallPhase),
+            Detector = factor(Detector),
+            Date = date(Date)
         ) %>%
         distinct() %>%
-        #filter(Date > today() - months(6)) %>%
         as_tibble() %>%
         left_join(
             dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
@@ -1626,6 +1532,7 @@ tryCatch({
                   Zone,
                   Corridor = factor(Corridor),
                   SignalID = factor(SignalID),
+                  CallPhase = factor(CallPhase),
                   Detector = factor(Detector),
                   Date,
                   Alert = factor("Bad Ped Detection"),
@@ -1641,34 +1548,34 @@ tryCatch({
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql(glue("select * from {conf$athena$database}.cctv_uptime"))) %>%
-        dplyr::select(-starts_with("__")) %>%
-        filter(size == 0) %>%
-        collect() %>%
-        transmute(
-            CameraID = factor(cameraid),
-            Date = date(date)
-        ) %>%
-        filter(Date > today() - months(9)) %>%
-        left_join(cam_config, by = c("CameraID")) %>%
-        filter(Date > As_of_Date) %>%
-        left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
-        transmute(
-            Zone_Group, Zone,
-            Corridor = factor(Corridor),
-            SignalID = factor(CameraID), 
-            CallPhase = factor(0), 
-            Detector = factor(0),
-            Date, Alert = factor("No Camera Image"), 
-            Name = factor(Location)
-        )
-    
-    s3write_using(
-        bad_cam,
-        FUN = write_fst,
-        object = "mark/watchdog/bad_cameras.fst",
-        bucket = conf$bucket)
-    rm(bad_cam)
+    # bad_cam <- tbl(conn, sql(glue("select * from {conf$athena$database}.cctv_uptime"))) %>%
+    #     dplyr::select(-starts_with("__")) %>%
+    #     filter(size == 0) %>%
+    #     collect() %>%
+    #     transmute(
+    #         CameraID = factor(cameraid),
+    #         Date = date(date)
+    #     ) %>%
+    #     filter(Date > today() - months(9)) %>%
+    #     left_join(cam_config, by = c("CameraID")) %>%
+    #     filter(Date > As_of_Date) %>%
+    #     left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
+    #     transmute(
+    #         Zone_Group, Zone,
+    #         Corridor = factor(Corridor),
+    #         SignalID = factor(CameraID), 
+    #         CallPhase = factor(0), 
+    #         Detector = factor(0),
+    #         Date, Alert = factor("No Camera Image"), 
+    #         Name = factor(Location)
+    #     )
+    # 
+    # s3write_using(
+    #     bad_cam,
+    #     FUN = write_fst,
+    #     object = "mark/watchdog/bad_cameras.fst",
+    #     bucket = conf$bucket)
+    # rm(bad_cam)
     
     # -- Watchdog Alerts --
     
