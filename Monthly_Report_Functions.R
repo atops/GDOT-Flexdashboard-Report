@@ -1281,7 +1281,7 @@ get_det_config <- function(date_) {
         prefix = dirname(s3object))
     
     # If the s3 object exists, read it and return the data frame
-    if (aws.s3::object_exists(s3object, s3bucket)) {
+if (nrow(aws.s3::get_bucket_df(s3bucket, s3object)) > 0) {
         read_det_config(s3object, s3bucket) %>%
             mutate(SignalID = as.character(SignalID),
                    Detector = as.integer(Detector), 
