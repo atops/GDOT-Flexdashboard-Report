@@ -1461,20 +1461,20 @@ tryCatch({
     ) %>%
         transmute(
             SignalID = factor(SignalID),
-            CallPhase = factor(CallPhase),
             Detector = factor(Detector),
+            CallPhase = factor(CallPhase),
             Date = date(Date)
         ) %>% as_tibble()
     
     det_config <- lapply(sort(unique(bad_detectors$Date)), function(date_) {
         #print(date_)
         get_det_config(date_) %>% 
-            transmute(SignalID, CallPhase, Detector, Date = date_)
+            transmute(SignalID, Detector, CallPhase, Date = date_)
     }) %>% bind_rows() %>%
         mutate(
             SignalID = factor(SignalID),
-            CallPhase = factor(CallPhase),
-            Detector = factor(Detector)
+            Detector = factor(Detector),
+            CallPhase = factor(CallPhase)
         )
     
     bad_det <- bad_detectors %>% 
@@ -1491,8 +1491,8 @@ tryCatch({
             Zone, 
             Corridor,
             SignalID = factor(SignalID), 
-            CallPhase = factor(CallPhase), 
             Detector = factor(Detector),
+            CallPhase = factor(CallPhase), 
             Date, 
             Alert = factor("Bad Vehicle Detection"), 
             Name = factor(Name)
@@ -1518,8 +1518,8 @@ tryCatch({
     ) %>%
         transmute(
             SignalID = factor(SignalID),
-            CallPhase = factor(CallPhase),
             Detector = factor(Detector),
+            CallPhase = factor(CallPhase),
             Date = date(Date)
         ) %>%
         distinct() %>%
@@ -1532,8 +1532,8 @@ tryCatch({
                   Zone,
                   Corridor = factor(Corridor),
                   SignalID = factor(SignalID),
-                  CallPhase = factor(CallPhase),
                   Detector = factor(Detector),
+                  CallPhase = factor(CallPhase),
                   Date,
                   Alert = factor("Bad Ped Detection"),
                   Name = factor(Name)

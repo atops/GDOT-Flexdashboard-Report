@@ -1692,7 +1692,7 @@ get_bad_detectors <- function(filtered_counts_1hr) {
 get_bad_ped_detectors <- function(pau) {
     pau %>% 
         filter(uptime == 0) %>%
-        dplyr::select(SignalID, Detector, Date)
+        dplyr::select(SignalID, CallPhase, Detector, Date)
 }
 
 # Volume VPD
