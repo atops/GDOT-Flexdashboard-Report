@@ -39,8 +39,8 @@ report_end_date: yesterday
 calcs_start_date: auto
 production_report_end_date: 2019-12-01
 
-corridors_filename_s3: Corridors_Latest.xlsx
-corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
+corridors_filename_s3: VDOT_Corridors_Latest.xlsx
+corridors_TMCs_filename_s3: VDOT_Corridor_TMCs_Latest.xlsx
 
 cctv_config_filename: Cameras_Latest.xlsx
 cctv_parsed_filename: parsed_cctv.feather
