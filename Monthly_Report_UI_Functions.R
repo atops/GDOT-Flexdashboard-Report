@@ -59,6 +59,8 @@ LIGHT_GRAY_BAR = "#bdbdbd"
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+VDOT_BLUE = "#005da9"; VDOT_BLUE_LIGHT = "#508dd6"
+VDOT_ORANGE = "#f37736"; VDOT_ORANGE_RGB = "rgba(243, 119, 54, 0.80)"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
            "3" = LIGHT_GREEN, "4" = GREEN, 
@@ -152,19 +154,18 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
-if (conf$mode == "production") {
+if (conf_mode == "production") {
     
-    # corridors %<-% read_feather("all_corridors.feather")
-    # cor <- readRDS("cor.rds")
-    # sig %<-% readRDS("sig.rds")
-    # sub %<-% readRDS("sub.rds")
-    # teams_tables %<-% readRDS("teams_tables.rds")
-    
-} else if (conf$mode == "beta") {
+    corridors <- read_feather(sub(".xlsx", ".feather", conf$corridors_filename_s3))
+    cor <- readRDS("cor.rds")
+    sig %<-% readRDS("sig.rds")
+    sub %<-% readRDS("sub.rds")
+
+} else if (conf_mode == "beta") {
     
     corridors <- aws.s3::s3read_using(
         read_feather, 
-        object = "all_Corridors_Latest.feather", 
+        object = sub(".xlsx", ".feather", conf$corridors_filename_s3), 
         bucket = conf$bucket)
     cor <- aws.s3::s3readRDS(
         object = "cor_ec2.rds", 
@@ -181,18 +182,7 @@ if (conf$mode == "production") {
         bucket = conf$bucket,
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    # teams_tables <- aws.s3::s3readRDS(
-    #     object = "teams_tables_ec2.rds", 
-    #     bucket = conf$bucket,
-    #     key = aws_conf$AWS_ACCESS_KEY_ID,
-    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    
-    alerts <- aws.s3::s3readRDS(
-        object = "mark/watchdog/alerts.rds", 
-        bucket = conf$bucket,
-        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
-    
+
     # map_data <- aws.s3::s3readRDS(
     #     object = "map_data.rds",
     #     bucket = conf$bucket,
@@ -202,6 +192,12 @@ if (conf$mode == "production") {
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
+# alerts <- aws.s3::s3readRDS(
+#     object = "mark/watchdog/alerts.rds", 
+#     bucket = conf$bucket,
+#     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+#     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
