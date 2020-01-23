@@ -40,12 +40,18 @@ corridors <- s3read_using(
 )
 feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
 write_feather(corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
+aws.s3::s3write_using(
+    corridors,
+    write_feather,
     object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
+    bucket = conf$bucket
 )
+# aws.s3::put_object(
+#     file = feather_filename,
+#     object = feather_filename,
+#     bucket = conf$bucket,
+#     multipart = TRUE
+# )
 
 all_corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = FALSE),
@@ -54,12 +60,18 @@ all_corridors <- s3read_using(
 )
 feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
 write_feather(all_corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
+aws.s3::s3write_using(
+    all_corridors,
+    write_feather,
     object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
+    bucket = conf$bucket
 )
+# aws.s3::put_object(
+#     file = feather_filename,
+#     object = feather_filename,
+#     bucket = conf$bucket,
+#     multipart = TRUE
+# )
 
 
 signals_list <- unique(corridors$SignalID)
