@@ -13,10 +13,10 @@ runtime: shiny
 ---
 
 
-```{r global, cache = TRUE, include = FALSE, warning = FALSE}
+```{r global, cache = FALSE, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - BETA
 
-conf_mode <- "production"
+conf_mode <- "beta"
 
 source("Monthly_Report_UI_Functions.R")
 
@@ -26,16 +26,6 @@ FIG_HEIGHT = 7
 
 ```
 
-
-
-```{r data, cache=FALSE, cache.lazy=FALSE}
-
-corridors <- read_feather(sub("xlsx", ".feather", conf$corridors_filename_s3))
-cor <- readRDS("cor.rds")
-sig <- readRDS("sig.rds")
-sub <- readRDS("sub.rds")
-alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", conf$bucket)
-```
 
 
 
@@ -69,7 +59,7 @@ conditionalPanel("input.zone_group == 'Northwest Region'",
                  selectInput("corridor_nwro", "Corridor",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Signal_Group == "Northwest Region")$Corridor
+                                             corridors, Zone_Group == "Northwest Region")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -77,7 +67,7 @@ conditionalPanel("input.zone_group == 'Northern Region'",
                  selectInput("corridor_nro", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Signal_Group == "Northern Region")$Corridor
+                                             corridors, Zone_Group == "Northern Region")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -85,7 +75,7 @@ conditionalPanel("input.zone_group == 'Southwest Region'",
                  selectInput("corridor_swro", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Signal_Group == "Southwest Region")$Corridor
+                                             corridors, Zone_Group == "Southwest Region")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -93,7 +83,7 @@ conditionalPanel("input.zone_group == 'Eastern Region'",
                  selectInput("corridor_ero", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Signal_Group == "Eastern Region")$Corridor
+                                             corridors, Zone_Group == "Eastern Region")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -101,7 +91,7 @@ conditionalPanel("input.zone_group == 'Central Region'",
                  selectInput("corridor_cro", "Corridor:",
                              choices = c("All Corridors", 
                                          as.character(unique(filter(
-                                             corridors, Signal_Group == "Central Region")$Corridor
+                                             corridors, Zone_Group == "Central Region")$Corridor
                                          ))),
                              selected = "All Corridors"))
 
@@ -147,7 +137,7 @@ mr <- reactive(
 filtered_corridors <- reactive({
     if (corridor() == "All Corridors") {
         corridors %>%
-            filter(Signal_Group %in% zone_group()) %>% 
+            filter(Zone_Group %in% zone_group()) %>% 
             select(-Description, -Asof)
     } else {
         corridors %>%
