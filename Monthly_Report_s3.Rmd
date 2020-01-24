@@ -97,6 +97,7 @@ conditionalPanel("input.zone_group == 'Central Region'",
 
 
 current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+endof_current_month <- reactive(lubridate::dmy(paste(1, input$month)) + months(1) - days(1))
 current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
 
 
@@ -128,6 +129,8 @@ zone_group <- reactive(
 mr <- reactive(
     if (corridor() == "All Corridors") {
         cor
+    } else if (input$subcorridors == "By Sub-corridor") {
+        sub
     } else {
         sig
     }
@@ -232,19 +235,41 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car",
-    color = VDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-car",
+        color = VDOT_BLUE
+    )
 })
 ```
 
+### Off-Peak Split Failures {.value-box}
+
+```{r}
+renderValueBox({
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfo,
+            "sf_freq",
+            as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            break_ = TRUE),
+        icon = "fa-car",
+    color = BLUE)
+})
+```
+ 
 ### Travel Time Index {.value-box}
 
 ```{r}
@@ -322,15 +347,20 @@ renderValueBox({
 })
 ```
 
-### {.value-box}
+### Pedestrian Activations [pa/day] {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$papd,
+            "papd", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            break_ = FALSE),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
 ```
 
@@ -364,7 +394,7 @@ renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-child",
+      icon = "fa-walking",
     color = VDOT_BLUE
   )
 })
@@ -378,7 +408,7 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "ion-paper-airplane", #"fa-user" #
+      icon = "fa-broadcast-tower"
     color = VDOT_BLUE
   )
 })
@@ -477,18 +507,21 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$qu$sfd, "sf_freq", as_pct, 
-                           zone = zone_group(), 
-                           mo = current_month(), 
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = VDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-car",
+        color = VDOT_BLUE
+    )
 })
 ```
 
@@ -498,15 +531,14 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            cor$qu$sfo,
+            mr()$mo$sfo,
             "sf_freq",
             as_pct,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(),
             break_ = TRUE),
-      icon = "fa-car",
-      color = VDOT_BLUE_LIGHT)
+        icon = "fa-car",
+    color = BLUE)
 })
 ```
 
@@ -755,15 +787,13 @@ fillCol(
             Corridor==zone_group() & Month <= current_month()
         )
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(
+        perf_plot(
             data.set,
             "sf_freq",
             "Off-Peak\nSplit Failure",
             RED2,
             format_func = as_pct,
-            hoverformat = ".1%",
-            fill_color_ = LIGHT_RED,
-            goal_ = goal$sfd
+            hoverformat = ".1%"
         )
     }),
     ##----------------                      
@@ -819,11 +849,9 @@ fillCol(
     }),renderPlotly({
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE,
+        perf_plot(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE,
                    format_func = as_pct,
-                   hoverformat = ".1%",
-                       fill_color_ = LIGHT_ORANGE,
-                       goal_ = goal$pau)
+                   hoverformat = ".1%")
     }),
     height = 800
 )
@@ -891,15 +919,21 @@ renderValueBox({
 })
 ```
 
-### Split Failures {.value-box}
+### Peak Period Split Failures {.value-box}
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$sfd, "sf_freq", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car"
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, 
+            "sf_freq", 
+            as_pct,
+            zone = zone_group(), 
+            mo = current_month(), 
+            break_ = TRUE),
+        icon = "fa-car",
+        color = VDOT_BLUE
+    )
 })
 ```
 
@@ -915,7 +949,8 @@ renderValueBox({
             zone = zone_group(),
             mo = current_month(),
             break_ = TRUE),
-      icon = "fa-car")
+        icon = "fa-car",
+    color = BLUE)
 })
 ```
 
@@ -1132,9 +1167,9 @@ renderPlotly({ # Good version
 })
 ```
 
-### Monthly Change
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
+### Monthly Change
 renderPlotly({
     get_pct_ch_plot(mr()$mo$vpd,
                     month_ = current_month(),
@@ -1142,9 +1177,8 @@ renderPlotly({
 })
 ```
 
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Peak Hour Volumes
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
     am_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$am,
                                                mr()$mo$vphp$am, NULL,
@@ -1164,10 +1198,8 @@ renderPlotly({
 })
 ```
 
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = FALSE, warning = FALSE}
 ### Hourly Volumes
-
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 renderPlotly({
     get_minmax_hourly_plot(mr()$mo$vph,
                            month_ = current_month(), 
@@ -1211,18 +1243,6 @@ renderValueBox({
                            "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-car"
-  )
-})
-```
-
-### Pedestrian Detector Availability [beta] {.value-box}
-
-```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-child" 
   )
 })
 ```
@@ -1327,21 +1347,7 @@ renderPlotly({
 
 renderPlotly({
 
-    if (zone_group() == "All RTOP") {
-
-        get_bar_line_dashboard_plot(
-            cor$wk$pau,
-            cor$mo$pau,
-            var_ = "uptime",
-            num_format = "percent",
-            highlight_color = BLUE,
-            month_ = current_month(),
-            zone_group_ = zone_group(),
-            x_bar_title = paste(input$month, "Ped Detector Uptime (%)"),
-            x_line1_title = "Ped Detector Uptime Trend",
-            plot_title = "Ped Detector Uptime")
-
-    } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
+    if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
 
         get_cor_comm_uptime_plot(mr()$dy$pau,
                                  mr()$mo$pau,
@@ -1693,12 +1699,17 @@ The calculation takes the ATSPM data, aggregates the counts by cycle and
 interval, and divides the counts in the green intervals by the total counts
 for the cycle, averaged over all cycles.
 
+#### **Progression Ratio**
+
+Progression Ratio is arrivals on green (AOG) percentage divided by the percent green
+for that phase. A ratio of greater than 1 means better than random arrivals.
+
 #### **Queue Spillback Rate**
 
 Queue Spillback Rate is an experimental measure of effectiveness.
 It is a measure of unmet demand in a cycle. Based on the vehicle
-dwell times over setback detectors on the main street through phases, each cycle is
-evaluated for spillback. A spillback condition will be triggered by
+dwell times over setback detectors on the main street through phases,
+each cycle is evaluated for spillback. A spillback condition will be triggered by
 occupancy readings above what is typical for setback detectors under
 freely flowing conditions. 
 
