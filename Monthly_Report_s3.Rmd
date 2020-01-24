@@ -129,8 +129,8 @@ zone_group <- reactive(
 mr <- reactive(
     if (corridor() == "All Corridors") {
         cor
-    } else if (input$subcorridors == "By Sub-corridor") {
-        sub
+    #} else if (input$subcorridors == "By Sub-corridor") {
+    #    sub
     } else {
         sig
     }
@@ -513,11 +513,12 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            mr()$mo$sfd, 
+            cor$qu$sfd, 
             "sf_freq", 
             as_pct,
             zone = zone_group(), 
             mo = current_month(), 
+            qu = current_quarter(),
             break_ = TRUE),
         icon = "fa-car",
         color = VDOT_BLUE
@@ -531,11 +532,12 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            mr()$mo$sfo,
+            cor$qu$sfo,
             "sf_freq",
             as_pct,
             zone = zone_group(),
             mo = current_month(),
+            qu = current_quarter(),
             break_ = TRUE),
         icon = "fa-car",
     color = VDOT_BLUE_LIGHT)
@@ -1311,36 +1313,6 @@ renderPlotly({
 })
 ```
 
-### Pedestrian Detector Uptime [beta]
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-renderPlotly({
-
-    if (corridor() == "All Corridors") {
-        
-        get_cor_comm_uptime_plot(mr()$dy$pau,
-                                 mr()$mo$pau,
-                                 month_name = input$month,
-                                 month_ = current_month(),
-                                 zone_group_ = zone_group())
-    } else {
-        
-        get_uptime_plot(sig$dy$pau, 
-                        sig$mo$pau, 
-                        var_ = "uptime", 
-                        num_format = "percent", 
-                        month_ = current_month(), 
-                        zone_group_ = zone_group(),
-                        x_bar_title = "Current Month Uptime",
-                        x_line1_title = "Daily Uptime",
-                        plot_title = "",
-                        goal = NULL)
-    }
-})
-```
-
-                                     
-
 
 ### Pedestrian Detector Uptime
 
@@ -1349,7 +1321,7 @@ renderPlotly({
 
 renderPlotly({
 
-    if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
+    if (corridor() == "All Corridors") {
 
         get_cor_comm_uptime_plot(mr()$dy$pau,
                                  mr()$mo$pau,
