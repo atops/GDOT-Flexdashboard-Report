@@ -5,7 +5,6 @@ suppressMessages(library(shiny))
 suppressMessages(library(yaml))
 #suppressMessages(library(httr))
 
-#suppressMessages(library(data.table))
 suppressMessages(library(dplyr))
 suppressMessages(library(dbplyr))
 suppressMessages(library(tidyr))
@@ -19,20 +18,19 @@ suppressMessages(library(fst))
 suppressMessages(library(forcats))
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
-#suppressMessages(library(RJDBC))
 suppressMessages(library(memoise))
-#suppressMessages(library(RSQLite))
-suppressMessages(library(future))
+suppressMessages(library(RJDBC))
 #suppressMessages(library(pool))
 #suppressMessages(library(RMySQL))
+#suppressMessages(library(RSQLite))
+suppressMessages(library(future))
 suppressMessages(library(rsconnect))
 suppressMessages(library(formattable))
 suppressMessages(library(data.table))
 suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
-suppressMessages(library(RJDBC))
-    
+
 #plan(multiprocess)
 #plan(sequential)
 plan(multisession)
@@ -131,11 +129,7 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
     aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
     Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
                "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
-               "RDS_HOST" = aws_conf$RDS_HOST,
-               "RDS_DATABASE" = aws_conf$RDS_DATABASE,
-               "RDS_USERNAME" = aws_conf$RDS_USERNAME,
-               "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
+               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
 }
 
 if (conf$mode == "production") {
@@ -192,11 +186,11 @@ if (conf_mode == "production") {
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
-# alerts <- aws.s3::s3readRDS(
-#     object = "mark/watchdog/alerts.rds", 
-#     bucket = conf$bucket,
-#     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-#     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+alerts <- aws.s3::s3readRDS(
+    object = "mark/watchdog/alerts.rds",
+    bucket = conf$bucket,
+    key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+    secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}

@@ -506,7 +506,7 @@ renderValueBox({
             qu = current_quarter(),
             break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE_RGB)
+      color = VDOT_BLUE_LIGHT)
 })
 ```
 
@@ -520,7 +520,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-dashboard",
-      color = VDOT_BLUE_LIGHT
+      color = VDOT_BLUE
   )
 })
 ```
@@ -611,7 +611,7 @@ renderValueBox({
             qu = current_quarter(), 
             break_ = FALSE),
       icon = "fa-area-chart",
-      color = GDOT_YELLOW
+      color = VDOT_ORANGE
   )
 })
 ```
@@ -665,7 +665,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE_RGB
+      color = VDOT_BLUE_LIGHT
   )
 })
 ```
@@ -681,7 +681,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE
+      color = VDOT_BLUE
   )
 })
 ```
