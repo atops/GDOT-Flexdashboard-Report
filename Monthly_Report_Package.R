@@ -1924,26 +1924,27 @@ saveRDS(sub, "sub.rds")
 
 print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
 
-aws.s3::put_object(
-    file = "cor.rds",
-    object = "cor_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-aws.s3::put_object(
-    file = "sig.rds",
-    object = "sig_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-aws.s3::put_object(
-    file = "sub.rds",
-    object = "sub_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-# aws.s3::put_object(
-#     file = "teams_tables.rds",
-#     object = "teams_tables_ec2.rds",
-#     bucket = conf$bucket
-# )
+s3saveRDS(cor, object = "cor_ec2.rds", bucket = conf$bucket)
+s3saveRDS(sig, object = "sig_ec2.rds", bucket = conf$bucket)
+s3saveRDS(sub, object = "sub_ec2.rds", bucket = conf$bucket)
+
+if (FALSE) {
+    aws.s3::put_object(
+        file = "cor.rds",
+        object = "cor_ec2.rds",
+        bucket = conf$bucket,
+        multipart = TRUE
+        )
+    aws.s3::put_object(
+        file = "sig.rds",
+        object = "sig_ec2.rds",
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+    aws.s3::put_object(
+        file = "sub.rds",
+        object = "sub_ec2.rds",
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+}
