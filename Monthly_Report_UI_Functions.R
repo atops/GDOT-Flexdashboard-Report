@@ -189,8 +189,8 @@ if (conf_mode == "production") {
 alerts <- aws.s3::s3readRDS(
     object = "mark/watchdog/alerts.rds",
     bucket = conf$bucket,
-    key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-    secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    key = aws_conf$AWS_ACCESS_KEY_ID,
+    secret = aws_conf$AWS_SECRET_ACCESS_KEY)
 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
