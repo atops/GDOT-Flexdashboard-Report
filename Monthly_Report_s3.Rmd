@@ -569,7 +569,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-dashboard",
-      color = VDOT_BLUE
+      color = VDOT_BLUE_LIGHT
   )
 })
 ```
@@ -705,23 +705,6 @@ renderValueBox({
 ```
 
 
-```{r, eval = FALSE}
-### Pedestrian Detector Availability [manually collected] {.value-box}
-
-renderValueBox({
-  valueBox(
-    value = get_valuebox(cor$qu$ped, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "fa-walking",
-      color = VDOT_BLUE
-  )
-})
-```
-
-
-
 ### Communications Uptime {.value-box}
 
 ```{r}
@@ -732,14 +715,23 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = FALSE),
       icon = "ion-paper-airplane",
-      color = VDOT_BLUE_LIGHT
+      color = VDOT_BLUE
   )
 })
 ```
 
 
+### {.value-box}
 
-
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 
 
@@ -1479,21 +1471,19 @@ fluidRow(
         width = 3,
         selectInput(
             "alert_type", "Alert:",
-            choices = c("No Camera Image",
+            choices = c("Max Outs",
+                        "Force Offs",
+                        "Count",
+                        "Missing Records",
                         "Bad Vehicle Detection",
                         "Bad Ped Detection",
-                        "Pedestrian Activations",
-                        "Force Offs",
-                        "Max Outs",
-                        "Count",
-                        "Missing Records"),
-            selected = "No Camera Image")
+                        "Pedestrian Activations"),
+            selected = "Max Outs")
     ),
     column(
         width = 2,
         conditionalPanel(
-            "(input.alert_type == 'Missing Records') ||
-             (input.alert_type == 'No Camera Image')",
+            "input.alert_type == 'Missing Records'",
             selectInput("phase.all", "Phase:",
                         choices = "All",
                         selected = "All")),
