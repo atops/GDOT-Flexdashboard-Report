@@ -6,6 +6,7 @@ suppressMessages(library(DBI))
 suppressMessages(library(rJava))
 #.jinit()
 suppressMessages(library(RJDBC))
+suppressMessages(library(RAthena))
 suppressMessages(library(readxl))
 suppressMessages(library(readr))
 suppressMessages(library(dplyr))
@@ -201,7 +202,7 @@ get_maxview_eventlog_connection <- function() {
 
 get_cel_connection <- get_maxview_eventlog_connection
 
-get_athena_connection <- function(conf_athena) {
+get_athena_connection_broken <- function(conf_athena) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
                 classPath = conf_athena$jar_path,
@@ -225,6 +226,15 @@ get_athena_connection <- function(conf_athena) {
                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
+}
+
+get_athena_connection <- function(conf_athena) {
+    dbConnect(
+        RAthena::athena(),
+        aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+        s3_staging_dir = conf_athena$staging_dir,
+        region_name = 'us-east-1')
 }
 
 get_aurora_connection <- function() {
