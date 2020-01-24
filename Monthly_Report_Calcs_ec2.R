@@ -46,12 +46,6 @@ aws.s3::s3write_using(
     object = feather_filename,
     bucket = conf$bucket
 )
-# aws.s3::put_object(
-#     file = feather_filename,
-#     object = feather_filename,
-#     bucket = conf$bucket,
-#     multipart = TRUE
-# )
 
 all_corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = FALSE),
@@ -66,12 +60,6 @@ aws.s3::s3write_using(
     object = feather_filename,
     bucket = conf$bucket
 )
-# aws.s3::put_object(
-#     file = feather_filename,
-#     object = feather_filename,
-#     bucket = conf$bucket,
-#     multipart = TRUE
-# )
 
 
 signals_list <- unique(corridors$SignalID)
