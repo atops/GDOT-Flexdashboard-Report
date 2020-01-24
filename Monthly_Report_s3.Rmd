@@ -266,7 +266,7 @@ renderValueBox({
             mo = current_month(),
             break_ = TRUE),
         icon = "fa-car",
-    color = BLUE)
+    color = VDOT_BLUE)
 })
 ```
  
@@ -359,7 +359,7 @@ renderValueBox({
             mo = current_month(),
             break_ = FALSE),
         icon = "fa-area-chart",
-        color = BLUE
+        color = VDOT_BLUE
     )
 })
 ```
@@ -408,8 +408,8 @@ renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-broadcast-tower"
-    color = VDOT_BLUE
+      icon = "fa-broadcast-tower",
+      color = VDOT_BLUE
   )
 })
 ```
@@ -538,7 +538,7 @@ renderValueBox({
             mo = current_month(),
             break_ = TRUE),
         icon = "fa-car",
-    color = BLUE)
+    color = VDOT_BLUE_LIGHT)
 })
 ```
 
@@ -950,7 +950,7 @@ renderValueBox({
             mo = current_month(),
             break_ = TRUE),
         icon = "fa-car",
-    color = BLUE)
+    color = VDOT_BLUE)
 })
 ```
 
@@ -961,7 +961,8 @@ renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$tti, "tti", as_2dec,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-dashboard"
+      icon = "fa-dashboard",
+      color = VDOT_BLUE
   )
 })
 ```
@@ -973,7 +974,8 @@ renderValueBox({
   valueBox(
       value = get_valuebox(cor$mo$pti, "pti", as_2dec,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-dashboard"
+      icon = "fa-dashboard",
+      color = VDOT_BLUE
   )
 })
 ```
