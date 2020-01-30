@@ -40,22 +40,9 @@ subcorridors <- corridors %>%
 
 conn <- get_athena_connection(conf$athena)
 
-cam_config <- get_cam_config(
-    object = conf$cctv_config_filename, 
-    bucket = conf$bucket)
-
-# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = conf$bucket) %>%
-#     rawToChar() %>%
-#     read_csv() %>%
-#     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
-# 
-# if (class(cam_config$As_of_Date) != "character") {
-#     cam_config <- cam_config %>%
-#         mutate(As_of_Date = if_else(grepl("\\d{4}-\\d{2}-\\d{2}", As_of_Date),
-#                                     ymd(As_of_Date),
-#                                     mdy(As_of_Date)
-#         ))
-# }
+# cam_config <- get_cam_config(
+#     object = conf$cctv_config_filename, 
+#     bucket = conf$bucket)
 
 
 usable_cores <- get_usable_cores()

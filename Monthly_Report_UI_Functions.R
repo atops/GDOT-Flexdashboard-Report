@@ -5,7 +5,6 @@ suppressMessages(library(shiny))
 suppressMessages(library(yaml))
 #suppressMessages(library(httr))
 
-#suppressMessages(library(data.table))
 suppressMessages(library(dplyr))
 suppressMessages(library(dbplyr))
 suppressMessages(library(tidyr))
@@ -19,20 +18,19 @@ suppressMessages(library(fst))
 suppressMessages(library(forcats))
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
-#suppressMessages(library(RJDBC))
 suppressMessages(library(memoise))
-#suppressMessages(library(RSQLite))
-suppressMessages(library(future))
+suppressMessages(library(RJDBC))
 #suppressMessages(library(pool))
 #suppressMessages(library(RMySQL))
+#suppressMessages(library(RSQLite))
+suppressMessages(library(future))
 suppressMessages(library(rsconnect))
 suppressMessages(library(formattable))
 suppressMessages(library(data.table))
 suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
-suppressMessages(library(RJDBC))
-    
+
 #plan(multiprocess)
 #plan(sequential)
 plan(multisession)
@@ -59,6 +57,8 @@ LIGHT_GRAY_BAR = "#bdbdbd"
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+VDOT_BLUE = "#005da9"; VDOT_BLUE_LIGHT = "#508dd6"
+VDOT_ORANGE = "#f37736"; VDOT_ORANGE_RGB = "rgba(243, 119, 54, 0.80)"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
            "3" = LIGHT_GREEN, "4" = GREEN, 
@@ -129,11 +129,7 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
     aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
     Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
                "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
-               "RDS_HOST" = aws_conf$RDS_HOST,
-               "RDS_DATABASE" = aws_conf$RDS_DATABASE,
-               "RDS_USERNAME" = aws_conf$RDS_USERNAME,
-               "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
+               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
 }
 
 if (conf$mode == "production") {
@@ -152,56 +148,50 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
-if (conf$mode == "production") {
+if (conf_mode == "production") {
     
-    # corridors %<-% read_feather("all_corridors.feather")
-    # cor <- readRDS("cor.rds")
-    # sig %<-% readRDS("sig.rds")
-    # sub %<-% readRDS("sub.rds")
-    # teams_tables %<-% readRDS("teams_tables.rds")
-    
-} else if (conf$mode == "beta") {
+    corridors <- read_feather(sub(".xlsx", ".feather", conf$corridors_filename_s3))
+    cor <- readRDS("cor.rds")
+    sig %<-% readRDS("sig.rds")
+    sub %<-% readRDS("sub.rds")
+
+} else if (conf_mode == "beta") {
     
     corridors <- aws.s3::s3read_using(
         read_feather, 
-        object = "all_Corridors_Latest.feather", 
-        bucket = "gdot-spm")
+        object = sub(".xlsx", ".feather", conf$corridors_filename_s3), 
+        bucket = conf$bucket)
     cor <- aws.s3::s3readRDS(
         object = "cor_ec2.rds", 
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     sig <- aws.s3::s3readRDS(
         object = "sig_ec2.rds", 
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     sub <- aws.s3::s3readRDS(
         object = "sub_ec2.rds", 
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         key = aws_conf$AWS_ACCESS_KEY_ID,
         secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    # teams_tables <- aws.s3::s3readRDS(
-    #     object = "teams_tables_ec2.rds", 
-    #     bucket = "gdot-spm",
-    #     key = aws_conf$AWS_ACCESS_KEY_ID,
-    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    
-    alerts <- aws.s3::s3readRDS(
-        object = "mark/watchdog/alerts.rds", 
-        bucket = "gdot-spm",
-        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
-    
+
     # map_data <- aws.s3::s3readRDS(
     #     object = "map_data.rds",
-    #     bucket = "gdot-spm",
+    #     bucket = conf$bucket,
     #     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
     #     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
 
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
+alerts <- aws.s3::s3readRDS(
+    object = "mark/watchdog/alerts.rds",
+    bucket = conf$bucket,
+    key = aws_conf$AWS_ACCESS_KEY_ID,
+    secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
@@ -1813,7 +1803,7 @@ signal_dashboard_cached_plot <- function(sigid) {
     if (sigid != "") {
         fn <- glue("plot_{sigid}.rds")
         aws.s3::save_object(object = glue("signal_dashboards/plots/plot_{sigid}.rds"), 
-                            bucket = "gdot-devices", 
+                            bucket = conf$bucket, 
                             file = fn)
         plt <- readRDS(fn)
         file.remove(fn)
@@ -1835,7 +1825,7 @@ cache_plots <- function(pth, upload_to_s3 = TRUE) {
         if (upload_to_s3 == TRUE) {
             aws.s3::put_object(file = plot_fn, 
                                object = glue("signal_dashboards/plots/plot_{s}.rds"), 
-                               bucket = "gdot-devices")
+                               bucket = conf$bucket)
         }
     })
 }
@@ -1867,7 +1857,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_rc %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.counts_1hr")) %>%
+                df <- tbl(conn, sql(("select * from {conf_athena$database}.counts_1hr"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>%
                     select(signalid, detector, callphase, timeperiod, vol) %>%
@@ -1893,7 +1883,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_fc %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.filtered_counts_1hr"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% 
                     select(signalid, detector, callphase, timeperiod, vol) %>%
@@ -1918,7 +1908,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_vpd %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.vehicles_pd")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.vehicles_pd"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% 
                     collect()
@@ -1950,7 +1940,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_ddu %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.filtered_counts_1hr")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.filtered_counts_1hr"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% collect()
                 dbDisconnect(conn)
@@ -1973,7 +1963,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_com %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.comm_uptime")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.comm_uptime"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% collect()
                 dbDisconnect(conn)
@@ -1998,7 +1988,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_aog %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.arrivals_on_green")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.arrivals_on_green"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% collect()
                 dbDisconnect(conn)
@@ -2026,7 +2016,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_qs %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.queue_spillback")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.queue_spillback"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% collect()
                 dbDisconnect(conn)
@@ -2055,7 +2045,7 @@ signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") 
             p_sf %<-% tryCatch({
                 conn <- get_athena_connection(conf_athena)
                 #------------------------
-                df <- tbl(conn, sql("select * from gdot_spm.split_failures")) %>%
+                df <- tbl(conn, sql(glue("select * from {conf_athena$database}.split_failures"))) %>%
                     filter(signalid == sigid,
                            between(date, start_date, end_date)) %>% collect()
                 dbDisconnect(conn)
@@ -2819,30 +2809,3 @@ get_zone_group_text_table <- function(month, zone_group) {
         )
     )
 }
-
-
-# get_zg_monthly_report <- function(month, zg) {
-#     
-#     #zone in URL needs to be displayed as "Zone+#"
-#     #strZone <- sub(" ", "+", zg)
-#     strZone <- paste(strsplit(zg, " ")[[1]], collapse = "+")
-#     
-#     #Zone 7 reports aren't broken down further
-#     #if (grepl("[7d|7m]", strZone)) {
-#     if (substr(strZone, nchar(strZone) - 1, nchar(strZone)) %in% c('7d', '7m')) {
-#         strZone <- "Zone+7"
-#         strRTOP <- "RTOP2"
-#     } else {
-#         #needed to figure out whether we need to go to RTOP 1 or 2
-#         intZone <- as.numeric(substr(strZone, nchar(strZone), nchar(strZone))) 
-#         strRTOP <- ifelse((intZone >= 4 & intZone <= 7), "RTOP2", "RTOP1")
-#     }
-#     
-#     #convert month to "YYYY-MM" for URL
-#     current_month <- months[order(months)][match(month, months.formatted)]
-#     #get month string for URL
-#     strMonth <- substr(as.character(current_month), 1, nchar(as.character(current_month)) - 3)
-#     strUrl <- paste0('https://gdot-spm.s3.amazonaws.com/zone_manager_reports/', strRTOP, "/", strMonth, "/", strZone, ".pdf")
-#     #creates the iframe pointing to the URL
-#     tags$iframe(style = "height:1000px; width:1000px", src = strUrl)
-# }

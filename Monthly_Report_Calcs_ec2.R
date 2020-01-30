@@ -40,11 +40,11 @@ corridors <- s3read_using(
 )
 feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
 write_feather(corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
+aws.s3::s3write_using(
+    corridors,
+    write_feather,
     object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
+    bucket = conf$bucket
 )
 
 all_corridors <- s3read_using(
@@ -54,35 +54,14 @@ all_corridors <- s3read_using(
 )
 feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
 write_feather(all_corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
+aws.s3::s3write_using(
+    all_corridors,
+    write_feather,
     object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
+    bucket = conf$bucket
 )
 
-
 signals_list <- unique(corridors$SignalID)
-
-
-# -- TMC Codes for Corridors
-# tmc_routes <- get_tmc_routes()
-# write_feather(tmc_routes, "tmc_routes.feather")
-# aws.s3::put_object("tmc_routes.feather", object = "tmc_routes.feather", bucket = conf$bucket)
-
-
-# -- Teams Locations
-# Warning: Need to clean up ,="", and convert to utf-8 on Notepad++
-# to TEAMS Location Report after export
-#
-# teams_locations_report_raw_output <- "TEAMS_Reports/TEAMS_Locations_Report_2019-08-12.csv"
-# teams_locations <- get_teams_locations(teams_locations_report_raw_output)
-# st_geometry(teams_locations) <- NULL
-# write_feather(teams_locations, "teams_locations.feather")
-# put_object(file = "teams_locations.feather",
-#            object = "teams_locations.feather",
-#            bucket = conf$bucket)
-
 
 
 
@@ -288,8 +267,8 @@ get_counts_based_measures <- function(month_abbrs) {
 
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
 
-        filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
-        #filtered_counts_15min <- lapply(date_range_twr, function(date_) {
+        #filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
+        filtered_counts_15min <- lapply(date_range_twr, function(date_) {
             if (between(date_, start_date, end_date)) {
                 date_ <- as.character(date_)
                 print(date_)
@@ -310,7 +289,7 @@ get_counts_based_measures <- function(month_abbrs) {
                         mean_abs_delta = mean_abs_delta
                     )
             }
-        } %>% bind_rows()
+        }) %>% bind_rows()
 
         if (length(filtered_counts_15min) > 0) {
             print("adjusted counts")
