@@ -163,31 +163,31 @@ def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
     return feather_filename
     
 
-# def read_parquet_local(table_name, start_date, end_date, signals_list = None):
-#     
-#     def read_parquet(fn):
-#         filename = os.path.basename(fn)
-#         date_ = re.search('\d{4}-\d{2}-\d{2}', fn).group(0)
-#         df = pd.read_parquet(filename).assign(Date = date_)
-# 
-#         return df
-#         
-#     def in_date_range(start_filename, end_filename):
-#         return lambda x: x >= start_filename and x <= end_filename
-# 
-#     start_filename = '/home/rstudio/Code/GDOT/MARK/{t}/date={d}'.format(t=table_name, d=start_date)
-#     end_filename = '/home/rstudio/Code/GDOT/MARK/{t}/date={d}'.format(t=table_name, d=end_date)
-#     
-#     check = in_date_range(start_filename, end_filename)
-#     
-#     feather_filename = table_name + '.feather'
-#     fns = list(filter(check, list(glob('/home/rstudio/Code/GDOT/MARK/{t}/*/*'.format(t=table_name)))))
-#     df = pd.concat([read_parquet(fn) for fn in fns], sort = True)
-#     if signals_list:
-#         df = df[df.SignalID.isin(signals_list)]
-#     df.reset_index().to_feather(feather_filename)
-# 
-#     return feather_filename
+def read_parquet_local(table_name, start_date, end_date, signals_list = None):
+    
+    def read_parquet(fn):
+        filename = os.path.basename(fn)
+        date_ = re.search('\d{4}-\d{2}-\d{2}', fn).group(0)
+        df = pd.read_parquet(filename).assign(Date = date_)
+
+        return df
+        
+    def in_date_range(start_filename, end_filename):
+        return lambda x: x >= start_filename and x <= end_filename
+
+    start_filename = '/home/rstudio/Code/GDOT/MARK/{t}/date={d}'.format(t=table_name, d=start_date)
+    end_filename = '/home/rstudio/Code/GDOT/MARK/{t}/date={d}'.format(t=table_name, d=end_date)
+    
+    check = in_date_range(start_filename, end_filename)
+    
+    feather_filename = table_name + '.feather'
+    fns = list(filter(check, list(glob('/home/rstudio/Code/GDOT/MARK/{t}/*/*'.format(t=table_name)))))
+    df = pd.concat([read_parquet(fn) for fn in fns], sort = True)
+    if signals_list:
+        df = df[df.SignalID.isin(signals_list)]
+    df.reset_index().to_feather(feather_filename)
+
+    return feather_filename
 
 def read_parquet_file(bucket, key):
 

@@ -54,7 +54,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             "TRAVEL_TIME_MINUTES",
             "CONFIDENCE_SCORE"
           ],
-          "dataSource": "vpp_inrix",
+          "dataSource": "vpp_here",
           "qualityFilter": {
             "max": 1,
             "min": 0,
