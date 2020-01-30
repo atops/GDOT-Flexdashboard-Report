@@ -4,13 +4,13 @@
 #mode: production
 mode: beta
 
-agency: GDOT
-bucket: gdot-spm
+agency: VDOT
+bucket: vdot-spm
 athena:
-    staging_dir: s3://gdot-spm-athena  # this has to be <bucket>-athena
+    staging_dir: s3://vdot-spm-athena  # this has to be <bucket>-athena
     jar_path: AthenaJDBC42_2.0.9.jar
-    database: gdot_spm
-    atspm_table: atspm2
+    database: vdot_spm
+    atspm_table: atspm
 atspm:
     odbc_dsn: atspm
     uid_env: ATSPM_USERNAME
@@ -31,16 +31,16 @@ run:
     split_failures: TRUE
 
 
-start_date: 2019-11-01
+start_date: 2019-10-01
 end_date: yesterday
 
 report_start_date: 2018-12-01
 report_end_date: yesterday
-calcs_start_date: 2019-11-01
+calcs_start_date: 2019-10-01
 production_report_end_date: 2019-12-01
 
-corridors_filename_s3: Corridors_Latest.xlsx
-corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
+corridors_filename_s3: VDOT_Corridors_Latest.xlsx
+corridors_TMCs_filename_s3: VDOT_Corridor_TMCs_Latest.xlsx
 
 cctv_config_filename: Cameras_Latest.xlsx
 cctv_parsed_filename: parsed_cctv.feather
