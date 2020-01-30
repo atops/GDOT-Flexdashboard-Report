@@ -108,7 +108,7 @@ if (conf$run$counts == TRUE) {
             uptime = TRUE, 
             counts = TRUE)
     } else {
-        foreach(date_ = date_range) %dopar% {
+        foreach(date_ = date_range) %do% {
             get_counts2(
                 date_, 
                 bucket = conf$bucket, 
