@@ -1462,7 +1462,6 @@ tryCatch({
         transmute(
             SignalID = factor(SignalID),
             Detector = factor(Detector),
-            CallPhase = factor(CallPhase),
             Date = date(Date)
         ) %>% as_tibble()
     

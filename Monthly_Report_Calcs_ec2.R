@@ -176,7 +176,7 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         gc()
 
-        # foreach(date_ = date_range) %dopar% {
+        # foreach(date_ = date_range) %do% {
         lapply(date_range, function(date_) {
             if (between(date_, start_date, end_date)) {
                 print(glue("filtered_counts_1hr: {date_}"))
@@ -322,8 +322,8 @@ get_counts_based_measures <- function(month_abbrs) {
 
         counts_ped_1hr <- s3_read_parquet_parallel(
             "counts_ped_1hr",
-            as.character(start_date),
-            as.character(end_date),
+            as.character(sd),
+            as.character(ed),
             bucket = conf$bucket
         )
         
