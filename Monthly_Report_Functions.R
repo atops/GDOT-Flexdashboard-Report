@@ -1349,7 +1349,7 @@ get_det_config_  <- function(bucket) {
     }
 }
 
-get_det_config  <- get_det_config_("gdot-devices") # (conf$bucket)
+get_det_config  <- get_det_config_(conf$bucket)
 
 get_det_config_aog <- function(date_) {
     
