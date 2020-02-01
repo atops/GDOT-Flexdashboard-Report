@@ -739,7 +739,7 @@ get_cam_config <- function(object, bucket) {
             CameraID = factor(CameraID), 
             Location, 
             Corridor = factor(Corridor), 
-            #Zone = factor(Zone), 
+            SignalID = factor(`MaxView ID`),
             As_of_Date = date(As_of_Date)) %>%
         distinct()
 
@@ -1994,7 +1994,7 @@ get_sf_utah <- function(cycle_data, detection_events, first_seconds_of_red = 5) 
     cat('.')
     sor_occ <- get_occupancy(de_dt, sr_dt, sor_interval) %>% 
         rename(sr_occ = occ)
-    cat('.')
+    print('.')
 
     
     
