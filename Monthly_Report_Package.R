@@ -200,33 +200,33 @@ tryCatch({
 
     addtoRDS(
         daily_pa_uptime, "daily_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         cor_daily_pa_uptime, "cor_daily_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         sub_daily_pa_uptime, "sub_daily_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     
     addtoRDS(
         weekly_pa_uptime, "weekly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         sub_weekly_pa_uptime, "sub_weekly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     
     addtoRDS(
         monthly_pa_uptime, "monthly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     addtoRDS(
         sub_monthly_pa_uptime, "sub_monthly_pa_uptime.rds",  "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     
     # rm(papd)
     # rm(bad_ped_detectors)
@@ -1310,16 +1310,8 @@ tryCatch({
                CameraID = factor(CameraID))
     
     
-    # daily_cctv_uptime <- left_join(daily_cctv_uptime,
-    #                                daily_cctv_uptime_encoders,
-    #                                by=c("Corridor", "CameraID", "Date")) %>%
-    #     mutate(up = up.x,
-    #            num = num.x,
-    #            uptime = uptime.x)
-    
-    
     # Find the days where uptime across the board is very low (close to 0)
-    #  This is symptomatic of a problem with the acquisition rather than the camreras themselves
+    #  This is symptomatic of a problem with the acquisition rather than the cameras themselves
     bad_days <- daily_cctv_uptime %>%
         group_by(Date) %>%
         summarize(
