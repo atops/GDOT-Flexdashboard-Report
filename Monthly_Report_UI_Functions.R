@@ -32,6 +32,7 @@ suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
+suppressMessages(library(RAthena))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -220,7 +221,7 @@ goal <- list("tp" = NULL,
              "cu" = 0.95,
              "pau" = 0.95)
 
-get_athena_connection <- function(conf_athena) {
+get_athena_connection_broken <- function(conf_athena) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
                 classPath = conf_athena$jar_path,
@@ -244,6 +245,15 @@ get_athena_connection <- function(conf_athena) {
                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
+}
+
+get_athena_connection <- function(conf_athena) {
+    dbConnect(
+        RAthena::athena(),
+        aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+        s3_staging_dir = conf_athena$staging_dir,
+        region_name = 'us-east-1')
 }
 
 
