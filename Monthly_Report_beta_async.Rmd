@@ -752,7 +752,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -767,7 +767,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -782,7 +782,7 @@ renderValueBox({
                            mo = current_month(), 
                            qu = current_quarter(), break_ = TRUE),
       icon = "fa-car",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -961,7 +961,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -977,7 +977,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
     icon = "fa-walking",
-      color = GDOT_BLUE_RGB 
+      color = GDOT_BLUE 
   )
 })
 ```
@@ -992,7 +992,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
-      color = GDOT_BLUE 
+      color = GDOT_BLUE_RGB 
   )
 })
 ```
@@ -1007,7 +1007,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
       icon = "fa-broadcast-tower",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -1273,51 +1273,63 @@ fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$vpd, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "vpd", "Daily\nVolume", GDOT_BLUE, 
                    format_func = as_int)
+        })
     }),
     
     renderPlotly({ 
         data.set <- filter(mr()$mo$vphp$am, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-        perf_plot_beta(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, 
+        future({
+          perf_plot_beta(data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE, 
                    format_func = as_int)
+        })
     }),
     renderPlotly({ 
         data.set <- filter(mr()$mo$vphp$pm, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE, 
                    format_func = as_int)
+        })
     }),
 
     renderPlotly({ 
         data.set <- filter(mr()$mo$du, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "uptime", "Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
                        goal_ = goal$du)
+        })
     }),
     renderPlotly({ 
         data.set <- filter(cor$mo$ped, 
                           Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
                        goal_ = goal$ped)
+        })
     }),
     renderPlotly({ 
         data.set <- filter(mr()$mo$cctv, 
                           Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
                        goal_ = goal$cctv)
+        })
     }),
     renderPlotly({ 
         data.set <- filter(mr()$mo$cu, Corridor==zone_group() & Month <= current_month())
@@ -1331,6 +1343,7 @@ fillCol(
     renderPlotly({ 
         data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(
             data.set, 
             "uptime", 
@@ -1340,14 +1353,17 @@ fillCol(
             hoverformat = ".1%",
             fill_color_ = LIGHT_ORANGE,
             goal_ = goal$cu)
+        })
     }),renderPlotly({ 
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+        future({
         perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE, 
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
                        goal_ = goal$pau)
+        })
     }),
     height = 800
 )
