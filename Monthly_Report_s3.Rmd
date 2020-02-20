@@ -48,7 +48,7 @@ AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 
 ```{r data, cache=FALSE, cache.lazy=FALSE}
 
-corridors <- read_feather("all_corridors.feather")
+corridors <- read_feather(sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
 cor <- readRDS("cor.rds")
 sig <- readRDS("sig.rds")
 sub <- readRDS("sub.rds")
@@ -961,7 +961,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
-      color = GDOT_BLUE_RGB
+      color = GDOT_BLUE
   )
 })
 ```
@@ -976,7 +976,7 @@ renderValueBox({
                          mo = current_month(),
                          qu = current_quarter(), break_ = TRUE),
       icon = "fa-broadcast-tower",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -995,7 +995,7 @@ renderValueBox({
             qu = current_quarter(),
             break_ = TRUE),
         icon = "fa-wifi",
-        color = GDOT_BLUE_RGB
+        color = GDOT_BLUE
     )
 })
 ```
