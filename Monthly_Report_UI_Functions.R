@@ -32,7 +32,7 @@ suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
-suppressMessages(library(RAthena))
+#suppressMessages(library(RAthena))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -136,6 +136,8 @@ if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
                "RDS_USERNAME" = aws_conf$RDS_USERNAME,
                "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
 }
+conf$athena$uid <- aws_conf$AWS_ACCESS_KEY_ID
+conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
@@ -165,7 +167,7 @@ if (conf$mode == "production") {
     
     corridors <- aws.s3::s3read_using(
         read_feather, 
-        object = "all_Corridors_Latest.feather", 
+        object = sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)), 
         bucket = "gdot-spm")
     cor <- aws.s3::s3readRDS(
         object = "cor_ec2.rds", 
@@ -221,7 +223,7 @@ goal <- list("tp" = NULL,
              "cu" = 0.95,
              "pau" = 0.95)
 
-get_athena_connection_broken <- function(conf_athena) {
+get_athena_connection <- function(conf_athena) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
                 classPath = conf_athena$jar_path,
@@ -238,16 +240,15 @@ get_athena_connection_broken <- function(conf_athena) {
                   ProxyUID = Sys.getenv("GDOT_USERNAME"),
                   ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
     } else {
-        
         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
                   s3_staging_dir = conf_athena$staging_dir,
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+                  UID = conf_athena$uid,  # Sys.getenv("AWS_ACCESS_KEY_ID"),
+                  PWD = conf_athena$pwd,  # Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
 }
 
-get_athena_connection <- function(conf_athena) {
+get_athena_connection_needs_boto3 <- function(conf_athena) {
     dbConnect(
         RAthena::athena(),
         aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
