@@ -946,7 +946,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     }
     
     df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
-        filter(date == start_date)
+        filter(date == as.character(start_date))
     
     print(head(arrange(df, timestamp)))
     
@@ -1670,7 +1670,7 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
     
     #signals_list <- as.integer(signals_list)
     
-    dplyr::filter(df, date >= start_date & date < end_date1) # &
+    dplyr::filter(df, date >= as.character(start_date) & date < as.character(end_date1)) # &
     #signalid %in% signals_list)
 }
 # Query Cycle Data
