@@ -1340,9 +1340,12 @@ get_det_config_aog <- function(date_) {
 }
 
 get_det_config_qs <- function(date_) {
-    
-    get_det_config(date_) %>%
-        filter(grepl("Advanced Count", DetectionTypeDesc)) %>%
+
+    # Detector config    
+    dc <- get_det_config(date_) %>%
+        filter(grepl("Advanced Count", DetectionTypeDesc) | 
+                   grepl("Advanced Speed", DetectionTypeDesc)) %>%
+        filter(!is.na(DistanceFromStopBar)) %>%
         filter(!is.na(Detector)) %>%
         
         transmute(SignalID = factor(SignalID), 
@@ -1350,6 +1353,20 @@ get_det_config_qs <- function(date_) {
                   CallPhase = factor(CallPhase),
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
+    
+    # Bad detectors
+    bd <- s3read_using(
+        read_parquet,
+        bucket = "gdot-spm",
+        object = glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")) %>%
+        transmute(SignalID = factor(SignalID),
+                    Detector = factor(Detector),
+                    Good_Day)
+    
+    # Join to take detector config for only good detectors for this day
+    left_join(dc, bd, by=c("SignalID", "Detector")) %>%
+        filter(is.na(Good_Day)) %>% select(-Good_Day)
+    
 }
 
 get_det_config_sf <- function(date_) {
@@ -2072,28 +2089,66 @@ get_sf <- function(df) {
 }
 
 
-# SPM Queue Spillback
+# SPM Queue Spillback - updated 2/20/2020
 get_qs <- function(detection_events) {
     
     qs <- detection_events %>% 
-        filter(Phase %in% c(2,6)) %>%
+        #filter(Phase %in% c(2,6)) %>%   # This is already handled in the get_det_config_qs function below
         
-        group_by(SignalID,
+        # By Detector by cycle. Get 95th percentile duration as occupancy
+        group_by(Date,
+                 SignalID,
+                 CycleStart,
                  CallPhase = Phase,
                  Detector,
-                 CycleStart,
                  Date) %>%
         summarize(occ = approx_percentile(DetDuration, 0.95)) %>%
-        ungroup() %>%
-        group_by(SignalID, 
-                 CallPhase,
-                 Detector,
-                 Hour = date_trunc('hour', CycleStart),
-                 Date) %>%
-        summarize(cycles = n(), 
-                  qs = count_if(occ > 3)) %>%
         collect() %>%
         ungroup() %>%
+        mutate(Date = date(Date),
+               SignalID = factor(SignalID),
+               CallPhase = factor(CallPhase),
+               Detector = factor(Detector))
+    
+    # dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
+    dates <- unique(qs$Date)
+    
+    # Get detector config for queue spillback. 
+    # get_det_config_qs2 filters for Advanced Count and Advanced Speed detector types
+    # It also filters out bad detectors
+    dc <- lapply(dates, get_det_config_qs) %>% 
+        bind_rows() %>% 
+        dplyr::select(Date, SignalID, CallPhase, Detector, TimeFromStopBar) %>%
+        mutate(SignalID = factor(SignalID),
+               CallPhase = factor(CallPhase))
+    
+    qs %>% left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
+        filter(!is.na(TimeFromStopBar)) %>%
+        
+        # Date | SignalID | CycleStart | CallPhase | Detector | occ
+        
+        # If at least one detector spills back, the phase spills back. 
+        # So use the worst case detector for the phase [max(occ)]
+        group_by(Date, 
+                 SignalID,
+                 CallPhase,
+                 CycleStart) %>%
+        summarize(occ = max(occ, na.rm = TRUE)) %>%
+        #ungroup() %>%
+        
+        # Date | SignalID | CycleStart | CallPhase | occ
+        
+        # Spillback events by hour.
+        # A cycle can have more than one spillback if more than one phase spills back.
+        group_by(Date,
+                 SignalID, 
+                 Hour = floor_date(CycleStart, unit = 'hours'),
+                 CallPhase) %>%
+        summarize(qs = sum(occ > 3),
+                  cycles = n()) %>%
+        #collect() %>%
+        ungroup() %>%
+        
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase),
                Date_Hour = ymd_hms(Hour),
@@ -2105,80 +2160,8 @@ get_qs <- function(detection_events) {
                qs_freq = as.double(qs)/as.double(cycles)) %>%
         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, qs, cycles, qs_freq)
     
-    # dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
-    dates <- unique(qs$Date)
-    
-    dc <- lapply(dates, get_det_config_qs) %>% 
-        bind_rows() %>% 
-        dplyr::select(Date, SignalID, CallPhase, TimeFromStopBar) %>%
-        mutate(SignalID = factor(SignalID),
-               CallPhase = factor(CallPhase))
-    
-    qs %>% left_join(dc) %>% 
-        filter(TimeFromStopBar > 0) %>% 
-        dplyr::select(-TimeFromStopBar) %>%
-        group_by(SignalID, CallPhase, Date, Date_Hour, DOW, Week) %>%
-        summarize(qs = sum(qs), cycles = sum(cycles), qs_freq = sum(qs)/sum(cycles)) %>%
-        ungroup() %>%
-        mutate(SignalID = factor(SignalID), CallPhase = factor(CallPhase))
-    
     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
 }
-
-# SPM Queue Spillback --- before get_det_config_qs
-# get_qs <- function(detection_events) {
-#     
-#     qs <- detection_events %>% 
-#         filter(Phase %in% c(2,6)) %>%
-#         
-#         group_by(SignalID,
-#                  CallPhase = Phase,
-#                  CycleStart) %>%
-#         summarize(occ = approx_percentile(DetDuration, 0.95)) %>%
-#         ungroup() %>%
-#         group_by(SignalID, 
-#                  CallPhase,
-#                  Hour = date_trunc('hour', CycleStart)) %>%
-#         summarize(cycles = n(), 
-#                   qs = count_if(occ > 3)) %>%
-#         collect() %>%
-#         ungroup() %>%
-#         mutate(SignalID = factor(SignalID),
-#                CallPhase = factor(CallPhase),
-#                Date_Hour = ymd_hms(Hour),
-#                Date = date(lubridate::floor_date(Date_Hour, unit="days")),
-#                DOW = wday(Date_Hour),
-#                Week = week(Date),
-#                qs = as.integer(qs),
-#                cycles = as.integer(cycles),
-#                qs_freq = as.double(qs)/as.double(cycles)) %>%
-#         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, qs, cycles, qs_freq)
-#     
-#     dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")
-#     
-#     dc <- lapply(dates, function(d) {
-#         get_det_config(d)
-#         #fn <- glue("ATSPM_Det_Config_Good_{d}.feather")
-#         #if (!file.exists(fn)) {
-#         #    aws.s3::save_object(object = glue("atspm_det_config_good/date={d}/ATSPM_Det_Config_Good.feather"),
-#         #                        bucket = 'gdot-devices',
-#         #                        file = fn)
-#         #    file.remove(fn)
-#         #}
-#         #read_feather(fn) %>% mutate(Date = ymd(d))
-#     }) %>% 
-#         bind_rows %>% 
-#         as_tibble() %>% 
-#         dplyr::select(Date, SignalID, CallPhase, TimeFromStopBar) %>% # = TimeFromStopBar.atspm) %>%
-#         mutate(SignalID = factor(SignalID),
-#                CallPhase = factor(CallPhase))
-#     
-#     qs %>% left_join(dc) %>% 
-#         filter(TimeFromStopBar > 0) %>% 
-#         dplyr::select(-TimeFromStopBar)
-#     
-#     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
-# }
 
 get_tt_csv <- function(fns) {
     
