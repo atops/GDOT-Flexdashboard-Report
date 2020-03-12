@@ -724,7 +724,9 @@ tryCatch({
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
-            Date = date(Date)
+            Date = date(Date),
+            DOW = wday(Date),
+            Week = week(Date)
         ) #%>% write_fst("aog.fst")
     
     daily_aog <- get_daily_aog(aog)
@@ -1006,7 +1008,7 @@ tryCatch({
     # saveRDS(sub_msfp, "sub_monthly_sf_peak.rds")
     # saveRDS(sub_wsfp, "sub_weekly_sf_peak.rds")
     
-    
+    rm(sf)    
     rm(sfh)
     rm(msfh)
     rm(cor_msfh)
@@ -1124,7 +1126,8 @@ tryCatch({
     ) %>%
         mutate(
             Corridor = factor(Corridor)
-        )
+        ) %>% 
+        left_join(distinct(corridors, Zone_Group, Zone, Corridor))
     
     tti <- tt %>%
         dplyr::select(-c(pti, bi))
@@ -1135,7 +1138,8 @@ tryCatch({
     bi <- tt %>%
         dplyr::select(-c(tti, pti))
     
-    cor_monthly_vph <- readRDS("cor_monthly_vph.rds")
+    cor_monthly_vph <- readRDS("cor_monthly_vph.rds") %>% rename(Zone = Zone_Group) %>%
+        left_join(distinct(corridors, Zone_Group, Zone), by=("Zone"))
     
     cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, all_corridors)
@@ -1161,13 +1165,14 @@ tryCatch({
         table_name = "sub_travel_time_metrics",
         start_date = calcs_start_date, 
         end_date = report_end_date
-    ) %>%
+        ) %>%
         mutate(
             Corridor = factor(Corridor),
             Subcorridor = factor(Subcorridor)
         ) %>%
-        rename(Zone_Group = Corridor,
-               Corridor = Subcorridor)
+        rename(Zone = Corridor,
+               Corridor = Subcorridor) %>%
+        left_join(distinct(subcorridors, Zone_Group, Zone))
     
     tti <- tt %>%
         dplyr::select(-c(pti, bi))
@@ -1178,7 +1183,8 @@ tryCatch({
     bi <- tt %>%
         dplyr::select(-c(tti, pti))
     
-    sub_monthly_vph <- readRDS("sub_monthly_vph.rds")
+    sub_monthly_vph <- readRDS("sub_monthly_vph.rds") %>% rename(Zone = Zone_Group) %>%
+        left_join(distinct(subcorridors, Zone_Group, Zone), by=("Zone"))
     
     sub_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, sub_monthly_vph, subcorridors)
     sub_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, sub_monthly_vph, subcorridors)
