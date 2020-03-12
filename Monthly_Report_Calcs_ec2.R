@@ -433,7 +433,11 @@ get_aog_date_range <- function(start_date, end_date) {
 print(glue("{Sys.time()} aog [8 of 10]"))
 
 if (conf$run$arrivals_on_green == TRUE) {
-    get_aog_date_range(start_date, end_date)
+    #get_aog_date_range(start_date, end_date)
+    
+    etl <- reticulate::import_from_path("get_aog_new", path = ".")
+    
+    etl$main(start_date, end_date)
 }
 gc()
 
