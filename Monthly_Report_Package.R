@@ -1229,7 +1229,7 @@ tryCatch({
 
 print(glue("{Sys.time()} Uptimes [19 of 23]"))
 
-tryCatch({
+if (TRUE==FALSE) {
     # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
     
     keys <- aws.s3::get_bucket_df(conf$bucket, prefix = "manual_veh_ped_uptime")$Key
@@ -1280,10 +1280,10 @@ tryCatch({
     saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
     
     
-}, error = function(e) {
-    print("ENCOUNTERED AN ERROR:")
-    print(e)
-})
+}#, error = function(e) {
+#    print("ENCOUNTERED AN ERROR:")
+#    print(e)
+#})
 
 # # CCTV UPTIME From 511 and Encoders
 
@@ -1722,8 +1722,8 @@ tryCatch({
         "du" = readRDS("cor_monthly_detector_uptime.rds"),
         "cu" = readRDS("cor_monthly_comm_uptime.rds"),
         "pau" = readRDS("cor_monthly_pa_uptime.rds"),
-        "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
-        "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
+        #"veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
+        #"ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
         "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
         "ru" = readRDS("cor_monthly_rsu_uptime.rds"),
         #"events" = readRDS("cor_monthly_events.rds"),
@@ -1756,8 +1756,8 @@ tryCatch({
         "du" = get_quarterly(cor$mo$du, "uptime"),
         "cu" = get_quarterly(cor$mo$cu, "uptime"),
         "pau" = get_quarterly(cor$mo$pau, "uptime"),
-        "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
-        "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
+        #"veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
+        #"ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
         "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
         "ru" = get_quarterly(cor$mo$ru, "uptime"),
         #"reported" = get_quarterly(cor$mo$events, "Reported"),
