@@ -2237,7 +2237,7 @@ get_daily_cctv_uptime <- function(table, cam_config) {
 get_rsu_uptime <- function(report_start_date) {
     # rsu <- dbGetQuery(conn, sql(glue("select * from gdot_spm.rsu_uptime"))) %>%
     rsu <- tbl(conn, sql("select * from gdot_spm.rsu_uptime")) %>%
-        filter(Date >= date_parse(report_start_date, "%Y-%m-%d")) %>%
+        filter(Date >= report_start_date) %>%  # date_parse(report_start_date, "%Y-%m-%d")) %>%
         collect() %>%
         transmute(
             SignalID = factor(signalid), 
@@ -3090,12 +3090,15 @@ get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
     
     # Get share of volume (as pct) by hour over the day, for whole dataset
     day_dist <- cor_monthly_vph %>% 
-        group_by(Corridor, month(Hour)) %>% 
+        group_by(Zone_Group, Zone, Corridor, month(Hour)) %>% 
         mutate(pct = vph/sum(vph, na.rm = TRUE)) %>% 
-        group_by(Corridor, Zone_Group, hr = hour(Hour)) %>% 
-        summarize(pct = mean(pct, na.rm = TRUE))
+        group_by(Zone_Group, Zone, Corridor, hr = hour(Hour)) %>% 
+        summarize(pct = mean(pct, na.rm = TRUE)) %>%
+        ungroup()
     
-    left_join(ti, corridors %>% distinct(Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
+    left_join(ti, 
+              distinct(corridors, Zone_Group, Zone, Corridor), 
+              by = c("Zone_Group", "Zone", "Corridor")) %>%
         mutate(hr = hour(Hour)) %>%
         left_join(day_dist) %>%
         ungroup() %>%
