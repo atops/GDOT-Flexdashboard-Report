@@ -145,7 +145,7 @@ tryCatch({
 
     papd <- counts_ped_daily
     paph <- counts_ped_hourly %>% 
-        filter(Date >= calcs_start_date) %>%
+        filter(Date >= calcs_start_date) %>%   # TODO: Check this.
         rename(Hour = Timeperiod,
                paph = vol)
     rm(counts_ped_daily)
@@ -168,7 +168,7 @@ tryCatch({
     # Hack to make the aggregation functions work
     addtoRDS(
         pau, "pa_uptime.rds", "uptime",
-        report_start_date, calcs_start_date)
+        report_start_date, report_start_date)
     pau <- pau %>% 
         mutate(CallPhase = Detector)
 
@@ -273,12 +273,12 @@ tryCatch({
         filter(!is.na(Corridor))
     
     # Monthly % change from previous month by corridor ----------------------------
-    addtoRDS(weekly_papd, "weekly_papd.rds", "papd", report_start_date, calcs_start_date)
-    addtoRDS(monthly_papd, "monthly_papd.rds", "papd", report_start_date, calcs_start_date)
-    addtoRDS(cor_weekly_papd, "cor_weekly_papd.rds", "papd", report_start_date, calcs_start_date)
-    addtoRDS(cor_monthly_papd, "cor_monthly_papd.rds", "papd", report_start_date, calcs_start_date)
-    addtoRDS(sub_weekly_papd, "sub_weekly_papd.rds", "papd", report_start_date, calcs_start_date)
-    addtoRDS(sub_monthly_papd, "sub_monthly_papd.rds", "papd", report_start_date, calcs_start_date)
+    addtoRDS(weekly_papd, "weekly_papd.rds", "papd", report_start_date, report_start_date)
+    addtoRDS(monthly_papd, "monthly_papd.rds", "papd", report_start_date, report_start_date)
+    addtoRDS(cor_weekly_papd, "cor_weekly_papd.rds", "papd", report_start_date, report_start_date)
+    addtoRDS(cor_monthly_papd, "cor_monthly_papd.rds", "papd", report_start_date, report_start_date)
+    addtoRDS(sub_weekly_papd, "sub_weekly_papd.rds", "papd", report_start_date, report_start_date)
+    addtoRDS(sub_monthly_papd, "sub_monthly_papd.rds", "papd", report_start_date, report_start_date)
     
     rm(papd)
     rm(weekly_papd)
@@ -322,13 +322,11 @@ tryCatch({
     
     # Group into corridors --------------------------------------------------------
     cor_weekly_paph <- get_cor_weekly_paph(weekly_paph, corridors)
-    # cor_weekly_paph_peak <- get_cor_weekly_vph_peak(cor_weekly_paph)
     sub_weekly_paph <- get_cor_weekly_paph(weekly_paph, subcorridors) %>%
         filter(!is.na(Corridor))
     
     # Hourly volumes by Corridor --------------------------------------------------
     cor_monthly_paph <- get_cor_monthly_paph(monthly_paph, corridors)
-    # cor_monthly_paph_peak <- get_cor_monthly_vph_peak(cor_monthly_paph)
     sub_monthly_paph <- get_cor_monthly_paph(monthly_paph, subcorridors) %>%
         filter(!is.na(Corridor))
     
@@ -339,11 +337,6 @@ tryCatch({
     addtoRDS(sub_weekly_paph, "sub_weekly_paph.rds", "paph", report_start_date, calcs_start_date)
     addtoRDS(sub_monthly_paph, "sub_monthly_paph.rds", "paph", report_start_date, calcs_start_date)
     
-    # addtoRDS(weekly_paph_peak, "weekly_paph_peak.rds", "paph", report_start_date, calcs_start_date)
-    # addtoRDS(monthly_paph_peak, "monthly_paph_peak.rds", "paph", report_start_date, calcs_start_date)
-    # addtoRDS(cor_weekly_paph_peak, "cor_weekly_paph_peak.rds", "paph", report_start_date, calcs_start_date)
-    # addtoRDS(cor_monthly_paph_peak, "cor_monthly_paph_peak.rds", "paph", report_start_date, calcs_start_date)
-    
     rm(paph)
     rm(weekly_paph)
     rm(monthly_paph)
@@ -351,11 +344,6 @@ tryCatch({
     rm(cor_monthly_paph)
     rm(sub_weekly_paph)
     rm(sub_monthly_paph)
-    # rm(weekly_paph_peak)
-    # rm(monthly_paph_peak)
-    # rm(cor_weekly_paph_peak)
-    # rm(cor_monthly_paph_peak)
-    # gc()
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
     print(e)
