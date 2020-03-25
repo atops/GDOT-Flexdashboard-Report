@@ -2328,60 +2328,18 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 ```
 
 ```{r Wrapper for Unused Code, eval = FALSE}
-# **RTOP 1**
-# 
-# Zone 1:
-# `r renderUI({get_progress_report_link("SR 13/42/155", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 141S", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 237", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 9-Atlanta", current_month(), "RTOP1")})`
-# 
-# Zone 2:
-# `r renderUI({get_progress_report_link("SR 120W", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 280", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 360", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 3N", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 92", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 9N", current_month(), "RTOP1")})`
-# 
-# Zone 3:
-# `r renderUI({get_progress_report_link("SR 138", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 3S", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 85", current_month(), "RTOP1")})`
-# 
-# Zone 8:
-# `r renderUI({get_progress_report_link("SR 92/140", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("Dunwoody-Brookhaven", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("Sandy Springs", current_month(), "RTOP1")})`
-# 
-# 
-# **RTOP 2**
-# 
-# Zone 4:
-# `r renderUI({get_progress_report_link("US 278", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 3", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 5", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 6", current_month(), "RTOP2")})`
-# 
-# Zone 5:
-# `r renderUI({get_progress_report_link("SR 10", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 12", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 154", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 155S", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 42", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8W-DeKalb", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8W-Ponce", current_month(), "RTOP2")})`
-# 
-# Zone 6:
-# `r renderUI({get_progress_report_link("SR 120E", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 140-Gwinnett", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 141N", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 20", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8E", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 9-Alpharetta", current_month(), "RTOP2")})`
-# 
-# Zone 7:
-# `r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
+
+test_result_path <- file_temp("test_result_pdf", tmp_dir = "www", ext = ".pdf")
+  
+  output$test_results <- renderUI({
+        test_result() %>%
+          str_replace("https://s3.amazonaws.com", "s3:/") %>%
+          get_object() %>%
+          writeBin(test_result_path)
+        tags$iframe(style = "height:1400px; width:100%", src = str_sub(test_result_path, 5))
+ })
+  
+get_progress_report_link_by_zone("Zone 1", current_month(), "RTOP1"
 ```
 
 **February 2019 and later**
