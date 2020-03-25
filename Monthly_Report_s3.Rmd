@@ -49,10 +49,13 @@ AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 ```{r data, cache=FALSE, cache.lazy=FALSE}
 
 corridors <- read_feather(sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
-cor <- readRDS("cor.rds")
-sig <- readRDS("sig.rds")
-sub <- readRDS("sub.rds")
-#teams_tables <- readRDS("teams_tables.rds")
+cor <- qs::qread("cor.qs")
+sig <- qs::qread("sig.qs")
+sub <- qs::qread("sub.qs")
+# cor <- readRDS("cor.rds")
+# sig <- readRDS("sig.rds")
+# sub <- readRDS("sub.rds")
+
 alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 ```
 
