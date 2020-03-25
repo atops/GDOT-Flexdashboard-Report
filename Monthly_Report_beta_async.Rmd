@@ -542,7 +542,7 @@ renderValueBox({
 
 renderValueBox({
   valueBox(
-      value = get_valuebox(cor$mo$ped, "uptime", as_pct, 
+      value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-walking",
     color = BLUE
@@ -972,7 +972,7 @@ renderValueBox({
 
 renderValueBox({
   valueBox(
-    value = get_valuebox(cor$qu$ped, "uptime", as_pct, 
+    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
                          zone = zone_group(), 
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
@@ -1308,7 +1308,7 @@ fillCol(
         })
     }),
     renderPlotly({ 
-        data.set <- filter(cor$mo$ped, 
+        data.set <- filter(cor$mo$pau, 
                           Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         future({
@@ -1316,7 +1316,7 @@ fillCol(
                    format_func = as_pct, 
                    hoverformat = ".1%", 
                        fill_color_ = LIGHT_ORANGE, 
-                       goal_ = goal$ped)
+                       goal_ = goal$pau)
         })
     }),
     renderPlotly({ 
@@ -1991,8 +1991,8 @@ renderPlotly({
 ### Pedestrian Detector Uptime
 renderPlotly({
     
-    weekly_ped_df <- rename(cor$mo$ped, Date = Month)
-    monthly_ped_df <- cor$mo$ped
+    weekly_ped_df <- rename(cor$mo$pau, Date = Month)
+    monthly_ped_df <- cor$mo$pau
     get_bar_line_dashboard_plot(
         weekly_ped_df,
         monthly_ped_df,
