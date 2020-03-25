@@ -1117,7 +1117,8 @@ tryCatch({
         mutate(
             Corridor = factor(Corridor)
         ) %>% 
-        left_join(distinct(corridors, Zone_Group, Zone, Corridor))
+        left_join(distinct(corridors, Zone_Group, Zone, Corridor)) %>%
+        filter(!is.na(Zone_Group))
     
     tti <- tt %>%
         dplyr::select(-c(pti, bi))
@@ -1468,19 +1469,29 @@ print(glue("{Sys.time()} watchdog alerts [21 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_det <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_detectors"))) %>%
+    bad_det <- dbGetQuery(conn, sql(glue(paste(
+        "select signalid, detector, date",
+        "from {conf$athena$database}.bad_detectors",
+        "where date >='{today() - days(100)}'")))
+        ) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
             Date = date(date)
         ) %>%
-        filter(Date > today() - months(3)) %>%
+        #filter(Date > today() - days(100)) %>%
         as_tibble() 
     
-    det_config <- lapply(sort(unique(bad_det$Date)), function(date_) {
+    det_config <- mclapply(sort(unique(bad_det$Date)), mc.cores = usable_cores, function(date_) {
         #print(date_)
         get_det_config(date_) %>% 
-            transmute(SignalID, CallPhase, Detector, Date = date_)
+            transmute(
+                SignalID, 
+                CallPhase, 
+                Detector, 
+                ApproachDesc, 
+                LaneNumber, 
+                Date = date_)
     }) %>% bind_rows() %>%
         mutate(
             SignalID = factor(SignalID),
@@ -1505,7 +1516,8 @@ tryCatch({
             Detector = factor(Detector),
             Date, 
             Alert = factor("Bad Vehicle Detection"), 
-            Name = factor(Name)
+            Name = factor(if_else(Corridor=="Ramp Meter", sub("@", "-", Name), Name)),
+            ApproachDesc = if_else(is.na(ApproachDesc), "", as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
         )
     
     # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
@@ -1514,21 +1526,23 @@ tryCatch({
         bad_det,
         FUN = write_fst, 
         object = "mark/watchdog/bad_detectors.fst",
-        bucket = conf$bucket)
+        bucket = conf$bucket,
+        opts = list(multipart = TRUE))
     rm(bad_det)
     rm(det_config)
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql(glue("select * from {conf$athena$database}.bad_ped_detectors 
-                                         where date >='{today() - months(6)}'"))) %>%
+    bad_ped <- dbGetQuery(conn, sql(glue(paste(
+        "select signalid, detector, date from {conf$athena$database}.bad_ped_detectors", 
+        "where date >='{today() - days(100)}'")))) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
             Date = date(date)
         ) %>%
         distinct() %>%
-        #filter(Date > today() - months(6)) %>%
+        #filter(Date > today() - days(100)) %>%
         as_tibble() %>%
         left_join(
             dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
@@ -1553,9 +1567,11 @@ tryCatch({
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql(glue("select * from {conf$athena$database}.cctv_uptime"))) %>%
-        dplyr::select(-starts_with("__")) %>%
-        filter(size == 0) %>%
+    bad_cam <- tbl(conn, sql(glue(paste(
+            "select cameraid, date", 
+            "from {conf$athena$database}.cctv_uptime",
+            "where size = 0")))) %>%
+        #filter(size == 0) %>%
         collect() %>%
         transmute(
             CameraID = factor(cameraid),
@@ -1566,7 +1582,8 @@ tryCatch({
         filter(Date > As_of_Date) %>%
         left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
         transmute(
-            Zone_Group, Zone,
+            Zone_Group, 
+            Zone,
             Corridor = factor(Corridor),
             SignalID = factor(CameraID), 
             CallPhase = factor(0), 
@@ -2054,3 +2071,4 @@ aws.s3::put_object(
     object = "sub_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
+)
