@@ -106,7 +106,7 @@ observe({
                     }
                 }
             
-    updateSelectInput(session, "corridor_x", choices = choices_, selected = "All Corridors")
+    updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
 
 
