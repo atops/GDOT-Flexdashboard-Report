@@ -1245,7 +1245,7 @@ fillCol(
                        goal_ = goal$du)
     }),
     renderPlotly({
-        data.set <- filter(cor$mo$ped,
+        data.set <- filter(cor$mo$pau,
                           Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         perf_plot_beta(data.set, "uptime", "Ped Detector\nUptime\nGoal: 95%", ORANGE,
