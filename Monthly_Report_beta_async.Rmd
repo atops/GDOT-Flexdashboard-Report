@@ -2708,8 +2708,8 @@ Signal Details
 fillCol(height = 100,
     
     fluidRow(
-        column(width = 3,
-        renderUI(selectInput("signalid", "SignalID:",
+        column(width = 4,
+        renderUI(selectInput("signalid", "Select Signal:",
                     choices = c("Select", filtered_signalids()),
                     selected = "",
                     width = "800px"))),
@@ -2737,7 +2737,8 @@ fillCol(height = 700,
             #     add_lines(x = ~x, y = ~y) %>%
             #     layout(annotations = list(text = sid()))
           
-            signal_dashboard_athena(sid(), current_month(), conf$athena)
+            #signal_dashboard_athena(sid(), current_month(), conf$athena)
+            detector_dashboard_athena(sid(), current_month(), conf$athena)
             #})
         })
 )
