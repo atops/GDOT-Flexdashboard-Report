@@ -1688,7 +1688,7 @@ tryCatch({
         #"vph" = readRDS("cor_weekly_vph.rds"),
         "vphp" = readRDS("cor_weekly_vph_peak.rds"),
         "papd" = readRDS("cor_weekly_papd.rds"),
-        "paph" = readRDS("cor_weekly_paph.rds"),
+        #"paph" = readRDS("cor_weekly_paph.rds"),
         "pd" = readRDS("cor_weekly_pd_by_day.rds"),
         "tp" = readRDS("cor_weekly_throughput.rds"),
         "aog" = readRDS("cor_weekly_aog_by_day.rds"),
@@ -1704,10 +1704,10 @@ tryCatch({
     )
     cor$mo <- list(
         "vpd" = readRDS("cor_monthly_vpd.rds"),
-        "vph" = readRDS("cor_monthly_vph.rds"),
+        #"vph" = readRDS("cor_monthly_vph.rds"),
         "vphp" = readRDS("cor_monthly_vph_peak.rds"),
         "papd" = readRDS("cor_monthly_papd.rds"),
-        "paph" = readRDS("cor_monthly_paph.rds"),
+        #"paph" = readRDS("cor_monthly_paph.rds"),
         "pd" = readRDS("cor_monthly_pd_by_day.rds"),
         "tp" = readRDS("cor_monthly_throughput.rds"),
         "aogd" = readRDS("cor_monthly_aog_by_day.rds"),
@@ -1745,7 +1745,7 @@ tryCatch({
     )
     cor$qu <- list(
         "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
-        "vph" = data.frame(), # get_quarterly(cor$mo$vph, "vph"),
+        #"vph" = data.frame(), # get_quarterly(cor$mo$vph, "vph"),
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
         "papd" = get_quarterly(cor$mo$papd, "papd"),
@@ -1839,10 +1839,10 @@ tryCatch({
     )
     sub$mo <- list(
         "vpd" = readRDS("sub_monthly_vpd.rds"),
-        "vph" = readRDS("sub_monthly_vph.rds"),
+        #"vph" = readRDS("sub_monthly_vph.rds"),
         "vphp" = readRDS("sub_monthly_vph_peak.rds"),
         "papd" = readRDS("sub_monthly_papd.rds"),
-        "paph" = readRDS("sub_monthly_paph.rds"),
+        #"paph" = readRDS("sub_monthly_paph.rds"),
         "pd" = readRDS("sub_monthly_pd_by_day.rds"),
         "tp" = readRDS("sub_monthly_throughput.rds"),
         "aogd" = readRDS("sub_monthly_aog_by_day.rds"),
@@ -1872,7 +1872,7 @@ tryCatch({
     )
     sub$qu <- list(
         "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
-        "vph" = data.frame(), # get_quarterly(sub$mo$vph, "vph"),
+        #"vph" = get_quarterly(sub$mo$vph, "vph"),
         "vphpa" = get_quarterly(sub$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(sub$mo$vphp$pm, "vph"),
         "tp" = get_quarterly(sub$mo$tp, "vph"),
@@ -1951,8 +1951,8 @@ tryCatch({
     sig$mo <- list(
         "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
             select(-c(Name, ones)),
-        "vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors) %>%
-            select(-c(Name, ones)),
+        #"vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors) %>%
+        #    select(-c(Name, ones)),
         "vphp" = purrr::map2(
             readRDS("monthly_vph_peak.rds"), cor$mo$vphp,
             function(x, y) {
@@ -1962,8 +1962,8 @@ tryCatch({
         ),
         "papd" = sigify(readRDS("monthly_papd.rds"), cor$mo$papd, corridors) %>%
             select(-c(Name, ones)),
-        "paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
-            select(-c(Name, ones)),
+        #"paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
+        #    select(-c(Name, ones)),
         "pd" = sigify(readRDS("monthly_pd_by_day.rds"), cor$mo$pd, corridors) %>%
             select(-c(Name, ones)),
         "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors) %>%
