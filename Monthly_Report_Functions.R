@@ -1457,11 +1457,11 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
     if (interval == "1 hour") {
         max_volume <- 3000  # 1000 - increased on 3/19/2020 to accommodate mainline ramp meter detectors
         max_delta <- 500
-        max_abs_delta <- 200
+        max_abs_delta <- 500  # 200 - increased on 3/24 to make less stringent
     } else if (interval == "15 min") {
         max_volume <- 750  #250 - increased on 3/19/2020 to accommodate mainline ramp meter detectors
         max_delta <- 125
-        max_abs_delta <- 50
+        max_abs_delta <- 125  # 50 - increased on 3/24 to make less stringent
     } else {
         stop("interval must be '1 hour' or '15 min'")
     }
