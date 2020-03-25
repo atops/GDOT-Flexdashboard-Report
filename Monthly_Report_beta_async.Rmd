@@ -2398,6 +2398,135 @@ fillRow(
 
 ### Zone Activity Reports
 
+```{r, echo=FALSE}
+
+tinymce_api_key <- 'ee9qvzyyw4te05yjk9lxcmdephacz40a5qpni2kwh2cu74la'
+
+tinyMCE <- function(inputId, content, options = NULL){
+  tagList(
+    singleton(tags$head(tags$script(src = glue("//cdn.tiny.cloud/1/{tinymce_api_key}/tinymce/5/tinymce.min.js")))),
+    tags$div(id = inputId, class = "shinytinymce", content, style = "resize: none; width: 100%; height: 100%; border-style: none; background: gainsboro;"),
+    tags$script(paste0('tinymce.init({selector:".shinytinymce", ', options, '});')),
+    singleton(tags$head(tags$script(src = 'shinyMCE/shiny-tinymce-bindings.js')))
+  )
+}
+
+editor_opts <- 
+  'plugins: ["advlist autolink lists link image charmap print preview anchor",
+             "searchreplace visualblocks code fullscreen",
+             "insertdatetime media table contextmenu paste"],
+   toolbar: "insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image"'    
+
+
+shinyApp(
+    
+    ui = fluidPage(
+        #a_zone_is_selected <- startsWith(zone_group(), "Zone"),
+        #validate(a_zone_is_selected,
+        #         "Select a Zone for Zone Manager comments for that Zone"),
+        #req(startsWith(zone_group(), "Zone"))
+        tags$head(tags$script(src = "message-handler.js")),
+
+      conditionalPanel("input.zone_group == 'Zone 1'",
+
+        
+        fluidRow(
+            column(width = 9,
+                   hr(),
+                   h3('Comments:'),
+                   tinyMCE('editor1', 
+                           verbatimTextOutput('zm_report1'),
+                           editor_opts),
+                   
+                   hr(),
+                   h4('First Box:'),
+                   verbatimTextOutput('editor1_content'),
+                   h4('Second Box:'),
+                   verbatimTextOutput('editor2_content'),
+                   
+                   verbatimTextOutput('zone'),
+                   verbatimTextOutput('month'),
+                   tableOutput('zmdf_table')
+            ),
+            column(width = 3,
+                   actionButton("undo_zm_comments", "Undo Comments"),
+                   actionButton("save_zm_comments", "Save Comments"))
+        )
+      )
+    ),
+
+    server <- function(input, output, session) {
+        
+        rv <- reactiveValues(zmdf = zmdf0)
+        
+        output$zmdf_table <- renderTable({
+            input$editor1
+            rv$zmdf
+        })
+        
+        output$editor1_content <- renderPrint({input$editor1})
+        output$zone <- renderPrint({zone_group()})
+        output$month <- renderPrint({current_month()})  # renderPrint({input$m})
+        
+        output$zm_report1 <- renderText({
+            filter(rv$zmdf, Zone==zone_group(), Month==current_month())$Comments
+        })
+
+        observe({
+            isolate({
+                z <- zone_group()
+                m <- current_month()
+            })
+            rv$zmdf[rv$zmdf$Zone==z & rv$zmdf$Month==m, "Comments"] <- input$editor1
+        })
+        
+        observe({
+            zone_group()
+            current_month()
+            isolate({
+                updateTinyMCE(
+                    session, 
+                    'editor1', 
+                    rv$zmdf[rv$zmdf$Zone==zone_group() & rv$zmdf$Month==current_month(), "Comments"]$Comments
+                )
+            })
+        })
+        
+        observeEvent(input$undo_zm_comments, {
+            showModal(modalDialog(
+                title = "Undo comments?",
+                tagList(
+                    actionButton("confirmUndo", "Undo"),
+                    modalButton("Cancel")
+                )
+            ))
+        })
+        observeEvent(input$confirmUndo, {
+            rv$zmdf <- aws.s3::s3readRDS(bucket = "gdot-spm", object = "Zone_Manager_Report_Content.rds")
+            removeModal()
+        })
+
+        observeEvent(input$save_zm_comments, {
+            showModal(modalDialog(
+                title = "Save comments?",
+                tagList(
+                    actionButton("confirmSave", "Save"),
+                    modalButton("Cancel")
+                )
+            ))
+        })
+        observeEvent(input$confirmSave, {
+            aws.s3::s3saveRDS(rv$zmdf, bucket = "gdot-spm", object = "Zone_Manager_Report_Content.rds")
+            removeModal()
+        })
+
+},
+
+  options = list(height = 800)
+)
+```
+
+
 ```{r, eval=FALSE}
 # Coming soon.
 
