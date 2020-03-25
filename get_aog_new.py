@@ -174,8 +174,9 @@ def main(start_date, end_date):
     
         df.to_parquet('s3://gdot-spm/mark/arrivals_on_green/date={d}/aog_{d}.parquet'.format(
             d=date_.strftime('%Y-%m-%d')))
+        num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
-        print(f'{len(df)} signals done in {t1} seconds.')
+        print(f'{num_signals} signals done in {t1} seconds.')
       except Exception as e:
         print(f'{date_}: Error: {e}')
 
