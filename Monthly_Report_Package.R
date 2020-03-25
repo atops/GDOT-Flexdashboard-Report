@@ -2039,8 +2039,28 @@ aws.s3::put_object(
     bucket = conf$bucket,
     multipart = TRUE
 )
-# aws.s3::put_object(
-#     file = "teams_tables.rds",
-#     object = "teams_tables_ec2.rds",
-#     bucket = conf$bucket
-# )
+
+
+qsave(cor, "cor.qs")
+qsave(sig, "sig.qs")
+qsave(sub, "sub.qs")
+
+print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
+
+aws.s3::put_object(
+    file = "cor.qs",
+    object = "cor_ec2.qs",
+    bucket = conf$bucket,
+    multipart = TRUE
+)
+aws.s3::put_object(
+    file = "sig.qs",
+    object = "sig_ec2.qs",
+    bucket = conf$bucket,
+    multipart = TRUE
+)
+aws.s3::put_object(
+    file = "sub.qs",
+    object = "sub_ec2.qs",
+    bucket = conf$bucket,
+    multipart = TRUE
