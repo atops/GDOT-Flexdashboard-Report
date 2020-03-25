@@ -11,6 +11,8 @@ output:
     css: style.css
     includes:
         in_header: google-analytics.html
+    #mathjax: NULL
+    self_contained: FALSE
 runtime: shiny
 ---
 
@@ -1516,7 +1518,7 @@ renderPlotly({
         zone_group_ = zone_group_,
         x_bar_title = paste(input_month, "Throughput (vph)"),
         x_line1_title = "Vehicles per Hour Trend",
-        plot_title = "Throughput (peak veh/hr) Trend")
+        plot_title = "Throughput (peak veh/hr)")
     })
 })
 ```
@@ -1780,7 +1782,7 @@ renderPlotly({ # Good version
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Ped Activations (papd)"),
                                 x_line1_title = "Ped Activations per Day Trend",
-                                plot_title = "Pedestrian Activations per Day (pa/day) Trend")
+                                plot_title = "Pedestrian Activations per Day (pa/day)")
 })
 ```
 
