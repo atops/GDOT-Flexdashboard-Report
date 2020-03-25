@@ -258,7 +258,7 @@ goal <- list("tp" = NULL,
              "cu" = 0.95,
              "pau" = 0.95)
 
-get_athena_connection <- function(conf_athena) {
+get_athena_connection <- function(conf_athena, f = dbConnect) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
                 classPath = conf_athena$jar_path,
@@ -275,13 +275,14 @@ get_athena_connection <- function(conf_athena) {
                   ProxyUID = Sys.getenv("GDOT_USERNAME"),
                   ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
     } else {
-        dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+        f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
                   s3_staging_dir = conf_athena$staging_dir,
                   UID = conf_athena$uid,  # Sys.getenv("AWS_ACCESS_KEY_ID"),
                   PWD = conf_athena$pwd,  # Sys.getenv("AWS_SECRET_ACCESS_KEY"),
                   UseResultsetStreaming = 1)
     }
 }
+get_athena_connection_pool <- function(conf_athena) {get_athena_connection(conf_athena, dbPool)}
 
 get_athena_connection_needs_boto3 <- function(conf_athena) {
     dbConnect(
