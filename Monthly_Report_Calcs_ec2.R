@@ -74,16 +74,30 @@ signals_list <- unique(corridors$SignalID)
 # -- Teams Locations
 # Warning: Need to clean up ,="", and convert to utf-8 on Notepad++
 # to TEAMS Location Report after export
-#
-# teams_locations_report_raw_output <- "TEAMS_Reports/TEAMS_Locations_Report_2019-08-12.csv"
-# teams_locations <- get_teams_locations(teams_locations_report_raw_output)
+
+
+# teams_locations_report_raw_output <- s3read_using(
+#     read_csv,
+#     bucket = conf$bucket,
+#     object = "teams_locations_report_2020-03-12.csv"
+#     ) %>% 
+#     select(
+#         -starts_with("Power"), 
+#         -starts_with("RailRoad"))
+# teams_locations_shp <- get_teams_locations(locs = teams_locations_report_raw_output, conf)
+# s3saveRDS(
+#     teams_locations_shp, 
+#     bucket = conf$bucket, 
+#     object = "teams_locations_shp.rds")
+# 
+# teams_locations <- teams_locations_shp
 # st_geometry(teams_locations) <- NULL
-# write_feather(teams_locations, "teams_locations.feather")
-# put_object(file = "teams_locations.feather",
-#            object = "teams_locations.feather",
-#            bucket = conf$bucket)
-
-
+# s3write_using(
+#     teams_locations,
+#     write_feather,
+#     object = "teams_locations.feather",
+#     bucket = conf$bucket)
+    
 
 
 print(Sys.time())
@@ -497,6 +511,37 @@ get_sf_date_range <- function(start_date, end_date) {
 
 if (conf$run$split_failures == TRUE) {
     get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
+}
+
+
+
+# # GET PED DELAY ########################################################
+
+# Ped delay using ATSPM method, based on push button-start of walk durations
+print(glue("{Sys.time()} ped delay [11 of 10]"))
+
+get_pd_date_range <- function(start_date, end_date) {
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    
+    lapply(date_range, function(date_) {
+        #foreach(date_ = date_range) %dopar% {
+        print(date_)
+        pd <- get_ped_delay_s3(date_, conf)
+        if (nrow(pd) > 0) {
+            s3_upload_parquet_date_split(
+                pd, 
+                bucket = conf$bucket, 
+                prefix = "pd", 
+                table_name = "ped_delay",
+                athena_db = conf$athena$database)
+        }
+    })
+    registerDoSEQ()
+    gc()
+}
+
+if (conf$run$ped_delay == TRUE) {
+    get_pd_date_range(start_date, end_date)
 }
 
 
