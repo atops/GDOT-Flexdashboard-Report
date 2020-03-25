@@ -47,6 +47,7 @@ suppressMessages(library(foreach))
 suppressMessages(library(arrow))
 # https://arrow.apache.org/install/
 # install.packages("arrow")
+suppressWarnings(library(qs))
 
 select <- dplyr::select
 filter <- dplyr::filter
@@ -745,58 +746,6 @@ get_cam_config <- function(object, bucket) {
 
 }
 
-# get_tmc_routes <- function(pth = "TMC_Identification") {
-#     
-#     lapply(aws.s3::get_bucket(bucket = 'gdot-spm', prefix = pth), function(x) { 
-#         print(x$Key)
-#         if (!file.exists(file.path(pth, basename(x$Key)))) { 
-#             print("downloading...")
-#             aws.s3::save_object(x$Key, file = file.path(pth, basename(x$Key)), bucket = 'gdot-spm')
-#         }
-#     })
-# 
-#     fns <- list.files(pth, pattern = "*.zip", recursive = TRUE)
-#     
-#     df <- lapply(fns, function(fn) {
-#         x <- read_csv(unz(file.path(pth, fn), "TMC_Identification.csv"))
-#         
-#         # there may be multiple segments, differentiated by "active_start_date"
-#         # take the most recent
-#         if ("active_start_date" %in% names(x)) {
-#             x <- x %>% 
-#                 group_by_at(vars(-active_start_date)) %>% 
-#                 filter(active_start_date == max(active_start_date)) %>%
-#                 ungroup()
-#         }
-#         x <- x %>%
-#             mutate(Corridor = get_corridor_name(fn),
-#                    Filename = fn) %>% 
-#             dplyr::select(c("tmc", "road", "direction", "intersection", "state", "county", "zip", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "miles", "road_order", "timezone_name", "type", "country", "Corridor", "Filename"))
-#     }) %>% bind_rows()
-#     df
-# }
-
-# get_det_config_precountpriority <- function(date_) {
-#     
-#     s3path <- glue('atspm_det_config_good/date={date_}')
-#     s3key <- "ATSPM_Det_Config_Good.feather"
-#     s3bucket <- "gdot-devices"
-#     local_filename <- sub(".feather", glue("_{date_}.feather"), s3key)
-#     
-#     aws.s3::save_object(object = file.path(s3path, s3key), 
-#                         bucket = s3bucket,
-#                         file = local_filename)
-#     df <- read_feather(local_filename) %>%
-#         transmute(SignalID = factor(SignalID), 
-#                   Detector = factor(Detector), 
-#                   CallPhase = factor(CallPhase),
-#                   CallPhase.atspm = as.integer(CallPhase_atspm),
-#                   CallPhase.maxtime = as.integer(CallPhase_maxtime),
-#                   TimeFromStopBar = TimeFromStopBar,
-#                   Date = date(date_))
-#     file.remove(local_filename)
-#     df
-# }
 
 get_ped_config <- function(date_) {
     
@@ -946,6 +895,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     }
     
     df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
+        select(timestamp, signalid, eventcode, eventparam, date) %>%
         filter(date == as.character(start_date))
     
     print(head(arrange(df, timestamp)))
@@ -1505,11 +1455,11 @@ get_det_config_vol <- function(date_) {
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
 
     if (interval == "1 hour") {
-        max_volume <- 1000
+        max_volume <- 3000  # 1000 - increased on 3/19/2020 to accommodate mainline ramp meter detectors
         max_delta <- 500
         max_abs_delta <- 200
     } else if (interval == "15 min") {
-        max_volume <- 250
+        max_volume <- 750  #250 - increased on 3/19/2020 to accommodate mainline ramp meter detectors
         max_delta <- 125
         max_abs_delta <- 50
     } else {
@@ -2163,45 +2113,6 @@ get_qs <- function(detection_events) {
     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
 }
 
-get_tt_csv <- function(fns) {
-    
-    dfs <- lapply(fns, function(f) {
-        data.table::fread(f) %>%
-            mutate(measurement_tstamp = ymd_hms(measurement_tstamp),
-                   travel_time_seconds = travel_time_minutes * 60,
-                   Corridor = get_corridor_name(f)) %>%
-            filter(wday(measurement_tstamp) %in% c(TUE,WED,THU)) %>%
-            mutate(miles = speed /3600 * travel_time_seconds,
-                   ref_sec = miles/reference_speed * 3600) %>%
-            group_by(Corridor = factor(Corridor), measurement_tstamp) %>%
-            summarize(travel_time_seconds = sum(travel_time_seconds, na.rm = TRUE),
-                      ref_sec = sum(ref_sec, na.rm = TRUE),
-                      miles = sum(miles, na.rm = TRUE)) %>%
-            ungroup()
-    })
-    df <- bind_rows(dfs) %>%
-        group_by(Corridor = factor(Corridor),
-                 measurement_tstamp) %>%
-        summarize(travel_time_seconds = sum(travel_time_seconds, na.rm = TRUE),
-                  ref_sec = sum(ref_sec, na.rm = TRUE),
-                  miles = sum(miles, na.rm = TRUE)) %>%
-        ungroup() %>%
-        mutate(tti = travel_time_seconds/ref_sec,
-               date_hour = floor_date(measurement_tstamp, "hours"),
-               hour = date_hour - days(day(date_hour) - 1)) %>%
-        group_by(Corridor, hour) %>%
-        summarize(mean_ref_sec = mean(ref_sec, na.rm = TRUE),
-                  tti = mean(travel_time_seconds/ref_sec, na.rm = TRUE),
-                  pti = quantile(travel_time_seconds, c(0.90))/mean_ref_sec) %>%
-        ungroup()
-    
-    tti <- dplyr::select(df, Corridor, Hour = hour, tti) %>% as_tibble()
-    pti <- dplyr::select(df, Corridor, Hour = hour, pti) %>% as_tibble()
-    
-    list("tti" = tti, "pti" = pti)
-    
-    # Corridor | hour | idx | value
-}
 
 get_daily_cctv_uptime <- function(table, cam_config) {
     dbGetQuery(conn, sql(glue("select cameraid, date, size from gdot_spm.{table}"))) %>% 
@@ -3584,25 +3495,24 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
 
 # ----- TEAMS Tasks Functions -------------------------------------------------
 
-get_teams_locations <- function(
-    locations_fn = "TEAMS_Reports/TEAMS_Locations_Report.csv") {
+get_teams_locations <- function(locs, conf) {
     
-    conn <- get_atspm_connection()
+    # conn <- get_atspm_connection()
     
-    # Data Frames
-    locs <- readr::read_csv(locations_fn)
-    sigs <- dbReadTable(conn, "Signals") %>%
-        as_tibble() %>%
+    last_key <- max(aws.s3::get_bucket_df(bucket = "gdot-devices", prefix = "maxv_atspm_intersections")$Key)
+    sigs <- s3read_using(
+        read_csv,
+        bucket = "gdot-devices",
+        object = last_key
+        ) %>%
         mutate(SignalID = factor(SignalID),
-               Latitude = as.numeric(Latitude),
-               Longitude = as.numeric(Longitude)) %>%
+                Latitude = as.numeric(Latitude),
+                Longitude = as.numeric(Longitude)) %>%
         filter(Latitude != 0)
     
-    dbDisconnect(conn)
-    
     corridors <- s3read_using(read_feather, 
-                              object = "corridors.feather", 
-                              bucket = "gdot-spm")
+                              object = sub('\\.xlsx', '.feather', conf$corridors_filename_s3),
+                              bucket = conf$bucket)
     
     # sf (spatial - point) objects
     locs.sp <- sf::st_as_sf(locs, coords = c("Latitude", "Longitude")) %>%
@@ -3624,8 +3534,26 @@ get_teams_locations <- function(
     
     # Bind data frames to map Locationid (TEAMS) to SignalID (ATSPM) with distance
     bind_cols(sigs.sp, locs.sp, dist_dataframe) %>% 
-        dplyr::select(LocationId = `DB Id`, SignalID, m, `Maintained By`, City, County) %>%
-        filter(m < 100)
+        dplyr::select(
+            SignalID, 
+            PrimaryName,
+            SecondaryName,
+            m, 
+            LocationId = `DB Id`, 
+            `Maintained By`, 
+            `Custom Identifier`,
+            City, 
+            County) %>%
+        filter(m < 100) %>%
+        group_by(LocationId) %>% 
+        filter(m == min(m)) %>%
+        mutate(
+            guessID = map(`Custom Identifier`, ~str_split(.x, " ")[[1]]), 
+            guessID = map_chr(guessID, ~unlist(.x[1])), 
+            good_guess = if_else(guessID==SignalID, 1, 0)) %>% 
+        filter(good_guess == max(good_guess)) %>%
+        filter(row_number() == 1) %>%
+        ungroup()
 }
 
 
@@ -4525,3 +4453,199 @@ dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
     print(glue("{nrow(df)} records uploaded."))
 }
 
+
+
+get_ped_delay_s3 <- function(date_, conf) {
+    
+    conn <- get_athena_connection(conf$athena)
+    
+    # Read in ped detector/phase configuration file - unique for each day
+    ped_config <- s3read_using(
+        read_csv, 
+        bucket = "gdot-devices", 
+        object = glue("maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
+    ) %>% 
+        select(-X1) %>%
+        mutate(SignalID = factor(SignalID))
+    
+    ## Testing
+    pe <- tbl(conn, sql(glue("select distinct * from {conf$athena$database}.{conf$athena$atspm_table} where date = '{date_}'"))) %>%
+        filter(
+            eventcode %in% c(21, 22, 90, 132)
+        ) %>%
+        distinct(
+            timestamp, signalid, eventcode, eventparam
+        ) %>%
+        collect() %>%
+        transmute(
+            Timestamp = timestamp,
+            SignalID = factor(signalid),
+            EventCode = eventcode,
+            EventParam = eventparam
+        ) %>%
+        arrange(SignalID, Timestamp) %>% 
+        mutate(
+            CycleLength = ifelse(EventCode == 132, EventParam, NA)
+        ) %>%
+        group_by(SignalID) %>%
+        tidyr::fill(CycleLength) %>%
+        ungroup() %>%
+        filter(EventCode != 132)
+    
+    dbDisconnect(conn)
+    
+
+    # figure out corresponding phase for each event code
+    # group 1 - if 21 (ped walk on)
+    #           or 22 (ped clearance/FDW on)
+    #       -> event parameter IS the phase (create new column called phase)
+    pe1 <- filter(pe, EventCode %in% c(21,22)) %>% 
+        mutate(Phase = EventParam)
+    
+    # group 2 - if 45 (ped call registered)
+    #           or 90 (ped detector on)
+    #       -> event parameter is the detector ID
+    # first join to ped config table on (signalid == signalid, eventparam == detector)
+    pe2 <- filter(pe, EventCode == 90) %>%
+        left_join(
+            ped_config, 
+            by = c("SignalID" = "SignalID", 
+                   "EventParam" = "Detector")) %>%
+        mutate(
+            Phase = ifelse(!is.na(CallPhase), CallPhase, EventParam)) %>%
+        select(
+            Timestamp, 
+            SignalID, 
+            EventCode, 
+            EventParam,
+            CycleLength,
+            Phase)
+    
+    #union/rbind these tables back together
+    pe <- bind_rows(pe1, pe2) %>%
+        arrange(SignalID, Phase, Timestamp)
+    rm(pe1)
+    rm(pe2)
+
+    # Calculate Delay for Each Ped Pushbutton Event
+    pe <- pe %>% 
+        group_by(SignalID, Phase) %>% 
+        
+        # Remove repeats of the same event code
+        mutate(run = runner::streak_run(EventCode)) %>%
+        filter(run == 1 | EventCode != 90) %>%  
+        select(-run) %>%
+        
+        mutate(
+            lag_eventcode = lag(EventCode), 
+            lead_eventcode = lead(EventCode),
+            lead_timestamp = lead(Timestamp)) %>% 
+        select(
+            Timestamp, 
+            SignalID, 
+            EventParam,
+            CycleLength,
+            Phase, 
+            lag_eventcode, 
+            EventCode, 
+            lead_eventcode,
+            lead_timestamp) %>% 
+        
+        # Define a sequence code for event triples (e.g., "90_21_22")
+        mutate(
+            sequence = paste(as.character(lag_eventcode), 
+                             as.character(EventCode), 
+                             as.character(lead_eventcode), 
+                             sep = "_")) %>%
+        #write.csv(pe, "ped_data_sequenced.csv")
+        
+        filter(
+            sequence %in% c("NA_90_21", "22_90_21", "21_90_22", "22_90_22", 
+                            "21_90_21", "90_21_22", "22_21_22")
+        ) %>%
+        
+        # Calculate duration between subsequent (2nd and 3rd) events based on sequence triple
+        mutate(delay = as.numeric(difftime(lead_timestamp, Timestamp), units="secs")) %>%
+        mutate(delay = if_else(sequence == "21_90_22", 0, delay)) %>%
+        
+        ungroup() %>%
+        filter(delay > -1) %>%
+        select(Timestamp,
+               SignalID,
+               CallPhase = Phase,
+               CycleLength,
+               Sequence = sequence,
+               Delay = delay)
+    
+    
+    # 21-22 events - to get walk times and cycle lengths
+    pe.walktimes <- pe %>%
+        filter(Sequence %in% c("22_21_22", "90_21_22")) %>%
+        rename(WalkTime = Delay)
+    
+    pe.walktimes.byphase <- pe.walktimes %>%
+        group_by(SignalID, CallPhase) %>% 
+        summarise(WalkTime = which.max(tabulate(WalkTime))) #takes most frequently occurring value
+    
+    
+    # Now go back and resolve issues
+    if(nrow(pe) > 0) {
+        
+        pe.updated <- pe %>%
+            # Filter out the sequences that were only used to get walk times
+            filter(!(Sequence %in% c("22_21_22", "90_21_22"))) %>% 
+            left_join(
+                pe.walktimes.byphase, 
+                by = c("SignalID", "CallPhase")) %>%
+            
+            # Subtract out walktime for Case 3, make sure we don't go below 0
+            mutate(
+                Delay.Updated = ifelse(
+                    Sequence == "22_90_22", 
+                    pmax(Delay - ifelse(is.na(WalkTime), 0, WalkTime), 0), 
+                    Delay) 
+            ) %>%
+            
+            # Mike's 1st issue - long ped delay events
+            mutate(
+                Delay.Updated = case_when(
+                    
+                    # delay capped at 2*180 if cycle length is 0 or NA
+                    (is.na(CycleLength) | CycleLength == 0) ~ pmin(Delay.Updated, 360),
+                    
+                    # delay for events with non-NA cycle lengths capped at 2*CL
+                    (Delay.Updated > 2*CycleLength) ~ 2*CycleLength, 
+                    
+                    TRUE ~ Delay.Updated
+                )
+            ) %>%
+            
+            # Mike's 2nd issue - short delay events
+            mutate(
+                Delay.Updated = ifelse(
+                    Sequence == "22_90_21" & Delay > 0 & Delay < 2, 
+                    NA, 
+                    Delay.Updated)  
+            )
+        
+        df <- pe.updated %>%
+            transmute(
+                Date = date_,
+                Timestamp,
+                SignalID,
+                CallPhase = as.integer(CallPhase),
+                pd = Delay.Updated
+            )
+
+    } else {
+        
+        df <- data.frame(
+            Date = as.Date(character()),
+            Timestamp = as_datetime(character()),
+            SignalID = integer(),
+            CallPhase = integer(),
+            pd = double()
+        )
+    }
+    
+}

@@ -1,0 +1,501 @@
+---
+title: "MARK 1 Watchdog (beta)"
+resource_files:
+- AthenaJDBC42_2.0.9.jar
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    css: style.css
+    favicon: GDOTLogo.svg
+    logo: GDOTLogo.svg
+    orientation: rows
+    self_contained: no
+    vertical_layout: scroll
+---
+
+<style>
+
+.table thead tr th:nth-child(2n+4) {
+    /*color: white;*/
+    visibility: hidden;
+    font-size:1px;
+    width:"50px";
+}
+
+.table thead tr th:nth-child(2) {
+    width:"1000px";
+}
+
+</style>
+
+
+```{r global, cache = FALSE, include = FALSE, warning = FALSE}
+# FLEXDASHBOARD - RTOP_MONTHLY_REPORT
+
+conf_mode <- "beta"
+
+source("Monthly_Report_UI_Functions.R")
+
+
+FIG_WIDTH = 14
+FIG_HEIGHT = 7
+
+
+
+```
+
+
+
+
+
+
+
+
+
+Inputs {.sidebar}
+=====================================
+
+Measurement, Accuracy, and Reliability Kit (MARK 1) 
+
+Past month reports can be viewed back to `r format(first_month, "%B %Y")`.
+
+
+RTOP Concept of Operations can be found 
+`r tags$a(href = "https://s3.amazonaws.com/gdot-spm/GDOT_STORM-COO.pdf", 
+           target = "_blank",
+           "here")`
+
+
+```{r sidebar, warning = FALSE, cache = FALSE}
+# shiny inputs defined here
+
+
+
+selectInput("month", "Month:",
+                       choices = month_options,
+                       selected = month_options[1]) # Default to current month
+
+selectInput("zone_group", "Signal Group:",
+                       choices = zone_group_options,
+                       selected = "All RTOP")
+
+
+
+# Corridor Selection Drop Down based on Zone/Zone Group ---
+
+conditionalPanel("input.zone_group != 'All RTOP'",
+                 selectInput("corridor_x", "Corridor:",
+                             choices = c("All Corridors"),
+                             selected = "All Corridors"))
+
+observe({
+    choices_ <- if (is.null(input$zone_group)) {
+                    NULL
+                } else {
+                    if (input$zone_group == "All RTOP") {
+                        c("All Corridors")
+                    } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone_Group == input$zone_group)$Corridor)))
+                    } else {
+                        c("All Corridors",
+                          as.character(unique(filter(
+                              corridors, Zone == input$zone_group)$Corridor)))
+                    }
+                }
+            
+    updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
+})
+
+
+# --- Sub-Corridor Selection Drop Down based on Corridor ---
+
+conditionalPanel(
+    "input.corridor_x != 'All Corridors'",
+    radioButtons(
+        "subcorridors", 
+        label = NULL, 
+        choices = c("By Intersection", "By Sub-corridor"), 
+        selected = "By Intersection",
+        inline = FALSE, 
+        width = NULL, 
+        choiceNames = NULL,
+        choiceValues = NULL)
+)
+
+
+# --- -------------------------------------------------- ---
+
+
+current_month <- reactive(lubridate::dmy(paste(1, input$month)))
+endof_current_month <- reactive(lubridate::dmy(paste(1, input$month)) + months(1) - days(1))
+current_quarter <- reactive(as.character(lubridate::quarter(current_month(), with_year = TRUE)))
+
+
+# This is a simpler version of what is commented out below
+corridor <- reactive({
+    if (input$zone_group == "All RTOP") {
+        "All Corridors"
+    } else {
+        input$corridor_x
+    }
+})
+
+
+
+zone_group <- reactive(
+    if (corridor() == "All Corridors") {
+        input$zone_group
+    } else {
+        corridor()
+    }
+)
+
+
+mr <- reactive(
+    if (corridor() == "All Corridors") {
+        cor
+    } else if (input$subcorridors == "By Sub-corridor") {
+        sub
+    } else {
+        sig
+    }
+)
+
+filtered_corridors <- reactive({
+
+    # All RTOP is the union of RTOP1, RTOP2
+    if (input$zone_group == "All RTOP") {
+        corr <- corridors %>% 
+            filter(Zone_Group %in% c("RTOP1", "RTOP2"))
+
+    # Zone 7 is the union of Zone 7m, 7d
+    } else if (input$zone_group == "Zone 7") {
+        corr <- corridors %>% 
+            filter(grepl("^Zone 7", Zone))
+
+    # Zones filter by Zone rather than Zone_Group
+    } else if (startsWith(input$zone_group, "Zone")) {
+        corr <- corridors %>% 
+            filter(Zone %in% input$zone_group)
+
+    } else {
+        corr <- corridors %>% 
+            filter(Zone_Group %in% input$zone_group)
+    }
+    
+    # if a specific corridor is selected, filter on that
+    if (corridor() != "All Corridors") {
+        corr <- corr %>% 
+            filter(Corridor == corridor())
+    } 
+    
+  
+    corr %>% select(-Description, -Asof)
+})
+
+
+
+
+filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
+                                      filtered_corridors()$Name))
+
+
+mr_str <- reactive(
+    if (corridor() == "All Corridors") {
+        "cor"
+    } else if (input$subcorridors == "By Sub-corridor") {
+        "sub"
+    } else {
+        "sig"
+    }
+)
+
+# renderText({"\nSelected Month"})
+# renderPrint({current_month()})
+# 
+# renderText({"\nEnd of Selected Month"})
+# renderPrint({endof_current_month()})
+# 
+# renderText({"Selected Querter"})
+# renderPrint({current_quarter()})
+# 
+
+
+# renderText({"Selected Zone Group"})
+# renderPrint({zone_group()})
+# 
+# renderText({"Selected Corridor"})
+# renderPrint({corridor()})
+# 
+# renderText({"Sub-Corridors selected"})
+# renderPrint({input$subcorridors})
+# 
+# renderText({"Filtered Corridors"})
+# renderPrint({filtered_corridors()})
+# 
+# renderText({"mr()"})
+# renderPrint({mr_str()})
+
+# renderText({"env"})
+# renderPrint({Sys.getenv("AWS_ACCESS_KEY_ID")})
+# 
+# renderText({"conf"})
+# renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
+
+
+
+
+filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
+                                      filtered_corridors()$Name))
+
+#renderText({"Mode:"})
+#renderPrint({conf_mode})
+#renderPrint({conf$mode})
+
+
+# renderText({"\nSelected Month"})
+# renderPrint({current_month()})
+# 
+# renderText({"Selected Zone Group"})
+# renderPrint({zone_group()})
+# 
+# renderText({"Selected Corridor"})
+# renderPrint({corridor()})
+```
+
+
+
+
+
+
+
+
+
+Watchdog
+=====================================
+
+Row {data-height = 92}
+-------------------------------------
+
+```{r watchdog, fig.height = 0.92}
+
+plot_height <- reactive({
+
+    n <- filtered_alerts()$intersections
+    css_px <- as.character(50 + n * 14)
+    paste0(css_px, "px")
+})
+
+filtered_alerts <- reactive({
+
+    alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
+    
+    phase_ <- if(input$phase.eight != "All") {
+        input$phase.eight
+    } else {
+        "All"
+    }
+
+    filter_alerts(alerts_by_date,
+                  input$alert_type,
+                  zone_group(),
+                  corridor(),
+                  phase_,
+                  input$id_filter)
+})
+    
+
+
+output$alerts_plot <- renderPlot({
+
+    dataset <- filtered_alerts()
+
+    if (nrow(dataset$plot) > 0) {
+        
+        plot_df <- dataset$plot %>% 
+            mutate(signal_phase = if_else(
+                Zone_Group == "Ramp Meters",
+                stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
+                as.character(signal_phase))) %>%
+            mutate(signal_phase = factor(signal_phase))
+        
+        if (nrow(plot_df) > 0) {
+            plot_alerts(plot_df, input$date_range)
+        } else {
+            plot_empty(zone_group)
+        }
+
+    } else {
+        plot_empty(zone_group)
+    }
+})
+
+
+# Main panel with tabs: Map, Table, Plots
+fluidRow(
+    column(
+        width = 3,
+        dateRangeInput(
+            "date_range", "Date Range:",
+            start = today() - days(14),
+            end = today(),
+            min = today() - days(365),
+            max = today(),
+            format = "mm/dd/yy", 
+            startview = "month", 
+            weekstart = 0,
+            separator = " - ")
+    ),
+    column(
+        width = 3,
+        selectInput(
+            "alert_type", "Alert:",
+            choices = c("No Camera Image",
+                        "Bad Vehicle Detection",
+                        "Bad Ped Detection",
+                        "Pedestrian Activations",
+                        "Force Offs",
+                        "Max Outs",
+                        "Count",
+                        "Missing Records"),
+            selected = "No Camera Image")
+    ),
+    column(
+        width = 2,
+        conditionalPanel(
+            "(input.alert_type == 'Missing Records') ||
+             (input.alert_type == 'No Camera Image')",
+            selectInput("phase.all", "Phase:",
+                        choices = "All",
+                        selected = "All")),
+        conditionalPanel(
+            "(input.alert_type == 'Pedestrian Activations') || 
+            (input.alert_type == 'Force Offs') ||
+            (input.alert_type == 'Max Outs') ||
+            (input.alert_type == 'Count') ||
+            (input.alert_type == 'Bad Vehicle Detection') ||
+            (input.alert_type == 'Bad Ped Detection')",
+            selectInput("phase.eight", "Phase:",
+                        choices = c("All", seq_len(8)),
+                        selected = "All"))
+    ),
+    column(
+        width = 4,
+        textInput("id_filter", "Intersection Filter:")
+    )
+)
+```
+
+Row {data-height = 800}
+-------------------------------------
+
+```{r}
+fillRow(
+    tabsetPanel(
+        type = "tabs",
+        tabPanel(
+            "Plot", 
+            helpText(
+                paste("Use the 'Intersection Filter' to reduce the size of the list.",
+                      "Filter on the intersection name or ID.")),
+                renderUI({
+                    
+                    shiny::validate(
+                        need(filtered_alerts()$intersections < 2000, 
+                             paste("\n\n\nTOO MUCH DATA TO PLOT.",
+                                   "Select a Zone, Corridor of Phase", 
+                                   "to reduce the number of records.")))
+                    
+                    plotOutput("alerts_plot",
+                               height = plot_height())
+                })
+        ),
+        tabPanel(
+            "Table", 
+            renderDataTable({
+                datatable(filtered_alerts()$table, 
+                          escape = FALSE,
+                          extensions = 'Scroller', 
+                          options = list(
+                              deferRender = TRUE,
+                              scrollY = 500,
+                              scroller = TRUE,
+                              searching = FALSE))
+            }),
+            downloadHandler('watchdog_alerts.csv', content = function(file) {
+                write_csv(filtered_alerts()$table, file)
+            })
+        )
+    )
+)
+```
+
+
+
+
+
+
+
+Signals List
+=====================================
+
+Row {data-height = 800}
+-------------------------------------
+
+```{r}
+renderDataTable({
+    
+    datatable(filter(filtered_corridors(), as.integer(as.character(SignalID)) > 0),
+              escape = FALSE,
+              extensions = 'Scroller', 
+              options = list(
+                  deferRender = TRUE,
+                  scrollY = 800,
+                  scroller = TRUE,
+                  searching = TRUE)
+    )
+})
+```
+
+
+
+
+
+
+
+
+Signal Details
+=====================================
+
+```{r signal_detail, eval = TRUE}
+fillCol(height = 100,
+    
+    fluidRow(
+        column(width = 4,
+        renderUI(selectInput("signalid", "Select Signal:",
+                    choices = c("Select", filtered_signalids()[!startsWith(filtered_signalids(), "-1")]),
+                    selected = "",
+                    width = "800px"))),
+        column(width = 1,
+        tags$div(class = "plot-signal-details-button",
+                 actionButton("signal_details_button", "Plot")))
+    )
+)
+
+sid <- eventReactive(input$signal_details_button, {
+    req(input$signalid)
+    sub(":.+", "", input$signalid)
+})
+
+
+fillCol(height = 700,
+
+        renderPlotly({
+          
+            #signal_dashboard_athena(sid(), current_month(), conf$athena)
+            detector_dashboard_athena(sid(), current_month(), conf$athena)
+        })
+)
+```
