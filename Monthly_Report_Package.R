@@ -355,7 +355,8 @@ tryCatch({
 
 print(glue("{Sys.time()} Pedestrian Delay [5 of 23]"))
 
-tryCatch({
+#tryCatch({
+if (FALSE) {   # this is done in Python using the script Anthony wrote
     cb <- function(x) {
         filter(x,
                Duration < 300) %>%
@@ -394,13 +395,14 @@ tryCatch({
     sub_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, subcorridors, "Duration") %>%
         filter(!is.na(Corridor))
     
-    addtoRDS(weekly_pd_by_day, "weekly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
-    addtoRDS(monthly_pd_by_day, "monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
-    addtoRDS(cor_weekly_pd_by_day, "cor_weekly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
-    addtoRDS(cor_monthly_pd_by_day, "cor_monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
-    addtoRDS(sub_weekly_pd_by_day, "sub_weekly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
-    addtoRDS(sub_monthly_pd_by_day, "sub_monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
+    addtoRDS(weekly_pd_by_day, "weekly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(monthly_pd_by_day, "monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_pd_by_day, "cor_weekly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_pd_by_day, "cor_monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_pd_by_day, "sub_weekly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_pd_by_day, "sub_monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
     
+    rm(ped_delay)
     rm(daily_pd)
     rm(weekly_pd_by_day)
     rm(monthly_pd_by_day)
@@ -408,11 +410,11 @@ tryCatch({
     rm(cor_monthly_pd_by_day)
     rm(sub_weekly_pd_by_day)
     rm(sub_monthly_pd_by_day)
-}, error = function(e) {
-    print("ENCOUNTERED AN ERROR:")
-    print(e)
-})
-
+#}, error = function(e) {
+#    print("ENCOUNTERED AN ERROR:")
+#    print(e)
+#})
+}
 
 
 # GET COMMUNICATIONS UPTIME ###################################################
