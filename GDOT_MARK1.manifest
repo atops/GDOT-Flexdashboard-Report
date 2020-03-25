@@ -1,7 +1,5 @@
-cor.rds
-sig.rds
-sub.rds
 all_Corridors_Latest.feather
+
 GDOTLogo.svg
 Monthly_Report_AWS.yaml
 Monthly_Report_s3.Rmd
@@ -10,3 +8,6 @@ Monthly_Report.yaml
 style.css
 AthenaJDBC42_2.0.9.jar
 google-analytics.html
+cor.rds
+sig.rds
+sub.rds
