@@ -165,36 +165,71 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    corridors <- aws.s3::s3read_using(
+    corridors %<-% aws.s3::s3read_using(
         read_feather, 
         object = sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)), 
-        bucket = "gdot-spm")
-    cor <- aws.s3::s3readRDS(
-        object = "cor_ec2.rds", 
         bucket = "gdot-spm",
-        key = aws_conf$AWS_ACCESS_KEY_ID,
-        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sig <- aws.s3::s3readRDS(
-        object = "sig_ec2.rds", 
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+    cor %<-% aws.s3::s3read_using(
+        qs::qread,
+        object = "cor_ec2.qs", 
         bucket = "gdot-spm",
-        key = aws_conf$AWS_ACCESS_KEY_ID,
-        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sub <- aws.s3::s3readRDS(
-        object = "sub_ec2.rds", 
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+        #key = aws_conf$AWS_ACCESS_KEY_ID,
+        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    sig %<-% aws.s3::s3read_using(
+        qs::qread,
+        object = "sig_ec2.qs", 
         bucket = "gdot-spm",
-        key = aws_conf$AWS_ACCESS_KEY_ID,
-        secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    # teams_tables <- aws.s3::s3readRDS(
-    #     object = "teams_tables_ec2.rds", 
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+        #key = aws_conf$AWS_ACCESS_KEY_ID,
+        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    sub %<-% aws.s3::s3read_using(
+        qs::qread,
+        object = "sub_ec2.qs", 
+        bucket = "gdot-spm",
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+        #key = aws_conf$AWS_ACCESS_KEY_ID,
+        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    
+    # cor %<-% aws.s3::s3readRDS(
+    #     object = "cor_ec2.rds", 
+    #     bucket = "gdot-spm",
+    #     key = aws_conf$AWS_ACCESS_KEY_ID,
+    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    # sig %<-% aws.s3::s3readRDS(
+    #     object = "sig_ec2.rds", 
+    #     bucket = "gdot-spm",
+    #     key = aws_conf$AWS_ACCESS_KEY_ID,
+    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    # sub %<-% aws.s3::s3readRDS(
+    #     object = "sub_ec2.rds", 
     #     bucket = "gdot-spm",
     #     key = aws_conf$AWS_ACCESS_KEY_ID,
     #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
     
-    alerts <- aws.s3::s3readRDS(
-        object = "mark/watchdog/alerts.rds", 
+    alerts %<-% (aws.s3::s3read_using(
+        qs::qread,
+        object = "mark/watchdog/alerts.qs", 
+        bucket = "gdot-spm",
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY)) %>% 
+            filter(!SignalID %in% c(9801, 9970, 9825, 9855))) # Temporary until the config can be sorted out
+        
+    # alerts %<-% aws.s3::s3readRDS(
+    #     object = "mark/watchdog/alerts.rds", 
+    #     bucket = "gdot-spm",
+    #     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+    #     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    zmdf0 <- aws.s3::s3readRDS(
+        object = "Zone_Manager_Report_Content.rds",
         bucket = "gdot-spm",
         key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))    
     
     # map_data <- aws.s3::s3readRDS(
     #     object = "map_data.rds",
