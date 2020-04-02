@@ -34,7 +34,7 @@ suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
 #suppressMessages(library(RAthena))
-suppressMessages(library(shinycssloaders))
+#suppressMessages(library(shinycssloaders))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -484,17 +484,17 @@ perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
                         xshift = 20) %>%
         layout(xaxis = ax,
                yaxis = ay,
-               annotations = list(x = -.02,
-                                  y = 0.4,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  xanchor = "right",
-                                  text = name_,
-                                  font = list(size = 12),
-                                  showarrow = FALSE),
+               # annotations = list(x = -.02,
+               #                    y = 0.4,
+               #                    xref = "paper",
+               #                    yref = "paper",
+               #                    xanchor = "right",
+               #                    text = name_,
+               #                    font = list(size = 12),
+               #                    showarrow = FALSE),
                showlegend = FALSE,
-               margin = list(l = 120,
-                             r = 40)) %>%
+               margin = list(l = 30, #120
+                             r = 30)) %>%
         plotly::config(displayModeBar = F)
 }
 perf_plot_beta <- memoise(perf_plot_beta_)
@@ -564,6 +564,65 @@ perf_plot_ <- function(data_, value_, name_, color_,
         plotly::config(displayModeBar = F)
 }
 perf_plot <- memoise(perf_plot_)
+
+
+get_perf_plot_updates_ <- function(data.set, var_, name_, color_, 
+                                  format_func = function(x) {x},
+                                  hoverformat_ = ",.0f",
+                                  zone_group_, month_) {
+    
+    refreshed.data.set <- filter(data.set, Corridor==zone_group_ & Month <= month_)
+    
+    if (nrow(refreshed.data.set) > 0) {
+
+        first <- refreshed.data.set[which.min(refreshed.data.set$Month), ]
+        last <- refreshed.data.set[which.max(refreshed.data.set$Month), ]
+        
+        traces <- list(list(x = refreshed.data.set$Month,
+                            y = refreshed.data.set[[var_]],
+                            mode = 'lines',
+                            name = name_,
+                            line = list(color = color_)))
+        
+        layouts <- list(yaxis = list(title = "", 
+                                     showticklabels = FALSE, 
+                                     showgrid = FALSE, 
+                                     zeroline = FALSE, 
+                                     hoverformat = hoverformat_),
+                        annotations = list(
+                            list(x = first$Month,
+                                 y = first[[var_]],
+                                 text = format_func(first[[var_]]),
+                                 showarrow = FALSE,
+                                 xanchor = "right",
+                                 xshift = -10),
+                            list(x = last$Month,
+                                 y = last[[var_]],
+                                 text = format_func(last[[var_]]),
+                                 font = list(size = 16),
+                                 showarrow = FALSE,
+                                 xanchor = "left",
+                                 xshift = 20)
+                        ),
+                        showlegend = FALSE)#,
+    } else {
+        traces <- list(list(x = NULL,  #unique(data.set$Month),
+                            y = NULL,
+                            mode = 'none',
+                            name = name_,
+                            line = list(color = color_)))
+        
+        layouts <- list(yaxis = list(title = "", 
+                                     showticklabels = FALSE, 
+                                     showgrid = FALSE, 
+                                     zeroline = FALSE, 
+                                     hoverformat = hoverformat_),
+                        annotations = NULL)
+    }
+    
+    list(traces = traces, layouts = layouts)
+}
+get_perf_plot_updates <- memoise(get_perf_plot_updates_)
 
 
 no_data_plot_ <- function(name_) {
