@@ -243,6 +243,7 @@ if (conf$mode == "production") {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
 
+
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
@@ -632,10 +633,10 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
     
     mdf <- filter_mr_data(cor_monthly, zone_group_)
     wdf <- filter_mr_data(cor_weekly, zone_group_)
-
+    
     mdf <- filter(mdf, Month == month_)
     wdf <- filter(wdf, Date < month_ + months(1))
-
+    
     
     if (nrow(mdf) > 0 & nrow(wdf) > 0) {
         # Current Month Data
@@ -657,11 +658,11 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                              insidetextfont = list(color = "black"),
                              name = "",
                              customdata = ~glue(paste(
-                                 "<b>{Corridor}</b>",
+                                 "<b>{Description}</b>",
                                  "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                              hovertemplate = "%{customdata}",
                              hoverlabel = list(font = list(family = "Open Sans"))
-                             ) %>% partial_bundle() %>%
+        ) %>% partial_bundle() %>%
             layout(
                 barmode = "overlay",
                 xaxis = list(title = x_bar_title, 
@@ -683,7 +684,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                           name = "Goal (95%)",
                           showlegend = FALSE)
         }
-
+        
         # Weekly Data - historical trend
         wdf <- wdf %>%
             mutate(var = !!var_,
@@ -701,12 +702,12 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                      alpha = 0.6,
                                      name = "",
                                      customdata = ~glue(paste(
-                                         "<b>{Corridor}</b>",
+                                         "<b>{Description}</b>",
                                          "<br>Week of: <b>{format(Date, '%B %e, %Y')}</b>",
                                          "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                                      hovertemplate = "%{customdata}",
                                      hoverlabel = list(font = list(family = "Open Sans"))
-                                     ) %>% partial_bundle() %>%
+        ) %>% partial_bundle() %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(tickformat = tickformat_,
                                 hoverformat = tickformat_),
@@ -727,7 +728,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
             hdf <- filter_mr_data(cor_hourly, zone_group_)
             
             hdf <- filter(hdf, date(Hour) == month_)
-
+            
             # Hourly Data - current month
             hdf <- hdf %>%
                 mutate(var = !!var_,
@@ -743,19 +744,19 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                           alpha = 0.6,
                           name = "",
                           customdata = ~glue(paste(
-                              "<b>{Corridor}</b>",
+                              "<b>{Description}</b>",
                               "<br>Hour: <b>{format(Hour, '%l:%M %p')}</b>",
                               "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                           hovertemplate = "%{customdata}",
                           hoverlabel = list(font = list(family = "Open Sans"))
-                          ) %>% partial_bundle() %>%
+                ) %>% partial_bundle() %>%
                 layout(xaxis = list(title = x_line2_title),
                        yaxis = list(tickformat = tickformat_),
                        title = "__plot2_title__",
                        showlegend = FALSE)
             
             ax0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
-            p0 <- plot_ly() %>% layout(xaxis = ax0, yaxis = ax0)
+            p0 <- plot_ly(type="scatter", mode="markers") %>% layout(xaxis = ax0, yaxis = ax0)
             
             s1 <- subplot(weekly_line_chart, p0, hourly_line_chart, 
                           titleX = TRUE, heights = c(0.6, 0.1, 0.3), nrows = 3)
