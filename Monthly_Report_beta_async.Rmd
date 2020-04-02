@@ -11,7 +11,6 @@ output:
     css: style.css
     includes:
         in_header: google-analytics.html
-    #mathjax: NULL
     self_contained: FALSE
 runtime: shiny
 ---
@@ -146,7 +145,6 @@ corridor <- reactive({
 })
 
 
-
 zone_group <- reactive(
     if (corridor() == "All Corridors") {
         input$zone_group
@@ -194,15 +192,14 @@ filtered_corridors <- reactive({
             filter(Corridor == corridor())
     } 
     
-  
     corr %>% select(-Description, -Asof)
 })
 
 
-
-
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
+filtered_signalids <- reactive({
+    x <- filtered_corridors() %>% filter(as.integer(as.character(SignalID)) > 0)
+    paste0(x$SignalID, ": ", x$Name)
+})
 
 
 mr_str <- reactive(
@@ -248,11 +245,6 @@ mr_str <- reactive(
 # renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
 
 
-
-
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
-
 #renderText({"Mode:"})
 #renderPrint({conf_mode})
 #renderPrint({conf$mode})
@@ -297,6 +289,7 @@ renderValueBox({
     zone_group_ <- zone_group()
     current_month_ <- current_month()
   
+    
     future({
         valueBox(
             value = get_valuebox(
@@ -531,20 +524,6 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$pau, "uptime", as_pct, 
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-walking",
-    color = BLUE
-  )
-})
-```
-
-
-```{r, eval = FALSE}
-### Pedestrian Detector Availability [manually collected] {.value-box}
-
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$pau, "uptime", as_pct, 
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-walking",
     color = BLUE
@@ -968,22 +947,6 @@ renderValueBox({
 })
 ```
 
-
-```{r, eval = FALSE}
-### Pedestrian Detector Availability [manually collected] {.value-box}
-
-renderValueBox({
-  valueBox(
-    value = get_valuebox(cor$qu$pau, "uptime", as_pct, 
-                         zone = zone_group(), 
-                         mo = current_month(), 
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "fa-walking",
-      color = GDOT_BLUE 
-  )
-})
-```
-
 ### CCTV Availability {.value-box}
 
 ```{r}
@@ -994,7 +957,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
     icon = "glyphicon-facetime-video",
-      color = GDOT_BLUE_RGB 
+      color = GDOT_BLUE 
   )
 })
 ```
@@ -1009,7 +972,7 @@ renderValueBox({
                          mo = current_month(), 
                          qu = current_quarter(), break_ = TRUE),
       icon = "fa-broadcast-tower",
-      color = GDOT_BLUE
+      color = GDOT_BLUE_RGB
   )
 })
 ```
@@ -1028,13 +991,13 @@ renderValueBox({
             qu = current_quarter(), 
             break_ = TRUE),
         icon = "fa-wifi",
-        color = GDOT_BLUE_RGB
+        color = GDOT_BLUE
     )
 })
 ```
 
 
-Row {data- = 50}
+Row {data-height = 50}
 -------------------------------------
 
 ### Activity Measures
@@ -1095,7 +1058,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$qu$over45,
+        cor$qu$over45,
         "over45", as_int,
         zone = zone_group(), 
         mo = current_month(), 
@@ -1113,7 +1076,7 @@ renderValueBox({
 renderValueBox({
   valueBox(
     value = get_valuebox(
-        mr()$qu$mttr, 
+        cor$qu$mttr, 
         "mttr", as_2dec, 
         zone = zone_group(), 
         mo = current_month(), 
@@ -1502,8 +1465,8 @@ renderPlotly({
   
     mr_wk_tp <- mr()$wk$tp
     mr_mo_tp <- mr()$mo$tp 
-    zone_group_ <- zone_group()
     current_month_ <- current_month()
+    zone_group_ <- zone_group()
     input_month <- input$month
     
     future({
@@ -1533,8 +1496,8 @@ renderPlotly({
     mr_wk_aog <- mr()$wk$aog
     mr_mo_aogd <- mr()$mo$aogd
     mr_mo_aogh <- mr()$mo$aogh
-    zone_group_ <- zone_group()
     current_month_ <- current_month()
+    zone_group_ <- zone_group()
     input_month <- input$month
     
     future({
@@ -1559,13 +1522,17 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 rmarkdown::render_delayed({
 renderPlotly({
-    get_bar_line_dashboard_plot(mr()$wk$pr, mr()$mo$prd, mr()$mo$prh,
-                                "pr", "decimal", highlight_color = RED2,
-                                month_ = current_month(), zone_group_ = zone_group(),
-                                x_bar_title = paste(input$month, "AOG"),
-                                x_line1_title = "Progression Ratio Trend",
-                                x_line2_title = paste(input$month, "Progression Ratio by TOD"),
-                                plot_title = "Progression Ratio")
+    get_bar_line_dashboard_plot(
+        mr()$wk$pr, 
+        mr()$mo$prd, 
+        mr()$mo$prh,
+        "pr", "decimal", highlight_color = RED2,
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = paste(input$month, "AOG"),
+        x_line1_title = "Progression Ratio Trend",
+        x_line2_title = paste(input$month, "Progression Ratio by TOD"),
+        plot_title = "Progression Ratio")
 })
 })
 ```
@@ -1653,16 +1620,6 @@ renderPlotly({
                     x_line2_title = paste(input_month, "PTI by hr"))
     })
 })
-# renderPlotly({
-#     get_tt_plot(cor$mo$tti, cor$mo$ttih, 
-#                 cor$mo$pti, cor$mo$ptih,
-#                 month_ = current_month(),
-#                 zone_group_ = zone_group(),
-#                 x_bar_title = paste(input$month, "TTI & PTI"),
-#                 x_line1_title = paste(input$month, "TTI by hr"),
-#                 x_line2_title = paste(input$month, "PTI by hr"))
-# })
-#})
 ```
 
 
@@ -2369,12 +2326,11 @@ corridor_summary_table <- reactive({
 
 tags$div(class = "corridor_summary_table",
     fillRow(
-    
-    renderFormattable({
-        validate(need(corridor_summary_table(), 
-                      "Select a Zone for the Metrics Summary Table"))
-        corridor_summary_table()
-    })
+        renderFormattable({
+            validate(need(corridor_summary_table(), 
+                          "Select a Zone for the Metrics Summary Table"))
+            corridor_summary_table()
+        })
     )
 )
 fillRow(
@@ -2602,7 +2558,7 @@ fluidRow(
         width = 3,
         dateRangeInput(
             "date_range", "Date Range:",
-            start = today() - days(28),
+            start = today() - days(14),
             end = today(),
             min = today() - days(365),
             max = today(),
@@ -2661,19 +2617,23 @@ fillRow(
         tabPanel(
             "Plot", 
             helpText(
-                paste("Use the 'Intersection Filter' to reduce the size of the list.",
-                      "Filter on the intersection name or ID.")),
-                renderUI({
-                    
-                    shiny::validate(
-                        need(filtered_alerts()$intersections < 2000, 
-                             paste("\n\n\nTOO MUCH DATA TO PLOT.",
-                                   "Select a Zone, Corridor of Phase", 
-                                   "to reduce the number of records.")))
-                    
-                    plotOutput("alerts_plot",
-                               height = plot_height())
-                })
+                div(class = "heatmap-explanation", 
+                    paste("Darker colors mean more consecutive days", "
+                          in which the alert condition is active.")),
+                paste("Use the 'Intersection Filter' box to reduce the size of the list.",
+                      "Filter on the intersection name or ID number.")
+            ),
+            renderUI({
+              
+                shiny::validate(
+                    need(filtered_alerts()$intersections < 2000, 
+                         paste("\n\n\nTOO MUCH DATA TO PLOT.",
+                               "Select a Zone, Corridor of Phase", 
+                               "to reduce the number of records.")))
+                
+                plotOutput("alerts_plot",
+                           height = plot_height())
+            })
         ),
         tabPanel(
             "Table", 
@@ -2817,18 +2777,8 @@ sid <- eventReactive(input$signal_details_button, {
 fillCol(height = 700,
 
         renderPlotly({
-          
-            #sid_ <- sid()
-            #current_month_ <- current_month()
-            
-            #future({
-            # plot_ly(data = data.frame(x = seq_len(10), y = runif(10))) %>% 
-            #     add_lines(x = ~x, y = ~y) %>%
-            #     layout(annotations = list(text = sid()))
-          
             #signal_dashboard_athena(sid(), current_month(), conf$athena)
             detector_dashboard_athena(sid(), current_month(), conf$athena)
-            #})
         })
 )
 ```
@@ -3043,5 +2993,5 @@ events.
 
 #### **RTOP Activity Logs**
 
-These are the monthly reports produced monthly by RTOP Corridor Managers detailing key activities, maintenance tasks and action items for the month.
-
+These are the monthly reports produced monthly by RTOP Corridor Managers 
+detailing key activities, maintenance tasks and action items for the month.
