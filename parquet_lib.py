@@ -12,6 +12,7 @@ import string
 from retrying import retry
 from multiprocessing import Pool
 
+
 def random_string(length):
     x = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(length)]) 
     return x +  datetime.now().strftime('%H%M%S%f')
@@ -20,6 +21,7 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 ath = boto3.client('athena')
 s3 = boto3.client('s3')
+
 
 @retry(wait_random_min=5000, wait_random_max=10000, stop_max_attempt_number=10)
 def upload_parquet(Bucket, Key, Filename, Database):
@@ -42,6 +44,7 @@ def upload_parquet(Bucket, Key, Filename, Database):
                                          ResultConfiguration={'OutputLocation': 's3://{}-athena'.format(Bucket)})
     #print('Response HTTPStatusCode:', response['HTTPStatusCode'])
 
+
 @retry(wait_random_min=1000, wait_random_max=2000, stop_max_attempt_number=10)
 def get_keys_older(bucket, prefix):
     objs = s3.list_objects(Bucket = bucket, Prefix = prefix)
@@ -63,6 +66,7 @@ def get_keys_(bucket, prefix):
         for key in keys:
             yield key
 
+
 def get_keys(bucket, table_name, start_date, end_date):
     # Need to add a day to end_date because
     # mark/date=2019-03-31/sf_2019-03-31.parquet isn't equal to or less than
@@ -81,60 +85,12 @@ def get_keys(bucket, table_name, start_date, end_date):
     return keys
 
 
-# def get_keys_older(bucket, table_name, start_date, end_date):
-#     dates = pd.date_range(start_date, end_date, freq=Day())
-#     prefixes = ["mark/{t}/date={d}".format(t=table_name, d=date_.strftime('%Y-%m-%d')) for date_ in dates]
-#     
-#     #keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
-#     keys = [get_keys_(bucket, prefix_) for prefix_ in prefixes]
-#     keys = list(filter(lambda x: x, keys)) # drop None entries
-#     keys = [y for x in keys for y in x] # flatten list
-#     
-#     return keys
-    
-
-
-# def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
-#     
-#     def download_and_read_parquet(key):
-#         objs = s3.list_objects(Bucket = bucket, Prefix = key)
-#         contents = objs['Contents']
-#         date_ = re.search('\d{4}-\d{2}-\d{2}', key).group(0)
-#         response = s3.get_object(Bucket = bucket, Key = contents[0]['Key'])
-#         
-#         with io.BytesIO() as f:
-#             f.write(response['Body'].read())
-#             df = pd.read_parquet(f).assign(Date = date_)
-# 
-#         return df
-# 
-#     #start_key = 'mark/{t}/date={d}'.format(t=table_name, d=start_date)
-#     #end_key = 'mark/{t}/date={d}'.format(t=table_name, d=end_date)
-#     
-#     #check = in_date_range(start_key, end_key)
-#     
-#     keys = get_keys(bucket, table_name, start_date, end_date)
-#     if len(keys) > 0:
-#         #df = pd.concat([download_and_read_parquet(key) for key in keys], sort = True)
-#         dfs = [pd.read_parquet('s3://gdot-spm/{}'.format(key)).assign(Date = re.search('\d{4}-\d{2}-\d{2}', key).group(0)) for key in keys]
-#         df = pd.concat(dfs, sort=True)
-#         
-#         feather_filename = '{t}_{d}_{r}.feather'.format(t=table_name, d=start_date, r=random_string(12))
-#         df.reset_index().drop(columns=['index']).to_feather(feather_filename)
-#             
-#         return feather_filename
-#     
-#     else:
-#         return None
-#     
-#     return feather_filename
-
-
 def download_and_read_parquet(bucket_key):
     df = (pd.read_parquet('s3://{}'.format(bucket_key)).
             assign(Date = re.search('\d{4}-\d{2}-\d{2}', bucket_key).group(0)))
 
     return df
+
 
 def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
 
@@ -189,6 +145,7 @@ def read_parquet_local(table_name, start_date, end_date, signals_list = None):
 
     return feather_filename
 
+
 def read_parquet_file(bucket, key):
 
     if 'Contents' in s3.list_objects(Bucket = bucket, Prefix = key):
@@ -204,6 +161,7 @@ def read_parquet_file(bucket, key):
         
     return df
 
+
 def get_s3data_dask(bucket, prefix):
     
     df = dd.read_parquet('s3://{b}/{p}'.format(b=bucket, p=prefix))
@@ -216,6 +174,7 @@ def get_s3data_dask(bucket, prefix):
             df[c] = df[c].fillna('')
     
     return df.compute()
+
 
 def query_athena(query, database, output_bucket):
 
