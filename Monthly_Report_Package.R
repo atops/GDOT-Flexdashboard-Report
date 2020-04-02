@@ -2020,6 +2020,48 @@ tryCatch({
     print(e)
 })
 
+# Assign Descriptions for hover text
+
+descs <- corridors %>% 
+    select(SignalID, Description) %>%
+    group_by(SignalID) %>% 
+    filter(Description == first(Description)) %>% 
+    ungroup()
+
+for (tab in c("vpd","papd","pd",
+              "tp","aog","aogd","aogh","pr","prd","prh","qs","qsd","qsh","sf","sfd","sfh","sfo",
+              "du","cu","pau","ru")) {
+    print(tab)
+    if (tab %in% names(sig$mo)) {
+        sig$mo[[tab]] <- sig$mo[[tab]] %>% 
+            left_join(descs, by = c("Corridor" = "SignalID")) %>%
+            mutate(
+                Description = coalesce(Description, Corridor),
+                Corridor = factor(Corridor),
+                Description = factor(Description))
+    }
+    if (tab %in% names(sub$mo)) {
+        sub$mo[[tab]] <- sub$mo[[tab]] %>% mutate(Description = Corridor)
+    }
+    if (tab %in% names(cor$mo)) {
+        cor$mo[[tab]] <- cor$mo[[tab]] %>% mutate(Description = Corridor)
+    }
+    
+    if (tab %in% names(sig$wk)) {
+        sig$wk[[tab]] <- sig$wk[[tab]] %>% 
+            left_join(descs, by = c("Corridor" = "SignalID")) %>%
+            mutate(Description = coalesce(Description, Corridor),
+                   Corridor = factor(Corridor),
+                   Description = factor(Description))
+    }
+    if (tab %in% names(sub$wk)) {
+        sub$wk[[tab]] <- sub$wk[[tab]] %>% mutate(Description = Corridor)
+    }
+    if (tab %in% names(cor$wk)) {
+        cor$wk[[tab]] <- cor$wk[[tab]] %>% mutate(Description = Corridor)
+    }
+}
+
 
 
 saveRDS(cor, "cor.rds")
