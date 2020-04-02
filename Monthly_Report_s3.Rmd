@@ -56,7 +56,13 @@ sub <- qs::qread("sub.qs")
 # sig <- readRDS("sig.rds")
 # sub <- readRDS("sub.rds")
 
-alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
+alerts %<-% aws.s3::s3read_using(
+        qs::qread,
+        object = "mark/watchdog/alerts.qs", 
+        bucket = "gdot-spm",
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+#alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 ```
 
 
@@ -118,7 +124,7 @@ observe({
                     }
                 }
 
-    updateSelectInput(session, "corridor_x", choices = choices_, selected = "All Corridors")
+    updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
 
 
@@ -205,8 +211,6 @@ filtered_corridors <- reactive({
 
     corr %>% select(-Description, -Asof)
 })
-
-
 
 
 filtered_signalids <- reactive({
@@ -501,20 +505,6 @@ renderValueBox({
 renderValueBox({
   valueBox(
       value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-walking",
-    color = BLUE
-  )
-})
-```
-
-
-```{r, eval = FALSE}
-### Pedestrian Detector Availability [manually collected] {.value-box}
-
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$ped, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-walking",
     color = BLUE
@@ -938,22 +928,6 @@ renderValueBox({
 })
 ```
 
-
-```{r, eval = FALSE}
-### Pedestrian Detector Availability [manually collected] {.value-box}
-
-renderValueBox({
-  valueBox(
-    value = get_valuebox(cor$qu$ped, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "fa-walking",
-      color = GDOT_BLUE
-  )
-})
-```
-
 ### CCTV Availability {.value-box}
 
 ```{r}
@@ -1252,7 +1226,7 @@ fillCol(
                    format_func = as_pct,
                    hoverformat = ".1%",
                        fill_color_ = LIGHT_ORANGE,
-                       goal_ = goal$ped)
+                       goal_ = goal$pau)
     }),
     renderPlotly({
         data.set <- filter(mr()$mo$cctv,
@@ -1430,7 +1404,6 @@ renderPlotly({
     mr_wk_tp <- mr()$wk$tp
     mr_mo_tp <- mr()$mo$tp
     current_month_ <- current_month()
-    zone_group_ <- zone_group()
     input_month <- input$month
         
     #future({
@@ -1443,7 +1416,7 @@ renderPlotly({
             zone_group_ = zone_group_,
             x_bar_title = paste(input_month, "Throughput (vph)"),
             x_line1_title = "Vehicles per Hour Trend",
-            plot_title = "Throughput (peak veh/hr) Trend")
+            plot_title = "Throughput (peak veh/hr)")
     #})
 })
 ```
@@ -1452,7 +1425,7 @@ renderPlotly({
 ### Arrivals on Green
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-rmarkdown::render_delayed({
+#rmarkdown::render_delayed({
 renderPlotly({
 
     mr_wk_aog <- mr()$wk$aog
@@ -1476,14 +1449,14 @@ renderPlotly({
             plot_title = "Percent Arrivals on Green")
     #})
 })
-})
+#})
 ```
 
 
 ### Progression Ratio
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-rmarkdown::render_delayed({
+#rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$pr, mr()$mo$prd, mr()$mo$prh,
                                 "pr", "decimal", highlight_color = RED2,
@@ -1493,14 +1466,14 @@ renderPlotly({
                                 x_line2_title = paste(input$month, "Progression Ratio by TOD"),
                                 plot_title = "Progression Ratio")
 })
-})
+#})
 ```
 
 
 ### Queue Spillback Rate
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
-rmarkdown::render_delayed({
+#rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(mr()$wk$qs, mr()$mo$qsd, mr()$mo$mqsh,
                                 "qs_freq", "percent", highlight_color = RED2,
@@ -1510,14 +1483,14 @@ renderPlotly({
                                 x_line2_title = paste(input$month, "Queue Spillback by TOD"),
                                 plot_title = "Queue Spillback Rate")
 })
-})
+#})
 ```
 
 
 ### Peak Period Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-rmarkdown::render_delayed({
+#rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
         mr()$wk$sf, 
@@ -1533,13 +1506,13 @@ renderPlotly({
         x_line2_title = paste(input$month, "Split Failures by TOD"),
         plot_title = "Peak Period Split Failures Rate")
 })
-})
+#})
 ```
 
 ### Off-Peak Split Failures
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-rmarkdown::render_delayed({
+#rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
         mr()$wk$sfo, 
@@ -1555,7 +1528,7 @@ renderPlotly({
         x_line2_title = paste(input$month, "Split Failures by TOD"),
         plot_title = "Off-Peak Split Failures Rate")
 })
-})
+#})
 ```
 
 
@@ -1643,7 +1616,7 @@ renderPlotly({ # Good version
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Daily Volume (vpd)"),
                                 x_line1_title = "Vehicles per Day Trend",
-                                plot_title = "Daily Volume (veh/day) Trend")
+                                plot_title = "Daily Volume (veh/day)")
 })
 ```
 
@@ -1665,14 +1638,14 @@ renderPlotly({
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Hourly Volume (vph)"),
                                 x_line1_title = "Vehicles per Hour Trend",
-                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+                                plot_title = "Peak Period Hourly Volume (veh/hr)")
     pm_vph_plot <- get_bar_line_dashboard_plot(mr()$wk$vphp$pm,
                                                mr()$mo$vphp$pm, NULL,
                                 "vph", "integer", highlight_color = GDOT_BLUE,
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Hourly Volume (vph)"),
                                 x_line1_title = "Vehicles per Hour",
-                                plot_title = "Peak Period Hourly Volume (veh/hr) Trend")
+                                plot_title = "Peak Period Hourly Volume (veh/hr)")
     subplot(am_vph_plot, pm_vph_plot, nrows = 1, margin = 0.04)
 })
 ```
@@ -1698,7 +1671,7 @@ renderPlotly({ # Good version
                                 month_ = current_month(), zone_group_ = zone_group(),
                                 x_bar_title = paste(input$month, "Ped Activations (papd)"),
                                 x_line1_title = "Ped Activations per Day Trend",
-                                plot_title = "Pedestrian Activations per Day (pa/day) Trend")
+                                plot_title = "Pedestrian Activations per Day (pa/day)")
 })
 ```
 
@@ -1888,8 +1861,8 @@ renderPlotly({
 ### Pedestrian Detector Uptime
 renderPlotly({
 
-    weekly_ped_df <- rename(cor$mo$ped, Date = Month)
-    monthly_ped_df <- cor$mo$ped
+    weekly_ped_df <- rename(cor$mo$pau, Date = Month)
+    monthly_ped_df <- cor$mo$pau
     get_bar_line_dashboard_plot(weekly_ped_df,
                                 monthly_ped_df,
                                 var_ = "uptime", num_format = "percent", highlight_color = BROWN,
@@ -2202,62 +2175,6 @@ zone_links2 <- function(corrs_, current_month_, rtop_) {
 zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"), current_month(), "RTOP1"))
 ```
 
-```{r Wrapper for Unused Code, eval = FALSE}
-# **RTOP 1**
-# 
-# Zone 1:
-# `r renderUI({get_progress_report_link("SR 13/42/155", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 141S", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 237", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 9-Atlanta", current_month(), "RTOP1")})`
-# 
-# Zone 2:
-# `r renderUI({get_progress_report_link("SR 120W", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 280", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 360", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 3N", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 92", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 9N", current_month(), "RTOP1")})`
-# 
-# Zone 3:
-# `r renderUI({get_progress_report_link("SR 138", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 3S", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("SR 85", current_month(), "RTOP1")})`
-# 
-# Zone 8:
-# `r renderUI({get_progress_report_link("SR 92/140", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("Dunwoody-Brookhaven", current_month(), "RTOP1")})` |
-# `r renderUI({get_progress_report_link("Sandy Springs", current_month(), "RTOP1")})`
-# 
-# 
-# **RTOP 2**
-# 
-# Zone 4:
-# `r renderUI({get_progress_report_link("US 278", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 3", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 5", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 6", current_month(), "RTOP2")})`
-# 
-# Zone 5:
-# `r renderUI({get_progress_report_link("SR 10", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 12", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 154", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 155S", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 42", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8W-DeKalb", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8W-Ponce", current_month(), "RTOP2")})`
-# 
-# Zone 6:
-# `r renderUI({get_progress_report_link("SR 120E", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 140-Gwinnett", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 141N", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 20", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 8E", current_month(), "RTOP2")})` |
-# `r renderUI({get_progress_report_link("SR 9-Alpharetta", current_month(), "RTOP2")})`
-# 
-# Zone 7:
-# `r renderUI({get_progress_report_link("Zone 7", current_month(), "RTOP2")})`
-```
 
 **February 2019 and later**
 
@@ -2300,17 +2217,14 @@ fillRow(
               "red text indicates not meeting goal."),
             
             p(span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
-              "Green up arrow indicates an improvement from previous month ",
-              "(where an increase in value represents an improvement); ",
               span(class = "glyphicon glyphicon-arrow-down", style = "color: green"),
-              "green down arrow indicates an improvement from previous month ",
-              "(where a decrease in value represents an improvement); ",
+              "A green arrow indicates an improvement from the previous month ",
+              "(The arrow's direction indicates an increase or decrease in value); ",
+              tags$br(),
+              span(class = "glyphicon glyphicon-arrow-up", style = "color: red"),
               span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
-              "red up arrow indicates a deterioration from previous month ",
-              "(where an increase in value represents a deterioration);",
-              span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
-              "red down arrow indicates a deterioration from previous month ",
-              "(where a decrease in value represents a deterioration)."))
+              "A red up arrow indicates a deterioration from the previous month ",
+              "(The arrow's direction indicates an increase or decrease in value); "))
     })
 )
 ```
@@ -2447,18 +2361,19 @@ fillRow(
                     paste("Darker colors mean more consecutive days", "
                           in which the alert condition is active.")),
                 paste("Use the 'Intersection Filter' box to reduce the size of the list.",
-                      "Filter on the intersection name or ID number.")),
-                renderUI({
-                    
-                    shiny::validate(
-                        need(filtered_alerts()$intersections < 2000, 
-                             paste("\n\n\nTOO MUCH DATA TO PLOT.",
-                                   "Select a Zone, Corridor of Phase", 
-                                   "to reduce the number of records.")))
-                    
-                    plotOutput("alerts_plot",
-                               height = plot_height())
-                })
+                      "Filter on the intersection name or ID number.")
+            ),
+            renderUI({
+              
+                shiny::validate(
+                    need(filtered_alerts()$intersections < 2000, 
+                         paste("\n\n\nTOO MUCH DATA TO PLOT.",
+                               "Select a Zone, Corridor of Phase", 
+                               "to reduce the number of records.")))
+                
+                plotOutput("alerts_plot",
+                           height = plot_height())
+            })
         ),
         tabPanel(
             "Table", 
@@ -2522,7 +2437,7 @@ Signal Details
 fillCol(height = 100,
     
     fluidRow(
-        column(width = 3,
+        column(width = 4,
         renderUI(selectInput("signalid", "SignalID:",
                     choices = c("Select", filtered_signalids()),
                     selected = "",
@@ -2542,12 +2457,8 @@ sid <- eventReactive(input$signal_details_button, {
 fillCol(height = 700,
 
         renderPlotly({
-
-            # plot_ly(data = data.frame(x = seq_len(10), y = runif(10))) %>% 
-            #     add_lines(x = ~x, y = ~y) %>%
-            #     layout(annotations = list(text = sid()))
-          
-            signal_dashboard_athena(sid(), current_month(), conf$athena)
+            #signal_dashboard_athena(sid(), current_month(), conf$athena)
+            detector_dashboard_athena(sid(), current_month(), conf$athena)
         })
 )
 ```
@@ -2762,4 +2673,5 @@ events.
 
 #### **RTOP Activity Logs**
 
-These are the monthly reports produced monthly by RTOP Corridor Managers detailing key activities, maintenance tasks and action items for the month.
+These are the monthly reports produced monthly by RTOP Corridor Managers 
+detailing key activities, maintenance tasks and action items for the month.
