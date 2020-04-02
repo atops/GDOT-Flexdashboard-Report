@@ -227,6 +227,15 @@ if (conf$mode == "production") {
     #     bucket = "gdot-spm",
     #     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
     #     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
+    
+    perf_plots %<-% (aws.s3::s3read_using(
+        qs::qread,
+        object = "perf_plots.qs",
+        bucket = "gdot-spm",
+        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                    secret = aws_conf$AWS_SECRET_ACCESS_KEY)))
+    
+    
     zmdf0 <- aws.s3::s3readRDS(
         object = "Zone_Manager_Report_Content.rds",
         bucket = "gdot-spm",
