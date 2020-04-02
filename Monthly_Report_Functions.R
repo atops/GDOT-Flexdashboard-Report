@@ -1349,108 +1349,6 @@ get_det_config_vol <- function(date_) {
 }
 
 
-# Multidplyr. Uses a local cluster to partition and parallelize
-# interval (e.g., "1 hour", "15 min")
-# get_filtered_counts <- function(counts, interval = "1 hour") {
-#     
-#     if (interval == "1 hour") {
-#         max_volume <- 1000
-#         max_delta <- 500
-#         max_abs_delta <- 200
-#     } else if (interval == "15 min") {
-#         max_volume <- 250
-#         max_delta <- 125
-#         max_abs_delta <- 50
-#     } else {
-#         stop("interval must be '1 hour' or '15 min'")
-#     }
-#     
-#     counts <- counts %>%
-#         ungroup() %>%
-#         mutate(SignalID = factor(SignalID),
-#                Detector = factor(Detector),
-#                CallPhase = factor(CallPhase)) %>%
-#         filter(!is.na(CallPhase))
-#     
-#     # Identify detectors/phases from detector config file. Expand.
-#     #  This ensures all detectors are included in the bad detectors calculation.
-#     all_days <- unique(date(counts$Timeperiod))
-#     det_config <- lapply(all_days, function(d) {
-#         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), 
-#                                ymd_hms(paste(d, "23:59:00")), 
-#                                by = interval)
-#         #tz(all_timeperiods) <- "America/New_York"
-#         get_det_config(d) %>%
-#             expand(nesting(SignalID, Detector, CallPhase), 
-#                    Timeperiod = all_timeperiods)
-#     }) %>% bind_rows() %>%
-#         transmute(SignalID = factor(SignalID),
-#                   Timeperiod = Timeperiod,
-#                   Detector = factor(Detector),
-#                   CallPhase = factor(CallPhase)) 
-#     
-#     
-#     expanded_counts <- full_join(det_config, counts) %>%
-#         transmute(SignalID = factor(SignalID), 
-#                   Date = date(Timeperiod),
-#                   Timeperiod = Timeperiod,
-#                   Detector = factor(Detector), 
-#                   CallPhase = factor(CallPhase),
-#                   vol = as.double(vol),
-#                   vol0 = if_else(is.na(vol), 0.0, vol)) %>%
-#         arrange(SignalID, CallPhase, Detector, Timeperiod)
-#     
-#     cluster <- create_cluster(min(2, usable_cores))
-#     set_default_cluster(cluster)
-#     
-#     ec <- partition(expanded_counts, SignalID, CallPhase, Detector)
-#     cluster_assign_value(cluster, "max_volume", max_volume)
-#     cluster_assign_value(cluster, "max_delta", max_delta)
-#     cluster_assign_value(cluster, "max_abs_delta", max_abs_delta)
-#     cluster_library(cluster, list("lubridate", "dplyr"))
-#     
-#     ec <- ec %>% 
-#         mutate(delta_vol = vol0 - lag(vol0),
-#                Good = ifelse(is.na(vol) | 
-#                                  vol > max_volume | 
-#                                  is.na(delta_vol) | 
-#                                  abs(delta_vol) > max_delta | 
-#                                  abs(delta_vol) == 0,
-#                              0, 1)) %>%
-#         dplyr::select(-vol0)
-#     
-#     expanded_counts <- ec %>% 
-#         collect() %>%
-#         ungroup()
-#     
-#     # bad day = any of the following:
-#     #    too many bad hours (60%) based on the above criteria
-#     #    mean absolute change in hourly volume > 200 
-#     bad_days <- expanded_counts  %>%
-#         filter(hour(Timeperiod) >= 5) %>%
-#         partition(SignalID, CallPhase, Detector, Date) %>% 
-#         summarize(Good = sum(Good, na.rm = TRUE), 
-#                   All = n(), 
-#                   Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-#                   mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
-#         collect() %>%
-#         ungroup() %>%
-#         
-#         # manually calibrated
-#         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < max_abs_delta, 1, 0))) %>%
-#         dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
-#     
-#     
-#     # counts with the bad days taken out
-#     filtered_counts <- left_join(expanded_counts, bad_days) %>%
-#         mutate(vol = if_else(Good_Day==1, vol, as.double(NA)),
-#                Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
-#                Hour = Month_Hour - months(month(Month_Hour) - 1)) %>%
-#         ungroup()
-#     
-#     filtered_counts
-# }
-
 # Single threaded
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
 
@@ -1756,38 +1654,6 @@ get_aog <- function(cycle_data) {
         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, pr, vol)
 }
 
-# get_aog_older_no_progression_ratio <- function(cycle_data) {
-#     
-#     df <- cycle_data %>% 
-#         filter(Phase %in% c(2,6)) %>%
-#         group_by(SignalID, Phase, CycleStart, EventCode) %>% 
-#         summarize(Volume = sum(Volume, na.rm = TRUE)) %>% 
-#         group_by(SignalID, Phase, CycleStart) %>% 
-#         mutate(Total_Volume = sum(Volume, na.rm = TRUE),
-#                Total_Volume = ifelse(Total_Volume == 0, 1, Total_Volume),
-#                CallPhase = Phase) %>% 
-#         filter(EventCode == 1) %>%
-#         
-#         
-#         group_by(SignalID, CallPhase, 
-#                  Hour = date_trunc('hour', CycleStart)) %>%
-#         summarize(vol = sum(Total_Volume, na.rm = TRUE),
-#                   aog = sum(Volume, na.rm = TRUE)/sum(Total_Volume, na.rm = TRUE)) %>%
-#         collect %>% 
-#         ungroup() %>%
-#         
-#         mutate(SignalID = factor(SignalID),
-#                vol = as.integer(vol),
-#                CallPhase = factor(CallPhase),
-#                Date_Hour = lubridate::ymd_hms(Hour),
-#                Date = date(Date_Hour),
-#                DOW = wday(Date), 
-#                Week = week(Date)) %>%
-#         #ungroup() %>%
-#         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, aog, vol)
-#     
-#     # SignalID | CallPhase | Date_Hour | Date | Hour | aog | vol
-# }
 
 get_daily_aog <- function(aog) {
     
@@ -3162,42 +3028,6 @@ get_det_uptime_from_manual_xl <- function(bucket, key, corridors) {
         arrange(Zone_Group, Zone, Corridor)
 }
 
-# get_det_uptime_from_manual_xl_older <- function(fn, date_string) {
-#     
-#     aws.s3::save_object(glue('manual_veh_ped_uptime/{fn}'), bucket = 'gdot-spm')
-#     
-#     xl <- readxl::read_excel(fn) %>% 
-#         dplyr::select(
-#             Corridor, 
-#             `Detector Type`, 
-#             `Total # of Detectors`, 
-#             `# of Operational Detectors`
-#         ) %>%
-#         fill(Corridor) %>%
-#         mutate_all(stringi::stri_trim) %>%
-#         mutate(Zone_Group = case_when(
-#             startsWith(as.character(Corridor), "Z1") ~ "RTOP1",
-#             startsWith(as.character(Corridor), "Z2") ~ "RTOP1",
-#             startsWith(as.character(Corridor), "Z3") ~ "RTOP1",
-#             TRUE ~ "RTOP2")
-#         ) %>%
-#         transmute(xl_Corridor = Corridor,
-#                   Corridor = factor(get_corridor_name(Corridor)),
-#                   Zone_Group = Zone_Group,
-#                   Month = ymd(date_string),
-#                   Type = factor(`Detector Type`),
-#                   up = as.integer(`# of Operational Detectors`),
-#                   num = as.integer(`Total # of Detectors`),
-#                   uptime = as.double(up)/num) %>% 
-#         group_by(Corridor, Zone_Group, Month, Type) %>% 
-#         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
-#                   up = sum(up, na.rm = TRUE),
-#                   num = sum(num, na.rm = TRUE)) %>%
-#         ungroup() %>%
-#         dplyr::select(Zone_Group, Corridor, Month, Type, up, num, uptime)
-#     file.remove(fn)
-#     xl
-# }
 get_cor_monthly_xl_uptime <- function(df, corridors) {
     
     # By Corridor
@@ -3260,7 +3090,6 @@ get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE)) #%>%
     #get_cor_monthly_xl_uptime()
 }
-
 
 
 # Cross filter Daily Volumes Chart. For Monthly Report ------------------------
@@ -3456,42 +3285,6 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
         dplyr::select(-lag_)
 }
 
-# Activities
-# tidy_teams <- function(df) {
-#     
-#     # set unique id based on creation date, time, lat/long
-#     df$cdn <- sapply(lapply(as.character(df$`Created by`), charToRaw), function(x) sum(as.numeric(x), na.rm = TRUE))
-#     df$id <- as.numeric(mdy_hms(df$`Created on`))/1e8 + df$cdn + abs(df$Latitude) + abs(df$Longitude)
-#     
-#     df %>% distinct() %>%
-#         
-#         
-#         mutate(`Task Type` = ifelse(`Task Type` == "- Preventative Maintenance", "04 - Preventative Maintenance", `Task Type`),
-#                `Task Source` = ifelse(`Task Source` == "P Program", "RTOP Program", `Task Source`),
-#                `Task Subtype` = ifelse(`Task Subtype` == "ection Check", "Detection Check", `Task Subtype`),
-#                Priority = ifelse(Priority == "mal", "Normal", Priority)) %>%
-#         
-#         
-#         #unite(Location, `Location Groups`, County, sep = "-") %>%
-#         transmute(Id = id,
-#                   Task_Type = factor(`Task Type`),
-#                   Task_Subtype = factor(`Task Subtype`),
-#                   Task_Source = factor(`Task Source`),
-#                   Priority = factor(Priority),
-#                   Status = factor(Status),
-#                   #Corridor = get_corridor_name(Location),
-#                   #Location = factor(Location),
-#                   `Created on` = `Created on`,
-#                   `Date Reported` = `Date Reported`,
-#                   `Date Resolved` = `Date Resolved`,
-#                   `Time To Resolve In Days` = `Time To Resolve In Days`,
-#                   Maintained_by = ifelse(
-#                       grepl(pattern = "District 1", `Maintained by`), "D1",
-#                       ifelse(grepl(pattern = "District 6", `Maintained by`), "D6",
-#                              ifelse(grepl(pattern = "Consultant|GDOT", `Maintained by`), "D6",
-#                                     as.character(`Maintained by`))))) %>%
-#         filter(!is.na(`Date Reported`)) %>% as_tibble()
-# }
 
 # ----- TEAMS Tasks Functions -------------------------------------------------
 
@@ -4026,18 +3819,6 @@ get_outstanding_tasks_by_day_range <- function(teams, report_start_date, first_o
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 get_outstanding_events <- function(teams, group_var, spatial_grouping="Zone_Group") {
     
     # group_var is either All, Type, Subtype, ...
@@ -4315,10 +4096,6 @@ readRDS_multiple <- function(pattern) {
 #         })
 #     }
 # }
-
-
-
-
 
 
 
