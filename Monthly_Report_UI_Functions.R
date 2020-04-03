@@ -34,7 +34,7 @@ suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
 #suppressMessages(library(RAthena))
-#suppressMessages(library(shinycssloaders))
+suppressMessages(library(shinycssloaders))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -729,7 +729,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                  "<b>{Description}</b>",
                                  "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                              hovertemplate = "%{customdata}",
-                             hoverlabel = list(font = list(family = "Open Sans"))
+                             hoverlabel = list(font = list(family = "Source Sans Pro"))
         ) %>% partial_bundle() %>%
             layout(
                 barmode = "overlay",
@@ -774,7 +774,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          "<br>Week of: <b>{format(Date, '%B %e, %Y')}</b>",
                                          "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                                      hovertemplate = "%{customdata}",
-                                     hoverlabel = list(font = list(family = "Open Sans"))
+                                     hoverlabel = list(font = list(family = "Source Sans Pro"))
         ) %>% partial_bundle() %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(tickformat = tickformat_,
@@ -816,7 +816,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                               "<br>Hour: <b>{format(Hour, '%l:%M %p')}</b>",
                               "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                           hovertemplate = "%{customdata}",
-                          hoverlabel = list(font = list(family = "Open Sans"))
+                          hoverlabel = list(font = list(family = "Source Sans Pro"))
                 ) %>% partial_bundle() %>%
                 layout(xaxis = list(title = x_line2_title),
                        yaxis = list(tickformat = tickformat_),
@@ -919,7 +919,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                          "<br>Travel Time Index: <b>{var_fmt(tti)}</b>",
                          "<br>Planning Time Index: <b>{var_fmt(pti)}</b>")),
                      hovertemplate = "%{customdata}",
-                     hoverlabel = list(font = list(family = "Open Sans"))
+                     hoverlabel = list(font = list(family = "Source Sans Pro"))
             ) %>%
             add_bars(x = ~bti,
                      y = ~factor(Corridor, levels = Corridor),
@@ -949,7 +949,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br><b>{format(Month, '%B %Y')}</b>",
                           "<br>Travel Time Index: <b>{var_fmt(tti)}</b>")),
                       hovertemplate = "%{customdata}",
-                      hoverlabel = list(font = list(family = "Open Sans"))
+                      hoverlabel = list(font = list(family = "Source Sans Pro"))
             ) %>% partial_bundle() %>%
             layout(xaxis = list(title = "Travel Time Index (TTI"),
                    yaxis = list(range = c(1, mo_max),
@@ -966,7 +966,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br>Hour: <b>{format(Hour, '%l:%M %p')}</b>",
                           "<br>Travel Time Index: <b>{var_fmt(tti)}</b>")),
                       hovertemplate = "%{customdata}",
-                      hoverlabel = list(font = list(family = "Open Sans"))
+                      hoverlabel = list(font = list(family = "Source Sans Pro"))
             ) %>% partial_bundle() %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(range = c(1, hr_max),
@@ -983,7 +983,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br><b>{format(Month, '%B %Y')}</b>",
                           "<br>Planning Time Index: <b>{var_fmt(pti)}</b>")),
                       hovertemplate = "%{customdata}",
-                      hoverlabel = list(font = list(family = "Open Sans"))) %>% partial_bundle() %>%
+                      hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% partial_bundle() %>%
             layout(xaxis = list(title = "Planning Time Index (PTI)"),
                    yaxis = list(range = c(1, mo_max),
                                 tickformat = tickformat),
@@ -999,7 +999,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br>Hour: <b>{format(Hour, '%l:%M %p')}</b>",
                           "<br>Planning Time Index: <b>{var_fmt(pti)}</b>")),
                       hovertemplate = "%{customdata}",
-                      hoverlabel = list(font = list(family = "Open Sans"))
+                      hoverlabel = list(font = list(family = "Source Sans Pro"))
             ) %>% partial_bundle() %>%
             layout(xaxis = list(title = x_line2_title),
                    yaxis = list(range = c(1, hr_max),
