@@ -1404,6 +1404,7 @@ renderPlotly({
     mr_wk_tp <- mr()$wk$tp
     mr_mo_tp <- mr()$mo$tp
     current_month_ <- current_month()
+    zone_group_ <- zone_group()
     input_month <- input$month
         
     #future({
