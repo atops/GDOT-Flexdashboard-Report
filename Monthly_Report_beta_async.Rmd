@@ -1552,7 +1552,8 @@ fillCol(
             fill_color_ = LIGHT_ORANGE,
             goal_ = goal$cu)
         })
-    }),renderPlotly({ 
+    }),
+    renderPlotly({ 
         data.set <- filter(mr()$mo$pau, Corridor==zone_group() & Month <= current_month())
         shiny::validate(need(nrow(data.set) > 0, "No Data"))
         future({
