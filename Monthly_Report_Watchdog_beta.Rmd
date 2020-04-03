@@ -40,6 +40,14 @@ source("Monthly_Report_UI_Functions.R")
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
 
+# alerts %<-% (aws.s3::s3read_using(
+#     qs::qread,
+#     object = "mark/watchdog_new/alerts.qs", 
+#     bucket = "gdot-spm",
+#     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+#                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)) %>% 
+#         filter(!SignalID %in% c(9801, 9970, 9825, 9855))) # Temporary until the config can be sorted out
+
 
 
 ```
@@ -196,10 +204,12 @@ filtered_corridors <- reactive({
 })
 
 
-
-
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
+filtered_signalids <- reactive({
+    x <- filtered_corridors() %>% 
+        filter(as.integer(as.character(SignalID)) > 0) %>%
+        arrange(as.integer(as.character(SignalID)))
+    paste0(x$SignalID, ": ", x$Name)
+})
 
 
 mr_str <- reactive(
@@ -244,11 +254,6 @@ mr_str <- reactive(
 # renderText({"conf"})
 # renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
 
-
-
-
-filtered_signalids <- reactive(paste0(filtered_corridors()$SignalID, ": ",
-                                      filtered_corridors()$Name))
 
 #renderText({"Mode:"})
 #renderPrint({conf_mode})
@@ -475,7 +480,7 @@ fillCol(height = 100,
     fluidRow(
         column(width = 4,
         renderUI(selectInput("signalid", "Select Signal:",
-                    choices = c("Select", filtered_signalids()[!startsWith(filtered_signalids(), "-1")]),
+                    choices = c("Select", filtered_signalids()),
                     selected = "",
                     width = "800px"))),
         column(width = 1,
