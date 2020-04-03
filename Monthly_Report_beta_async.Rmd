@@ -197,7 +197,9 @@ filtered_corridors <- reactive({
 
 
 filtered_signalids <- reactive({
-    x <- filtered_corridors() %>% filter(as.integer(as.character(SignalID)) > 0)
+    x <- filtered_corridors() %>% 
+        filter(as.integer(as.character(SignalID)) > 0) %>%
+        arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
 })
 
@@ -290,7 +292,7 @@ renderValueBox({
     current_month_ <- current_month()
   
     
-    future({
+    #future({
         valueBox(
             value = get_valuebox(
                 mr_mo_tp, 
@@ -303,7 +305,7 @@ renderValueBox({
             icon = "fa-bar-chart",
             color = BLUE
         )
-    })
+    #})
 })
 ```
 
@@ -315,7 +317,7 @@ renderValueBox({
     zone_group_ <- zone_group()
     current_month_ <- current_month()
   
-    future({
+    #future({
         valueBox(
             value = get_valuebox(
                 mr_mo_aogd, 
@@ -327,7 +329,7 @@ renderValueBox({
             icon = "fa-car",
             color = BLUE
         )
-    })
+    #})
 })
 ```
 
@@ -1907,7 +1909,7 @@ renderPlotly({
     zone_group_ <- zone_group()
     input_month <- input$month
     
-    future({
+    #future({
     get_bar_line_dashboard_plot(
         mr_wk_tp, 
         mr_mo_tp, 
@@ -1920,7 +1922,7 @@ renderPlotly({
         x_bar_title = paste(input_month, "Throughput (vph)"),
         x_line1_title = "Vehicles per Hour Trend",
         plot_title = "Throughput (peak veh/hr)")
-    })
+    #})
 })
 ```
 
@@ -1938,7 +1940,7 @@ renderPlotly({
     zone_group_ <- zone_group()
     input_month <- input$month
     
-    future({
+    #future({
     get_bar_line_dashboard_plot(
         mr_wk_aog, 
         mr_mo_aogd, 
@@ -1950,7 +1952,7 @@ renderPlotly({
         x_line1_title = "AOG Trend",
         x_line2_title = paste(input_month, "AOG by TOD"),
         plot_title = "Percent Arrivals on Green")
-})
+    #})
 })
 ```
 
@@ -2048,7 +2050,7 @@ renderPlotly({
     current_month_ <- current_month()
     zone_group_ <- zone_group() 
     
-    future({
+    #future({
         get_tt_plot(cor$mo$tti, cor$mo$ttih, 
                     cor$mo$pti, cor$mo$ptih,
                     month_ = current_month_,
@@ -2056,7 +2058,7 @@ renderPlotly({
                     x_bar_title = paste(input_month, "TTI & PTI"),
                     x_line1_title = paste(input_month, "TTI by hr"),
                     x_line2_title = paste(input_month, "PTI by hr"))
-    })
+    #})
 })
 ```
 
@@ -2281,7 +2283,7 @@ renderPlotly({
     input_month <- input$month
     
     if (zone_group() == "All RTOP") {
-        future({
+        #future({
         get_bar_line_dashboard_plot(
             cor$wk$du,
             cor$mo$du,
@@ -2293,18 +2295,18 @@ renderPlotly({
             x_bar_title = paste(input_month, "Detector Uptime (%)"),
             x_line1_title = "Detector Uptime Trend",
             plot_title = "Detector Uptime")
-        })
+        #})
        
     } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
 
-        future({
+        #future({
         get_cor_det_uptime_plot(
             mr_dy_du, 
             mr_mo_du,
             month_name = input_month,
             month_ = current_month_, 
             zone_group_ = zone_group_)
-        })
+        #})
     } else {
         
         get_uptime_plot(
@@ -2339,7 +2341,7 @@ renderPlotly({
     
     if (zone_group() == "All RTOP") {
      
-        future({
+        #future({
         get_bar_line_dashboard_plot(
             cor$wk$pau,
             cor$mo$pau,
@@ -2351,7 +2353,7 @@ renderPlotly({
             x_bar_title = paste(input_month, "Ped Detector Uptime (%)"),
             x_line1_title = "Ped Detector Uptime Trend",
             plot_title = "Ped Detector Uptime")
-        })
+        #})
        
     } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
@@ -2365,19 +2367,19 @@ renderPlotly({
         })
     } else {
         
-      future({
-      get_uptime_plot(
-            sig$dy$pau, 
-            sig$mo$pau, 
-            var_ = "uptime", 
-            num_format = "percent", 
-            month_ = current_month_, 
-            zone_group_ = zone_group_,
-            x_bar_title = "Current Month Uptime",
-            x_line1_title = "Daily Uptime",
-            plot_title = "",
-            goal = NULL)
-      })
+        #future({
+        get_uptime_plot(
+              sig$dy$pau, 
+              sig$mo$pau, 
+              var_ = "uptime", 
+              num_format = "percent", 
+              month_ = current_month_, 
+              zone_group_ = zone_group_,
+              x_bar_title = "Current Month Uptime",
+              x_line1_title = "Daily Uptime",
+              plot_title = "",
+              goal = NULL)
+        #})
     }
 })
 ```
@@ -2415,7 +2417,7 @@ renderPlotly({
     input_month <- input$month
   
     if (corridor() == "All Corridors") {
-        future({
+        #future({
         get_bar_line_dashboard_plot(cor$wk$cctv,
                                     cor$mo$cctv,
                                     var_ = "uptime",
@@ -2426,14 +2428,14 @@ renderPlotly({
                                     x_bar_title = paste(input_month, "CCTV Uptime"),
                                     x_line1_title = "CCTV Uptime Trend",
                                     plot_title = "CCTV Uptime")
-        })
+        #})
     } else {
         
-        future({
+        #future({
         plot_individual_cctvs(sig$dy$cctv, 
                               month_ = current_month_, 
                               zone_group_ = zone_group_)
-        })
+        #})
     }
     
 })
@@ -2458,7 +2460,7 @@ renderPlotly({
   
     if (zone_group() == "All RTOP") {
      
-        future({
+        #future({
         get_bar_line_dashboard_plot(
             cor$wk$cu,
             cor$mo$cu,
@@ -2470,20 +2472,20 @@ renderPlotly({
             x_bar_title = paste(input_month, "Comm Uptime (%)"),
             x_line1_title = "Comm Uptime Trend",
             plot_title = "Comm Uptime")
-        })
+        #})
        
     } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
         
-        future({
+        #future({
         get_cor_comm_uptime_plot(mr_dy_cu,
                                  mr_mo_cu,
                                  month_name = input_month,
                                  month_ = current_month_,
                                  zone_group_ = zone_group_)
-        })
+        #})
     } else {
         
-        future({
+        #future({
         get_uptime_plot(sig$dy$cu, 
                         sig$mo$cu, 
                         var_ = "uptime", 
@@ -2494,7 +2496,7 @@ renderPlotly({
                         x_line1_title = "Daily Uptime",
                         plot_title = "",
                         goal = NULL)
-        })
+        #})
     }
 })
 ```
