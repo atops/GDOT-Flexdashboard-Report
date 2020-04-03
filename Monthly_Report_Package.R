@@ -1479,11 +1479,9 @@ tryCatch({
             Detector = factor(detector),
             Date = date(date)
         ) %>%
-        #filter(Date > today() - days(100)) %>%
         as_tibble() 
     
     det_config <- mclapply(sort(unique(bad_det$Date)), mc.cores = usable_cores, function(date_) {
-        #print(date_)
         get_det_config(date_) %>% 
             transmute(
                 SignalID, 
