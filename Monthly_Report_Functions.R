@@ -966,6 +966,24 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                               bucket = bucket,
                               table_name = "filtered_counts_1hr", 
                               athena_db = conf_athena$database)
+            
+            fc <- get_filtered_counts_3stream(
+                counts_1hr, 
+                interval = "1 hour")
+            s3_upload_parquet(fc$filtered_counts, date_, 
+                              fn = filtered_counts_1hr_fn, 
+                              bucket = bucket,
+                              table_name = "filtered_counts_1hr_new", 
+                              athena_db = conf_athena$database)
+            
+            s3_upload_parquet(fc$bad_detectors, date_, 
+                              fn = glue("bad_detectors_{date_}"), 
+                              bucket = bucket,
+                              table_name = "bad_detectors_new", 
+                              athena_db = conf_athena$database)
+            
+            
+            
         # } else { # empty data frame
         #     filtered_counts_1hr <- data.frame(
         #         SignalID = character(),
@@ -1041,76 +1059,6 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     #gc()
 }
 
-# revised version of get_filtered_counts.
-# get_filtered_counts_precountpriority <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
-#     
-#     counts <- counts %>%
-#         mutate(SignalID = factor(SignalID),
-#                Detector = factor(Detector),
-#                CallPhase = factor(CallPhase)) %>%
-#         filter(!is.na(CallPhase))
-#     
-#     # Identify detectors/phases from detector config file. Expand.
-#     #  This ensures all detectors are included in the bad detectors calculation.
-#     all_days <- unique(date(counts$Timeperiod))
-#     det_config <- lapply(all_days, function(d) {
-#         all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
-#         get_det_config(d) %>%
-#         #read_feather(glue("ATSPM_Det_Config_Good_{d}.feather")) %>% 
-#         #    transmute(SignalID = factor(SignalID), 
-#         #              Detector = factor(Detector), 
-#         #              CallPhase = factor(CallPhase)) %>% 
-#             expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods)
-#     }) %>% bind_rows() %>%
-#         transmute(SignalID = factor(SignalID),
-#                   Timeperiod = Timeperiod,
-#                   Detector = factor(Detector),
-#                   CallPhase = factor(CallPhase)) 
-#     
-#     
-#     expanded_counts <- full_join(det_config, counts) %>%
-#         transmute(SignalID = factor(SignalID), 
-#                   Date = date(Timeperiod),
-#                   Timeperiod = Timeperiod,
-#                   Detector = factor(Detector), 
-#                   CallPhase = factor(CallPhase),
-#                   vol = as.double(vol),
-#                   vol0 = if_else(is.na(vol), 0.0, vol)) %>%
-#         group_by(SignalID, CallPhase, Detector) %>% 
-#         arrange(SignalID, CallPhase, Detector, Timeperiod) %>% 
-#         mutate(delta_vol = vol0 - lag(vol0),
-#                Good = ifelse(is.na(vol) | 
-#                                  vol > 1000 | 
-#                                  is.na(delta_vol) | 
-#                                  abs(delta_vol) > 500 | 
-#                                  abs(delta_vol) == 0,
-#                              0, 1)) %>%
-#         dplyr::select(-vol0)
-#     
-#     # bad day = any of the following:
-#     #    too many bad hours (60%) based on the above criteria
-#     #    mean absolute change in hourly volume > 200 
-#     bad_days <- expanded_counts %>% 
-#         filter(hour(Timeperiod) >= 5) %>%
-#         group_by(SignalID, CallPhase, Detector, Date = date(Timeperiod)) %>% 
-#         summarize(Good = sum(Good, na.rm = TRUE), 
-#                   All = n(), 
-#                   Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-#                   mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>% 
-#         
-#         # manually calibrated
-#         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < 200, 1, 0))) %>%
-#         dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
-#     
-#     # counts with the bad days taken out
-#     filtered_counts <- left_join(expanded_counts, bad_days) %>%
-#         mutate(vol = if_else(Good_Day==1, vol, as.double(NA)),
-#                Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
-#                Hour = Month_Hour - months(month(Month_Hour) - 1))
-#     
-#     filtered_counts
-# }
-
 
 multicore_decorator <- function(FUN) {
     
@@ -1123,104 +1071,6 @@ multicore_decorator <- function(FUN) {
             bind_rows()
     }
 }
-# get_adjusted_counts_precountpriority <- function(filtered_counts) {
-#     
-#     usable_cores <- get_usable_cores()
-#     
-#     filtered_counts %>%
-#         split(.$SignalID) %>% mclapply(function(fc) {
-#             fc <- fc %>% 
-#                 mutate(DOW = wday(Timeperiod),
-#                        vol = as.double(vol))
-#             
-#             ph_contr <- fc %>%
-#                 group_by(SignalID, CallPhase, Timeperiod) %>% 
-#                 mutate(na.vol = sum(is.na(vol))) %>%
-#                 ungroup() %>% 
-#                 filter(na.vol == 0) %>% 
-#                 dplyr::select(-na.vol) %>% 
-#                 
-#                 # phase contribution factors--fraction of phase volume a detector contributes
-#                 group_by(SignalID, CallPhase, Detector) %>% 
-#                 summarize(vol = sum(vol, na.rm = TRUE)) %>% 
-#                 group_by(SignalID, CallPhase) %>% 
-#                 mutate(Ph_Contr = vol/sum(vol, na.rm = TRUE)) %>% 
-#                 dplyr::select(-vol) %>% ungroup()
-#             
-#             # fill in missing detectors from other detectors on that phase
-#             fc_phc <- left_join(fc, ph_contr, by = c("SignalID", "CallPhase", "Detector")) %>%
-#                 # fill in missing detectors from other detectors on that phase
-#                 group_by(SignalID, Timeperiod, CallPhase) %>%
-#                 mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
-#             
-#             fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
-#             
-#             #hourly volumes over the month to fill in missing data for all detectors in a phase
-#             mo_hrly_vols <- fc_phc %>%
-#                 group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
-#                 summarize(Hourly_Volume = median(vol, na.rm = TRUE)) %>%
-#                 ungroup()
-#             # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
-#             
-#             # fill in missing detectors by hour and day of week volume in the month
-#             left_join(fc_phc, mo_hrly_vols, by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>% 
-#                 ungroup() %>%
-#                 mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
-#                 
-#                 dplyr::select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
-#                 
-#                 filter(!is.na(vol))
-#         }, mc.cores = usable_cores) %>% bind_rows() #ceiling(parallel::detectCores()*1/3)
-# }
-# get_adjusted_counts_single_threaded <- function(filtered_counts) {
-#     
-#     filtered_counts <- mutate(filtered_counts, DOW = wday(Timeperiod))
-#     
-#     
-#     fc <- filtered_counts %>% 
-#         group_by(SignalID, CallPhase, Timeperiod) %>% 
-#         mutate(na.vol = sum(is.na(vol))) %>%
-#         ungroup() %>% 
-#         filter(na.vol == 0) %>% 
-#         dplyr::select(-na.vol)
-#     
-#     # phase contribution factors--fraction of phase volume a detector contributes
-#     ph_contr <- fc %>% 
-#         group_by(SignalID, CallPhase, Detector) %>% 
-#         summarize(vol = sum(vol, na.rm = TRUE)) %>% 
-#         group_by(SignalID, CallPhase) %>% 
-#         mutate(Ph_Contr = vol/sum(vol, na.rm = TRUE)) %>% 
-#         dplyr::select(-vol) %>% ungroup()
-#     
-#     # SignalID | CallPhase | Detector | Ph_Contr
-#     
-#     
-#     # fill in missing detectors from other detectors on that phase
-#     fc_phc <- left_join(filtered_counts, ph_contr) %>% 
-#         # fill in missing detectors from other detectors on that phase
-#         group_by(SignalID, Timeperiod, CallPhase) %>%
-#         mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
-#     
-#     fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
-#     
-#     #hourly volumes over the month to fill in missing data for all detectors in a phase
-#     mo_hrly_vols <- fc_phc %>%
-#         group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
-#         summarize(Hourly_Volume = median(vol, na.rm = TRUE)) %>%
-#         ungroup()
-#     # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
-#     
-#     # fill in missing detectors by hour and day of week volume in the month
-#     left_join(fc_phc, mo_hrly_vols) %>%
-#         ungroup() %>%
-#         mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
-#         
-#         dplyr::select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
-#         
-#         filter(!is.na(vol))
-#     
-#     # SignalID | CallPhase | Timeperiod | Detector | vol 
-# }
 
 
 ## -- --- Adds CountPriority from detector config file --------------------- -- ##
@@ -1348,6 +1198,101 @@ get_det_config_vol <- function(date_) {
         filter(CountPriority == minCountPriority)
 }
 
+
+# New version of get_filtered_counts from 4/2/2020.
+#  Considers three factors separately and fails a detector if any are flagged:
+#  Streak of 5 "flatlined" hours,
+#  Five hours exceeding max volume,
+#  Mean Absolute Deviation greater than a threshold
+get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+    
+    if (interval == "1 hour") {
+        max_volume <- 2000  # 1000 - increased on 3/19/2020 (down to 2000 on 3/31) to accommodate mainline ramp meters
+        max_delta <- 500
+        max_abs_delta <- 500  # 200 - increased on 3/24 to make less stringent
+        max_flat <- 5
+        hi_vol_pers <- 5
+    } else if (interval == "15 min") {
+        max_volume <- 500  #250 - increased on 3/19/2020 (down to 500 on 3/31) to accommodate mainline ramp meter detectors
+        max_delta <- 125
+        max_abs_delta <- 125  # 50 - increased on 3/24 to make less stringent
+        max_flat <- 20
+        hi_vol_pers <- 20
+    } else {
+        stop("interval must be '1 hour' or '15 min'")
+    }
+    
+    counts <- counts %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase)) %>%
+        filter(!is.na(CallPhase))
+    
+    # Identify detectors/phases from detector config file. Expand.
+    #  This ensures all detectors are included in the bad detectors calculation.
+    all_days <- unique(date(counts$Timeperiod))
+    det_config <- lapply(all_days, function(d) {
+        all_timeperiods <- seq(ymd_hms(paste(d, "00:00:00")), ymd_hms(paste(d, "23:59:00")), by = interval)
+        get_det_config(d) %>%
+            expand(nesting(SignalID, Detector, CallPhase),
+                   Timeperiod = all_timeperiods)
+        }) %>% bind_rows() %>%
+        transmute(SignalID = factor(SignalID),
+                  Timeperiod = Timeperiod,
+                  Detector = factor(Detector),
+                  CallPhase = factor(CallPhase))
+    
+    
+    expanded_counts <- full_join(det_config, counts, by = c("SignalID", "Timeperiod", "Detector", "CallPhase")) %>%
+        transmute(SignalID = factor(SignalID),
+                  Date = date(Timeperiod),
+                  Timeperiod = Timeperiod,
+                  Detector = factor(Detector),
+                  CallPhase = factor(CallPhase),
+                  vol = as.double(vol)) %>%
+        replace_na(list(vol = 0)) %>%
+        arrange(SignalID, CallPhase, Detector, Timeperiod) %>%
+        
+        group_by(SignalID, Date, CallPhase, Detector) %>%
+        mutate(delta_vol = vol - lag(vol),
+               vol_streak = if_else(hour(Timeperiod) < 5, -1, vol),
+               flatlined = streak_run(vol_streak),
+               flatlined = if_else(hour(Timeperiod) < 5, 0, as.double(flatlined)),
+               flat_flag = max(flatlined, na.rm = TRUE) > max_flat,
+               maxvol_flag = sum(vol > max_volume) > hi_vol_pers, 
+               mad_flag = mean(abs(delta_vol), na.rm=TRUE) > max_abs_delta) %>%
+        
+        ungroup() %>%
+        select(-vol_streak) 
+    
+    # bad day = any of the following:
+    #    flatlined for at least 5 hours (starting at 5am hour)
+    #    vol exceeds maximum allowed over 5 different hours
+    #    mean absolute delta exceeds 500
+    #  - or - 
+    #    flatlined for at least 20 15-min periods (starting at 5am)
+    #    vol exceeds maximum over 20 different 15-min periods
+    #    mean absolute delta exeeds 125
+    
+    bad_detectors <- expanded_counts %>%
+        group_by(
+            SignalID, Date, Detector, CallPhase) %>% 
+        summarize(
+            mad = as.integer(ceiling(mean(abs(delta_vol), na.rm = TRUE))), 
+            flat_strk = as.integer(max(flatlined)), 
+            max_vol = as.integer(max(vol, na.rm = TRUE)), 
+            flat_flag = max(flat_flag), 
+            maxvol_flag = max(maxvol_flag), 
+            mad_flag = max(mad_flag)) %>%
+        filter(flat_flag > 0 | maxvol_flag > 0 | mad_flag > 0)
+    
+    filtered_counts <- expanded_counts %>%
+        mutate(Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
+               Hour = Month_Hour - months(month(Month_Hour) - 1))
+    
+    list(filtered_counts = filtered_counts, 
+         bad_detectors = bad_detectors)
+}
 
 # Single threaded
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
