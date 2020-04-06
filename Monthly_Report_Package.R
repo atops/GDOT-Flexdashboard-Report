@@ -1297,8 +1297,9 @@ tryCatch({
                                    daily_cctv_uptime_encoders,
                                    by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", "CameraID", "Description", "Date"),
                                    suffix = c("_511", "_enc")
-    ) %>%
-        replace(is.na(.), 0) %>%
+        ) %>%
+        replace_na(list(up_enc = 0, num_enc = 0, uptime_enc = 0,
+                        up_511 = 0, num_511 = 0, uptime_511 = 0)) %>%
         select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, Date, up_511, up_enc) %>%
         mutate(uptime = up_511, 
                num = 1,
@@ -1611,7 +1612,7 @@ tryCatch({
         filter(Date > today() - months(9)) %>%
         left_join(cam_config, by = c("CameraID")) %>%
         filter(Date > As_of_Date) %>%
-        left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
+        #left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
         transmute(
             Zone_Group, 
             Zone,
@@ -1950,7 +1951,9 @@ tryCatch({
         "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, uptime, up),
+            select(Zone_Group, Corridor, Description, Date, uptime, up) %>%
+            mutate(Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
+                   Description = factor(Description)),
         "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
@@ -1991,7 +1994,9 @@ tryCatch({
         "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, uptime),
+            select(Zone_Group, Corridor, Description, Date, uptime) %>%
+            mutate(Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
+                   Description = factor(Description)),
         "ru" = sigify(readRDS("weekly_rsu_uptime.rds"), cor$wk$ru, corridors)
     )
     sig$mo <- list(
@@ -2042,7 +2047,9 @@ tryCatch({
         "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors) %>%
             select(Zone_Group, Corridor, Month, uptime, delta),
         "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Month, uptime, delta),
+            select(Zone_Group, Corridor, Description, Month, uptime, delta) %>%
+            mutate(Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
+                   Description = factor(Description)),
         "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
@@ -2069,9 +2076,9 @@ descs <- corridors %>%
 
 for (tab in c("vpd","papd","pd",
               "tp","aog","aogd","aogh","pr","prd","prh","qs","qsd","qsh","sf","sfd","sfh","sfo",
-              "du","cu","pau","ru")) {
+              "du","cu","pau","cctv","ru")) {
     print(tab)
-    if (tab %in% names(sig$mo)) {
+    if (tab %in% names(sig$mo) & tab != "cctv") {
         sig$mo[[tab]] <- sig$mo[[tab]] %>% 
             left_join(descs, by = c("Corridor" = "SignalID")) %>%
             mutate(
@@ -2086,7 +2093,7 @@ for (tab in c("vpd","papd","pd",
         cor$mo[[tab]] <- cor$mo[[tab]] %>% mutate(Description = Corridor)
     }
     
-    if (tab %in% names(sig$wk)) {
+    if (tab %in% names(sig$wk) & tab != "cctv") {
         sig$wk[[tab]] <- sig$wk[[tab]] %>% 
             left_join(descs, by = c("Corridor" = "SignalID")) %>%
             mutate(Description = coalesce(Description, Corridor),
