@@ -42,7 +42,8 @@ conn <- get_athena_connection(conf$athena)
 
 cam_config <- get_cam_config(
     object = conf$cctv_config_filename, 
-    bucket = conf$bucket)
+    bucket = conf$bucket,
+    corridors = all_corridors)
 
 # cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = conf$bucket) %>%
 #     rawToChar() %>%

@@ -733,7 +733,65 @@ get_corridor_name <- function(string) {
         TRUE ~ string)
 }
 
-get_cam_config <- function(object, bucket) {
+# New version on 4/5. To join with MaxView ID
+get_cam_config <- function(object, bucket, corridors) {
+    
+    cam_config0 <- aws.s3::s3read_using(
+        function(x) read_excel(x, range = "A1:K3280"), 
+        object = object, 
+        bucket = bucket) %>%
+        filter(!is.na(Corridor)) %>%
+        transmute(
+            CameraID = factor(CameraID), 
+            Location, 
+            Zone_Group, 
+            Zone,
+            Corridor = factor(Corridor), 
+            SignalID = factor(`MaxView ID`),
+            As_of_Date = date(As_of_Date)) %>%
+        distinct()
+    
+    corrs <- corridors %>%
+        select(SignalID, Zone_Group, Zone, Corridor, Subcorridor)
+    
+    cams <- cam_config0 %>% 
+        left_join(corrs, by=c("SignalID")) %>% 
+        filter(!(is.na(Zone.x) & is.na(Zone.y)))
+    
+    cams1 <- cams %>% filter(is.na(Zone.y)) %>% 
+        transmute(
+            CameraID,
+            Location,
+            Zone_Group = Zone_Group.x,
+            Zone = Zone.x,
+            Corridor = Corridor.x,
+            Subcorridor,
+            As_of_Date)
+    
+    cams2 <- cams %>% filter(!is.na(Zone.y)) %>% 
+        transmute(
+            CameraID,
+            Location,
+            Zone_Group = Zone_Group.y,
+            Zone = Zone.y,
+            Corridor = Corridor.y,
+            Subcorridor,
+            As_of_Date)
+    
+    bind_rows(cams1, cams2) %>%
+        mutate(
+            Description = paste(CameraID, Location, sep = ": "),
+            CameraID = factor(CameraID),
+            Zone_Group = factor(Zone_Group),
+            Zone = factor(Zone),
+            Corridor = factor(Corridor),
+            Subcorridor = factor(Subcorridor)) %>%
+        arrange(Zone_Group, Zone, Corridor, CameraID)
+    
+}
+
+# Working version. Before joining on MaxView ID
+get_cam_config_older <- function(object, bucket) {
     aws.s3::s3read_using(read_excel, object = object, bucket = bucket) %>%
         filter(!is.na(Corridor)) %>%
         transmute(
@@ -1925,11 +1983,12 @@ get_qs <- function(detection_events) {
 }
 
 
-get_daily_cctv_uptime <- function(table, cam_config) {
-    dbGetQuery(conn, sql(glue("select cameraid, date, size from gdot_spm.{table}"))) %>% 
+get_daily_cctv_uptime <- function(table, cam_config, report_start_date) {
+    dbGetQuery(conn, sql(glue(paste(
+            "select cameraid, date  from gdot_spm.{table}",
+            "where size > 0")))) %>% 
         transmute(CameraID = factor(cameraid),
-                  Date = date(date),
-                  Size = size) %>%
+                  Date = date(date)) %>%
         as_tibble() %>%
         
         # CCTV image size variance by CameraID and Date
@@ -1937,11 +1996,8 @@ get_daily_cctv_uptime <- function(table, cam_config) {
         
         # Expanded out to include all available cameras on all days
         #  up/uptime is 0 if no data
-        #daily_cctv_uptime <- read_feather(conf$cctv_parsed_filename) %>% #"parsed_cctv.feather"
-        filter(Date >= report_start_date,
-               Size > 0) %>%
+        filter(Date >= report_start_date) %>%
         mutate(up = 1, num = 1) %>%
-        dplyr::select(-Size) %>%
         distinct() %>%
         
         # Expanded out to include all available cameras on all days
@@ -1949,18 +2005,39 @@ get_daily_cctv_uptime <- function(table, cam_config) {
         
         mutate(uptime = up/num) %>%
         
-        left_join(dplyr::select(cam_config, -Location)) %>% 
-        filter(Date >= As_of_Date & Corridor != "") %>%
-        dplyr::select(-As_of_Date) %>%
+        right_join(cam_config, by="CameraID") %>% 
+        filter(Date >= As_of_Date) %>%
+        select(-Location, -As_of_Date) %>%
         mutate(CameraID = factor(CameraID),
-               Corridor = factor(Corridor))
+               Corridor = factor(Corridor),
+               Description = factor(Description))
 }
 
 get_rsu_uptime <- function(report_start_date) {
-    # rsu <- dbGetQuery(conn, sql(glue("select * from gdot_spm.rsu_uptime"))) %>%
-    rsu <- tbl(conn, sql("select * from gdot_spm.rsu_uptime")) %>%
+    
+    rsu_config <- s3read_using(
+        read_excel, 
+        bucket = "gdot-spm", 
+        object = "GDOT_RSU.xlsx"
+    ) %>% 
+        filter(`Powered ON` == "X")
+    
+    # rsu <- dbGetQuery(conn, sql(glue("select signalid, date, uptime, count from gdot_spm.rsu_uptime"))) %>%
+    rsu <- tbl(conn, sql("select signalid, date, uptime, count from gdot_spm.rsu_uptime")) %>%
         filter(Date >= report_start_date) %>%  # date_parse(report_start_date, "%Y-%m-%d")) %>%
         collect() %>%
+        filter(signalid %in% rsu_config$SignalID)
+    
+    start_dates <- rsu %>% 
+        filter(uptime == 1) %>% 
+        group_by(signalid) %>% 
+        summarize(start_date = min(date))
+    
+    rsu %>% 
+        left_join(start_dates, by = c("signalid")) %>% 
+        filter(date >= start_date) %>%
+        arrange(signalid, date) %>%
+    
         transmute(
             SignalID = factor(signalid), 
             Date = ymd(date), 
@@ -2202,11 +2279,11 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
     df %>% mutate(Week = week(Date)) %>%
         dplyr::select(-Date) %>%
         left_join(Tuesdays, by = c("Week")) %>%
-        group_by(CameraID, Corridor, Week) %>% 
+        group_by(CameraID, Zone_Group, Zone, Corridor, Subcorridor, Description, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
                   !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
         
-        group_by(CameraID, Corridor, Week) %>% 
+        group_by(CameraID, Zone_Group, Zone, Corridor, Subcorridor, Description, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
                   !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
         
@@ -2214,7 +2291,7 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
         left_join(Tuesdays) %>%
-        dplyr::select(CameraID, Date, Week, !!var_, !!wt_, delta, Corridor)
+        dplyr::select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, Date, Week, !!var_, !!wt_, delta)
     
     # SignalID | Date | vpd
 }
