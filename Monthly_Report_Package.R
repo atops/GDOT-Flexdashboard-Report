@@ -1286,8 +1286,8 @@ if (TRUE==FALSE) {
 
 tryCatch({
     
-    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime", cam_config)
-    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders", cam_config)
+    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime", cam_config, report_start_date)
+    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders", cam_config, report_start_date)
     
     # up:
     #   2-on 511 (dark brown)
@@ -1295,16 +1295,20 @@ tryCatch({
     #   0-not working on either (gray)
     daily_cctv_uptime <- full_join(daily_cctv_uptime_511,
                                    daily_cctv_uptime_encoders,
-                                   by = c("Corridor", "CameraID", "Date"),
+                                   by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", "CameraID", "Description", "Date"),
                                    suffix = c("_511", "_enc")
     ) %>%
         replace(is.na(.), 0) %>%
-        select(Corridor, CameraID, Date, up_511, up_enc) %>%
+        select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, Date, up_511, up_enc) %>%
         mutate(uptime = up_511, 
                num = 1,
                up = pmax(up_511 * 2, up_enc),
+               Zone_Group = factor(Zone_Group),
+               Zone = factor(Zone),
                Corridor = factor(Corridor),
-               CameraID = factor(CameraID))
+               Subcorridor = factor(Subcorridor),
+               CameraID = factor(CameraID),
+               Description = factor(Description))
     
     
     # Find the days where uptime across the board is very low (close to 0)
@@ -1318,20 +1322,45 @@ tryCatch({
         ) %>%
         filter(suptime < 0.2)
     
+    weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
+
     monthly_cctv_uptime <- daily_cctv_uptime %>%
-        group_by(Corridor, CameraID, Month = floor_date(Date, unit = "months")) %>%
+        group_by(
+            Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, 
+            Month = floor_date(Date, unit = "months")) %>%
         summarize(up = sum(uptime), uptime = weighted.mean(uptime, num), num = sum(num)) %>%
         ungroup()
     
     cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
-        daily_cctv_uptime,
-        all_corridors, "uptime", "num"
-    )
+        daily_cctv_uptime, all_corridors, "uptime", "num")
+
+    cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(
+        weekly_cctv_uptime, all_corridors, "uptime", "num")
+
+    cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(
+        monthly_cctv_uptime, all_corridors, "uptime", "num")
     
-    weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
     
-    cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(weekly_cctv_uptime, all_corridors, "uptime", "num")
-    cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(monthly_cctv_uptime, all_corridors, "uptime", "num")
+    sub_daily_cctv_uptime <- daily_cctv_uptime %>% 
+        select(-Zone_Group) %>%
+        rename(Zone_Group = Zone,
+               Zone = Corridor,
+               Corridor = Subcorridor) %>%
+        get_cor_weekly_avg_by_day(subcorridors, "uptime", "num")
+    
+    sub_weekly_cctv_uptime <- weekly_cctv_uptime %>%
+        select(-Zone_Group) %>%
+        rename(Zone_Group = Zone,
+               Zone = Corridor,
+               Corridor = Subcorridor) %>%
+        get_cor_weekly_avg_by_day(subcorridors, "uptime", "num")
+    
+    sub_monthly_cctv_uptime <- monthly_cctv_uptime %>%
+        select(-Zone_Group) %>%
+        rename(Zone_Group = Zone,
+               Zone = Corridor,
+               Corridor = Subcorridor) %>%
+        get_cor_monthly_avg_by_day(subcorridors, "uptime", "num")
     
     
     saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
@@ -1341,6 +1370,10 @@ tryCatch({
     saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
     saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
     saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
+    
+    saveRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds")
+    saveRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds")
+    saveRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds")
     
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1629,8 +1662,12 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     } else if (identifier == "CameraID") {
         corridors <- rename(corridors, Name = Location)
         df_ <- df %>%
+            select(-matches("Subcorridor"),
+                   -matches("Zone_Group")) %>%
             left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID")) %>%
-            rename(Zone_Group = Corridor, Corridor = CameraID) %>%
+            rename(
+                Zone_Group = Corridor, 
+                Corridor = CameraID) %>%
             ungroup() %>%
             mutate(Corridor = factor(Corridor))
     } else {
@@ -1639,8 +1676,9 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     
     cor_df_ <- cor_df %>%
         filter(Corridor %in% unique(df_$Zone_Group)) %>%
-        mutate(Zone_Group = Corridor)
-    
+        mutate(Zone_Group = Corridor) %>%
+        select(-matches("Subcorridor"))
+
     br <- bind_rows(df_, cor_df_) %>%
         mutate(Corridor = factor(Corridor))
     
@@ -1795,12 +1833,14 @@ tryCatch({
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = readRDS("sub_daily_pa_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime),
+        "cctv" = readRDS("sub_daily_cctv_uptime.rds") %>%
+            select(Zone_Group, Corridor, Date, uptime),
         
         # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$dy$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor) %>%
-            select(Zone_Group, Corridor, Date, uptime),
+        #"cctv" = cor$dy$cctv %>% 
+        #    filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
+        #    mutate(Zone_Group = Corridor) %>%
+        #    select(Zone_Group, Corridor, Date, uptime),
         "ru" = readRDS("sub_daily_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
@@ -1833,12 +1873,13 @@ tryCatch({
             select(Zone_Group, Corridor, Date, uptime),
         "pau" = readRDS("sub_weekly_pa_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime),
-        
-        # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$wk$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor) %>%
+        "cctv" = readRDS("sub_weekly_cctv_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime),
+        # temp until we choose to group cctv by subcorridor
+        #"cctv" = cor$wk$cctv %>% 
+        #    filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
+        #    mutate(Zone_Group = Corridor) %>%
+        #    select(Zone_Group, Corridor, Date, uptime),
         "ru" = readRDS("sub_weekly_rsu_uptime.rds") %>%
             select(Zone_Group, Corridor, Date, uptime)
     )
@@ -1868,11 +1909,11 @@ tryCatch({
         "du" = readRDS("sub_monthly_detector_uptime.rds"),
         "cu" = readRDS("sub_monthly_comm_uptime.rds"),
         "pau" = readRDS("sub_monthly_pa_uptime.rds"),
-        
+        "cctv" = readRDS("sub_monthly_cctv_uptime.rds"),
         # temp until we choose to group cctv by subcorridor
-        "cctv" = cor$mo$cctv %>% 
-            filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
-            mutate(Zone_Group = Corridor),
+        #"cctv" = cor$mo$cctv %>% 
+        #    filter(as.character(Zone_Group) != as.character(Corridor)) %>% 
+        #    mutate(Zone_Group = Corridor),
         "ru" = readRDS("sub_monthly_rsu_uptime.rds")
     )
     sub$qu <- list(
@@ -1909,7 +1950,7 @@ tryCatch({
         "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
             select(Zone_Group, Corridor, Date, uptime),
         "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-            select(Zone_Group, Corridor, Date, up),
+            select(Zone_Group, Corridor, Date, uptime, up),
         "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,

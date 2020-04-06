@@ -34,7 +34,7 @@ suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
 #suppressMessages(library(RAthena))
-suppressMessages(library(shinycssloaders))
+#suppressMessages(library(shinycssloaders))
     
 #plan(multiprocess)
 #plan(sequential)
@@ -1330,9 +1330,6 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
     plot_detector_uptime_bar <- function(df) {
         
         df <- df %>% 
-            #filter(Date - days(day(Date) -1) == month_) %>%
-            #group_by(Corridor, Zone_Group) %>%
-            #summarize(uptime = mean(uptime.all)) %>%
             rename(uptime = uptime) %>%
             arrange(uptime) %>% ungroup() %>%
             mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
@@ -1710,6 +1707,8 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
     row.names(m) <- spr$CameraID
     m <- round(m,0)
     
+    status <- c("Camera Down", "Working at encoder", "Working on 511")
+    
     plot_ly(x = colnames(m), 
             y = row.names(m), 
             z = m, 
@@ -1717,7 +1716,14 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
             type = "heatmap",
             #xgap = 1,
             ygap = 1,
-            showscale = FALSE) %>% partial_bundle() %>% 
+            showscale = FALSE,
+            name = "",
+            customdata = ~glue(paste(
+                "<b>{Description}</b>",
+                "<br>Status: <b>{status[z+1]}</b>")),
+            hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        partial_bundle() %>% 
         layout(yaxis = list(type = "category",
                             title = ""),
                margin = list(l = 150))
@@ -1760,7 +1766,15 @@ uptime_heatmap <- function(df_,
             colors = colorRamp(c("white", BLUE)),
             type = "heatmap",
             ygap = 1,
-            showscale = FALSE) %>% partial_bundle() %>% 
+            showscale = FALSE) %>% #,
+            
+            # name = "",
+            # customdata = ~glue(paste(
+            #     "<b>{Description}</b>",
+            #     "<br>Detectors Working: <b>{as_pct(z)}</b>")),
+            # hovertemplate = "%{customdata}",
+            # hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        partial_bundle() %>% 
         layout(yaxis = list(type = "category",
                             title = ""),
                showlegend = FALSE,
