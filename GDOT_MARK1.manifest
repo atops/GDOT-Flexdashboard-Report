@@ -8,6 +8,9 @@ Monthly_Report.yaml
 style.css
 AthenaJDBC42_2.0.9.jar
 google-analytics.html
-cor.rds
-sig.rds
-sub.rds
+cor.qs
+sig.qs
+sub.qs
+perf_plots.qs
+all_Corridors_Latest.feather
+

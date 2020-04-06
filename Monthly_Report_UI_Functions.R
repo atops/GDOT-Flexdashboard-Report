@@ -420,7 +420,7 @@ perf_plot_no_data_ <- function(name_) {
     ax <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
     ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
     
-    plot_ly(type = "scatter", mode = "markers") %>% partial_bundle() %>% 
+    plot_ly(type = "scatter", mode = "markers") %>% #partial_bundle() %>% 
         layout(xaxis = ax, 
                yaxis = ay,
                annotations = list(x = -.02,
@@ -479,32 +479,32 @@ perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
                       mode = 'lines')
     }
     p %>%
-        add_annotations(x = first$Month,
+        add_annotations(x = 0,
                         y = first$value,
                         text = format_func(first$value),
                         showarrow = FALSE,
                         xanchor = "right",
-                        xshift = -10) %>%
-        add_annotations(x = last$Month,
+                        xref = "paper",
+                        width = 50,
+                        align = "right",
+                        borderpad = 5) %>%
+        add_annotations(x = 1,
                         y = last$value,
                         text = format_func(last$value),
                         font = list(size = 16),
                         showarrow = FALSE,
                         xanchor = "left",
-                        xshift = 20) %>%
+                        xref = "paper",
+                        width = 60,
+                        align = "left",
+                        borderpad = 5) %>%
         layout(xaxis = ax,
                yaxis = ay,
-               # annotations = list(x = -.02,
-               #                    y = 0.4,
-               #                    xref = "paper",
-               #                    yref = "paper",
-               #                    xanchor = "right",
-               #                    text = name_,
-               #                    font = list(size = 12),
-               #                    showarrow = FALSE),
                showlegend = FALSE,
-               margin = list(l = 30, #120
-                             r = 30)) %>%
+               margin = list(l = 50, #120
+                             r = 60,
+                             t = 10,
+                             b = 10)) %>%
         plotly::config(displayModeBar = F)
 }
 perf_plot_beta <- memoise(perf_plot_beta_)
@@ -525,7 +525,7 @@ perf_plot_ <- function(data_, value_, name_, color_,
     first <- data_[which.min(data_$Month), ]
     last <- data_[which.max(data_$Month), ]
 
-    p <- plot_ly(type = "scatter", mode = "markers") %>% partial_bundle()
+    p <- plot_ly(type = "scatter", mode = "markers") %>% #partial_bundle()
 
     if (!is.null(goal_)) {
         p <- p %>%
@@ -576,7 +576,7 @@ perf_plot_ <- function(data_, value_, name_, color_,
 perf_plot <- memoise(perf_plot_)
 
 
-get_perf_plot_updates_ <- function(data.set, var_, name_, color_, 
+get_perf_plot_updates <- function(data.set, var_, name_, color_, 
                                   format_func = function(x) {x},
                                   hoverformat_ = ",.0f",
                                   zone_group_, month_) {
@@ -600,21 +600,32 @@ get_perf_plot_updates_ <- function(data.set, var_, name_, color_,
                                      zeroline = FALSE, 
                                      hoverformat = hoverformat_),
                         annotations = list(
-                            list(x = first$Month,
+                            list(x = 0,
                                  y = first[[var_]],
                                  text = format_func(first[[var_]]),
                                  showarrow = FALSE,
                                  xanchor = "right",
-                                 xshift = -10),
-                            list(x = last$Month,
+                                 xref = "paper",
+                                 width = 50,
+                                 align = "right",
+                                 borderpad = 5),
+                            
+                            list(x = 1,
                                  y = last[[var_]],
                                  text = format_func(last[[var_]]),
                                  font = list(size = 16),
                                  showarrow = FALSE,
                                  xanchor = "left",
-                                 xshift = 20)
+                                 xref = "paper",
+                                 width = 60,
+                                 align = "left",
+                                 borderpad = 5)
                         ),
-                        showlegend = FALSE)#,
+                        margin = list(l = 50, #120
+                                      r = 60,
+                                      t = 10,
+                                      b = 10),
+                        showlegend = FALSE)
     } else {
         traces <- list(list(x = NULL,  #unique(data.set$Month),
                             y = NULL,
@@ -632,7 +643,7 @@ get_perf_plot_updates_ <- function(data.set, var_, name_, color_,
     
     list(traces = traces, layouts = layouts)
 }
-get_perf_plot_updates <- memoise(get_perf_plot_updates_)
+#get_perf_plot_updates <- memoise(get_perf_plot_updates_)
 
 
 no_data_plot_ <- function(name_) {
@@ -730,7 +741,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                  "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                              hovertemplate = "%{customdata}",
                              hoverlabel = list(font = list(family = "Source Sans Pro"))
-        ) %>% partial_bundle() %>%
+        ) %>% #partial_bundle() %>%
             layout(
                 barmode = "overlay",
                 xaxis = list(title = x_bar_title, 
@@ -775,7 +786,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                                      hovertemplate = "%{customdata}",
                                      hoverlabel = list(font = list(family = "Source Sans Pro"))
-        ) %>% partial_bundle() %>%
+        ) %>% #partial_bundle() %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(tickformat = tickformat_,
                                 hoverformat = tickformat_),
@@ -817,11 +828,20 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                               "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
                           hovertemplate = "%{customdata}",
                           hoverlabel = list(font = list(family = "Source Sans Pro"))
-                ) %>% partial_bundle() %>%
+                ) %>% #partial_bundle() %>%
                 layout(xaxis = list(title = x_line2_title),
                        yaxis = list(tickformat = tickformat_),
                        title = "__plot2_title__",
-                       showlegend = FALSE)
+                       showlegend = FALSE) %>%
+                highlight(
+                    color = highlight_color_, 
+                    opacityDim = 0.9, 
+                    defaultValues = c(zone_group_),
+                    selected = attrs_selected(
+                        insidetextfont = list(color = "white"), 
+                        textposition = "auto"),
+                    on = "plotly_click",
+                    off = "plotly_doubleclick")
             
             ax0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
             p0 <- plot_ly(type="scatter", mode="markers") %>% layout(xaxis = ax0, yaxis = ax0)
@@ -927,7 +947,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                      color = I(LIGHT_BLUE),
                      textposition = "auto",
                      insidetextfont = list(color = "black"),
-                     hoverinfo = "none") %>% partial_bundle() %>%
+                     hoverinfo = "none") %>% #partial_bundle() %>%
             layout(
                 barmode = "stack",
                 xaxis = list(title = x_bar_title, 
@@ -950,7 +970,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br>Travel Time Index: <b>{var_fmt(tti)}</b>")),
                       hovertemplate = "%{customdata}",
                       hoverlabel = list(font = list(family = "Source Sans Pro"))
-            ) %>% partial_bundle() %>%
+            ) %>% #partial_bundle() %>%
             layout(xaxis = list(title = "Travel Time Index (TTI"),
                    yaxis = list(range = c(1, mo_max),
                                 tickformat = tickformat),
@@ -967,7 +987,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br>Travel Time Index: <b>{var_fmt(tti)}</b>")),
                       hovertemplate = "%{customdata}",
                       hoverlabel = list(font = list(family = "Source Sans Pro"))
-            ) %>% partial_bundle() %>%
+            ) %>% #partial_bundle() %>%
             layout(xaxis = list(title = x_line1_title),
                    yaxis = list(range = c(1, hr_max),
                                 tickformat = tickformat),
@@ -983,7 +1003,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br><b>{format(Month, '%B %Y')}</b>",
                           "<br>Planning Time Index: <b>{var_fmt(pti)}</b>")),
                       hovertemplate = "%{customdata}",
-                      hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% partial_bundle() %>%
+                      hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% #partial_bundle() %>%
             layout(xaxis = list(title = "Planning Time Index (PTI)"),
                    yaxis = list(range = c(1, mo_max),
                                 tickformat = tickformat),
@@ -1000,7 +1020,7 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
                           "<br>Planning Time Index: <b>{var_fmt(pti)}</b>")),
                       hovertemplate = "%{customdata}",
                       hoverlabel = list(font = list(family = "Source Sans Pro"))
-            ) %>% partial_bundle() %>%
+            ) %>% #partial_bundle() %>%
             layout(xaxis = list(title = x_line2_title),
                    yaxis = list(range = c(1, hr_max),
                                 tickformat = tickformat),
@@ -1111,7 +1131,7 @@ get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle,
                      text = ~scales::comma_format()(as.integer(vph)),
                      textposition = "inside",
                      textfont = list(color = "black"),
-                     hoverinfo = "none") %>% partial_bundle() %>%
+                     hoverinfo = "none") %>% #partial_bundle() %>%
             layout(
                 barmode = "overlay",
                 xaxis = list(title = bar_subtitle, zeroline = FALSE),
@@ -1121,7 +1141,7 @@ get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle,
                 margin = list(pad = 4)
             )
         p2 <- base %>%
-            add_lines(x = ~Month, y = ~vph, alpha = 0.6) %>% partial_bundle() %>%
+            add_lines(x = ~Month, y = ~vph, alpha = 0.6) %>% #partial_bundle() %>%
             layout(xaxis = list(title = "Date"),
                    showlegend = FALSE,
                    annotations = list(text = chart_title,
@@ -1242,7 +1262,7 @@ det_uptime_bar_plot_ <- function(df, xtitle, month_) {
                  textposition = "inside",
                  textfont = list(color = "white"),
                  hoverinfo = "y+x",
-                 showlegend = FALSE) %>% partial_bundle() %>%
+                 showlegend = FALSE) %>% #partial_bundle() %>%
         layout(
             barmode = "overlay",
             xaxis = list(title = xtitle,
@@ -1267,7 +1287,7 @@ det_uptime_line_plot_ <- function(df, corr, showlegend_) {
                   color = ~C,
                   colors = cols,
                   legendgroup = ~C,
-                  showlegend = showlegend_) %>% partial_bundle() %>%
+                  showlegend = showlegend_) %>% #partial_bundle() %>%
         layout(yaxis = list(title = "",
                             range = c(0, 1.1),
                             tickformat = "%"),
@@ -1312,7 +1332,7 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
                       color = I(LIGHT_RED),
                       name = "Goal (95%)",
                       legendgroup = "Goal",
-                      showlegend = showlegend_) %>% partial_bundle() %>%
+                      showlegend = showlegend_) %>% #partial_bundle() %>%
             layout(yaxis = list(title = "",
                                 range = c(0, 1.1),
                                 tickformat = "%"),
@@ -1343,8 +1363,14 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
                 text = ~as_pct(uptime),
                 textposition = "auto",
                 insidetextfont = list(color = "black"),
-                hoverinfo = "y+x",
-                showlegend = FALSE) %>%
+                #hoverinfo = "y+x",
+                showlegend = FALSE,
+                name = "",
+                customdata = ~glue(paste(
+                 "<b>{Description}</b>",
+                 "<br>Uptime: <b>{as_pct(uptime)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro"))) %>%
             add_lines(x = ~0.95,
                       y = ~Corridor,
                       mode = "lines",
@@ -1352,7 +1378,7 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
                       color = I(LIGHT_RED),
                       name = "Goal (95%)",
                       legendgroup = "Goal",
-                      showlegend = FALSE) %>% partial_bundle() %>%
+                      showlegend = FALSE) %>% #partial_bundle() %>%
             
             layout(
                 barmode = "overlay",
@@ -1415,7 +1441,7 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
                       color = I(LIGHT_RED),
                       name = "Goal (95%)",
                       legendgroup = "Goal",
-                      showlegend = showlegend_) %>% partial_bundle() %>%
+                      showlegend = showlegend_) %>% #partial_bundle() %>%
             layout(yaxis = list(title = "",
                                 range = c(0, 1.1),
                                 tickformat = "%"),
@@ -1445,8 +1471,15 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
                 text = ~as_pct(uptime),
                 textposition = "auto",
                 insidetextfont = list(color = "black"),
-                hoverinfo = "y+x",
-                showlegend = FALSE) %>%
+                #hoverinfo = "y+x",
+                showlegend = FALSE,
+                name = "",
+                customdata = ~glue(paste(
+                    "<b>{Description}</b>",
+                    "<br>Uptime: <b>{as_pct(uptime)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro"))) %>%
+            #partial_bundle() %>%
             add_lines(x = ~0.95,
                       y = ~Corridor,
                       mode = "lines",
@@ -1454,7 +1487,7 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
                       color = I(LIGHT_RED),
                       name = "Goal (95%)",
                       legendgroup = "Goal",
-                      showlegend = FALSE) %>% partial_bundle() %>%
+                      showlegend = FALSE) %>% #partial_bundle() %>%
             
             layout(
                 barmode = "overlay",
@@ -1522,7 +1555,7 @@ plot_teams_tasks_ <- function(tab, var_,
                  text = ~Reported, #  ~Rep,
                  textposition = textpos,
                  insidetextfont = list(size = 11, color = "black"),
-                 outsidetextfont = list(size = 11)) %>% partial_bundle() %>%
+                 outsidetextfont = list(size = 11)) %>% #partial_bundle() %>%
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
@@ -1537,7 +1570,7 @@ plot_teams_tasks_ <- function(tab, var_,
                  text = ~Resolved,  # ~Res,
                  textposition = textpos,
                  insidetextfont = list(size = 11, color = "white"),
-                 outsidetextfont = list(size = 11)) %>% partial_bundle() %>%
+                 outsidetextfont = list(size = 11)) %>% #partial_bundle() %>%
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
@@ -1552,7 +1585,7 @@ plot_teams_tasks_ <- function(tab, var_,
                  text = ~Outstanding, 
                  textposition = textpos, 
                  insidetextfont = list(size = 11, color = "white"),
-                 outsidetextfont = list(size = 11)) %>% partial_bundle() %>%
+                 outsidetextfont = list(size = 11)) %>% #partial_bundle() %>%
         layout(margin = list(l = 180),
                showlegend = FALSE,
                yaxis = list(title = ""),
@@ -1643,7 +1676,7 @@ cum_events_plot_ <- function(df) {
                   mode = 'markers', 
                   name = 'Outstanding',
                   marker = list(color = ORANGE),
-                  showlegend = FALSE) %>% partial_bundle() %>%
+                  showlegend = FALSE) %>% #partial_bundle() %>%
         layout(barmode = "group",
                yaxis = list(title = "Events"),
                xaxis = list(title = ""),
@@ -1698,12 +1731,12 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
         rename(CameraID = Corridor, 
                Corridor = Zone_Group) %>%
         #dplyr::select(-c(up_511, up_enc, num, uptime, Corridor, Name, delta, Week)) %>% 
-        dplyr::select(CameraID, Date, up) %>%
+        dplyr::select(CameraID, Description, Date, up) %>%
         distinct() %>% 
         spread(Date, up, fill = 0) %>%
         arrange(desc(CameraID))
     
-    m <- as.matrix(spr %>% dplyr::select(-CameraID))
+    m <- as.matrix(spr %>% dplyr::select(-CameraID, -Description))
     row.names(m) <- spr$CameraID
     m <- round(m,0)
     
@@ -1716,14 +1749,15 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
             type = "heatmap",
             #xgap = 1,
             ygap = 1,
-            showscale = FALSE,
-            name = "",
-            customdata = ~glue(paste(
-                "<b>{Description}</b>",
-                "<br>Status: <b>{status[z+1]}</b>")),
-            hovertemplate = "%{customdata}",
-            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-        partial_bundle() %>% 
+            showscale = FALSE) %>%
+            #name = "",
+            #customdata = ~glue(paste(
+            #    "<b>{spr$Description}</b>",
+            #    "<br>Status: <b>status[m+1]</b>")),
+            #customdata = apply(m, 1, as.list),
+            #hovertemplate = "%{customdata}",
+            #hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        #partial_bundle() %>% 
         layout(yaxis = list(type = "category",
                             title = ""),
                margin = list(l = 150))
@@ -1766,15 +1800,14 @@ uptime_heatmap <- function(df_,
             colors = colorRamp(c("white", BLUE)),
             type = "heatmap",
             ygap = 1,
-            showscale = FALSE) %>% #,
-            
-            # name = "",
-            # customdata = ~glue(paste(
-            #     "<b>{Description}</b>",
-            #     "<br>Detectors Working: <b>{as_pct(z)}</b>")),
-            # hovertemplate = "%{customdata}",
-            # hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-        partial_bundle() %>% 
+            showscale = FALSE) %>%
+            #name = "",
+            #customdata = ~glue(paste(
+            # "<b>{spr$SignalID}</b>",
+            # "<br>Detectors Working: <b>{apply(m, 2, as.list)}</b>")),
+            #hovertemplate = "%{customdata}",
+            #hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        #partial_bundle() %>% 
         layout(yaxis = list(type = "category",
                             title = ""),
                showlegend = FALSE,
@@ -1824,7 +1857,14 @@ get_uptime_plot_ <- function(daily_df,
                              marker = list(color = ~col),
                              text = ~var_fmt(var),
                              textposition = "auto",
-                             insidetextfont = list(color = "black")) %>% partial_bundle() %>%
+                             insidetextfont = list(color = "black"),
+                             name = "",
+                             customdata = ~glue(paste(
+                                 "<b>{Description}</b>",
+                                 "<br>Uptime: <b>{var_fmt(var)}</b>")),
+                             hovertemplate = "%{customdata}",
+                             hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+            #partial_bundle() %>%
             layout(
                 barmode = "overlay",
                 xaxis = list(title = x_bar_title, 
@@ -1924,7 +1964,7 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                         ymax = ~vol,
                         color = ~CallPhase,
                         colors = colrs,
-                        name = paste('Phase', dfi$CallPhase[1])) %>% partial_bundle() %>%
+                        name = paste('Phase', dfi$CallPhase[1])) %>% #partial_bundle() %>%
             layout(yaxis = yax,
                    annotations = list(x = -.05,
                                       y = 0.5,
@@ -1963,7 +2003,7 @@ perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%",
                     ymin = 0,
                     ymax = ~var, 
                     color = I(DARK_GRAY),
-                    line = list(shape = "vh")) %>% partial_bundle() %>%
+                    line = list(shape = "vh")) %>% #partial_bundle() %>%
         layout(yaxis = list(range = c(0, range_max),
                             tickformat = number_format),
                annotations = list(text = title,
@@ -1988,7 +2028,7 @@ perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format 
                         color = ~CallPhase,
                         colors = colrs,
                         name = paste('Phase', dfi$CallPhase[1]),
-                        line = list(shape = "vh")) %>% partial_bundle() %>%
+                        line = list(shape = "vh")) %>% #partial_bundle() %>%
             layout(yaxis = list(range = c(0, range_max),
                                 tickformat = number_format))
     }
@@ -2954,6 +2994,7 @@ get_corridor_summary_data <- function(cor, current_month) {
             -starts_with("cycles"),
             -starts_with("pct"),
             -starts_with("vol"),
+            -starts_with("Description"),
             -c(All,Reported,Resolved,cum_Reported,cum_Resolved,delta.rep,delta.res) #tasks added 10/29/19
         ) %>%
         rename(
