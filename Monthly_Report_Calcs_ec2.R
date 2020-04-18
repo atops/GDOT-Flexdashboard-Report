@@ -178,6 +178,7 @@ print(glue("{Sys.time()} counts-based measures [6 of 10]"))
 
 get_counts_based_measures <- function(month_abbrs) {
     lapply(month_abbrs, function(yyyy_mm) {
+        #yyyy_mm <- month_abbrs # for debugging
         gc()
 
         #-----------------------------------------------
@@ -234,20 +235,20 @@ get_counts_based_measures <- function(month_abbrs) {
                     print(glue("detectors: {date_}"))
                     bad_detectors <- get_bad_detectors(filtered_counts_1hr)
                     s3_upload_parquet_date_split(
-                        bad_detectors, 
-                        bucket = conf$bucket, 
-                        prefix = "bad_detectors", 
+                        bad_detectors,
+                        bucket = conf$bucket,
+                        prefix = "bad_detectors",
                         table_name = "bad_detectors",
                         athena_db = conf$athena$database)
     
-                    # DAILY DETECTOR UPTIME
+                    # # DAILY DETECTOR UPTIME
                     print(glue("ddu: {date_}"))
-                    daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>% 
+                    daily_detector_uptime <- get_daily_detector_uptime(filtered_counts_1hr) %>%
                         bind_rows()
                     s3_upload_parquet_date_split(
-                        daily_detector_uptime, 
-                        bucket = conf$bucket, 
-                        prefix = "ddu", 
+                        daily_detector_uptime,
+                        bucket = conf$bucket,
+                        prefix = "ddu",
                         table_name = "detector_uptime_pd",
                         athena_db = conf$athena$database)
                 }
@@ -318,7 +319,7 @@ get_counts_based_measures <- function(month_abbrs) {
                         Month_Hour = Month_Hour,
                         Hour = Hour,
                         vol = vol,
-                        Good = Good,
+                        #Good = Good,
                         Good_Day = Good_Day,
                         delta_vol = delta_vol,
                         mean_abs_delta = mean_abs_delta
@@ -493,17 +494,18 @@ get_sf_date_range <- function(start_date, end_date) {
     lapply(date_range, function(date_) {
     #foreach(date_ = date_range) %dopar% {
         print(date_)
-        cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
-        detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
-        if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(cycle_data))) > 0) {
-            sf <- get_sf_utah(cycle_data, detection_events)
+        #cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
+        #detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
+        #if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(detection_events))) > 0) {
+            #sf <- get_sf_utah(cycle_data, detection_events)
+            sf <- get_sf_utah(date_, conf$athena, signals_list)
             s3_upload_parquet_date_split(
                 sf, 
                 bucket = conf$bucket, 
                 prefix = "sf", 
                 table_name = "split_failures",
                 athena_db = conf$athena$database)
-        }
+        #}
     })
     registerDoSEQ()
     gc()
