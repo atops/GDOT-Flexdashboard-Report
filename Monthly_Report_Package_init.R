@@ -88,12 +88,14 @@ if (conf$calcs_start_date == "auto") {
 } else {
     calcs_start_date <- conf$calcs_start_date
 }
+wk_calcs_start_date <- ymd(calcs_start_date) - wday(ymd(calcs_start_date)) + 3
 
 dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
 month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
 
 report_start_date <- as.character(report_start_date)
 report_end_date <- as.character(report_end_date)
+print(wk_calcs_start_date)
 print(calcs_start_date)
 print(report_end_date)
 
