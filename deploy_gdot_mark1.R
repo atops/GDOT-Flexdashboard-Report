@@ -24,7 +24,7 @@ deployApp(appPrimaryDoc = "Monthly_Report_s3_prerendered.Rmd",
 
 library(rsconnect)
 
-deployApp(appPrimaryDoc = "Monthly_Report_beta_async.Rmd", 
+deployApp(appPrimaryDoc = "Monthly_Report_beta_dropdowns.Rmd", 
           appFileManifest = "GDOT_MARK1_beta.manifest", 
           appName="GDOT_MARK1_beta", 
           logLevel="normal")
@@ -38,7 +38,7 @@ deployApp(appPrimaryDoc = "Monthly_Report_beta_async.Rmd",
 
 library(rsconnect)
 
-deployApp(appPrimaryDoc = "Monthly_Report_s3.Rmd", 
+deployApp(appPrimaryDoc = "Monthly_Report_s3.Rmd",  #"Monthly_Report_dropdowns.Rmd", 
           appFileManifest = "GDOT_MARK1.manifest", 
           appName="GDOT_MARK1_staging", 
           logLevel="normal")
