@@ -1,8 +1,8 @@
 
 # Monthly_Report config file (yaml format)
 
-mode: production
-#mode: beta
+#mode: production
+mode: beta
 
 agency: GDOT
 bucket: gdot-spm
@@ -37,7 +37,7 @@ end_date: yesterday
 
 report_start_date: 2019-03-01
 report_end_date: yesterday
-calcs_start_date: 2019-04-01
+calcs_start_date: 2020-04-01
 production_report_end_date: 2020-03-01
 
 corridors_filename_s3: Corridors_Latest.xlsx
