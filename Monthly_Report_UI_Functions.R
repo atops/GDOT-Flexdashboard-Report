@@ -228,9 +228,9 @@ if (conf$mode == "production") {
             opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
             secret = aws_conf$AWS_SECRET_ACCESS_KEY))})
 
-    cor <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
-    sig <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
-    sub <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
+    cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
+    sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
+    subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
 
     alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs",aws_conf) 
     
@@ -2084,7 +2084,7 @@ volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "t
                 
                 customdata = ~glue(paste(
                     "<b>Detector: {Detector}</b>",
-                    "<br>{format(date(plot_start_date), '%d %B %Y')}",
+                    "<br>{format(date(Timeperiod), '%d %B %Y')}",
                     "<br><b>{if_else(bad_day==1, 'Bad Day', 'Good Day')}</b>")),
                 hovertemplate = "%{customdata}",
                 hoverlabel = list(font = list(family = "Source Sans Pro")),
