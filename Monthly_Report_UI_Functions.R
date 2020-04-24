@@ -158,6 +158,28 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
+
+s3checkFunc <- function(bucket, object) {
+    function() {
+        aws.s3::get_bucket_df(bucket = bucket, prefix = object)$LastModified
+    }
+}
+s3valueFunc <- function(bucket, object, aws_conf) {
+    function() {
+        aws.s3::s3read_using(
+            qs::qread,
+            object = object,
+            bucket = bucket,
+            opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                        secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+    }
+}
+s3reactivePoll <- function(intervalMillis, bucket, object, aws_s3) {
+    reactivePoll(intervalMillis, session = NULL,
+                 checkFunc = s3checkFunc(bucket = bucket, object = object),
+                 valueFunc = s3valueFunc(bucket = bucket, object = object, aws_s3))
+}
+
 if (conf$mode == "production") {
     
     # corridors %<-% read_feather("all_corridors.feather")
@@ -168,67 +190,51 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    corridors %<-% aws.s3::s3read_using(
-        read_feather, 
-        object = sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)), 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-    cor %<-% aws.s3::s3read_using(
-        qs::qread,
-        object = "cor_ec2.qs", 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-        #key = aws_conf$AWS_ACCESS_KEY_ID,
-        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sig %<-% aws.s3::s3read_using(
-        qs::qread,
-        object = "sig_ec2.qs", 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-        #key = aws_conf$AWS_ACCESS_KEY_ID,
-        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    sub %<-% aws.s3::s3read_using(
-        qs::qread,
-        object = "sub_ec2.qs", 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-        #key = aws_conf$AWS_ACCESS_KEY_ID,
-        #secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    poll_interval <- 1000*3600 # 3600 seconds = 1 hour
     
-    # cor %<-% aws.s3::s3readRDS(
-    #     object = "cor_ec2.rds", 
+    # corridors %<-% aws.s3::s3read_using(
+    #     read_feather, 
+    #     object = sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)), 
     #     bucket = "gdot-spm",
-    #     key = aws_conf$AWS_ACCESS_KEY_ID,
-    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    # sig %<-% aws.s3::s3readRDS(
-    #     object = "sig_ec2.rds", 
+    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+    # cor %<-% aws.s3::s3read_using(
+    #     qs::qread,
+    #     object = "cor_ec2.qs", 
     #     bucket = "gdot-spm",
-    #     key = aws_conf$AWS_ACCESS_KEY_ID,
-    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
-    # sub %<-% aws.s3::s3readRDS(
-    #     object = "sub_ec2.rds", 
+    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+    # sig %<-% aws.s3::s3read_using(
+    #     qs::qread,
+    #     object = "sig_ec2.qs", 
     #     bucket = "gdot-spm",
-    #     key = aws_conf$AWS_ACCESS_KEY_ID,
-    #     secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+    # sub %<-% aws.s3::s3read_using(
+    #     qs::qread,
+    #     object = "sub_ec2.qs", 
+    #     bucket = "gdot-spm",
+    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+
+    corridors_key <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
+    #corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
+    corridors <- reactivePoll(poll_interval, session = NULL,
+        checkFunc = s3checkFunc(conf$bucket, corridors_key),
+        valueFunc = function() {aws.s3::s3read_using(
+            read_feather, 
+            object = corridors_key, 
+            bucket = conf$bucket,
+            opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+            secret = aws_conf$AWS_SECRET_ACCESS_KEY))})
+
+    cor <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
+    sig <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
+    sub <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
+
+    alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs",aws_conf) 
     
-    alerts %<-% (aws.s3::s3read_using(
-        qs::qread,
-        object = "mark/watchdog/alerts.qs", 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY)) %>% 
-            filter(!SignalID %in% c(9801, 9970, 9825, 9855))) # Temporary until the config can be sorted out
-        
-    # alerts %<-% aws.s3::s3readRDS(
-    #     object = "mark/watchdog/alerts.rds", 
-    #     bucket = "gdot-spm",
-    #     key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-    #     secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
-    
+
     perf_plots %<-% (aws.s3::s3read_using(
         qs::qread,
         object = "perf_plots.qs",
@@ -318,7 +324,7 @@ get_aurora_connection <- function() {
         password = aws_conf$RDS_PASSWORD
     )
 }
-
+aurora <- get_aurora_connection()
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
@@ -2030,6 +2036,116 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                                   y = 1,
                                   showarrow = FALSE))
 }
+
+volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+    
+    if (is.null(ymax)) {
+        yax <- list(rangemode = "tozero", tickformat = ",.0")
+    } else {
+        yax <- list(range = c(0, ymax), tickformat = ",.0")
+    } 
+    
+    # Works. fill_colr is still an enigma, but it works as is.
+    pl <- function(dfi, i) {
+        
+        dfi <- dfi %>% 
+            mutate(maxy = if_else(bad_day==1, max(vol_rc, na.rm = TRUE), as.integer(0)),
+                   colr = colrs[CallPhase], 
+                   fill_colr = "")
+        
+        plot_ly(data = dfi) %>%
+            add_trace(
+                x = ~Timeperiod, 
+                y = ~vol_rc, 
+                type = "scatter", 
+                mode = "lines", 
+                fill = "tozeroy",
+                line = list(color = ~colr),
+                fillcolor = ~fill_colr,
+                name = paste('Phase', dfi$CallPhase[1]),
+                customdata = ~glue(paste(
+                    "<b>Detector: {Detector}</b>",
+                    "<br>{format(ymd_hms(Timeperiod), '%d %B %I:%M %p')}",
+                    "<br>Volume: <b>{as_int(vol_rc)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = FALSE) %>%
+            add_trace(
+                x = ~Timeperiod,
+                y = ~maxy,
+                type = "scatter",
+                mode = "lines",
+                fill = "tozeroy",
+                line = list(
+                    color = "rgba(0,0,0,0.1)",
+                    shape = "vh"),
+                fillcolor = "rgba(0,0,0,0.2)",
+                name = "Bad Days",
+                
+                customdata = ~glue(paste(
+                    "<b>Detector: {Detector}</b>",
+                    "<br>{format(date(plot_start_date), '%d %B %Y')}",
+                    "<br><b>{if_else(bad_day==1, 'Bad Day', 'Good Day')}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                
+                showlegend = (i==1)) %>%
+            layout(yaxis = yax,
+                   annotations = list(x = -.03,
+                                      y = 0.5,
+                                      xref = "paper",
+                                      yref = "paper",
+                                      xanchor = "right",
+                                      text = paste0("Det #", dfi$Detector[1]),
+                                      font = list(size = 12),
+                                      showarrow = FALSE))
+    }
+    rc <- tbl(aurora, "counts_1hr") %>% 
+        filter(
+            SignalID == signalid, 
+            Timeperiod >= plot_start_date, 
+            Timeperiod < plot_end_date)
+    fc <- tbl(aurora, "filtered_counts_1hr") %>% 
+        filter(
+            SignalID == signalid, 
+            Timeperiod >= plot_start_date, 
+            Timeperiod < plot_end_date)
+    
+    df <- left_join(
+        fc, 
+        rc, 
+        by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"), 
+        suffix = c("_fc", "_rc")) %>%
+        arrange(SignalID, Detector, Timeperiod) %>%
+        mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+        select(-Date, -vol_fc) %>% 
+        collect()
+    
+    #dbDisconnect(conn)
+    
+    dfs <- split(df, df$Detector)
+    dfs <- dfs[lapply(dfs, nrow)>0]
+    names(dfs) <- NULL
+    
+    plts <- purrr::imap(dfs, ~pl(.x, .y))
+    
+    #plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
+    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
+        layout(annotations = list(text = title,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1,
+                                  showarrow = FALSE),
+               showlegend = TRUE,
+               margin = list(l = 120),
+               xaxis = list(
+                   type = 'date'))
+}
+
 
 perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%", title = "title") {
     

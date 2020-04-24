@@ -25,7 +25,7 @@ suppressMessages(library(parallel))
 suppressMessages(library(doParallel))
 suppressMessages(library(future))
 suppressMessages(library(multidplyr))
-#suppressMessages(library(pool))
+suppressMessages(library(pool))
 suppressMessages(library(httr))
 suppressMessages(library(aws.s3))
 suppressMessages(library(sf))
@@ -96,13 +96,16 @@ if (Sys.info()["nodename"] %in% c("GOTO3213490", "Larry")) { # The SAM or Larry
     Sys.setenv(TZ="America/New_York")
 }
 
+
 sizeof <- function(x) {
     format(object.size(x), units = "Mb")
 }
 
+
 get_most_recent_monday <- function(date_) {
     date_ + days(1 - lubridate::wday(date_, week_start  = 1))
 }
+
 
 get_usable_cores <- function() {
     # Usable cores is one per 8 GB of RAM. 
@@ -131,6 +134,7 @@ get_usable_cores <- function() {
     }
 }
 
+
 # From: https://billpetti.github.io/2017-10-13-retry-scrape-function-automatically-r-rstats/
 retry_function <- function(.f, max_attempts = 5,
                            wait_seconds = 5) {
@@ -153,9 +157,11 @@ retry_function <- function(.f, max_attempts = 5,
     stop()
 }
 
+
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
+
 
 get_atspm_connection <- function(conf_atspm) {
     
@@ -177,6 +183,7 @@ get_atspm_connection <- function(conf_atspm) {
     }
 }
 
+
 get_maxview_connection <- function(dsn = "MaxView") {
     
     if (Sys.info()["sysname"] == "Windows") {
@@ -197,11 +204,14 @@ get_maxview_connection <- function(dsn = "MaxView") {
     }
 }
 
+
 get_maxview_eventlog_connection <- function() {
     get_maxview_connection(dsn = "MaxView_EventLog")
 }
 
+
 get_cel_connection <- get_maxview_eventlog_connection
+
 
 get_athena_connection_broken <- function(conf_athena) {
     
@@ -229,6 +239,7 @@ get_athena_connection_broken <- function(conf_athena) {
     }
 }
 
+
 get_athena_connection <- function(conf_athena) {
     dbConnect(
         RAthena::athena(),
@@ -238,14 +249,20 @@ get_athena_connection <- function(conf_athena) {
         region_name = 'us-east-1')
 }
 
-get_aurora_connection <- function() {
-    
-    RMySQL::dbConnect(RMySQL::MySQL(),
-                      host = Sys.getenv("RDS_HOST"),
-                      port = 3306,
-                      dbname = Sys.getenv("RDS_DATABASE"),
-                      username = Sys.getenv("RDS_USERNAME"),
-                      password = Sys.getenv("RDS_PASSWORD"))
+
+get_aurora_connection <- function(f = RMySQL::dbConnect) {
+
+    f(drv = RMySQL::MySQL(),
+      host = Sys.getenv("RDS_HOST"),
+      port = 3306,
+      dbname = Sys.getenv("RDS_DATABASE"),
+      username = Sys.getenv("RDS_USERNAME"),
+      password = Sys.getenv("RDS_PASSWORD"))
+}
+
+
+get_aurora_connection_pool <- function() {
+    get_aurora_connection(dbPool)
 }
 
 
@@ -287,6 +304,7 @@ get_spark_context <- function() {
     sc
 }
 
+
 # Because of issue with Apache Arrow (feather, parquet)
 # where R wants to convert UTC to local time zone on read
 # Switch date or datetime fields back to UTC. Run on read.
@@ -303,6 +321,7 @@ convert_to_utc <- function(df) {
     }
     df
 }
+
 
 # Use Python to upload R dataframe to s3 in parquet format
 s3_upload_parquet <- function(df, date_, fn, bucket, table_name, athena_db) {
@@ -331,6 +350,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, athena_db) {
     file.remove(feather_filename)
 }
 
+
 s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, athena_db) {
     
     if (!("Date" %in% names(df))) {
@@ -350,6 +370,8 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, athena_
             Sys.sleep(1)
         })
 }
+
+
 s3_read_parquet <- function(table_name, 
                             start_date, 
                             end_date, 
@@ -375,6 +397,7 @@ s3_read_parquet <- function(table_name,
     }
     as_tibble(df)
 }
+
 
 # The function below uses the python function for parallel reads
 # which would be nice except it prevents us from using callbacks from R
@@ -406,6 +429,7 @@ s3_read_parquet_parallel_newer <- function(
     as_tibble(df)
 }
 
+
 s3_read_parquet_parallel <- function(table_name, 
                                      start_date, 
                                      end_date, 
@@ -435,6 +459,8 @@ s3_read_parquet_parallel <- function(table_name,
         df
     }
 }
+
+
 # The below is getting this errors;
 # SSL read: error:1408F119:SSL routines:SSL3_GET_RECORD:decryption failed or bad record mac, errno 0
 s3_read_parquet_parallel2 <- function(table_name, 
@@ -459,10 +485,34 @@ s3_read_parquet_parallel2 <- function(table_name,
             mutate(Date = ymd(date_))
     }
 }
+
+
+aurora_write_parquet <- function(conn, df, date_, table_name) {
+    #conn <- get_aurora_connection()
+    fieldnames <- dbListFields(conn, table_name)
+    
+    # clear existing data for the given table and date
+    response <- dbSendQuery(
+        conn, 
+        glue("delete from {table_name} where Date = {date_}"))
+    
+    # Write data to Aurora database for the given day. 
+    # Append to table.
+    dbWriteTable(
+        conn, 
+        table_name, 
+        select(df, !!!fieldnames), 
+        overwrite = FALSE, append = TRUE, row.names = FALSE)
+    
+    #dbDisconnect(conn)
+}
+
+
 week <- function(d) {
     d0 <- ymd("2016-12-25")
     as.integer(trunc((ymd(d) - d0)/dweeks(1)))
 }
+
 
 get_month_abbrs <- function(start_date, end_date) {
     start_date <- ymd(start_date)
@@ -471,6 +521,7 @@ get_month_abbrs <- function(start_date, end_date) {
     
     sapply(seq(start_date, end_date, by = "1 month"), function(d) { format(d, "%Y-%m")} )
 }
+
 
 bind_rows_keep_factors <- function(dfs) {
     ## Identify all factors
@@ -482,9 +533,11 @@ bind_rows_keep_factors <- function(dfs) {
         mutate_at(vars(one_of(factors)), factor)  
 }
 
+
 match_type <- function(val, val_type_to_match) {
     eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
 }
+
 
 addtoRDS <- function(df, fn, delta_var, rsd, csd) {
     
@@ -559,6 +612,7 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
     
 }
 
+
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
         
@@ -574,6 +628,7 @@ write_fst_ <- function(df, fn, append = FALSE) {
     }
     write_fst(distinct(df_), fn)
 }
+
 
 get_corridors <- function(corr_fn, filter_signals = TRUE) {
     
@@ -628,6 +683,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
 }
+
 
 get_corridor_name <- function(string) {
     dplyr::case_when(
@@ -738,6 +794,7 @@ get_corridor_name <- function(string) {
         # Catchall. Return itself.
         TRUE ~ string)
 }
+
 
 # New version on 4/5. To join with MaxView ID
 # Updated on 4/14 to add 'Include' flag
@@ -853,6 +910,7 @@ get_unique_timestamps <- function(df) {
         dplyr::select(SignalID, Timestamp)
 }
 
+
 get_uptime <- function(df, start_date, end_time) {
     
     signals <- collect(distinct(df, SignalID))$SignalID
@@ -894,6 +952,7 @@ get_uptime <- function(df, start_date, end_time) {
         dplyr::select(-SignalID) %>% rename(uptime_all = uptime)
     uptime
 }
+
 
 get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, TWR_only = FALSE) {
     
@@ -1022,6 +1081,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           bucket = bucket,
                           table_name = "counts_1hr", 
                           athena_db = conf_athena$database)
+
+        aurora_write_parquet(
+            aurora, 
+            mutate(counts_1hr, Date = date(Timeperiod)),
+            date_, 
+            table_name = "counts_1hr")
         
         print("1-hr filtered counts")
         if (nrow(counts_1hr) > 0) {
@@ -1033,6 +1098,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                               bucket = bucket,
                               table_name = "filtered_counts_1hr", 
                               athena_db = conf_athena$database)
+            
+            aurora_write_parquet(
+                aurora, 
+                mutate(filtered_counts_1hr, Date = date(Timeperiod)),
+                date_, 
+                table_name = "filtered_counts_1hr")
             
             # fc <- get_filtered_counts_3stream(
             #     counts_1hr, 
@@ -1183,7 +1254,9 @@ get_det_config_  <- function(bucket) {
     }
 }
 
+
 get_det_config  <- get_det_config_("gdot-devices")
+
 
 get_det_config_aog <- function(date_) {
     
@@ -1205,6 +1278,7 @@ get_det_config_aog <- function(date_) {
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
 }
+
 
 get_det_config_qs <- function(date_) {
 
@@ -1236,6 +1310,7 @@ get_det_config_qs <- function(date_) {
     
 }
 
+
 get_det_config_sf <- function(date_) {
     
     get_det_config(date_) %>%
@@ -1249,6 +1324,7 @@ get_det_config_sf <- function(date_) {
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
 }
+
 
 get_det_config_vol <- function(date_) {
     
@@ -1363,6 +1439,7 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
             Hour = Month_Hour - months(month(Month_Hour) - 1),
             vol = if_else(Good_Day==1, vol, as.double(NA)))
 }
+
 
 # Single threaded
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
@@ -1531,6 +1608,8 @@ get_spm_data <- function(start_date, end_date, signals_list, conf_atspm, table, 
     dplyr::filter(df, CycleStart >= start_date & CycleStart < end_date1 &
                       SignalID %in% signals_list)
 }
+
+
 get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, table, TWR_only=TRUE) {
     
     conn <- get_athena_connection(conf_athena)
@@ -1553,6 +1632,8 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
     dplyr::filter(df, date >= as.character(start_date) & date < as.character(end_date1)) # &
     #signalid %in% signals_list)
 }
+
+
 # Query Cycle Data
 get_cycle_data <- function(start_date, end_date, conf_athena, signals_list = NULL) {
     get_spm_data_aws(
@@ -1563,6 +1644,8 @@ get_cycle_data <- function(start_date, end_date, conf_athena, signals_list = NUL
         table = "CycleData", 
         TWR_only = FALSE)
 }
+
+
 # Query Detection Events
 get_detection_events <- function(start_date, end_date, conf_athena, signals_list = NULL) {
     get_spm_data_aws(
@@ -1574,6 +1657,7 @@ get_detection_events <- function(start_date, end_date, conf_athena, signals_list
         TWR_only = FALSE)
 }
 
+
 get_detector_uptime <- function(filtered_counts_1hr) {
     filtered_counts_1hr %>%
         ungroup() %>%
@@ -1582,16 +1666,19 @@ get_detector_uptime <- function(filtered_counts_1hr) {
         arrange(Date, SignalID, Detector)
 }
 
+
 get_bad_detectors <- function(filtered_counts_1hr) {
     get_detector_uptime(filtered_counts_1hr) %>%
         filter(Good_Day == 0)
 }
+
 
 get_bad_ped_detectors <- function(pau) {
     pau %>% 
         filter(uptime == 0) %>%
         dplyr::select(SignalID, Detector, Date)
 }
+
 
 # Volume VPD
 get_vpd <- function(counts, mainline_only = TRUE) {
@@ -1609,6 +1696,7 @@ get_vpd <- function(counts, mainline_only = TRUE) {
     
     # SignalID | CallPhase | Week | DOW | Date | vpd
 }
+
 
 # SPM Throughput
 get_thruput <- function(counts) {
@@ -1629,7 +1717,6 @@ get_thruput <- function(counts) {
     
     # SignalID | CallPhase | Date | Week | DOW | vph
 }
-
 
 
 # SPM Arrivals on Green -- modified for use with dbplyr on AWS Athena
@@ -1685,6 +1772,7 @@ get_daily_aog <- function(aog) {
     # SignalID | CallPhase | Date | Week | DOW | aog | vol
 }
 
+
 get_daily_pr <- function(aog) {
     
     aog %>%
@@ -1699,6 +1787,7 @@ get_daily_pr <- function(aog) {
     
     # SignalID | CallPhase | Date | Week | DOW | pr | vol
 }
+
 
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
 get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_of_red = 5) {
@@ -1874,6 +1963,7 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
     # SignalID | CallPhase | Date_Hour | Date | Hour | sf_freq | cycles
 }
 
+
 get_peak_sf_utah <- function(msfh) {
     
     msfh %>%
@@ -2019,6 +2109,7 @@ get_daily_cctv_uptime <- function(table, cam_config, report_start_date) {
                Description = factor(Description))
 }
 
+
 get_rsu_uptime <- function(report_start_date) {
     
     rsu_config <- s3read_using(
@@ -2051,6 +2142,7 @@ get_rsu_uptime <- function(report_start_date) {
             total = count)
 }
 
+
 # -- Generic Aggregation Functions
 get_Tuesdays <- function(df) {
     dates_ <- seq(min(df$Date) - days(6), max(df$Date) + days(6), by = "days")
@@ -2061,6 +2153,7 @@ get_Tuesdays <- function(df) {
     
     data.frame(Week = week(tuesdays), Date = tuesdays)
 }
+
 
 weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     
@@ -2087,6 +2180,8 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
             dplyr::select(Zone, Corridor, Zone_Group, !!per_, !!var_, !!wt_, delta)
     }
 }
+
+
 group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
     df %>%
         group_by(!!per_) %>%
@@ -2098,6 +2193,8 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
         mutate(Zone_Group = corr_grp) %>% 
         dplyr::select(Corridor, Zone_Group, !!per_, !!var_, !!wt_, delta) 
 }
+
+
 group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
     df %>%
         group_by(!!per_) %>%
@@ -2109,15 +2206,21 @@ group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
         dplyr::select(Corridor, Zone_Group, !!per_, !!var_, delta) 
 }
 
+
 group_corridor_by_date <- function(df, var_, wt_, corr_grp) {
     group_corridor_by_(df, as.name("Date"), var_, wt_, corr_grp)
 }
+
+
 group_corridor_by_month <- function(df, var_, wt_, corr_grp) {
     group_corridor_by_(df, as.name("Month"), var_, wt_, corr_grp)
 }
+
+
 group_corridor_by_hour <- function(df, var_, wt_, corr_grp) {
     group_corridor_by_(df, as.name("Hour"), var_, wt_, corr_grp)
 }
+
 
 group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
     
@@ -2160,6 +2263,8 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }
+
+
 get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
     var_ <- as.name(var_)
@@ -2186,6 +2291,8 @@ get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     
     # SignalID | Date | var_ | wt_ | delta
 }
+
+
 get_daily_avg_cctv <- function(df, var_ = "uptime", wt_ = "num", peak_only = FALSE) {
     
     var_ <- as.name(var_)
@@ -2202,6 +2309,8 @@ get_daily_avg_cctv <- function(df, var_ = "uptime", wt_ = "num", peak_only = FAL
     
     # CameraID | Date | var_ | wt_ | delta
 }
+
+
 get_daily_sum <- function(df, var_, per_) {
     
     var_ <- as.name(var_)
@@ -2217,6 +2326,7 @@ get_daily_sum <- function(df, var_, per_) {
         ungroup() %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
+
 
 get_weekly_sum_by_day <- function(df, var_) {
     
@@ -2239,6 +2349,8 @@ get_weekly_sum_by_day <- function(df, var_) {
 
     # SignalID | Date | var_
 }
+
+
 get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
     
     var_ <- as.name(var_)
@@ -2275,6 +2387,8 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
     
     # SignalID | Date | vpd
 }
+
+
 get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
     
     var_ <- as.name(var_)
@@ -2301,6 +2415,8 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
     
     # SignalID | Date | vpd
 }
+
+
 get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
     
     if (wt_ == "ones") {
@@ -2317,6 +2433,8 @@ get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
     group_corridors_(cor_df_out, "Date", var_, wt_) %>%
         mutate(Week = week(Date))
 }
+
+
 get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     
     var_ <- as.name(var_)
@@ -2370,6 +2488,7 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     }
 }
 
+
 get_cor_monthly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
     
     if (wt_ == "ones") {
@@ -2385,6 +2504,7 @@ get_cor_monthly_avg_by_day <- function(df, corridors, var_, wt_="ones") {
     
     group_corridors_(cor_df_out, "Month", var_, wt_)
 }
+
 
 get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
@@ -2425,6 +2545,8 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
             dplyr::select(SignalID, Hour, Week, !!var_, !!wt_, delta)
     }
 }
+
+
 get_cor_weekly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
     
     if (wt_ == "ones") {
@@ -2439,6 +2561,7 @@ get_cor_weekly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
     
     group_corridors_(cor_df_out, "Hour", var_, wt_)
 }
+
 
 get_sum_by_hr <- function(df, var_) {
     
@@ -2458,6 +2581,7 @@ get_sum_by_hr <- function(df, var_) {
     # SignalID | CallPhase | Week | DOW | Hour | var_ | delta
     
 } ## unused. untested
+
 
 get_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
@@ -2481,6 +2605,7 @@ get_avg_by_hr <- function(df, var_, wt_ = NULL) {
         as_tibble(ret)
     }
 }
+
 
 get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
     
@@ -2507,6 +2632,8 @@ get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
     
     # SignalID | CallPhase | Hour | vph
 }
+
+
 get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_ = "ones") {
     
     if (wt_ == "ones") {
@@ -2520,6 +2647,7 @@ get_cor_monthly_avg_by_hr <- function(df, corridors, var_, wt_ = "ones") {
     cor_df_out <- weighted_mean_by_corridor_(df, "Hour", corridors, var_, wt_)
     group_corridors_(cor_df_out, "Hour", var_, wt_)
 }
+
 
 # Used to get peak period metrics from hourly results, i.e., peak/off-peak split failures
 summarize_by_peak <- function(df, date_col) {
@@ -2541,6 +2669,7 @@ summarize_by_peak <- function(df, date_col) {
                 select(-Peak)
         })
 }
+
 
 # Device Uptime from Excel files from Field Engineers
 get_device_uptime_from_xl <- function(fn, range) {
@@ -2564,6 +2693,8 @@ get_device_uptime_from_xl <- function(fn, range) {
         arrange(Month) %>%
         mutate(Corridor = get_corridor_name(fn))
 }
+
+
 get_device_uptime_from_xl_multiple <- function(fns, range, corridors) {
     dfs <- lapply(fns, function(x) get_device_uptime_from_xl(x, range))
     df <- bind_rows(dfs)
@@ -2577,6 +2708,7 @@ get_device_uptime_from_xl_multiple <- function(fns, range, corridors) {
     
 }
 # -- end Generic Aggregation Functions
+
 
 get_daily_detector_uptime <- function(filtered_counts) {
     
@@ -2611,6 +2743,7 @@ get_daily_detector_uptime <- function(filtered_counts) {
     ddu
 }
 
+
 get_avg_daily_detector_uptime <- function(ddu) {
     
     #plan(multiprocess)
@@ -2634,6 +2767,7 @@ get_avg_daily_detector_uptime <- function(ddu) {
         dplyr::select(-starts_with("delta.")) %>%
         rename(uptime = uptime)
 }
+
 
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
@@ -2660,29 +2794,44 @@ get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corrido
         mutate(Zone_Group = factor(Zone_Group))
 }
 
+
 get_weekly_vpd <- function(vpd) {
     vpd <- filter(vpd, DOW %in% c(TUE,WED,THU)) 
     get_weekly_sum_by_day(vpd, "vpd")
 }
+
+
 get_weekly_papd <- function(papd) {
     papd <- filter(papd, DOW %in% c(TUE,WED,THU))
     get_weekly_sum_by_day(papd, "papd")
 }
+
+
 get_weekly_thruput <- function(throughput) {
     get_weekly_sum_by_day(throughput, "vph")
 }
+
+
 get_weekly_aog_by_day <- function(daily_aog) {
     get_weekly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
+
+
 get_weekly_pr_by_day <- function(daily_pr) {
     get_weekly_avg_by_day(daily_pr, "pr", "vol", peak_only = TRUE)
 }
+
+
 get_weekly_sf_by_day <- function(sf) {
     get_weekly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
+
+
 get_weekly_qs_by_day <- function(qs) {
     get_weekly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
+
+
 get_weekly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
         mutate(CallPhase = 0, Week = week(Date)) %>%
@@ -2691,54 +2840,84 @@ get_weekly_detector_uptime <- function(avg_daily_detector_uptime) {
         arrange(SignalID, Date)
 }
 
+
 get_cor_weekly_vpd <- function(weekly_vpd, corridors) {
     get_cor_weekly_avg_by_day(weekly_vpd, corridors, "vpd")
 }
+
+
 get_cor_weekly_papd <- function(weekly_papd, corridors) {
     get_cor_weekly_avg_by_day(weekly_papd, corridors, "papd")
 }
+
+
 get_cor_weekly_thruput <- function(weekly_throughput, corridors) {
     get_cor_weekly_avg_by_day(weekly_throughput, corridors, "vph")
 }
+
+
 get_cor_weekly_aog_by_day <- function(weekly_aog, corridors) {
     get_cor_weekly_avg_by_day(weekly_aog, corridors, "aog", "vol")
 }
+
+
 get_cor_weekly_pr_by_day <- function(weekly_pr, corridors) {
     get_cor_weekly_avg_by_day(weekly_pr, corridors, "pr", "vol")
 }
+
+
 get_cor_weekly_sf_by_day <- function(weekly_sf, corridors) {
     get_cor_weekly_avg_by_day(weekly_sf, corridors, "sf_freq", "cycles")
 }
+
+
 get_cor_weekly_qs_by_day <- function(weekly_qs, corridors) {
     get_cor_weekly_avg_by_day(weekly_qs, corridors, "qs_freq", "cycles")
 }
+
+
 get_cor_weekly_detector_uptime <- function(avg_weekly_detector_uptime, corridors) {
     get_cor_weekly_avg_by_day(avg_weekly_detector_uptime, corridors, "uptime", "all")
 }
+
 
 get_monthly_vpd <- function(vpd) {
     vpd <- filter(vpd, DOW %in% c(TUE,WED,THU)) 
     get_monthly_avg_by_day(vpd, "vpd", peak_only = FALSE)
 }
+
+
 get_monthly_papd <- function(papd) {
     papd <- filter(papd, DOW %in% c(TUE,WED,THU)) 
     get_monthly_avg_by_day(papd, "papd", peak_only = FALSE)
 }
+
+
 get_monthly_thruput <- function(throughput) {
     get_monthly_avg_by_day(throughput, "vph", peak_only = FALSE)
 }
+
+
 get_monthly_aog_by_day <- function(daily_aog) {
     get_monthly_avg_by_day(daily_aog, "aog", "vol", peak_only = TRUE)
 }
+
+
 get_monthly_pr_by_day <- function(daily_pr) {
     get_monthly_avg_by_day(daily_pr, "pr", "vol", peak_only = TRUE)
 }
+
+
 get_monthly_sf_by_day <- function(sf) {
     get_monthly_avg_by_day(sf, "sf_freq", "cycles", peak_only = TRUE)
 }
+
+
 get_monthly_qs_by_day <- function(qs) {
     get_monthly_avg_by_day(qs, "qs_freq", "cycles", peak_only = TRUE)
 }
+
+
 get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
     avg_daily_detector_uptime %>% 
         mutate(CallPhase = 0) %>%
@@ -2746,27 +2925,42 @@ get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
         arrange(SignalID, Month)
 }
 
+
 get_cor_monthly_vpd <- function(monthly_vpd, corridors) {
     get_cor_monthly_avg_by_day(monthly_vpd, corridors, "vpd")
 }
+
+
 get_cor_monthly_papd <- function(monthly_papd, corridors) {
     get_cor_monthly_avg_by_day(monthly_papd, corridors, "papd")
 }
+
+
 get_cor_monthly_thruput <- function(monthly_throughput, corridors) {
     get_cor_monthly_avg_by_day(monthly_throughput, corridors, "vph")
 }
+
+
 get_cor_monthly_aog_by_day <- function(monthly_aog_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_aog_by_day, corridors, "aog", "vol")
 }
+
+
 get_cor_monthly_pr_by_day <- function(monthly_pr_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_pr_by_day, corridors, "pr", "vol")
 }
+
+
 get_cor_monthly_sf_by_day <- function(monthly_sf_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_sf_by_day, corridors, "sf_freq", "cycles")
 }
+
+
 get_cor_monthly_qs_by_day <- function(monthly_qs_by_day, corridors) {
     get_cor_monthly_avg_by_day(monthly_qs_by_day, corridors, "qs_freq", "cycles")
 }
+
+
 get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
     plan(multiprocess)
@@ -2791,6 +2985,7 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
                Zone_Group = factor(Zone_Group))
 }
 
+
 get_vph <- function(counts, mainline_only = TRUE) {
     
     if (mainline_only == TRUE) {
@@ -2805,20 +3000,29 @@ get_vph <- function(counts, mainline_only = TRUE) {
     
     # SignalID | CallPhase | Week | DOW | Hour | aog | vph
 }
+
+
 get_aog_by_hr <- function(aog) {
     get_avg_by_hr(aog, "aog", "vol")
     
     # SignalID | CallPhase | Week | DOW | Hour | aog | vol
 }
+
+
 get_pr_by_hr <- function(aog) {
     get_avg_by_hr(aog, "pr", "vol")
 }
+
+
 get_sf_by_hr <- function(sf) {
     get_avg_by_hr(sf, "sf_freq", "cycles")
 }
+
+
 get_qs_by_hr <- function(qs) {
     get_avg_by_hr(qs, "qs_freq", "cycles")
 }
+
 
 get_monthly_vph <- function(vph) {
     
@@ -2833,12 +3037,16 @@ get_monthly_vph <- function(vph) {
     
     # SignalID | CallPhase | Hour | vph
 }
+
+
 get_monthly_paph <- function(paph) {
     paph %>%
         rename(vph = paph) %>%
         get_monthly_vph() %>%
         rename(paph = vph)
 }
+
+
 get_monthly_aog_by_hr <- function(aog_by_hr) {
     
     aog_by_hr %>% 
@@ -2853,43 +3061,61 @@ get_monthly_aog_by_hr <- function(aog_by_hr) {
     
     # SignalID | CallPhase | Hour | vph
 }
+
+
 get_monthly_pr_by_hr <- function(pr_by_hr) {
     
     get_monthly_aog_by_hr(rename(pr_by_hr, aog = pr)) %>%
         rename(pr = aog)
 }
+
+
 get_monthly_sf_by_hr <- function(sf_by_hr) {
     
     get_monthly_aog_by_hr(rename(sf_by_hr, aog = sf_freq, vol = cycles)) %>%
         rename(sf_freq = aog, cycles = vol)
 }
+
+
 get_monthly_qs_by_hr <- function(qs_by_hr) {
     
     get_monthly_aog_by_hr(rename(qs_by_hr, aog = qs_freq, vol = cycles)) %>%
         rename(qs_freq = aog, cycles = vol)
 }
 
+
 get_cor_monthly_vph <- function(monthly_vph, corridors) {
     get_cor_monthly_avg_by_hr(monthly_vph, corridors, "vph")
     # Corridor | Hour | vph
 }
+
+
 get_cor_monthly_paph <- function(monthly_paph, corridors) {
     get_cor_monthly_avg_by_hr(monthly_paph, corridors, "paph")
     # Corridor | Hour | vph
 }
+
+
 get_cor_monthly_aog_by_hr <- function(monthly_aog_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_aog_by_hr, corridors, "aog", "vol")
     # Corridor | Hour | vph
 }
+
+
 get_cor_monthly_pr_by_hr <- function(monthly_pr_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_pr_by_hr, corridors, "pr", "vol")
 }
+
+
 get_cor_monthly_sf_by_hr <- function(monthly_sf_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_sf_by_hr, corridors, "sf_freq", "cycles")
 }
+
+
 get_cor_monthly_qs_by_hr <- function(monthly_qs_by_hr, corridors) {
     get_cor_monthly_avg_by_hr(monthly_qs_by_hr, corridors, "qs_freq", "cycles")
 }
+
 
 get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
     
@@ -2909,6 +3135,8 @@ get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
         ungroup() %>%
         tidyr::replace_na(list(pct = 1))
 }
+
+
 get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
     
     df <- get_cor_monthly_ti(ti, cor_monthly_vph, corridors)
@@ -2925,6 +3153,8 @@ get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
     
     get_cor_monthly_avg_by_hr(df, corridors, tindx, "pct")
 }
+
+
 get_cor_monthly_ti_by_day <- function(ti, cor_monthly_vph, corridors) {
     
     df <- get_cor_monthly_ti(ti, cor_monthly_vph, corridors)
@@ -2949,24 +3179,36 @@ get_weekly_vph <- function(vph) {
     vph <- filter(vph, DOW %in% c(TUE,WED,THU))
     get_weekly_avg_by_hr(vph, "vph")
 }
+
+
 get_weekly_paph <- function(paph) {
     paph <- filter(paph, DOW %in% c(TUE,WED,THU))
     get_weekly_avg_by_hr(paph, "paph")
 }
+
+
 get_cor_weekly_vph <- function(weekly_vph, corridors) {
     get_cor_weekly_avg_by_hr(weekly_vph, corridors, "vph")
 }
+
+
 get_cor_weekly_paph <- function(weekly_paph, corridors) {
     get_cor_weekly_avg_by_hr(weekly_paph, corridors, "paph")
 }
+
+
 get_cor_weekly_vph_peak <- function(cor_weekly_vph) {
     dfs <- get_cor_monthly_vph_peak(cor_weekly_vph)
     lapply(dfs, function(x) {dplyr::rename(x, Date = Month)})
 }
+
+
 get_weekly_vph_peak <- function(weekly_vph) {
     dfs <- get_monthly_vph_peak(weekly_vph)
     lapply(dfs, function(x) {dplyr::rename(x, Date = Month)})
 }
+
+
 get_monthly_vph_peak <- function(monthly_vph) {
     
     am <- dplyr::filter(monthly_vph, hour(Hour) %in% AM_PEAK_HOURS) %>% 
@@ -2982,6 +3224,7 @@ get_monthly_vph_peak <- function(monthly_vph) {
     list("am" = as_tibble(am), "pm" = as_tibble(pm))
 }
 
+
 # vph during peak periods
 get_cor_monthly_vph_peak <- function(cor_monthly_vph) {
     
@@ -2995,6 +3238,8 @@ get_cor_monthly_vph_peak <- function(cor_monthly_vph) {
     
     list("am" = as_tibble(am), "pm" = as_tibble(pm))
 }
+
+
 # aog during peak periods -- unused
 get_cor_monthly_aog_peak <- function(cor_monthly_aog_by_hr) {
     
@@ -3009,13 +3254,18 @@ get_cor_monthly_aog_peak <- function(cor_monthly_aog_by_hr) {
     list("am" = as_tibble(am), "pm" = as_tibble(pm))
 }
 
+
 # Device Uptime from Excel
 get_veh_uptime_from_xl_monthly_reports <- function(fns, corridors) {
     get_device_uptime_from_xl_multiple(fns, "Device Status!A5:U7", corridors)
 }
+
+
 get_ped_uptime_from_xl_monthly_reports <- function(fn, corridors) {
     get_device_uptime_from_xl_multiple(fn, "Device Status!A9:U11", corridors)
 }
+
+
 get_cctv_uptime_from_xl_monthly_reports <- function(fns, corridors) {
     get_device_uptime_from_xl_multiple(fns, "Device Status!A13:U15", corridors)
 }
@@ -3056,6 +3306,7 @@ get_det_uptime_from_manual_xl <- function(bucket, key, corridors) {
         arrange(Zone_Group, Zone, Corridor)
 }
 
+
 get_cor_monthly_xl_uptime <- function(df, corridors) {
     
     # By Corridor
@@ -3091,6 +3342,7 @@ get_cor_monthly_xl_uptime <- function(df, corridors) {
     
 }
 
+
 get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
     
     df <- daily_cctv_uptime %>% 
@@ -3108,6 +3360,8 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE)) %>%
         ungroup()
 }
+
+
 get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
     
     daily_cctv_uptime %>% 
@@ -3164,6 +3418,8 @@ get_vpd_plot <- function(cor_weekly_vpd, cor_monthly_vpd) {
                   selected = attrs_selected(insidetextfont=list(color="white"), 
                                             textposition = "inside"))
 }
+
+
 # Cross filter Hourly Volumes Chart. For Monthly Report -----------------------
 get_vphpl_plot <- function(df, group_name, chart_title, bar_subtitle, mo) {
     
@@ -3217,6 +3473,8 @@ get_vphpl_plot <- function(df, group_name, chart_title, bar_subtitle, mo) {
         highlight(color = "#256194", opacityDim = 0.9, defaultValues = c("All"),
                   selected = attrs_selected(insidetextfont=list(color="white"), textposition = "inside"))
 }
+
+
 get_vph_peak_plot <- function(df, group_name, chart_title, bar_subtitle, mo) {
     
     sdw <- SharedData$new(df, ~Corridor, group = group_name)
@@ -3521,7 +3779,6 @@ get_teams_tasks_from_s3 <- function(
         distinct() %>%
         tidy_teams_tasks(teams_locations, replicate)
 }
-
 
 
 get_daily_tasks_status <- function(daily_tasks_status, groupings) {
