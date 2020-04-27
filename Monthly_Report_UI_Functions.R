@@ -2065,7 +2065,7 @@ volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "t
                 name = paste('Phase', dfi$CallPhase[1]),
                 customdata = ~glue(paste(
                     "<b>Detector: {Detector}</b>",
-                    "<br>{format(ymd_hms(Timeperiod), '%d %B %I:%M %p')}",
+                    "<br>{format(ymd_hms(Timeperiod), '%a %d %B %I:%M %p')}",
                     "<br>Volume: <b>{as_int(vol_rc)}</b>")),
                 hovertemplate = "%{customdata}",
                 hoverlabel = list(font = list(family = "Source Sans Pro")),
@@ -2084,7 +2084,7 @@ volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "t
                 
                 customdata = ~glue(paste(
                     "<b>Detector: {Detector}</b>",
-                    "<br>{format(date(Timeperiod), '%d %B %Y')}",
+                    "<br>{format(date(Timeperiod), '%a %d %B %Y')}",
                     "<br><b>{if_else(bad_day==1, 'Bad Day', 'Good Day')}</b>")),
                 hovertemplate = "%{customdata}",
                 hoverlabel = list(font = list(family = "Source Sans Pro")),
