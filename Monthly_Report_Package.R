@@ -1643,11 +1643,120 @@ tryCatch({
 
 
 
+# USER DELAY COSTS   ##############################
+
+print(glue("{Sys.time()} User Delay Costs [21.1 of 23]"))
+
+if (FALSE) { # Work in progress. Remove this condition when fully debugged and ready.
+tryCatch({
+    
+    months <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "1 month")
+    udc <- mclapply(months, function(yyyymmdd) {
+        s3read_using(
+            read_parquet, 
+            bucket = "gdot-spm", 
+            object = glue("mark/user_delay_costs/date={yyyymmdd}/user_delay_costs_{yyyymmdd}.parquet"))
+    }, mc.cores = 1) %>% bind_rows()
+    
+    current_month <- floor_date(ymd(report_end_date), "months")
+    last_month <- current_month - months(1)
+    last_year <- current_month - years(1)
+    
+    current_month_col <- as.name(format(current_month, "%B %Y"))
+    last_month_col <- as.name(format(last_month, "%B %Y"))
+    last_year_col <- as.name(format(last_year, "%B %Y"))
+    
+    hourly_udc <- udc %>% 
+        transmute(
+            zone, 
+            corridor, 
+            date = mdy_hms(date), 
+            year = year(date), 
+            hour = ymd_hms(glue("1900-{month(date)}-1 {hour(date)}:00:00")),  
+            delay_cost = combined.delay_cost) %>% 
+        group_by(zone, corridor, year, hour) %>% 
+        summarize(delay_cost = sum(delay_cost, na.rm = TRUE)) %>% 
+        ungroup() 
+
+    
+    udc_trend_table <- udc %>% 
+        transmute(
+            zone, 
+            corridor, 
+            date = date(mdy_hms(date)), 
+            month = floor_date(date, "months"),
+            delay_cost = combined.delay_cost) %>% 
+        filter(
+            month %in% c(current_month, last_month, last_year)) %>%
+        group_by(
+            zone, corridor, month) %>% 
+        summarize(
+            delay_cost = sum(delay_cost, na.rm = TRUE)) %>%
+        ungroup() %>%
+        mutate(
+            month = format(month, "%B %Y")) %>%
+        spread(
+            month, delay_cost) %>% 
+        mutate(
+            `Month-over-Month` = (!!current_month_col - !!last_month_col) / !!last_month_col, 
+            `Year-over-Year` = (!!current_month_col - !!last_year_col) / !!last_year_col) %>% 
+        select(
+            zone, corridor, 
+            !!last_year_col, `Year-over-Year`, 
+            !!last_month_col, `Month-over-Month`, 
+            !!current_month_col)
+    
+    
+    
+    this_month_hrly <- hourly_udc %>% 
+        filter(
+            corridor == "SR 13/42/155", 
+            month(hour) == month(current_month), year == year(current_month))
+    last_month_hrly <- hourly_udc %>% 
+        filter(
+            corridor == "SR 13/42/155", 
+            month(hour) == month(last_month), year == year(last_month)) %>%
+        mutate(hour = hour + months(1))
+    last_year_hrly <- hourly_udc %>%
+        filter(
+            corridor == "SR 13/42/155",
+            month(hour) == month(last_year), year == year(last_year))
+
+    
+    DARK_BLUE <- "#0068B2"
+    LIGHT_LIGHT_BLUE <- "#BED6E2"
+    DARK_GRAY = "#636363"
+    DARK_GRAY_BAR = "#252525"
+    
+    plot_ly() %>% 
+        add_lines(
+            data = last_year_hrly, # same month, a year ago
+            x = ~hour, 
+            y = ~delay_cost, 
+            name = last_year_col,   # "Last Year",  # 
+            line = list(color = LIGHT_BLUE), 
+            fill = "tozeroy", 
+            fillcolor = LIGHT_LIGHT_BLUE) %>% 
+        add_lines(
+            data = last_month_hrly, # last month, this year
+            x = ~hour, 
+            y = ~delay_cost, 
+            name = last_month_col, 
+            line = list(color = BLUE)) %>%
+        add_lines(
+            data = this_month_hrly, # this month, this year
+            x = ~hour, 
+            y = ~delay_cost, 
+            name = current_month_col, 
+            line = list(color = ORANGE))
 
 
 
-
-
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+}
 
 
 
