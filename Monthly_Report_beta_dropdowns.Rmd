@@ -2283,16 +2283,22 @@ shinyApp(
             get_latest_comment(zmdf, zone_group(), current_month())
         })
         
-        # Update Editor with ZM Data on Zone, Group
+        # Update Editor with ZM Data on user selection of new Zone or Group
+        # only if editor text has changed
         observe({
-            #print("UpdateTinyMCE observed")
-
-            zmdf <<- tibble::add_row(
-                zmdf,
-                Month = isolate(memory$month),
-                Zone = isolate(memory$zone),
-                Comments = isolate(input$editor1),
-                LastModified = now())
+            print("UpdateTinyMCE observed")
+          
+            isolate({
+                if (input$editor1 != get_latest_comment(zmdf, memory$zone, memory$month)) {
+                    zmdf <<- tibble::add_row(
+                        zmdf,
+                        Month = memory$month,
+                        Zone = memory$zone,
+                        Comments = input$editor1,
+                        LastModified = now())
+                }
+                print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
+            })
 
             updateTinyMCE(
                 session,
@@ -2303,7 +2309,9 @@ shinyApp(
             memory$month <- current_month()
             memory$zone <- zone_group()
         })
-
+        
+        
+        # Undo Button
         observeEvent(input$undo_zm_edits, {
             showModal(modalDialog(
                 title = "Undo edits?",
@@ -2313,6 +2321,8 @@ shinyApp(
                 )
             ))
         })
+        
+        # On Undo, reload ZM Data from S3.
         observeEvent(input$confirmUndo, {
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
           
@@ -2324,7 +2334,7 @@ shinyApp(
             updateTinyMCE(
                 session,
                 'editor1',
-                get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
+                get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month), default_comment)
             )
             
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
@@ -2339,6 +2349,7 @@ shinyApp(
                 )
             ))
         })
+        
         observeEvent(input$confirmSave, {
           
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
