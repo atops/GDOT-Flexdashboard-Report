@@ -324,7 +324,7 @@ get_aurora_connection <- function() {
         password = aws_conf$RDS_PASSWORD
     )
 }
-aurora <- get_aurora_connection()
+#aurora <- get_aurora_connection()
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
