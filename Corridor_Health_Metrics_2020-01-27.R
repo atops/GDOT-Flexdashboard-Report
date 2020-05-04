@@ -61,9 +61,24 @@ get_summary_data <- function(df, current_month = NULL) {
 sub <- s3readRDS(bucket = "gdot-spm", object = "sub_ec2.rds")
 cor <- s3readRDS(bucket = "gdot-spm", object = "cor_ec2.rds")
 
-current_month <- ymd("2020-01-01")
+current_month <- ymd("2020-03-01")
 
 csd <- get_summary_data(sub)
 cmd <- get_summary_data(cor)
+
+
+lapply(cor$mo, names)
+lapply(cor$wk, names)
+lapply(cor$dy, names)
+
+lapply(sig$mo, names)
+lapply(sig$wk, names)
+lapply(sig$dy, names)
+
+lapply(sub$mo, names)
+lapply(sub$wk, names)
+lapply(sub$dy, names)
+
+
                                     
 write_csv(data, "health_metrics_data_2020-01-27.csv")
