@@ -47,10 +47,11 @@ AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 
 styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 
-```
-
-
-```{r data, cache=FALSE, cache.lazy=FALSE}
+#```
+#
+# Combine these two chunks into the global chunk. Should be shared between sessions.
+#
+#```{r data, cache=FALSE, cache.lazy=FALSE}
 
 corridors <- read_feather(sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
 cor <- qs::qread("cor.qs")
