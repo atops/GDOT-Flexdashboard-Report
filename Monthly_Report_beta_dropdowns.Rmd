@@ -2180,9 +2180,31 @@ editor_opts <-
              "searchreplace visualblocks code fullscreen",
              "insertdatetime media table contextmenu paste"],
    toolbar: "insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image",
-   height: 500'    
+   height: 500,
 
-zmdf <- zmdf0
+  image_title: true,
+  automatic_uploads: true,
+  file_picker_types: "image",
+  file_picker_callback: function (cb, value, meta) {
+  var input = document.createElement("input");
+  input.setAttribute("type", "file");
+  input.setAttribute("accept", "image/*");
+  input.onchange = function () {
+    var file = this.files[0];
+    var reader = new FileReader();
+    reader.onload = function () {
+      var id = "blobid" + (new Date()).getTime();
+      var blobCache =  tinymce.activeEditor.editorUpload.blobCache;
+      var base64 = reader.result.split(",")[1];
+      var blobInfo = blobCache.create(id, file, base64);
+      blobCache.add(blobInfo);
+      cb(blobInfo.blobUri(), { title: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  input.click();
+  }'
 
 default_comment <- paste0(
     "<h3>Construction/Coordination</h3><p>comments here.</p>",
@@ -2230,6 +2252,12 @@ shinyApp(
 
     server <- function(input, output, session) {
 
+        zmdf <- aws.s3::s3readRDS(
+            object = "Zone_Manager_Report_Content.rds",
+            bucket = "gdot-spm",
+            key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+            secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))    
+
         #zmdf <- reactiveVal(zmdf0)
         memory = reactiveValues(zone = "All RTOP", month = last_month)
 
@@ -2257,7 +2285,7 @@ shinyApp(
         
         # Update Editor with ZM Data on Zone, Group
         observe({
-            print("UpdateTinyMCE observed")
+            #print("UpdateTinyMCE observed")
 
             zmdf <<- tibble::add_row(
                 zmdf,
@@ -2276,7 +2304,7 @@ shinyApp(
             memory$zone <- zone_group()
         })
 
-        observeEvent(input$undo_zm_Edits, {
+        observeEvent(input$undo_zm_edits, {
             showModal(modalDialog(
                 title = "Undo edits?",
                 tagList(
@@ -2286,10 +2314,20 @@ shinyApp(
             ))
         })
         observeEvent(input$confirmUndo, {
+            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
+          
             zmdf <<- aws.s3::s3readRDS(
                 bucket = "gdot-spm", 
                 object = "Zone_Manager_Report_Content.rds")
             removeModal()
+            
+            updateTinyMCE(
+                session,
+                'editor1',
+                get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
+            )
+            
+            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
         observeEvent(input$save_zm_edits, {
@@ -2302,6 +2340,8 @@ shinyApp(
             ))
         })
         observeEvent(input$confirmSave, {
+          
+            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
           
             # Read back from S3 in case it's changed by someone else.
             # and combine with new data; drop duplicates to keep only unique rows.
@@ -2316,11 +2356,13 @@ shinyApp(
                 bucket = "gdot-spm", 
                 object = "Zone_Manager_Report_Content.rds")
             removeModal()
+            
+            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
 },
 
-  options = list(height = 500)
+  options = list(height = 800)
 )
 ```
 

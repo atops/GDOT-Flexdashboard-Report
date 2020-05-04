@@ -243,12 +243,6 @@ if (conf$mode == "production") {
                     secret = aws_conf$AWS_SECRET_ACCESS_KEY)))
     
     
-    zmdf0 <- aws.s3::s3readRDS(
-        object = "Zone_Manager_Report_Content.rds",
-        bucket = "gdot-spm",
-        key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))    
-    
     # map_data <- aws.s3::s3readRDS(
     #     object = "map_data.rds",
     #     bucket = "gdot-spm",
