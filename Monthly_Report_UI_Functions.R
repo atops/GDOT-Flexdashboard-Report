@@ -257,6 +257,7 @@ if (conf$mode == "production") {
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
+as_currency <- function(x) {scales::dollar_format(accuracy = 1)(x)}
 
 goal <- list("tp" = NULL,
              "aogd" = 0.80,
@@ -1098,8 +1099,8 @@ get_pct_ch_plot_ <- function(cor_monthly_vpd,
                                       align = "center",
                                       x = 0.5,
                                       y = 0.95,
-                                      showarrow = FALSE))}
-    
+                                      showarrow = FALSE))
+    }
     
     df <- filter_mr_data(cor_monthly_vpd, zone_group_)
     
@@ -2031,6 +2032,7 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                                   showarrow = FALSE))
 }
 
+
 volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
     
     if (is.null(ymax)) {
@@ -2138,6 +2140,112 @@ volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "t
                margin = list(l = 120),
                xaxis = list(
                    type = 'date'))
+}
+
+
+udcplot_plotly <- function(hourly_udc) {
+    
+    corridor_udc_plot <- function(hourly_udc, i) {
+        
+        current_month <- date(max(hourly_udc$Month))  # hourly_udc$month_hour))  # year_month
+        last_month <- current_month - months(1)
+        last_year <- current_month - years(1)
+        
+        current_month_str <- format(current_month, "%B %Y")
+        last_month_str <- format(last_month, "%B %Y")
+        last_year_str <- format(last_year, "%B %Y")
+        
+        this_month_hrly <- hourly_udc %>% 
+            filter(
+                Month == current_month)
+        last_month_hrly <- hourly_udc %>% 
+            filter(
+                Month == last_month) %>%
+            mutate(month_hour = month_hour + months(1))
+        last_year_hrly <- hourly_udc %>%
+            filter(
+                Month == last_year) %>%
+            mutate(month_hour = month_hour + years(1))
+        
+        DARK_BLUE <- "#0068B2"
+        LIGHT_LIGHT_BLUE <- "#BED6E2"
+        DARK_GRAY = "#636363"
+        DARK_GRAY_BAR = "#252525"
+        
+        title_ <- hourly_udc$Corridor[1]
+        ymax_ <- hourly_udc$max_delay_cost[1]
+        
+        plot_ly() %>% 
+            add_lines(
+                data = last_year_hrly, # same month, a year ago
+                x = ~month_hour, 
+                y = ~delay_cost, 
+                name = last_year_str,   # "Last Year",  # 
+                line = list(color = LIGHT_BLUE), 
+                fill = "tozeroy", 
+                fillcolor = LIGHT_LIGHT_BLUE,
+                customdata = ~glue(paste(
+                    "<b>{Corridor}</b>",
+                    "<br><b>{format(month_hour, '%I:%M %p')}</b>",
+                    "<br>User Delay Cost: <b>{as_currency(delay_cost)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = (i==1)) %>% 
+            add_lines(
+                data = last_month_hrly, # last month, this year
+                x = ~month_hour, 
+                y = ~delay_cost, 
+                name = last_month_str, 
+                line = list(color = BLUE),
+                customdata = ~glue(paste(
+                    "<b>{Corridor}</b>",
+                    "<br><b>{format(month_hour, '%I:%M %p')}</b>",
+                    "<br>User Delay Cost: <b>{as_currency(delay_cost)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = (i==1)) %>% 
+            add_lines(
+                data = this_month_hrly, # this month, this year
+                x = ~month_hour, 
+                y = ~delay_cost, 
+                name = current_month_str, 
+                line = list(color = ORANGE),
+                customdata = ~glue(paste(
+                    "<b>{Corridor}</b>",
+                    "<br><b>{format(month_hour, '%I:%M %p')}</b>",
+                    "<br>User Delay Cost: <b>{as_currency(delay_cost)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = (i==1)) %>% 
+            layout(xaxis = list(title = "",
+                                tickformat = "%I:%M %p"),
+                   yaxis = list(title = "",
+                                tickformat = "$,.2",
+                                range = c(0, ymax_)),
+                   annotations = list(text = title_,
+                                      font = list(size = 14),
+                                      xref = "paper",
+                                      yref = "paper",
+                                      yanchor = "bottom",
+                                      xanchor = "center",
+                                      align = "center",
+                                      x = 0.2,
+                                      y = 0.5,
+                                      showarrow = FALSE))
+    }
+    
+    df <- hourly_udc %>% mutate(max_delay_cost = round(max(delay_cost), -3) + 1000)
+    dfs <- split(df, df$Corridor)
+    dfs <- dfs[lapply(dfs, nrow)>0]
+    names(dfs) <- NULL
+    
+    plts <- purrr::imap(dfs, ~corridor_udc_plot(.x, .y))
+    
+    
+    subplot(plts,
+            margin = 0.03, nrows = ceiling(length(plts)/2), shareX = FALSE, shareY = FALSE) %>%
+        layout(title = "User Delay Costs ($)",
+               margin = list(t = 60))
 }
 
 

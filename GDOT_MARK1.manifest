@@ -1,5 +1,4 @@
 all_Corridors_Latest.feather
-
 GDOTLogo.svg
 Monthly_Report_AWS.yaml
 Monthly_Report_s3.Rmd
@@ -13,4 +12,3 @@ sig.qs
 sub.qs
 perf_plots.qs
 all_Corridors_Latest.feather
-
