@@ -2693,10 +2693,10 @@ fillCol(height = 700,
         renderPlotly({
             req(input$signal_details_button)                                
             #signal_dashboard_athena(sid(), current_month(), conf$athena)
-            detector_dashboard_athena(sid(), current_month(), conf$athena)
-            #volplot_plotly2(
-            #    sid(), current_month(), endof_current_month(),
-            #    title = "Raw and Filtered Detector Data", ymax = NULL)
+            #detector_dashboard_athena(sid(), current_month(), conf$athena)
+            volplot_plotly2(
+                conf$athena, sid(), current_month(), endof_current_month(),
+                title = "Raw and Filtered Detector Data", ymax = NULL)
         })
 )
 ```
