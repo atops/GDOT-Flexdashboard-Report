@@ -2033,8 +2033,9 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
 }
 
 
-volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
-    
+volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+    # db is either conf$athena (list) or aurora (Pool)
+
     if (is.null(ymax)) {
         yax <- list(rangemode = "tozero", tickformat = ",.0")
     } else {
@@ -2096,26 +2097,59 @@ volplot_plotly2 <- function(signalid, plot_start_date, plot_end_date, title = "t
                                       font = list(size = 12),
                                       showarrow = FALSE))
     }
-    rc <- tbl(aurora, "counts_1hr") %>% 
-        filter(
-            SignalID == signalid, 
-            Timeperiod >= plot_start_date, 
-            Timeperiod < plot_end_date)
-    fc <- tbl(aurora, "filtered_counts_1hr") %>% 
-        filter(
-            SignalID == signalid, 
-            Timeperiod >= plot_start_date, 
-            Timeperiod < plot_end_date)
-    
-    df <- left_join(
-        fc, 
-        rc, 
-        by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"), 
-        suffix = c("_fc", "_rc")) %>%
-        arrange(SignalID, Detector, Timeperiod) %>%
-        mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
-        select(-Date, -vol_fc) %>% 
-        collect()
+    if (class(db) == "list") {
+        # db = conf$athena
+        athena <- get_athena_connection(db)
+        rc <- tbl(athena, sql(glue(paste(
+            "SELECT signalid, date, timeperiod, detector, callphase, vol",
+            "FROM {db$database}.counts_1hr",
+            "WHERE signalid = '{signalid}'",
+            "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+        fc <- tbl(athena, sql(glue(paste(
+            "SELECT signalid, date, timeperiod, detector, callphase, vol",
+            "FROM {db$database}.filtered_counts_1hr",
+            "WHERE signalid = '{signalid}'",
+            "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+        df <- left_join(
+            fc, 
+            rc, 
+            by = c("signalid", "date", "timeperiod", "detector", "callphase"), 
+            suffix = c("_fc", "_rc")) %>%
+            arrange(signalid, detector, timeperiod) %>%
+            mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+            select(-date, -vol_fc) %>% 
+            collect() %>%
+            transmute(
+                SignalID = factor(signalid), 
+                Timeperiod = ymd_hms(timeperiod), 
+                Detector = factor(detector), 
+                CallPhase = factor(callphase),
+                vol_rc = as.integer(vol_rc),
+                bad_day)
+        
+    } else if (class(db) == "Pool") {
+        # db = aurora connection pool
+        rc <- tbl(db, "counts_1hr") %>% 
+            filter(
+                SignalID == signalid, 
+                Timeperiod >= plot_start_date, 
+                Timeperiod < plot_end_date)
+        fc <- tbl(aurora, "filtered_counts_1hr") %>% 
+            filter(
+                SignalID == signalid, 
+                Timeperiod >= plot_start_date, 
+                Timeperiod < plot_end_date)
+        
+        df <- left_join(
+            fc, 
+            rc, 
+            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"), 
+            suffix = c("_fc", "_rc")) %>%
+            arrange(SignalID, Detector, Timeperiod) %>%
+            mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+            select(-Date, -vol_fc) %>% 
+            collect()
+    }
     
     #dbDisconnect(conn)
     

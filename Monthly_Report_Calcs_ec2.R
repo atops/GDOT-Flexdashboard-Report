@@ -199,7 +199,7 @@ get_counts_based_measures <- function(month_abbrs) {
             as.character(sd),
             as.character(ed),
             bucket = conf$bucket
-        ) %>%
+            ) %>%
             mutate(
                 Date = date(Date),
                 SignalID = factor(SignalID),
