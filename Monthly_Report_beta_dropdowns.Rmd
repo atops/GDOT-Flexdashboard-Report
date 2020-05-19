@@ -2294,9 +2294,10 @@ shinyApp(
             print("UpdateTinyMCE observed")
           
             isolate({
-                print(get_latest_comment(zmdf, memory$zone, memory$month))
-                print(input$editor1)
-                if (input$editor1 != get_latest_comment(zmdf, memory$zone, memory$month)) {
+                latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
+#                print(latest_comment)
+#                print(input$editor1)
+                if (is.na(input$editor1) || is.na(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <<- tibble::add_row(
                         zmdf,
                         Month = memory$month,

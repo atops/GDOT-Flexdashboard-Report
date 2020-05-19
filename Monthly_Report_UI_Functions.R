@@ -166,9 +166,9 @@ s3checkFunc <- function(bucket, object) {
 }
 s3valueFunc <- function(bucket, object, aws_conf) {
 
-    read_function <- if (endswith(object, ".qs")) {
+    read_function <- if (endsWith(object, ".qs")) {
         qs::qread
-    } else if (endswith(object, ".feather")) {
+    } else if (endsWith(object, ".feather")) {
         read_feather
     }
     
@@ -280,6 +280,7 @@ goal <- list("tp" = NULL,
              "cu" = 0.95,
              "pau" = 0.95)
 
+
 get_athena_connection <- function(conf_athena, f = dbConnect) {
     
     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
@@ -304,7 +305,12 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
                   UseResultsetStreaming = 1)
     }
 }
-get_athena_connection_pool <- function(conf_athena) {get_athena_connection(conf_athena, dbPool)}
+
+
+get_athena_connection_pool <- function(conf_athena) {
+    get_athena_connection(conf_athena, dbPool)
+}
+
 
 get_athena_connection_needs_boto3 <- function(conf_athena) {
     dbConnect(
@@ -316,9 +322,8 @@ get_athena_connection_needs_boto3 <- function(conf_athena) {
 }
 
 
-
-get_aurora_connection <- function() {
-    dbPool(
+get_aurora_connection <- function(aws_conf, f = dbConnect) {
+    f(
         drv = RMySQL::MySQL(),
         host = aws_conf$RDS_HOST,
         dbname = aws_conf$RDS_DATABASE,
@@ -327,7 +332,8 @@ get_aurora_connection <- function() {
         password = aws_conf$RDS_PASSWORD
     )
 }
-#aurora <- get_aurora_connection()
+#aurora <- get_aurora_connection(aws_conf, f = dbPool)
+
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
