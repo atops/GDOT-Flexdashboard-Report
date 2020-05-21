@@ -12,8 +12,8 @@ source("Monthly_Report_Functions.R")
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-#aurora_pool <- get_aurora_connection_pool()
-aurora <- get_aurora_connection()
+aurora_pool <- get_aurora_connection_pool()
+#aurora <- get_aurora_connection()
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 start_date <- ifelse(conf$start_date == "yesterday",

@@ -1005,7 +1005,8 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     #gc()
     
     conn <- get_athena_connection(conf_athena)
-    
+    aurora <- poolCheckout(aurora_pool)   
+ 
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
@@ -1194,6 +1195,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     }
     
     dbDisconnect(conn)
+    poolReturn(aurora)
     #gc()
 }
 
