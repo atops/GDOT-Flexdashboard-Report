@@ -55,6 +55,16 @@
     background-color:#2d6797;
 }
 
+/*.input-sm {*/
+#date_range > div > input:nth-child(1) {
+    height: 34px;
+    border-radius: 4px;
+}
+/*.form-control {*/
+#id_filter {
+    height: 34px;
+    border-radius: 4px;
+}
 /* From Watchdog App * /
 .form-control {
   font-size: 12px;
