@@ -2421,9 +2421,41 @@ fillCol(
                 cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month()))
         })
     ),
-    renderTable({
+    renderFormattable({
         validate(need(startsWith(zone_group(), "Zone"), ""))
-        cordata()$mo$udc_trend_table %>% filter(Zone == zone_group(), Month == current_month()) %>% select(-Month)
+        
+        month_str <- format(current_month(), "%F")
+        data <- cordata()$mo$udc_trend_table
+        
+        validate(need(month_str %in% names(data), "No data"))
+        
+        data <- data[[month_str]] %>% 
+            filter(Zone == zone_group()) %>%
+            select(-Month) %>%
+            rename(`Last Month` = `Month-over-Month`,
+                   `Last Year` = `Year-over-Year`)
+        
+        validate(need(nrow(data)>0, "No data"))
+        
+        column_formats <- list(
+            formatter("span"),
+            formatter("span"),
+            formatter("span", x ~ as_currency(x)),
+            formatter("span", 
+                      style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                      x ~ as_pct(x)),
+            formatter("span", x ~ as_currency(x)),
+            formatter("span", 
+                      style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                      x ~ as_pct(x)),
+            formatter("span", x ~ as_currency(x)))
+        names(column_formats) <- names(data)
+
+        formattable(
+            data,
+            align = c(rep("l", 2), rep("r", length(data)-2)),
+            column_formats)
+
     }), height = 700)
 
 ```
