@@ -70,7 +70,12 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE,
            "7" = LIGHT_ORANGE, "8" = ORANGE, 
            "9" = LIGHT_PURPLE, "10" = PURPLE, 
            "11" = LIGHT_BROWN, "12" = BROWN,
-           "0" = DARK_GRAY)
+           "0" = DARK_GRAY,
+           "Mainline" = BLUE,
+           "Passage" = GREEN,
+           "Demand" = RED,
+           "Queue" = ORANGE,
+           "Other" = DARK_GRAY)
 
 RTOP1_ZONES <- c("Zone 1", "Zone 2", "Zone 3", "Zone 8")
 RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
