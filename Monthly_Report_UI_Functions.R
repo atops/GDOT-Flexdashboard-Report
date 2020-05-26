@@ -2143,12 +2143,13 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
         
     } else if (class(db) == "Pool") {
         # db = aurora connection pool
-        rc <- tbl(db, "counts_1hr") %>% 
+        conn <- poolCheckout(db)
+        rc <- tbl(conn, "counts_1hr") %>% 
             filter(
                 SignalID == signalid, 
                 Timeperiod >= plot_start_date, 
                 Timeperiod < plot_end_date)
-        fc <- tbl(aurora, "filtered_counts_1hr") %>% 
+        fc <- tbl(conn, "filtered_counts_1hr") %>% 
             filter(
                 SignalID == signalid, 
                 Timeperiod >= plot_start_date, 
@@ -2163,6 +2164,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
             mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
             select(-Date, -vol_fc) %>% 
             collect()
+        poolReturn(conn)
     }
     
     #dbDisconnect(conn)
