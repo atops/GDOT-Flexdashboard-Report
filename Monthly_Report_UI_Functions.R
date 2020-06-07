@@ -2256,7 +2256,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                     "<br>Volume: <b>{as_int(vol_ac)}</b>")),
                 hovertemplate = "%{customdata}",
                 hoverlabel = list(font = list(family = "Source Sans Pro")),
-                showlegend = TRUE) %>%
+                showlegend = (i==1)) %>%
             add_trace(
                 x = ~Timeperiod,
                 y = ~maxy,
