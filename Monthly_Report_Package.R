@@ -14,7 +14,7 @@ tryCatch({
     bad_det <- dbGetQuery(conn, sql(glue(paste(
         "select signalid, detector, date",
         "from {conf$athena$database}.bad_detectors",
-        "where date >='{today() - days(100)}'")))
+        "where date >='{today() - days(90)}'")))
     ) %>%
         transmute(
             SignalID = factor(signalid),
@@ -75,7 +75,7 @@ tryCatch({
     
     bad_ped <- dbGetQuery(conn, sql(glue(paste(
         "select signalid, detector, date from {conf$athena$database}.bad_ped_detectors", 
-        "where date >='{today() - days(100)}'")))) %>%
+        "where date >='{today() - days(90)}'")))) %>%
         transmute(
             SignalID = factor(signalid),
             Detector = factor(detector),
@@ -270,10 +270,13 @@ tryCatch({
     #         papd = as.numeric(papd)
     #     )
 
+    pau_start_date <- floor_date(ymd(report_end_date) - months(6), "month") %>% 
+        format("%F")
+
     counts_ped_hourly <- s3_read_parquet_parallel(
         bucket = conf$bucket,
         table_name = "counts_ped_1hr",
-        start_date = report_start_date, # We have to look at the entire report period for pau
+        start_date = pau_start_date, # We have to look at a longer duration for pau
         end_date = report_end_date,
         signals_list = signals_list
     ) %>%
@@ -314,7 +317,7 @@ tryCatch({
             bucket = conf$bucket,
             prefix = "bad_ped_detectors",
             table_name = "bad_ped_detectors",
-            athena_db = conf$athena$database)
+            conf_athena = conf$athena)
 
     # Hack to make the aggregation functions work
     addtoRDS(
@@ -792,7 +795,7 @@ print(glue("{Sys.time()} Daily Throughput [10 of 23]"))
 tryCatch({
     # throughput <- f("tp_", month_abbrs)
     
-    throughput <- s3_read_parquet(
+    throughput <- s3_read_parquet_parallel(
         bucket = conf$bucket, 
         table_name = "throughput", 
         start_date = wk_calcs_start_date, 
@@ -852,7 +855,7 @@ tryCatch({
 print(glue("{Sys.time()} Daily AOG [11 of 23]"))
 
 tryCatch({
-    aog <- s3_read_parquet(
+    aog <- s3_read_parquet_parallel(
         bucket = conf$bucket, 
         table_name = "arrivals_on_green", 
         start_date = wk_calcs_start_date, 
