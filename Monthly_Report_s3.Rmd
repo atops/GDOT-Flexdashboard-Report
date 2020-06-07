@@ -37,7 +37,7 @@ runtime: shiny
 
 conf_mode <- "production"
 
-source("Monthly_Report_UI_Functions.R")
+source("Monthly_Report_UI_Functions.R", local = TRUE)
 
 
 FIG_WIDTH = 14
@@ -54,6 +54,7 @@ styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 #```{r data, cache=FALSE, cache.lazy=FALSE}
 
 corridors <- read_feather(sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
+corridors <- read_feather("all_Corridors_Latest.feather")
 cor <- qs::qread("cor.qs")
 sig <- qs::qread("sig.qs")
 sub <- qs::qread("sub.qs")
@@ -2058,7 +2059,7 @@ renderPlotly({
         get_cor_comm_uptime_plot(
             mr()$dy$ru,
             mr()$mo$ru,
-            month_name = intput$month,
+            month_name = input$month,
             month_ = current_month(),
             zone_group_ = zone_group())
     } else {
@@ -2087,7 +2088,7 @@ renderPlotly({
 
 
 
-Activity
+Reporting
 =====================================
 
 Row
@@ -2826,7 +2827,10 @@ fillCol(height = 700,
         renderPlotly({
             req(input$signal_details_button)
             #signal_dashboard_athena(sid(), current_month(), conf$athena)
-            detector_dashboard_athena(sid(), current_month(), conf$athena)
+            #detector_dashboard_athena(sid(), current_month(), conf$athena)
+            volplot_plotly2(
+                conf$athena, sid(), current_month(), endof_current_month(),
+                title = "Raw and Filtered Detector Data", ymax = NULL)
         })
 )
 ```
