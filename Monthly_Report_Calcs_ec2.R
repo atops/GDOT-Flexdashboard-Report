@@ -156,8 +156,6 @@ if (conf$run$counts == TRUE) {
                 uptime = FALSE,  # TRUE 
                 counts = TRUE)
         }
-        #registerDoSEQ()
-        #gc()
     }
 
 #     future({    
@@ -255,10 +253,41 @@ get_counts_based_measures <- function(month_abbrs) {
                 CallPhase = factor(CallPhase),
                 Detector = factor(Detector)
             )
-        print("Read filered_counts. Getting adjusted counts...")
-        adjusted_counts_1hr <- filtered_counts_1hr %>%
-            get_adjusted_counts_split10()
-        rm(adjusted_counts_1hr)
+        print("Read filtered_counts. Getting adjusted counts...")
+
+        
+        # clear partition files
+        lapply(as.character(seq(0,9)), function(i) {
+            tryCatch({
+                file.remove(glue("fc{i}.fst"))
+            }, warning = function(w) {})
+        })
+        
+        # split into 10 files, partitioned by signalid
+        #mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
+        lapply(as.character(seq(0,9)), function(i) {
+            filtered_counts_1hr %>% 
+                filter(endsWith(as.character(SignalID), i)) %>%
+                write_fst(glue("fc{i}.fst"))
+        })
+        # clear memory of large dataframe
+        rm(filtered_counts_1hr)
+        
+        # get adjusted counts and thruput on each partition (file)            
+        #adjusted_counts_1hr <- mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
+        adjusted_counts_1hr <- lapply(as.character(seq(0,9)), function(i) {
+            cat(c(i, ""))
+            read_fst(glue("fc{i}.fst")) %>% 
+                get_adjusted_counts(ends_with = i)
+        }) %>% bind_rows() %>%
+            mutate(SignalID = factor(SignalID),
+                   CalPhase = factor(CallPhase))
+        
+        
+        
+        # adjusted_counts_1hr <- filtered_counts_1hr %>%
+        #     get_adjusted_counts_split10()
+        # rm(filtered_counts_1hr)
         
         s3_upload_parquet_date_split(
             adjusted_counts_1hr,
@@ -365,44 +394,66 @@ get_counts_based_measures <- function(month_abbrs) {
         
         #-----------------------------------------------
         # 15-minute counts and throughput
+        # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
         
         doParallel::registerDoParallel(cores = usable_cores)
         
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
         
-        filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
-            #filtered_counts_15min <- lapply(date_range_twr, function(date_) {
-            if (between(date_, start_date, end_date)) {
-                date_ <- as.character(date_)
-                print(date_)
-                s3_read_parquet_parallel("filtered_counts_15min", date_, date_, bucket = conf$bucket) %>%
-                    transmute(
-                        SignalID = factor(SignalID),
-                        CallPhase = factor(CallPhase),
-                        Detector = factor(Detector),
-                        # CountPriority = CountPriority,
-                        Date = date(Date),
-                        Timeperiod = Timeperiod,
-                        Month_Hour = Month_Hour,
-                        Hour = Hour,
-                        vol = vol,
-                        #Good = Good,
-                        Good_Day = Good_Day,
-                        delta_vol = delta_vol,
-                        mean_abs_delta = mean_abs_delta
-                    )
-            }
-        } %>% bind_rows()
+        #filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
+        filtered_counts_15min <- lapply(date_range_twr, function(date_) {
+            #if (between(date_, start_date, end_date)) {
+            date_ <- as.character(date_)
+            print(date_)
+            s3_read_parquet_parallel("filtered_counts_15min", date_, date_, bucket = conf$bucket)
+            #}
+        }) %>% bind_rows() %>%
+            transmute(
+                SignalID = factor(SignalID),
+                CallPhase = factor(CallPhase),
+                Detector = factor(Detector),
+                # CountPriority = CountPriority,
+                Date = date(Date),
+                Timeperiod = Timeperiod,
+                Month_Hour = Month_Hour,
+                Hour = Hour,
+                vol = vol,
+                #Good = Good,
+                Good_Day = Good_Day,
+                delta_vol = delta_vol,
+                mean_abs_delta = mean_abs_delta
+            )
         
         if (length(filtered_counts_15min) > 0) {
-            print("adjusted counts")
-            adjusted_counts_15min <- get_adjusted_counts_split10(filtered_counts_15min) %>%
-                mutate(Date = date(Timeperiod))
+            print("adjusted counts and thruput")
+            
+            # clear partition files
+            lapply(as.character(seq(0,9)), function(i) {
+                tryCatch({
+                    file.remove(glue("fc{i}.fst"))
+                }, warning = function(w) {})
+            })
+            
+            # split into 10 files, partitioned by signalid
+            lapply(as.character(seq(0,9)), function(i) {
+                cat(c(i, ""))
+                filtered_counts_15min %>% 
+                    filter(endsWith(as.character(SignalID), i)) %>%
+                    write_fst(glue("fc{i}.fst"))
+            })
+            # clear memory of large dataframe
             rm(filtered_counts_15min)
             
-            # Calculate and write Throughput
-            throughput <- get_thruput(adjusted_counts_15min)
+            # get adjusted counts and thruput on each partition (file)            
+            throughput <- lapply(as.character(seq(0,9)), function(i) {
+                cat(c(i, ""))
+                read_fst(glue("fc{i}.fst")) %>% 
+                    get_adjusted_counts(ends_with = i) %>%
+                    get_thruput()
+            }) %>% bind_rows() %>%
+                mutate(SignalID = factor(SignalID),
+                       CalPhase = factor(CallPhase))
             
             s3_upload_parquet_date_split(
                 throughput, 
@@ -410,6 +461,12 @@ get_counts_based_measures <- function(month_abbrs) {
                 prefix = "tp", 
                 table_name = "throughput",
                 conf_athena = conf$athena)
+            
+            # clear partition files
+            lapply(as.character(seq(0,9)), function(i) {
+                file.remove(glue("fc{i}.fst"))
+            })
+            rm(throughput)
         }
         
         registerDoSEQ()
@@ -476,12 +533,11 @@ if (conf$run$etl == TRUE) {
     #python_path <- file.path("~", "miniconda3", "bin", "python")
     #use_python(python_path)
     
-    etl <- reticulate::import_from_path("etl_dashboard", path = ".")
-    
-    etl$main(start_date, end_date)
+    #etl <- reticulate::import_from_path("etl_dashboard", path = ".")
+    #etl$main(start_date, end_date)
     
     # run python script and wait for completion
-    # system2("./etl_dashboard.sh", args = c(start_date, end_date))
+    system2("./etl_dashboard.sh", args = c(start_date, end_date))
     
     
     # date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
@@ -518,9 +574,12 @@ print(glue("{Sys.time()} aog [8 of 10]"))
 if (conf$run$arrivals_on_green == TRUE) {
     #get_aog_date_range(start_date, end_date)
     
-    etl <- reticulate::import_from_path("get_aog_new", path = ".")
+    #etl <- reticulate::import_from_path("get_aog_new", path = ".")
+    #etl$main(start_date, end_date)
     
-    etl$main(start_date, end_date)
+    # run python script and wait for completion
+    system2("./get_aog.sh", args = c(start_date, end_date))
+    
 }
 gc()
 
@@ -562,10 +621,6 @@ get_sf_date_range <- function(start_date, end_date) {
     lapply(date_range, function(date_) {
         #foreach(date_ = date_range) %dopar% {
         print(date_)
-        #cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
-        #detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
-        #if (nrow(collect(head(cycle_data))) > 0 & nrow(collect(head(detection_events))) > 0) {
-        #sf <- get_sf_utah(cycle_data, detection_events)
         sf <- get_sf_utah(date_, conf$athena, signals_list)
         s3_upload_parquet_date_split(
             sf, 
@@ -614,5 +669,6 @@ if (conf$run$ped_delay == TRUE) {
     get_pd_date_range(start_date, end_date)
 }
 
+system2('python reload_parquet.py', wait = FALSE)
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")

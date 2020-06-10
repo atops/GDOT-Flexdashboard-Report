@@ -19,7 +19,7 @@ suppressMessages(library(data.table))
 suppressMessages(library(formattable))
 
 suppressMessages(library(forcats))
-suppressMessages(library(feather))
+#suppressMessages(library(feather))
 suppressMessages(library(fst))
 suppressMessages(library(parallel))
 suppressMessages(library(doParallel))
@@ -48,6 +48,8 @@ suppressMessages(library(arrow))
 # https://arrow.apache.org/install/
 # install.packages("arrow")
 suppressWarnings(library(qs))
+
+options(dplyr.summarise.inform = FALSE)
 
 select <- dplyr::select
 filter <- dplyr::filter
@@ -246,7 +248,7 @@ get_athena_connection <- function(conf_athena) {
     aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
     s3_staging_dir = conf_athena$staging_dir,
-    region_name = 'us-east-1')
+    region_name = Sys.getenv("AWS_DEFAULT_REGION"))
 }
 
 
@@ -327,6 +329,11 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
   
   df <- ungroup(df)
   
+  if ("Date" %in% names(df)) {
+    df <- df %>% select(-Date)
+  }
+  
+  
   if ("Detector" %in% names(df)) { 
     df <- mutate(df, Detector = as.character(Detector)) 
   }
@@ -340,10 +347,20 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
   s3write_using(df,
                 write_parquet,
                 bucket = bucket,
-                object = glue("mark/{table_name}/date={date_}/{fn}.parquet"))
+                object = glue("mark/{table_name}/date={date_}/{fn}.parquet"), opts = list(multipart = TRUE))
   conn <- get_athena_connection(conf_athena)
-  dbSendQuery(conn, 
-              sql(glue("ALTER TABLE {table_name} add partition (date='{date_}') location 's3://{bucket}/{fn}/'")))
+  tryCatch({
+    response <- dbGetQuery(conn,
+                           sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
+                                          "add partition (date='{date_}')",
+                                          "location 's3://{bucket}/mark/{table_name}/'"))))
+    print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
+  }, error = function(e) {
+    message <- str_extract(e, 'message:(.*?)\\)')
+    #print(glue(paste(
+    #  "Didn't create partition (date='{date_}') for {conf_athena$database}.{table_name}",
+    #  "({message}")))
+  })
   dbDisconnect(conn)
 }
 
@@ -361,7 +378,7 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
   
   df %>% 
     split(.$Date) %>% 
-    lapply(function(x) {
+    mclapply(mc.cores = max(1,detectCores()-1), FUN = function(x) {
       date_ <- as.character(x$Date[1])
       s3_upload_parquet(x, date_,
                         fn = glue("{prefix}_{date_}"), 
@@ -373,28 +390,36 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
 }
 
 
-s3_read_parquet_parallel <- function(table_name, 
-                                     start_date, 
-                                     end_date, 
-                                     signals_list = NULL, 
+s3_read_parquet <- function(bucket, object, date_ = NULL) {
+
+    if (is.null(date_)) {
+        date_ <- str_extract(object, "\\d{4}-\\d{2}-\\d{2}")
+    }
+    s3read_using(read_parquet, bucket = bucket, object = object) %>% 
+        select(-starts_with("__")) %>%
+        mutate(Date = ymd(date_))
+}
+
+
+s3_read_parquet_parallel <- function(table_name,
+                                     start_date,
+                                     end_date,
+                                     signals_list = NULL,
                                      bucket = NULL,
                                      callback = function(x) {x}) {
   
   dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-  mclapply(dates, mc.cores = get_usable_cores(), FUN = function(date_) {
+  dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = function(date_) {
   #lapply(dates, function(date_) {
     prefix <- glue("mark/{table_name}/date={date_}")
-    print(prefix)
-    keys = aws.s3::get_bucket_df(bucket = bucket, prefix = prefix)$Key
-    dfs <- lapply(keys, function(key) {
-      s3read_using(read_parquet, bucket = bucket, object = key) %>% 
-        select(-starts_with("__")) %>%
-        mutate(Date = ymd(date_)) %>%
+    #print(prefix)
+    objects = aws.s3::get_bucket(bucket = bucket, prefix = prefix)
+    lapply(objects, function(obj) {
+      s3_read_parquet(bucket = bucket, object = get_objectkey(obj), date_) %>%
         callback()
     }) %>% bind_rows()
-    #print(head(dfs))
-    dfs
-  }) %>% bind_rows() %>% convert_to_utc()
+  })
+  dfs[lapply(dfs, nrow)>0] %>% bind_rows() %>% convert_to_utc()
 }
 
 
@@ -953,7 +978,9 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                 CallPhase = factor(CallPhase))
     
     ped_config <- get_ped_config(start_date) %>%
-      dplyr::select(SignalID, Detector, CallPhase)
+      transmute(SignalID = factor(SignalID), 
+                Detector = factor(Detector), 
+                CallPhase = factor(CallPhase))
   }
   
   df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
@@ -1141,9 +1168,9 @@ multicore_decorator <- function(FUN) {
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 
 # This is a "function factory" 
-# It is meant to be used to create a get_det_config function that takes only the date:
-# like: get_det_config <- get_det_config_(conf$bucket)
-get_det_config_  <- function(bucket) { 
+# It is meant to be used to create a get <- det <- config function that takes only the date:
+# like: get <- det <- config <- get <- det <- config <- (conf$bucket, "atspm <- det <- config <- good")
+get_det_config_  <- function(bucket, folder) { 
   
   function(date_) {
     read_det_config <- function(s3object, s3bucket) {
@@ -1151,24 +1178,25 @@ get_det_config_  <- function(bucket) {
     }
     
     s3bucket <- bucket 
-    s3object = glue("atspm_det_config_good/date={date_}/ATSPM_Det_Config_Good.feather")
+    s3prefix = glue("{folder}/date={date_}")
     
     # Are there any files for this date?
-    s3objects <- aws.s3::get_bucket_df(
+    s3objects <- aws.s3::get_bucket(
       bucket = s3bucket, 
-      prefix = dirname(s3object))
+      prefix = s3prefix)
     
     # If the s3 object exists, read it and return the data frame
-    if (nrow(aws.s3::get_bucket_df(s3bucket, s3object)) > 0) {
-      read_det_config(s3object, s3bucket) %>%
+    if (length(s3objects) == 1) {
+      read_det_config(s3objects[1]$Contents$Key, s3bucket) %>%
         mutate(SignalID = as.character(SignalID),
-               Detector = as.integer(Detector), 
+               Detector = as.integer(Detector),
                CallPhase = as.integer(CallPhase))
       
       # If the s3 object does not exist, but where there are objects for this date,
       # read all files and bind rows (for when multiple ATSPM databases are contributing)
-    } else if (nrow(s3objects) > 0) {
-      lapply(s3objects$Key, function(x) {read_det_config(x, s3bucket)})  %>%
+    } else if (length(s3objects) > 0) {
+      lapply(s3objects, function(x) {
+        read_det_config(x$Key, s3bucket)})  %>%
         rbindlist() %>% as_tibble() %>%
         mutate(SignalID = as.character(SignalID),
                Detector = as.integer(Detector), 
@@ -1179,8 +1207,7 @@ get_det_config_  <- function(bucket) {
   }
 }
 
-
-get_det_config  <- get_det_config_("gdot-devices")
+get_det_config <- get_det_config_("gdot-devices", "atspm_det_config_good")
 
 
 get_det_config_aog <- function(date_) {
@@ -1531,7 +1558,10 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
 ## -- --- End of Adds CountPriority from detector config file -------------- -- ##
 
 
-get_adjusted_counts_split10 <- function(filtered_counts) {
+get_adjusted_counts_split10 <- function(filtered_counts, callback = function(x) {x}) {
+  lapply(as.character(seq_len(9)), function(i) {
+    file.remove(glue("fc{i}.fst"))
+  })
   lapply(as.character(seq_len(9)), function(i) {
     filtered_counts %>% 
       filter(endsWith(as.character(SignalID), i)) %>%
@@ -1539,10 +1569,16 @@ get_adjusted_counts_split10 <- function(filtered_counts) {
   })
   rm(filtered_counts)
   
+  usable_cores <- get_usable_cores()
+  
   ac <- lapply(as.character(seq_len(9)), function(i) {
     read_fst(glue("fc{i}.fst")) %>% 
-      get_adjusted_counts(ends_with = i)
-  }) %>% bind_rows()
+      get_adjusted_counts(ends_with = i) %>%
+      callback()
+  }) %>% bind_rows() %>%
+    mutate(SignalID = factor(SignalID),
+           CallPhase = factor(CallPhase)) %>% 
+    arrange(SignalID, CallPhase, Date)
   
   lapply(as.character(seq_len(9)), function(i) {
     file.remove(glue("fc{i}.fst"))
@@ -1665,7 +1701,8 @@ get_vpd <- function(counts, mainline_only = TRUE) {
 get_thruput <- function(counts) {
   
   counts %>%
-    mutate(DOW = wday(Date), 
+    mutate(Date = date(Timeperiod),
+           DOW = wday(Date), 
            Week = week(Date)) %>%
     group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
     summarize(vph = sum(vol, na.rm = TRUE)) %>%
@@ -1755,7 +1792,7 @@ get_daily_pr <- function(aog) {
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
 get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_of_red = 5) {
   
-  plan(multiprocess)
+  #plan(multiprocess)
   
   print("Starting queries...")
   
@@ -1967,18 +2004,18 @@ get_qs <- function(detection_events) {
     
     # By Detector by cycle. Get 95th percentile duration as occupancy
     group_by(date,
-             SignalID,
-             CycleStart,
-             CallPhase = Phase,
-             Detector) %>%
-    summarize(occ = approx_percentile(DetDuration, 0.95)) %>%
+             signalid,
+             cyclestart,
+             callphase = phase,
+             detector) %>%
+    summarize(occ = approx_percentile(detduration, 0.95)) %>%
     collect() %>%
     ungroup() %>%
     transmute(Date = date(date),
-              SignalID = factor(SignalID), 
-              CycleStart, 
-              CallPhase = factor(CallPhase),
-              Detector = factor(Detector), 
+              SignalID = factor(signalid), 
+              CycleStart = cyclestart, 
+              CallPhase = factor(callphase),
+              Detector = factor(detector), 
               occ)
   
   # dates <- seq(min(qs$Date), max(qs$Date), by = "1 day")

@@ -15,7 +15,8 @@ suppressMessages(library(purrr))
 suppressMessages(library(stringr))
 suppressMessages(library(readr))
 suppressMessages(library(glue))
-suppressMessages(library(feather))
+#suppressMessages(library(feather))
+suppressMessages(library(arrow))
 suppressMessages(library(fst))
 suppressMessages(library(forcats))
 suppressMessages(library(plotly))
@@ -42,6 +43,8 @@ library(compiler)
 plan(multisession)
 
 suppressMessages(library(DT))
+
+options(dplyr.summarise.inform = FALSE)
 
 select <- dplyr::select
 filter <- dplyr::filter
@@ -245,7 +248,7 @@ if (conf$mode == "production") {
     sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
     subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
 
-    alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs",aws_conf) 
+    alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs", aws_conf) 
     
 
     perf_plots %<-% (aws.s3::s3read_using(
@@ -2051,8 +2054,8 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                                   showarrow = FALSE))
 }
 
-
-volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+# Raw and Filtered Counts Only. Newer function (below) add Adjusted Counts
+volplot_plotly2_older <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
     # db is either conf$athena (list) or aurora (Pool)
 
     if (is.null(ymax)) {
@@ -2066,7 +2069,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
         
         dfi <- dfi %>% 
             mutate(maxy = if_else(bad_day==1, max(vol_rc, na.rm = TRUE), as.integer(0)),
-                   colr = colrs[CallPhase], 
+                   colr = colrs[as.character(CallPhase)], 
                    fill_colr = "")
         
         plot_ly(data = dfi) %>%
@@ -2117,34 +2120,41 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                                       showarrow = FALSE))
     }
     if (class(db) == "list") {
-        # db = conf$athena
-        athena <- get_athena_connection(db)
-        rc <- tbl(athena, sql(glue(paste(
-            "SELECT signalid, date, timeperiod, detector, callphase, vol",
-            "FROM {db$database}.counts_1hr",
-            "WHERE signalid = '{signalid}'",
-            "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
-        fc <- tbl(athena, sql(glue(paste(
-            "SELECT signalid, date, timeperiod, detector, callphase, vol",
-            "FROM {db$database}.filtered_counts_1hr",
-            "WHERE signalid = '{signalid}'",
-            "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
-        df <- left_join(
-            fc, 
-            rc, 
-            by = c("signalid", "date", "timeperiod", "detector", "callphase"), 
-            suffix = c("_fc", "_rc")) %>%
-            arrange(signalid, detector, timeperiod) %>%
-            mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
-            select(-date, -vol_fc) %>% 
-            collect() %>%
-            transmute(
-                SignalID = factor(signalid), 
-                Timeperiod = ymd_hms(timeperiod), 
-                Detector = factor(detector), 
-                CallPhase = factor(callphase),
-                vol_rc = as.integer(vol_rc),
-                bad_day)
+        withProgress(message = "Loading chart", value = 0, {
+            
+            # db = conf$athena
+            athena <- get_athena_connection(db)
+            incProgress(amount = 0.1)
+            rc <- tbl(athena, sql(glue(paste(
+                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "FROM {db$database}.counts_1hr",
+                "WHERE signalid = '{signalid}'",
+                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+            incProgress(amount = 0.2)
+            fc <- tbl(athena, sql(glue(paste(
+                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "FROM {db$database}.filtered_counts_1hr",
+                "WHERE signalid = '{signalid}'",
+                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+            incProgress(amount = 0.2)
+            df <- left_join(
+                fc, 
+                rc, 
+                by = c("signalid", "date", "timeperiod", "detector", "callphase"), 
+                suffix = c("_fc", "_rc")) %>%
+                arrange(signalid, detector, timeperiod) %>%
+                mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+                select(-date, -vol_fc) %>% 
+                collect() %>%
+                transmute(
+                    SignalID = factor(signalid), 
+                    Timeperiod = ymd_hms(timeperiod), 
+                    Detector = factor(detector), 
+                    CallPhase = factor(callphase),
+                    vol_rc = as.integer(vol_rc),
+                    bad_day)
+            incProgress(amount = 0.4)
+        })
         
     } else if (class(db) == "Pool") {
         # db = aurora connection pool
@@ -2170,6 +2180,219 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
             select(-Date, -vol_fc) %>% 
             collect()
         poolReturn(conn)
+    }
+    
+    #dbDisconnect(conn)
+    
+    dfs <- split(df, df$Detector)
+    dfs <- dfs[lapply(dfs, nrow)>0]
+    names(dfs) <- NULL
+    
+    plts <- purrr::imap(dfs, ~pl(.x, .y))
+    
+    #plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
+    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
+        layout(annotations = list(text = title,
+                                  xref = "paper",
+                                  yref = "paper",
+                                  yanchor = "bottom",
+                                  xanchor = "center",
+                                  align = "center",
+                                  x = 0.5,
+                                  y = 1,
+                                  showarrow = FALSE),
+               showlegend = TRUE,
+               margin = list(l = 120),
+               xaxis = list(
+                   type = 'date'))
+}
+
+volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+    # db is either conf$athena (list) or aurora (Pool)
+    
+    if (is.null(ymax)) {
+        yax <- list(rangemode = "tozero", tickformat = ",.0")
+    } else {
+        yax <- list(range = c(0, ymax), tickformat = ",.0")
+    } 
+    
+    # Works. fill_colr is still an enigma, but it works as is.
+    pl <- function(dfi, i) {
+        
+        dfi <- dfi %>% 
+            mutate(maxy = if_else(bad_day==1, max(vol_rc, na.rm = TRUE), as.integer(0)),
+                   colr = colrs[CallPhase], 
+                   fill_colr = "")
+        
+        plot_ly(data = dfi) %>%
+            add_trace(
+                x = ~Timeperiod, 
+                y = ~vol_rc, 
+                type = "scatter", 
+                mode = "lines", 
+                fill = "tozeroy",
+                line = list(color = ~colr),
+                fillcolor = ~fill_colr,
+                name = paste('Phase', dfi$CallPhase[1]),
+                customdata = ~glue(paste(
+                    "<b>Detector: {Detector}</b>",
+                    "<br>{format(ymd_hms(Timeperiod), '%a %d %B %I:%M %p')}",
+                    "<br>Volume: <b>{as_int(vol_rc)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = FALSE) %>%
+            add_trace(
+                x = ~Timeperiod, 
+                y = ~vol_ac, 
+                type = "scatter", 
+                mode = "lines", 
+                #fill = "tozeroy",
+                line = list(color = DARK_GRAY),
+                #fillcolor = ~fill_colr,
+                name = "Adjusted Count",
+                customdata = ~glue(paste(
+                    "<b>Detector: {Detector}</b>",
+                    "<br>{format(ymd_hms(Timeperiod), '%a %d %B %I:%M %p')}",
+                    "<br>Volume: <b>{as_int(vol_ac)}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = (i==1)) %>%
+            add_trace(
+                x = ~Timeperiod,
+                y = ~maxy,
+                type = "scatter",
+                mode = "lines",
+                fill = "tozeroy",
+                line = list(
+                    color = "rgba(0,0,0,0.1)",
+                    shape = "vh"),
+                fillcolor = "rgba(0,0,0,0.2)",
+                name = "Bad Days",
+                
+                customdata = ~glue(paste(
+                    "<b>Detector: {Detector}</b>",
+                    "<br>{format(date(Timeperiod), '%a %d %B %Y')}",
+                    "<br><b>{if_else(bad_day==1, 'Bad Day', 'Good Day')}</b>")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro")),
+                showlegend = (i==1)) %>%
+            layout(yaxis = yax,
+                   annotations = list(x = -.03,
+                                      y = 0.5,
+                                      xref = "paper",
+                                      yref = "paper",
+                                      xanchor = "right",
+                                      text = paste0("Det #", dfi$Detector[1]),
+                                      font = list(size = 12),
+                                      showarrow = FALSE))
+    }
+    if (class(db) == "list") {
+        # db = conf$athena
+        withProgress(message = "Loading chart", value = 0, {
+            athena <- get_athena_connection(db)
+            incProgress(amount = 0.1)
+            rc <- tbl(athena, sql(glue(paste(
+                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "FROM {db$database}.counts_1hr",
+                "WHERE signalid = '{signalid}'",
+                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+            incProgress(amount = 0.1)
+            fc <- tbl(athena, sql(glue(paste(
+                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "FROM {db$database}.filtered_counts_1hr",
+                "WHERE signalid = '{signalid}'",
+                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+            incProgress(amount = 0.1)
+            ac <- tbl(athena, sql(glue(paste(
+                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "FROM {db$database}.adjusted_counts_1hr",
+                "WHERE signalid = '{signalid}'",
+                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
+            incProgress(amount = 0.2)
+            df <- list(
+                rename(rc, vol_rc = vol),
+                rename(fc, vol_fc = vol),
+                rename(ac, vol_ac = vol)) %>%
+                reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
+                ) %>%
+                mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+                #select(-date, -vol_fc) %>% 
+                collect() %>%
+                transmute(
+                    SignalID = factor(signalid), 
+                    Timeperiod = timeperiod, 
+                    Detector = factor(detector), 
+                    CallPhase = factor(callphase),
+                    vol_rc = as.integer(vol_rc),
+                    vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA),
+                    bad_day) %>%
+                arrange(SignalID, Detector, Timeperiod)
+            incProgress(amount = 0.4)
+        })
+        
+    } else if (class(db) == "Pool") {
+        # db = aurora connection pool
+        rc <- tbl(db, "counts_1hr") %>% 
+            filter(
+                SignalID == signalid, 
+                Timeperiod >= plot_start_date, 
+                Timeperiod < plot_end_date)
+        fc <- tbl(aurora, "filtered_counts_1hr") %>% 
+            filter(
+                SignalID == signalid, 
+                Timeperiod >= plot_start_date, 
+                Timeperiod < plot_end_date)
+        ac <- tbl(aurora, "adjusted_counts_1hr") %>%
+            filter(
+                SignalID == signalid,
+                Timeperiod >= plot_start_date,
+                Timeperiod < plot_end_date)
+        
+        # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
+        lj <- left_join(
+            rename(rc, vol_rc = vol), 
+            rename(fc, vol_fc = vol), 
+            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
+        rj <- right_join(
+            rename(rc, vol_rc = vol), 
+            rename(fc, vol_fc = vol), 
+            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
+        df <- bind_rows(collect(lj), collect(rj)) %>% distinct()
+        
+        # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
+        lj <- left_join(
+            df,
+            collect(rename(ac, vol_ac = vol)),
+            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+        )
+        rj <- right_join(
+            df,
+            collect(rename(ac, vol_ac = vol)),
+            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+        )
+        df <- bind_rows(lj, rj) %>% distinct()
+        
+        df <- list(
+            rename(rc, vol_rc = vol),
+            rename(fc, vol_fc = vol),
+            rename(ac, vol_ac = vol)) %>%
+            reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
+            ) %>%
+            arrange(signalid, as.integer(detector), timeperiod) %>%
+            mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE),
+                   vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA)) %>% 
+            select(-date, -vol_fc) %>% 
+            collect() %>%
+        transmute(
+            SignalID = factor(signalid),
+            Timeperiod = timeperiod,
+            Detector = factor(as.integer(detector)),
+            CallPhase = factor(callphase),
+            vol_rc,
+            vol_ac,
+            bad_day
+        )
+        #reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
     }
     
     #dbDisconnect(conn)
@@ -3049,9 +3272,10 @@ plot_alerts <- function(df, date_range) {
             geom_tile(data = df, 
                       aes(x = Date, 
                           y = signal_phase,
-                          fill = streak), 
+                          fill = streak),  # CallPhase), 
                       color = "white") + 
             
+            #scale_fill_manual(values = colrs, name = "Phase") +
             scale_fill_gradient(low = "#fc8d59", high = "#7f0000", limits = c(0,90)) +
             
             # fonts, text size and labels and such
@@ -3061,7 +3285,8 @@ plot_alerts <- function(df, date_range) {
                   axis.text.x = element_text(size = 11),
                   axis.text.y = element_text(size = 11),
                   axis.ticks.y = element_blank(),
-                  axis.title = element_text(size = 11)) +
+                  axis.title = element_text(size = 11),
+                  legend.position = "right") +
             
             scale_x_date(position = "top") + #, limits = date_range) #+
             scale_y_discrete(limits = rev(levels(df$signal_phase))) +
