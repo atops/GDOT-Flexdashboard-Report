@@ -3,7 +3,7 @@
 title: "MARK 1"
 # ------------------------------
 resource_files:
-- all_Corridors_Latest.feather
+- all_Corridors_Latest.qs
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -53,8 +53,8 @@ styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 #
 #```{r data, cache=FALSE, cache.lazy=FALSE}
 
-corridors <- read_feather(sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)))
-corridors <- read_feather("all_Corridors_Latest.feather")
+corridors <- qs::qread(sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3)))
+corridors <- qs::qread("all_Corridors_Latest.qs")
 cor <- qs::qread("cor.qs")
 sig <- qs::qread("sig.qs")
 sub <- qs::qread("sub.qs")
@@ -2821,7 +2821,7 @@ sid <- eventReactive(input$signal_details_button, {
     sub(":.+", "", input$signalid)
 })
 
-                     
+
 fillCol(height = 700,
 
         renderPlotly({

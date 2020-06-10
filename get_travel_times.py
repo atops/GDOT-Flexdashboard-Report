@@ -134,7 +134,7 @@ def get_corridor_travel_times(df, corr_grouping, bucket, table_name):
 
 def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
     
-    df = df.groupby(corr_grouping + ['Hour'], as_index=False)['travel_time_minutes', 'reference_minutes'].sum()
+    df = df.groupby(corr_grouping + ['Hour'], as_index=False)[['travel_time_minutes', 'reference_minutes']].sum()
 
     # -- Travel Time Metrics Summarized by tti, pti by hour --
     df['Hour'] = df['Hour'].apply(lambda x: x.replace(day=1))

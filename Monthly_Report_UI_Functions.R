@@ -21,7 +21,6 @@ suppressMessages(library(fst))
 suppressMessages(library(forcats))
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
-#suppressMessages(library(RJDBC))
 suppressMessages(library(memoise))
 #suppressMessages(library(RSQLite))
 suppressMessages(library(future))
@@ -34,6 +33,7 @@ suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
+suppressMessages(library(RJSONIO))
 #suppressMessages(library(RAthena))
 suppressMessages(library(shinycssloaders))
 library(compiler)
@@ -169,7 +169,7 @@ zone_group_options <- conf$zone_groups
 
 s3checkFunc <- function(bucket, object) {
     function() {
-        aws.s3::get_bucket_df(bucket = bucket, prefix = object)$LastModified
+        aws.s3::get_bucket(bucket = bucket, prefix = object)$Contents$LastModified
     }
 }
 s3valueFunc <- function(bucket, object, aws_conf) {
@@ -2220,7 +2220,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
     pl <- function(dfi, i) {
         
         dfi <- dfi %>% 
-            mutate(maxy = if_else(bad_day==1, max(vol_rc, na.rm = TRUE), as.integer(0)),
+            mutate(maxy = if_else(bad_day==1, as.integer(max(1,max(vol_rc, na.rm = TRUE))), as.integer(0)),
                    colr = colrs[CallPhase], 
                    fill_colr = "")
         
@@ -2321,7 +2321,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                 transmute(
                     SignalID = factor(signalid), 
                     Timeperiod = timeperiod, 
-                    Detector = factor(detector), 
+                    Detector = factor(as.integer(detector)), 
                     CallPhase = factor(callphase),
                     vol_rc = as.integer(vol_rc),
                     vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA),

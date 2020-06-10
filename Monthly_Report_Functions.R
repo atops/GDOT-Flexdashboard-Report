@@ -114,7 +114,7 @@ get_usable_cores <- function() {
   # Get RAM from system file and divide
   
   if (Sys.info()["sysname"] == "Windows") {
-    x <- shell('systeminfo | findstr Memory', intern = TRUE)
+    x <- suppressWarnings(shell('systeminfo | findstr Memory', intern = TRUE))
     
     memline <- x[grepl("Total Physical Memory", x)]
     mem <- stringr::str_extract(string =  memline, pattern = "\\d+,\\d+")
@@ -344,10 +344,14 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
     df <- mutate(df, SignalID = as.character(SignalID)) 
   }
   
-  s3write_using(df,
-                write_parquet,
-                bucket = bucket,
-                object = glue("mark/{table_name}/date={date_}/{fn}.parquet"), opts = list(multipart = TRUE))
+  tmp_fn <- tempfile()
+  write_parquet(df, tmp_fn, use_deprecated_int96_timestamps = TRUE)
+  aws.s3::put_object(
+    tmp_fn, 
+    bucket = bucket,
+    object = glue("mark/{table_name}/date={date_}/{fn}.parquet"))
+  file.remove(tmp_fn)
+  
   conn <- get_athena_connection(conf_athena)
   tryCatch({
     response <- dbGetQuery(conn,
@@ -356,10 +360,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
                                           "location 's3://{bucket}/mark/{table_name}/'"))))
     print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
   }, error = function(e) {
-    message <- str_extract(e, 'message:(.*?)\\)')
-    #print(glue(paste(
-    #  "Didn't create partition (date='{date_}') for {conf_athena$database}.{table_name}",
-    #  "({message}")))
+    message <- e
   })
   dbDisconnect(conn)
 }
@@ -376,17 +377,28 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
     }
   }
   
-  df %>% 
-    split(.$Date) %>% 
-    mclapply(mc.cores = max(1,detectCores()-1), FUN = function(x) {
-      date_ <- as.character(x$Date[1])
-      s3_upload_parquet(x, date_,
-                        fn = glue("{prefix}_{date_}"), 
-                        bucket = bucket,
-                        table_name = table_name, 
-                        conf_athena = conf_athena)
-      Sys.sleep(1)
-    })
+  d <- unique(df$Date)
+  if (length(d) == 1) { # just one date. upload.
+    date_ <- d
+    s3_upload_parquet(df, date_,
+                      fn = glue("{prefix}_{date_}"), 
+                      bucket = bucket,
+                      table_name = table_name, 
+                      conf_athena = conf_athena)
+  } else { # loop through dates
+    df %>% 
+      split(.$Date) %>% 
+      mclapply(mc.cores = max(1,detectCores()-1), FUN = function(x) {
+        date_ <- as.character(x$Date[1])
+        s3_upload_parquet(x, date_,
+                          fn = glue("{prefix}_{date_}"), 
+                          bucket = bucket,
+                          table_name = table_name, 
+                          conf_athena = conf_athena)
+        Sys.sleep(1)
+      })
+  }
+  
 }
 
 
@@ -1619,17 +1631,13 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
     query_where <- ""
   }
   
-  #query <- paste("SELECT * FROM", paste0(conf_athena$database, ".", tolower(table)), query_where)
   query <- glue("SELECT * FROM {conf_athena$database}.{tolower(table)} {query_where}")
   
   df <- tbl(conn, sql(query))
   
   end_date1 <- ymd(end_date) + days(1)
   
-  #signals_list <- as.integer(signals_list)
-  
-  dplyr::filter(df, date >= as.character(start_date) & date < as.character(end_date1)) # &
-  #signalid %in% signals_list)
+  dplyr::filter(df, date >= as.character(start_date) & date < as.character(end_date1))
 }
 
 
@@ -1796,7 +1804,7 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
   
   print("Starting queries...")
   
-  de %<-% (get_detection_events(date_, date_, conf_athena, signals_list = NULL) %>% 
+  de <- (get_detection_events(date_, date_, conf_athena, signals_list = NULL) %>% 
              select(signalid,
                     phase,
                     detector,
@@ -1815,7 +1823,7 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
                        detoff = ymd_hms(dettimestamp) + seconds(detduration),
                        date = ymd(date)))
   
-  cd %<-% (get_cycle_data(date_, date_, conf_athena, signals_list = NULL) %>% 
+  cd <- (get_cycle_data(date_, date_, conf_athena, signals_list = NULL) %>% 
              select(signalid, 
                     phase, 
                     cyclestart, 
@@ -4532,17 +4540,17 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
   
   #    current_month <- months[order(months)][match(current_month, months.formatted)]
   data <- list(
-    cor$mo$du, # detector uptime - note that zone group is factor not character
-    cor$mo$pau,
-    cor$mo$cctv,
-    cor$mo$cu,
-    cor$mo$tp, # no longer pulling from vpd (volume) table - this is throughput
-    cor$mo$aogd,
-    cor$mo$qsd,
-    cor$mo$sfd,
-    cor$mo$tti,
-    cor$mo$pti,
-    cor$mo$tasks #tasks added 10/29/19
+    rename(cor$mo$du, du = uptime, du.delta = delta), # detector uptime - note that zone group is factor not character
+    rename(cor$mo$pau, pau = uptime, pau.delta = delta),
+    rename(cor$mo$cctv, cctvu = uptime, cctvu.delta = delta),
+    rename(cor$mo$cu, cu = uptime, cu.delta = delta),
+    rename(cor$mo$tp, tp = vph, tp.delta = delta), # no longer pulling from vpd (volume) table - this is throughput
+    rename(cor$mo$aogd, aog.delta = delta),
+    rename(cor$mo$qsd, qs = qs_freq, qs.delta = delta),
+    rename(cor$mo$sfd, sf = sf_freq, sf.delta = delta),
+    rename(cor$mo$tti, tti.delta = delta),
+    rename(cor$mo$pti, pti.delta = delta),
+    rename(cor$mo$tasks, tasks = Outstanding, tasks.delta = delta.out), #tasks added 10/29/19
   ) %>%
     reduce(left_join, by = c("Zone_Group", "Corridor", "Month")) %>%
     filter(
@@ -4560,28 +4568,28 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
       -starts_with("vol"),
       -starts_with("Description"),
       -c(All,Reported,Resolved,cum_Reported,cum_Resolved,delta.rep,delta.res) #tasks added 10/29/19
-    ) %>%
-    rename(
-      du = uptime.x, # looks like this field has been updated 9/10
-      du.delta = delta.x,
-      pau = uptime.y, # updated 9/10
-      pau.delta = delta.y,
-      cctvu = uptime.x.x, # updated 9/10
-      cctvu.delta = delta.x.x,
-      cu = uptime.y.y, # updated 9/10
-      cu.delta = delta.y.y,
-      tp = vph,
-      tp.delta = delta.x.x.x,
-      aog.delta = delta.y.y.y,
-      qs = qs_freq,
-      qs.delta = delta.x.x.x.x,
-      sf = sf_freq,
-      sf.delta = delta.y.y.y.y,
-      tti.delta = delta.x.x.x.x.x,
-      pti.delta = delta.y.y.y.y.y,
-      tasks = Outstanding, #tasks added 10/29/19
-      tasks.delta = delta.out #tasks added 10/29/19
-    )
+    ) #%>%
+    # rename(
+    #   du = uptime.x, # looks like this field has been updated 9/10
+    #   du.delta = delta.x,
+    #   pau = uptime.y, # updated 9/10
+    #   pau.delta = delta.y,
+    #   cctvu = uptime.x.x, # updated 9/10
+    #   cctvu.delta = delta.x.x,
+    #   cu = uptime.y.y, # updated 9/10
+    #   cu.delta = delta.y.y,
+    #   tp = vph,
+    #   tp.delta = delta.x.x.x,
+    #   aog.delta = delta.y.y.y,
+    #   qs = qs_freq,
+    #   qs.delta = delta.x.x.x.x,
+    #   sf = sf_freq,
+    #   sf.delta = delta.y.y.y.y,
+    #   tti.delta = delta.x.x.x.x.x,
+    #   pti.delta = delta.y.y.y.y.y,
+    #   tasks = Outstanding, #tasks added 10/29/19
+    #   tasks.delta = delta.out #tasks added 10/29/19
+    # )
   return(data)
 }
 

@@ -51,6 +51,14 @@ aws.s3::put_object(
     bucket = conf$bucket,
     multipart = TRUE
 )
+qs_filename <- sub("\\..*", ".qs", conf$corridors_filename_s3)
+qsave(corridors, qs_filename)
+aws.s3::put_object(
+    file = qs_filename,
+    object = qs_filename,
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
 all_corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = FALSE),
@@ -65,7 +73,14 @@ aws.s3::put_object(
     bucket = conf$bucket,
     multipart = TRUE
 )
-
+qs_filename <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+qsave(all_corridors, qs_filename)
+aws.s3::put_object(
+    file = qs_filename,
+    object = qs_filename,
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
 signals_list <- unique(corridors$SignalID)
 
@@ -669,6 +684,6 @@ if (conf$run$ped_delay == TRUE) {
     get_pd_date_range(start_date, end_date)
 }
 
-system2('python reload_parquet.py', wait = FALSE)
+#system2('python reload_parquet.py', wait = FALSE)
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")

@@ -2278,65 +2278,65 @@ aws.s3::put_object(
 )
 
 
-#------------------------------------------
-conf_mode <- "production"
-source("Monthly_Report_UI_Functions.R")
-#------------------------------------------
-perf_plots <- list()
-
-perf_plots$tp_trend <- perf_plot_beta_(
-    filter(cor$mo$tp, Corridor=="All RTOP"), 
-    "vph", "", RED2, format_func = as_int)
-perf_plots$aog_trend <- perf_plot_beta_(
-    filter(cor$mo$aogd, Corridor=="All RTOP"), 
-    "aog", "", RED2, format_func = as_pct, hoverformat = ".1%")
-perf_plots$pr_trend <- perf_plot_beta_(
-    filter(cor$mo$prd, Corridor=="All RTOP"),
-    "pr", "", RED2, format_func = as_2dec, hoverformat = ".2f")
-perf_plots$qs_trend <- perf_plot_beta_(
-    filter(cor$mo$qsd, Corridor=="All RTOP"), 
-    "qs_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
-perf_plots$sf_trend <- perf_plot_beta_(
-    filter(cor$mo$sfd, Corridor=="All RTOP"),
-    "sf_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
-perf_plots$sfo_trend <- perf_plot_beta_(
-    filter(cor$mo$sfo, Corridor=="All RTOP"), 
-    "sf_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
-perf_plots$tti_trend <- perf_plot_beta_(
-    filter(cor$mo$tti, Corridor=="All RTOP"), 
-    "tti", "", RED2, format_func = as_2dec, hoverformat = ".2f")
-perf_plots$pti_trend <- perf_plot_beta_(
-    filter(cor$mo$pti, Corridor=="All RTOP"), 
-    "pti", "", RED2, format_func = as_2dec, hoverformat = ".2f")
-perf_plots$vpd_trend <- perf_plot_beta_(
-    filter(cor$mo$vpd, Corridor=="All RTOP"), 
-    "vpd", "", GDOT_BLUE, format_func = as_int)
-perf_plots$vpha_trend <- perf_plot_beta_(
-    filter(cor$mo$vphp$am, Corridor=="All RTOP"),
-    "vph", "", GDOT_BLUE, format_func = as_int)
-perf_plots$vphp_trend <- perf_plot_beta_(
-    filter(cor$mo$vphp$pm, Corridor=="All RTOP"),
-    "vph", "", GDOT_BLUE, format_func = as_int)
-perf_plots$du_trend <- perf_plot_beta_(
-    filter(cor$mo$du, Corridor=="All RTOP"),
-    "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
-perf_plots$pau_trend <- perf_plot_beta_(
-    filter(cor$mo$pau, Corridor=="All RTOP"),
-    "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
-perf_plots$cctv_trend <- perf_plot_beta_(
-    filter(cor$mo$cctv, Corridor=="All RTOP"),
-    "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
-perf_plots$cu_trend <- perf_plot_beta_(
-    filter(cor$mo$cu, Corridor=="All RTOP"),
-    "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
-perf_plots$ru_trend <- perf_plot_beta_(
-    filter(cor$mo$ru, Corridor=="All RTOP"),
-    "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
-
-qsave(perf_plots, "perf_plots.qs")
-
-aws.s3::put_object(
-    file = "perf_plots.qs",
-    object = "perf_plots.qs",
-    bucket = conf$bucket,
-    multipart = TRUE)
+# #------------------------------------------
+# conf_mode <- "production"
+# source("Monthly_Report_UI_Functions.R")
+# #------------------------------------------
+# perf_plots <- list()
+# 
+# perf_plots$tp_trend <- perf_plot_beta_(
+#     filter(cor$mo$tp, Corridor=="All RTOP"), 
+#     "vph", "", RED2, format_func = as_int)
+# perf_plots$aog_trend <- perf_plot_beta_(
+#     filter(cor$mo$aogd, Corridor=="All RTOP"), 
+#     "aog", "", RED2, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$pr_trend <- perf_plot_beta_(
+#     filter(cor$mo$prd, Corridor=="All RTOP"),
+#     "pr", "", RED2, format_func = as_2dec, hoverformat = ".2f")
+# perf_plots$qs_trend <- perf_plot_beta_(
+#     filter(cor$mo$qsd, Corridor=="All RTOP"), 
+#     "qs_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$sf_trend <- perf_plot_beta_(
+#     filter(cor$mo$sfd, Corridor=="All RTOP"),
+#     "sf_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$sfo_trend <- perf_plot_beta_(
+#     filter(cor$mo$sfo, Corridor=="All RTOP"), 
+#     "sf_freq", "", RED2, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$tti_trend <- perf_plot_beta_(
+#     filter(cor$mo$tti, Corridor=="All RTOP"), 
+#     "tti", "", RED2, format_func = as_2dec, hoverformat = ".2f")
+# perf_plots$pti_trend <- perf_plot_beta_(
+#     filter(cor$mo$pti, Corridor=="All RTOP"), 
+#     "pti", "", RED2, format_func = as_2dec, hoverformat = ".2f")
+# perf_plots$vpd_trend <- perf_plot_beta_(
+#     filter(cor$mo$vpd, Corridor=="All RTOP"), 
+#     "vpd", "", GDOT_BLUE, format_func = as_int)
+# perf_plots$vpha_trend <- perf_plot_beta_(
+#     filter(cor$mo$vphp$am, Corridor=="All RTOP"),
+#     "vph", "", GDOT_BLUE, format_func = as_int)
+# perf_plots$vphp_trend <- perf_plot_beta_(
+#     filter(cor$mo$vphp$pm, Corridor=="All RTOP"),
+#     "vph", "", GDOT_BLUE, format_func = as_int)
+# perf_plots$du_trend <- perf_plot_beta_(
+#     filter(cor$mo$du, Corridor=="All RTOP"),
+#     "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$pau_trend <- perf_plot_beta_(
+#     filter(cor$mo$pau, Corridor=="All RTOP"),
+#     "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$cctv_trend <- perf_plot_beta_(
+#     filter(cor$mo$cctv, Corridor=="All RTOP"),
+#     "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$cu_trend <- perf_plot_beta_(
+#     filter(cor$mo$cu, Corridor=="All RTOP"),
+#     "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
+# perf_plots$ru_trend <- perf_plot_beta_(
+#     filter(cor$mo$ru, Corridor=="All RTOP"),
+#     "uptime", "", ORANGE, format_func = as_pct, hoverformat = ".1%")
+# 
+# qsave(perf_plots, "perf_plots.qs")
+# 
+# aws.s3::put_object(
+#     file = "perf_plots.qs",
+#     object = "perf_plots.qs",
+#     bucket = conf$bucket,
+#     multipart = TRUE)
