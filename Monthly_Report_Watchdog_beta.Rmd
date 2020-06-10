@@ -49,6 +49,9 @@ FIG_HEIGHT = 7
 #         filter(!SignalID %in% c(9801, 9970, 9825, 9855))) # Temporary until the config can be sorted out
 
 
+load(file = "filter_alerts.rda")
+load(file = "plot_alerts.rds")
+
 
 ```
 
@@ -105,11 +108,11 @@ observe({
                     } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
                         c("All Corridors",
                           as.character(unique(filter(
-                              corridors, Zone_Group == input$zone_group)$Corridor)))
+                              corridors(), Zone_Group == input$zone_group)$Corridor)))
                     } else {
                         c("All Corridors",
                           as.character(unique(filter(
-                              corridors, Zone == input$zone_group)$Corridor)))
+                              corridors(), Zone == input$zone_group)$Corridor)))
                     }
                 }
             
@@ -175,21 +178,21 @@ filtered_corridors <- reactive({
 
     # All RTOP is the union of RTOP1, RTOP2
     if (input$zone_group == "All RTOP") {
-        corr <- corridors %>% 
+        corr <- corridors() %>% 
             filter(Zone_Group %in% c("RTOP1", "RTOP2"))
 
     # Zone 7 is the union of Zone 7m, 7d
     } else if (input$zone_group == "Zone 7") {
-        corr <- corridors %>% 
+        corr <- corridors() %>% 
             filter(grepl("^Zone 7", Zone))
 
     # Zones filter by Zone rather than Zone_Group
     } else if (startsWith(input$zone_group, "Zone")) {
-        corr <- corridors %>% 
+        corr <- corridors() %>% 
             filter(Zone %in% input$zone_group)
 
     } else {
-        corr <- corridors %>% 
+        corr <- corridors() %>% 
             filter(Zone_Group %in% input$zone_group)
     }
     
@@ -294,7 +297,7 @@ plot_height <- reactive({
 })
 
 filtered_alerts <- reactive({
-
+  
     alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
     
     phase_ <- if(input$phase.eight != "All") {
