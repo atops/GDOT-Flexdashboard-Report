@@ -1,30 +1,29 @@
 ---
 title: "MARK 1 (beta)"
 resource_files:
-- all_Corridors_Latest.feather
-runtime: shiny
+- all_Corridors_Latest.qs
 output:
   flexdashboard::flex_dashboard:
-    css: style.css
+    orientation: rows
+    vertical_layout: scroll
+    logo: GDOTLogo.svg
     favicon: GDOTLogo.svg
+    css: style.css
     includes:
       in_header: google-analytics.html
-    logo: GDOTLogo.svg
-    orientation: rows
-    self_contained: no
-    vertical_layout: scroll
+runtime: shiny
 ---
 
 <style>
 
-.table thead tr th:nth-child(2n+4) {
+#corridor_summary_table .table thead tr th:nth-child(2n+4) {
     /*color: white;*/
     visibility: hidden;
     font-size:1px;
     width:"50px";
 }
 
-.table thead tr th:nth-child(2) {
+#corridor_summary_table .table thead tr th:nth-child(2) {
     width:"1000px";
 }
 
@@ -42,7 +41,7 @@ FIG_HEIGHT = 7
 
 AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 
-styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"                                                 
+styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 
 ```
 
@@ -101,12 +100,12 @@ observe({
 conditionalPanel(
     "input.corridor_x != 'All Corridors'",
     radioButtons(
-        "subcorridors", 
-        label = NULL, 
-        choices = c("By Intersection", "By Sub-corridor"), 
+        "subcorridors",
+        label = NULL,
+        choices = c("By Intersection", "By Sub-corridor"),
         selected = "By Intersection",
-        inline = FALSE, 
-        width = NULL, 
+        inline = FALSE,
+        width = NULL,
         choiceNames = NULL,
         choiceValues = NULL)
 )
@@ -386,7 +385,7 @@ Row
 ```{r}
 renderValueBox({
   valueBox(
-    value = get_valuebox(mr()$mo$vpd, "vpd", as_int, 
+    value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
     icon = "fa-area-chart",
     color = BLUE
@@ -399,7 +398,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int, 
+      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -412,7 +411,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int, 
+      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -465,7 +464,7 @@ Row
 #cordata()$mo$veh
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$du, "uptime", as_pct, 
+      value = get_valuebox(mr()$mo$du, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-car",
     color = BLUE
@@ -478,7 +477,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$pau, "uptime", as_pct, 
+      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-walking",
     color = BLUE
@@ -504,7 +503,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$cu, "uptime", as_pct, 
+      value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
       icon = "fa-broadcast-tower",
     color = BLUE
@@ -518,11 +517,11 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            mr()$mo$ru, 
-            "uptime", 
-            as_pct, 
-            zone = zone_group(), 
-            mo = current_month(), 
+            mr()$mo$ru,
+            "uptime",
+            as_pct,
+            zone = zone_group(),
+            mo = current_month(),
             break_ = TRUE),
         icon = "fa-wifi",  #"fa-user" #
     color = BLUE
@@ -1916,7 +1915,7 @@ output$equipment <- renderPlotly({
 })
 ```
 
-Activity
+Reporting
 =====================================
 
 Row
@@ -2079,13 +2078,13 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 
 **February 2019 and later**
 
-`r renderUI({get_progress_report_link_by_zone("Zone 1", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 2", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 3", current_month(), "RTOP1")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 4", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 5", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 6", current_month(), "RTOP2")})` | 
-`r renderUI({get_progress_report_link_by_zone("Zone 7", current_month(), "RTOP2")})` | 
+`r renderUI({get_progress_report_link_by_zone("Zone 1", current_month(), "RTOP1")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 2", current_month(), "RTOP1")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 3", current_month(), "RTOP1")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 4", current_month(), "RTOP2")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 5", current_month(), "RTOP2")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 6", current_month(), "RTOP2")})` |
+`r renderUI({get_progress_report_link_by_zone("Zone 7", current_month(), "RTOP2")})` |
 `r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
 
 ### Zone Performance Summaries
@@ -2130,35 +2129,6 @@ fillRow(
 
 ```{r, echo=FALSE, eval = TRUE}
 
-get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
-    df <- zmdf_ %>%
-        dplyr::group_by(Month, Zone) %>%
-        dplyr::filter(LastModified == max(LastModified)) %>%
-        ungroup()
-    # Filter by zone if provided
-    if (!is.null(zone_)) {
-        df <- df %>% filter(Zone == zone_)
-    }
-    # Filter by month if provided
-    if (!is.null(month_)) {
-        df <- df %>% filter(Month == month_)
-    }
-    df
-}
-
-
-get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
-    df <- get_last_modified(zmdf_, zone_, month_)
-    
-    # If NULL, return default if provided
-    if (!is.null(default_) & nrow(df) == 0) {
-        default_
-    } else {
-        df$Comments[1]
-    }
-}
-
-
 tinyMCE <- function(inputId, content, options = NULL){
   tagList(
     singleton(tags$head(tags$script(src = glue("//cdn.tiny.cloud/1/{tinymce_api_key}/tinymce/5/tinymce.min.js")))),
@@ -2171,7 +2141,6 @@ tinyMCE <- function(inputId, content, options = NULL){
     singleton(tags$head(tags$script(src = 'shinyMCE/shiny-tinymce-bindings.js')))
   )
 }
-
 
 tinymce_api_key <- 'ee9qvzyyw4te05yjk9lxcmdephacz40a5qpni2kwh2cu74la'
 
@@ -2295,9 +2264,10 @@ shinyApp(
           
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-#                print(latest_comment)
-#                print(input$editor1)
-                if (is.na(input$editor1) || is.na(latest_comment) || input$editor1 != latest_comment) {
+                print('--------Update Editor--------')
+                #print(latest_comment)
+                #print(input$editor1)
+                if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <<- tibble::add_row(
                         zmdf,
                         Month = memory$month,
@@ -2366,9 +2336,11 @@ shinyApp(
           
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
-                print(get_latest_comment(zmdf, memory$zone, memory$month))
-                print(input$editor1)
-                if (input$editor1 != get_latest_comment(zmdf, memory$zone, memory$month)) {
+                latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
+                print('--------ConfirmSave--------')
+                #print(get_latest_comment(zmdf, memory$zone, memory$month))
+                #print(input$editor1)
+                if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <<- tibble::add_row(
                         zmdf,
                         Month = memory$month,
@@ -2410,54 +2382,77 @@ shinyApp(
 
 ### User Delay Costs
 
-```{r User Delay Costs, echo=FALSE, eval = TRUE, fig.height = 5}
+```{r User Delay Costs, echo=FALSE, eval = TRUE}
+
+udc_plot_height <- reactive({
+    ncorrs <- corridors %>%
+        filter(grepl("^Zone", Zone)) %>%
+        distinct(Zone, Corridor) %>%
+        group_by(Zone) %>%
+        summarize(n=ceiling(n()/2)) %>%
+        mutate(Zone = as.character(Zone))
+    n <- ncorrs[ncorrs$Zone=="Zone 1",]$n
+    # n <- 3
+    css_px <- as.character(200 * n)
+    paste0(css_px, "px")
+})
+
+output$udc_plot <- renderPlotly({
+    udcplot_plotly(
+        cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month()))
+})
+
+output$udc_table <- renderFormattable({
+      validate(need(startsWith(zone_group(), "Zone"), ""))
+      
+      month_str <- format(current_month(), "%F")
+      data <- cordata()$mo$udc_trend_table
+      
+      validate(need(month_str %in% names(data), "No data"))
+      
+      data <- data[[month_str]] %>% 
+          filter(Zone == zone_group()) %>%
+          select(-Month) %>%
+          rename(`Month Change` = `Month-over-Month`,
+                 `Year Change` = `Year-over-Year`)
+      
+      validate(need(nrow(data)>0, "No data"))
+      
+      column_formats <- list(
+          formatter("span"),
+          formatter("span"),
+          formatter("span", x ~ as_currency(x)),
+          formatter("span", 
+                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                    x ~ as_pct(x)),
+          formatter("span", x ~ as_currency(x)),
+          formatter("span", 
+                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                    x ~ as_pct(x)),
+          formatter("span", x ~ as_currency(x)))
+      names(column_formats) <- names(data)
+
+      formattable(
+          data,
+          align = c(rep("l", 2), rep("r", length(data)-2)),
+          column_formats)
+})
 
 fillCol(
     fillRow(
-        renderPlotly({
+        renderUI({
             validate(need(startsWith(zone_group(), "Zone"),
                           "Select a Zone for User Delay Costs by Corridor"))
-            udcplot_plotly(
-                cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month()))
+            plotlyOutput("udc_plot")#,
+                       #height = udc_plot_height())
         })
     ),
-    renderFormattable({
-        validate(need(startsWith(zone_group(), "Zone"), ""))
-        
-        month_str <- format(current_month(), "%F")
-        data <- cordata()$mo$udc_trend_table
-        
-        validate(need(month_str %in% names(data), "No data"))
-        
-        data <- data[[month_str]] %>% 
-            filter(Zone == zone_group()) %>%
-            select(-Month) %>%
-            rename(`Last Month` = `Month-over-Month`,
-                   `Last Year` = `Year-over-Year`)
-        
-        validate(need(nrow(data)>0, "No data"))
-        
-        column_formats <- list(
-            formatter("span"),
-            formatter("span"),
-            formatter("span", x ~ as_currency(x)),
-            formatter("span", 
-                      style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
-                      x ~ as_pct(x)),
-            formatter("span", x ~ as_currency(x)),
-            formatter("span", 
-                      style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
-                      x ~ as_pct(x)),
-            formatter("span", x ~ as_currency(x)))
-        names(column_formats) <- names(data)
-
-        formattable(
-            data,
-            align = c(rep("l", 2), rep("r", length(data)-2)),
-            column_formats)
-
-    }), height = 700)
-
+    fillRow(
+        div(style = "width: 80%",
+            formattableOutput("udc_table")
+        )
+    ), height = 1200
+)
 ```
 
 
@@ -2724,7 +2719,7 @@ sid <- eventReactive(input$signal_details_button, {
 fillCol(height = 700,
 
         renderPlotly({
-            req(input$signal_details_button)                                
+            req(input$signal_details_button)
             #signal_dashboard_athena(sid(), current_month(), conf$athena)
             #detector_dashboard_athena(sid(), current_month(), conf$athena)
             volplot_plotly2(
