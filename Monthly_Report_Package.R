@@ -11,19 +11,36 @@ print(glue("{Sys.time()} watchdog alerts [1 of 23]"))
 tryCatch({
     # -- Alerts: detector downtime --
     
-    bad_det <- dbGetQuery(conn, sql(glue(paste(
-        "select signalid, detector, date",
-        "from {conf$athena$database}.bad_detectors",
-        "where date >='{today() - days(90)}'")))
-    ) %>%
-        transmute(
-            SignalID = factor(signalid),
-            Detector = factor(detector),
-            Date = date(date)
-        ) %>%
-        as_tibble() 
+    # bad_det <- dbGetQuery(conn, sql(glue(paste(
+    #     "select signalid, detector, date",
+    #     "from {conf$athena$database}.bad_detectors",
+    #     "where date >='{today() - days(90)}'")))
+    # ) %>%
+    #     transmute(
+    #         SignalID = factor(signalid),
+    #         Detector = factor(detector),
+    #         Date = date(date)
+    #     ) %>%
+    #     as_tibble() 
     
-    det_config <- mclapply(sort(unique(bad_det$Date)), mc.cores = usable_cores, function(date_) {
+    bad_det <- lapply(
+        seq(today() - days(90), today()-days(1), by = "1 day"), 
+        function(date_) {
+            key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
+            #print(key)
+            tryCatch({
+                s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>% 
+                    select(SignalID, Detector) %>%
+                    mutate(Date = date_)
+            }, error = function(e) {
+                data.frame()  #(SignalID = col_character(), Detector = col_character())
+            })
+        }) %>% 
+        bind_rows() %>% 
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector))
+    
+    det_config <- lapply(sort(unique(bad_det$Date)), function(date_) {
         get_det_config(date_) %>% 
             transmute(
                 SignalID, 
@@ -36,7 +53,11 @@ tryCatch({
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
-            Detector = factor(Detector))
+            Detector = factor(Detector)) %>% 
+        
+        # Hack to eliminate Ramp Meter Detector Config Problems before 5/1/2020.
+        # After 7/31/2020 this won't be needed if we keep the 90 day windows for alerts
+        filter(!(Date < '2020-05-01' & ApproachDesc %in% c("Mainline-Lead", "Mainline-Trail", "Queue", "Passage", "Demand")))
     
     bad_det <- bad_det %>% 
         left_join(
@@ -73,17 +94,33 @@ tryCatch({
     
     # -- Alerts: pedestrian detector downtime --
     
-    bad_ped <- dbGetQuery(conn, sql(glue(paste(
-        "select signalid, detector, date from {conf$athena$database}.bad_ped_detectors", 
-        "where date >='{today() - days(90)}'")))) %>%
-        transmute(
-            SignalID = factor(signalid),
-            Detector = factor(detector),
-            Date = date(date)
-        ) %>%
-        distinct() %>%
-        #filter(Date > today() - days(100)) %>%
-        as_tibble() %>%
+    # bad_ped <- dbGetQuery(conn, sql(glue(paste(
+    #     "select signalid, detector, date", 
+    #     "from {conf$athena$database}.bad_ped_detectors", 
+    #     "where date >='{today() - days(90)}'")))) %>%
+    #     transmute(
+    #         SignalID = factor(signalid),
+    #         Detector = factor(detector),
+    #         Date = date(date)
+    #     ) %>%
+    #     distinct() %>%
+    #     as_tibble() %>%
+        
+    bad_ped <- lapply(
+        seq(today() - days(90), today()-days(1), by = "1 day"), 
+        function(date_) {
+            key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
+            tryCatch({
+                s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>% 
+                    mutate(Date = date_)
+            }, error = function(e) {
+                data.frame()
+            })
+        }) %>% 
+        bind_rows() %>% 
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector)) %>%
+    
         left_join(
             dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name), 
             by = c("SignalID")
@@ -107,30 +144,58 @@ tryCatch({
     
     # -- Alerts: CCTV downtime --
     
-    bad_cam <- tbl(conn, sql(glue(paste(
-        "select cameraid, date", 
-        "from {conf$athena$database}.cctv_uptime",
-        "where size = 0")))) %>%
-        #filter(size == 0) %>%
-        collect() %>%
-        transmute(
-            CameraID = factor(cameraid),
-            Date = date(date)
-        ) %>%
-        filter(Date > today() - months(9)) %>%
+    bad_cam <- lapply(
+        floor_date(seq(today() - months(9), today(), by = "1 month"), "month"), 
+        function(date_) {
+            key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
+            #print(key)
+            tryCatch({
+                s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                    filter(Size == 0)
+            }, error = function(e) {
+                print(e)
+                data.frame()
+            })
+        }) %>% 
+        bind_rows() %>%
         left_join(cam_config, by = c("CameraID")) %>%
         filter(Date > As_of_Date) %>%
         #left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
         transmute(
-            Zone_Group, 
+            Zone_Group,
             Zone,
             Corridor = factor(Corridor),
-            SignalID = factor(CameraID), 
-            CallPhase = factor(0), 
+            SignalID = factor(CameraID),
+            CallPhase = factor(0),
             Detector = factor(0),
-            Date, Alert = factor("No Camera Image"), 
+            Date, Alert = factor("No Camera Image"),
             Name = factor(Location)
         )
+    
+    # bad_cam <- tbl(conn, sql(glue(paste(
+    #     "select cameraid, date", 
+    #     "from {conf$athena$database}.cctv_uptime",
+    #     "where size = 0")))) %>%
+    #     #filter(size == 0) %>%
+    #     collect() %>%
+    #     transmute(
+    #         CameraID = factor(cameraid),
+    #         Date = date(date)
+    #     ) %>%
+    #     filter(Date > today() - months(9)) %>%
+    #     left_join(cam_config, by = c("CameraID")) %>%
+    #     filter(Date > As_of_Date) %>%
+    #     #left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
+    #     transmute(
+    #         Zone_Group, 
+    #         Zone,
+    #         Corridor = factor(Corridor),
+    #         SignalID = factor(CameraID), 
+    #         CallPhase = factor(0), 
+    #         Detector = factor(0),
+    #         Date, Alert = factor("No Camera Image"), 
+    #         Name = factor(Location)
+    #     )
     
     s3write_using(
         bad_cam,

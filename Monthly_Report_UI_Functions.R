@@ -232,7 +232,7 @@ if (conf$mode == "production") {
     #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
     #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
 
-    corridors_key <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
+    corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
     #corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
     #corridors <- reactivePoll(poll_interval, session = NULL,
     #    checkFunc = s3checkFunc(conf$bucket, corridors_key),
@@ -3674,28 +3674,37 @@ create_zm_prog_rep_content_df <- function(cor) {
 }
 
 
-# get_zg_monthly_report <- function(month, zg) {
-#     
-#     #zone in URL needs to be displayed as "Zone+#"
-#     #strZone <- sub(" ", "+", zg)
-#     strZone <- paste(strsplit(zg, " ")[[1]], collapse = "+")
-#     
-#     #Zone 7 reports aren't broken down further
-#     #if (grepl("[7d|7m]", strZone)) {
-#     if (substr(strZone, nchar(strZone) - 1, nchar(strZone)) %in% c('7d', '7m')) {
-#         strZone <- "Zone+7"
-#         strRTOP <- "RTOP2"
-#     } else {
-#         #needed to figure out whether we need to go to RTOP 1 or 2
-#         intZone <- as.numeric(substr(strZone, nchar(strZone), nchar(strZone))) 
-#         strRTOP <- ifelse((intZone >= 4 & intZone <= 7), "RTOP2", "RTOP1")
-#     }
-#     
-#     #convert month to "YYYY-MM" for URL
-#     current_month <- months[order(months)][match(month, months.formatted)]
-#     #get month string for URL
-#     strMonth <- substr(as.character(current_month), 1, nchar(as.character(current_month)) - 3)
-#     strUrl <- paste0('https://gdot-spm.s3.amazonaws.com/zone_manager_reports/', strRTOP, "/", strMonth, "/", strZone, ".pdf")
-#     #creates the iframe pointing to the URL
-#     tags$iframe(style = "height:1000px; width:1000px", src = strUrl)
-# }
+
+# For TinyMCE Editor
+
+get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
+    df <- zmdf_ %>%
+        dplyr::group_by(Month, Zone) %>%
+        dplyr::filter(LastModified == max(LastModified)) %>%
+        ungroup()
+    # Filter by zone if provided
+    if (!is.null(zone_)) {
+        df <- df %>% filter(Zone == zone_)
+    }
+    # Filter by month if provided
+    if (!is.null(month_)) {
+        df <- df %>% filter(Month == month_)
+    }
+    df
+}
+
+
+get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
+    df <- get_last_modified(zmdf_, zone_, month_)
+    
+    # If Last Modified is blank (no last modified enttry), return default if provided
+    if (nrow(df) == 0) {
+        if (!is.null(default_)) {
+            default_
+        } else {
+            ""
+        }
+    } else {
+        df$Comments[1]
+    }
+}

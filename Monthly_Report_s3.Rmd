@@ -18,14 +18,14 @@ runtime: shiny
 
 <style>
 
-.table thead tr th:nth-child(2n+4) {
+#corridor_summary_table .table thead tr th:nth-child(2n+4) {
     /*color: white;*/
     visibility: hidden;
     font-size:1px;
     width:"50px";
 }
 
-.table thead tr th:nth-child(2) {
+#corridor_summary_table .table thead tr th:nth-child(2) {
     width:"1000px";
 }
 
@@ -2284,15 +2284,14 @@ corridor_summary_table <- reactive({
     get_corridor_summary_table(cor$summary_data, current_month(), input$zone_group)
 })
 
-
-tags$div(class = "corridor_summary_table",
-    fillRow(
-        renderFormattable({
+output$corridor_summary_table <- renderFormattable({
             validate(need(corridor_summary_table(), 
                           "Select a Zone for the Metrics Summary Table"))
             corridor_summary_table()
         })
-    )
+
+fillRow(
+    formattableOutput("corridor_summary_table")
 )
 fillRow(
     renderUI({
@@ -2315,38 +2314,12 @@ fillRow(
 )
 ```
 
+
+
+
 ### Zone Activity Reports
 
 ```{r, echo=FALSE, eval = TRUE}
-
-get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
-    df <- zmdf_ %>%
-        dplyr::group_by(Month, Zone) %>%
-        dplyr::filter(LastModified == max(LastModified)) %>%
-        ungroup()
-    # Filter by zone if provided
-    if (!is.null(zone_)) {
-        df <- df %>% filter(Zone == zone_)
-    }
-    # Filter by month if provided
-    if (!is.null(month_)) {
-        df <- df %>% filter(Month == month_)
-    }
-    df
-}
-
-
-get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
-    df <- get_last_modified(zmdf_, zone_, month_)
-    
-    # If NULL, return default if provided
-    if (!is.null(default_) & nrow(df) == 0) {
-        default_
-    } else {
-        df$Comments[1]
-    }
-}
-
 
 tinyMCE <- function(inputId, content, options = NULL){
   tagList(
@@ -2444,8 +2417,6 @@ shinyApp(
         zmdf <- aws.s3::s3readRDS(
             object = "Zone_Manager_Report_Content.rds",
             bucket = "gdot-spm",
-            #key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-            #secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
             key = aws_conf$AWS_ACCESS_KEY_ID,
             secret = aws_conf$AWS_SECRET_ACCESS_KEY) %>% 
           
@@ -2453,7 +2424,6 @@ shinyApp(
             top_n(10, LastModified) %>%
             ungroup()
 
-        #zmdf <- reactiveVal(zmdf0)
         memory = reactiveValues(zone = "All RTOP", month = last_month)
 
 #        # Show (don't change) ZM Data on Zone and Month (all, not just Last Modified)
@@ -2484,9 +2454,10 @@ shinyApp(
           
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-#                print(latest_comment)
-#                print(input$editor1)
-                if (is.na(input$editor1) || is.na(latest_comment) || input$editor1 != latest_comment) {
+                print('--------Update Editor--------')
+                #print(latest_comment)
+                #print(input$editor1)
+                if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <<- tibble::add_row(
                         zmdf,
                         Month = memory$month,
@@ -2526,8 +2497,6 @@ shinyApp(
             zmdf <<- aws.s3::s3readRDS(
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                #key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                #secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             removeModal()
@@ -2557,9 +2526,11 @@ shinyApp(
           
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
-                print(get_latest_comment(zmdf, memory$zone, memory$month))
-                print(input$editor1)
-                if (input$editor1 != get_latest_comment(zmdf, memory$zone, memory$month)) {
+                latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
+                print('--------ConfirmSave--------')
+                #print(get_latest_comment(zmdf, memory$zone, memory$month))
+                #print(input$editor1)
+                if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <<- tibble::add_row(
                         zmdf,
                         Month = memory$month,
@@ -2575,8 +2546,6 @@ shinyApp(
             x <- aws.s3::s3readRDS(
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                #key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                #secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             zmdf <<- bind_rows(zmdf, x) %>% distinct()
@@ -2586,8 +2555,6 @@ shinyApp(
                 zmdf, 
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                #key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                #secret = Sys.getenv("AWS_SECRET_ACCESS_KEY"))
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             removeModal()
@@ -2600,6 +2567,105 @@ shinyApp(
   options = list(height = 800)
 )
 ```
+
+
+```{r echo=FALSE, eval=FALSE}
+### Zone Activity Reports
+
+# aws.s3::save_object(
+#     object = "Zone_Manager_Report_Content.rds",
+#     bucket = "gdot-spm")
+
+zmdf <- readRDS("Zone_Manager_Report_Content.rds") %>% 
+            group_by(Month, Zone) %>% 
+            top_n(10, LastModified) %>%
+            ungroup()
+
+renderUI({
+    div(
+        style = "overflow-y:scroll; max-height: 700px",
+        HTML(get_latest_comment(zmdf, zone_group(), current_month())))
+})
+```
+
+
+
+### User Delay Costs
+
+```{r User Delay Costs, echo=FALSE, eval = TRUE}
+
+udc_plot_height <- reactive({
+    ncorrs <- corridors %>%
+        filter(grepl("^Zone", Zone)) %>%
+        distinct(Zone, Corridor) %>%
+        group_by(Zone) %>%
+        summarize(n=ceiling(n()/2)) %>%
+        mutate(Zone = as.character(Zone))
+    n <- ncorrs[ncorrs$Zone=="Zone 1",]$n
+    # n <- 3
+    css_px <- as.character(200 * n)
+    paste0(css_px, "px")
+})
+
+output$udc_plot <- renderPlotly({
+    udcplot_plotly(
+        cor$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month()))
+})
+
+output$udc_table <- renderFormattable({
+      validate(need(startsWith(zone_group(), "Zone"), ""))
+      
+      month_str <- format(current_month(), "%F")
+      data <- cor$mo$udc_trend_table
+      
+      validate(need(month_str %in% names(data), "No data"))
+      
+      data <- data[[month_str]] %>% 
+          filter(Zone == zone_group()) %>%
+          select(-Month) %>%
+          rename(`Month Change` = `Month-over-Month`,
+                 `Year Change` = `Year-over-Year`)
+      
+      validate(need(nrow(data)>0, "No data"))
+      
+      column_formats <- list(
+          formatter("span"),
+          formatter("span"),
+          formatter("span", x ~ as_currency(x)),
+          formatter("span", 
+                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                    x ~ as_pct(x)),
+          formatter("span", x ~ as_currency(x)),
+          formatter("span", 
+                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+                    x ~ as_pct(x)),
+          formatter("span", x ~ as_currency(x)))
+      names(column_formats) <- names(data)
+
+      formattable(
+          data,
+          align = c(rep("l", 2), rep("r", length(data)-2)),
+          column_formats)
+})
+
+fillCol(
+    fillRow(
+        renderUI({
+            validate(need(startsWith(zone_group(), "Zone"),
+                          "Select a Zone for User Delay Costs by Corridor"))
+            plotlyOutput("udc_plot")#,
+                       #height = udc_plot_height())
+        })
+    ),
+    fillRow(
+        div(style = "width: 80%",
+            formattableOutput("udc_table")
+        )
+    ), height = 1200
+)
+```
+
+
 
 
 
@@ -2821,7 +2887,7 @@ sid <- eventReactive(input$signal_details_button, {
     sub(":.+", "", input$signalid)
 })
 
-
+                     
 fillCol(height = 700,
 
         renderPlotly({
