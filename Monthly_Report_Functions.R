@@ -343,21 +343,40 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
   if ("SignalID" %in% names(df)) { 
     df <- mutate(df, SignalID = as.character(SignalID)) 
   }
+
+  keep_trying(
+      s3write_using,
+      n_tries = 5,
+      df,
+      write_parquet,
+      use_deprecated_int96_timestamps = TRUE,
+      bucket = bucket,
+      object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+      opts = list(multipart = TRUE, body_as_string = TRUE)
+  )
   
-  tmp_fn <- tempfile()
-  write_parquet(df, tmp_fn, use_deprecated_int96_timestamps = TRUE)
-  aws.s3::put_object(
-    tmp_fn, 
-    bucket = bucket,
-    object = glue("mark/{table_name}/date={date_}/{fn}.parquet"))
-  file.remove(tmp_fn)
+  # tmp_fn <- tempfile()
+  # write_parquet(df, tmp_fn, use_deprecated_int96_timestamps = TRUE)
+  # aws.s3::put_object(
+  #   tmp_fn, 
+  #   bucket = bucket,
+  #   object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+  #   multipart = TRUE)
+  # file.remove(tmp_fn)
+  
+  # s3write_using(
+  #     df,
+  #     write_parquet,
+  #     tmp_fn, use_deprecated_int96_timestamps = TRUE,
+  #     bucket = bucket,
+  #     object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+  #     opts = list(multipart = TRUE))
   
   conn <- get_athena_connection(conf_athena)
   tryCatch({
     response <- dbGetQuery(conn,
                            sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
-                                          "add partition (date='{date_}')",
-                                          "location 's3://{bucket}/mark/{table_name}/'"))))
+                                          "ADD PARTITION (date='{date_}')"))))
     print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
   }, error = function(e) {
     message <- e
@@ -404,12 +423,17 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
 
 s3_read_parquet <- function(bucket, object, date_ = NULL) {
 
+    #print(glue("reading {object}"))
     if (is.null(date_)) {
         date_ <- str_extract(object, "\\d{4}-\\d{2}-\\d{2}")
     }
-    s3read_using(read_parquet, bucket = bucket, object = object) %>% 
-        select(-starts_with("__")) %>%
-        mutate(Date = ymd(date_))
+    tryCatch({
+        s3read_using(read_parquet, bucket = bucket, object = object) %>% 
+            select(-starts_with("__")) %>%
+            mutate(Date = ymd(date_))
+    }, error = function(e) {
+        data.frame()
+    })
 }
 
 
@@ -421,10 +445,10 @@ s3_read_parquet_parallel <- function(table_name,
                                      callback = function(x) {x}) {
   
   dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-  dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = function(date_) {
-  #lapply(dates, function(date_) {
+  # When using mclapply, it fails. When using lapply, it works. 6/23/2020
+  #dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = function(date_) {
+  dfs <- lapply(dates, function(date_) {
     prefix <- glue("mark/{table_name}/date={date_}")
-    #print(prefix)
     objects = aws.s3::get_bucket(bucket = bucket, prefix = prefix)
     lapply(objects, function(obj) {
       s3_read_parquet(bucket = bucket, object = get_objectkey(obj), date_) %>%
@@ -4787,4 +4811,25 @@ get_ped_delay_s3 <- function(date_, conf) {
     )
   }
   
+}
+
+keep_trying = function(func, n_tries, ...){
+  
+  possibly_func = purrr::possibly(func, otherwise = NULL)
+  
+  result = NULL
+  try_number = 1
+  sleep = 1
+  
+  while(is.null(result) && try_number <= n_tries){
+    if (try_number > 1) {
+      print(paste("Attempt:", try_number))
+    }
+    try_number = try_number + 1
+    result = possibly_func(...)
+    Sys.sleep(sleep)
+    sleep = sleep + 1
+  }
+  
+  return(result)
 }

@@ -323,7 +323,7 @@ get_counts_based_measures <- function(month_abbrs) {
                     as.character(date_),
                     bucket = conf$bucket
                 )
-                if (!is.null(filtered_counts_1hr)) {
+                if (!is.null(filtered_counts_1hr) && nrow(filtered_counts_1hr)) {
                     filtered_counts_1hr <- filtered_counts_1hr %>%
                         mutate(
                             Date = date(Date),
@@ -363,7 +363,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 bucket = conf$bucket
             )
             
-            if (!is.null(adjusted_counts_1hr) && nrow(adjusted_counts_1hr) > 0) {
+            if (!is.null(adjusted_counts_1hr) && nrow(adjusted_counts_1hr)) {
                 adjusted_counts_1hr <- adjusted_counts_1hr %>%
                     mutate(
                         Date = date(Date),
@@ -429,7 +429,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 mean_abs_delta = mean_abs_delta
             )
         
-        if (length(filtered_counts_15min) > 0) {
+        if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {
             print("adjusted counts and thruput")
             
             # clear partition files
@@ -482,7 +482,7 @@ get_counts_based_measures <- function(month_abbrs) {
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
         
-        conn <- get_athena_connection(conf$athena)
+        #conn <- get_athena_connection(conf$athena)
         
         
         counts_ped_1hr <- s3_read_parquet_parallel(
@@ -492,7 +492,7 @@ get_counts_based_measures <- function(month_abbrs) {
             bucket = conf$bucket
         )
         
-        if (!is.null(counts_ped_1hr) && nrow(counts_ped_1hr) > 0) {
+        if (!is.null(counts_ped_1hr) && nrow(counts_ped_1hr)) {
             
             # PAPD - pedestrian activations per day
             print("papd")
