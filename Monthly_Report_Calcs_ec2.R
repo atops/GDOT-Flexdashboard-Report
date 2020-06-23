@@ -270,36 +270,35 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         print("Read filtered_counts. Getting adjusted counts...")
 
+        adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
         
-        # clear partition files
-        lapply(as.character(seq(0,9)), function(i) {
-            tryCatch({
-                file.remove(glue("fc{i}.fst"))
-            }, warning = function(w) {})
-        })
-        
-        # split into 10 files, partitioned by signalid
-        #mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
-        lapply(as.character(seq(0,9)), function(i) {
-            filtered_counts_1hr %>% 
-                filter(endsWith(as.character(SignalID), i)) %>%
-                write_fst(glue("fc{i}.fst"))
-        })
+        # # clear partition files
+        # lapply(as.character(seq(0,9)), function(i) {
+        #     tryCatch({
+        #         file.remove(glue("fc{i}.fst"))
+        #     }, warning = function(w) {})
+        # })
+        # 
+        # # split into 10 files, partitioned by signalid
+        # #mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
+        # lapply(as.character(seq(0,9)), function(i) {
+        #     filtered_counts_1hr %>% 
+        #         filter(endsWith(as.character(SignalID), i)) %>%
+        #         write_fst(glue("fc{i}.fst"))
+        # })
         # clear memory of large dataframe
         rm(filtered_counts_1hr)
         
-        # get adjusted counts and thruput on each partition (file)            
-        #adjusted_counts_1hr <- mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
-        adjusted_counts_1hr <- lapply(as.character(seq(0,9)), function(i) {
-            cat(c(i, ""))
-            read_fst(glue("fc{i}.fst")) %>% 
-                get_adjusted_counts(ends_with = i)
-        }) %>% bind_rows() %>%
-            mutate(SignalID = factor(SignalID),
-                   CalPhase = factor(CallPhase))
-        
-        
-        
+        # # get adjusted counts and thruput on each partition (file)            
+        # #adjusted_counts_1hr <- mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
+        # adjusted_counts_1hr <- lapply(as.character(seq(0,9)), function(i) {
+        #     cat(c(i, ""))
+        #     read_fst(glue("fc{i}.fst")) %>% 
+        #         get_adjusted_counts(ends_with = i)
+        # }) %>% bind_rows() %>%
+        #     mutate(SignalID = factor(SignalID),
+        #            CalPhase = factor(CallPhase))
+
         # adjusted_counts_1hr <- filtered_counts_1hr %>%
         #     get_adjusted_counts_split10()
         # rm(filtered_counts_1hr)
@@ -311,16 +310,6 @@ get_counts_based_measures <- function(month_abbrs) {
             table_name = "adjusted_counts_1hr",
             conf_athena = conf$athena
         )
-        #future({
-        # adjusted_counts_1hr <- mutate(adjusted_counts_1hr, Date = date(Timeperiod))
-        # lapply(date_range, function(date_) {
-        #     aurora_write_parquet(
-        #         aurora_pool, 
-        #         filter(adjusted_counts_1hr, Date == date_),
-        #         date_, 
-        #         table_name = "adjusted_counts_1hr")
-        # })
-        #})        
         rm(adjusted_counts_1hr)
         gc()
         
