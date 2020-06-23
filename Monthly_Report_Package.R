@@ -4,9 +4,252 @@
 source("Monthly_Report_Package_init.R")
 
 
+# # DETECTOR UPTIME ###########################################################
+
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 23]"))
+
+tryCatch({
+    cb <- function(x) {
+        get_avg_daily_detector_uptime(x) %>%
+            mutate(Date = date(Date))
+    }
+    
+    avg_daily_detector_uptime <- s3_read_parquet_parallel(
+        bucket = conf$bucket,
+        table_name = "detector_uptime_pd",
+        start_date = wk_calcs_start_date,
+        end_date = report_end_date,
+        signals_list = signals_list,
+        callback = cb
+    ) %>%
+        mutate(
+            SignalID = factor(SignalID)
+        )
+    
+    plan(sequential)
+    plan(multiprocess)
+    
+    cor_avg_daily_detector_uptime <- 
+        get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
+    sub_avg_daily_detector_uptime <- 
+        (get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
+             filter(!is.na(Corridor)))
+    
+    weekly_detector_uptime <- 
+        get_weekly_detector_uptime(avg_daily_detector_uptime)
+    cor_weekly_detector_uptime <- 
+        get_cor_weekly_detector_uptime(weekly_detector_uptime, corridors)
+    sub_weekly_detector_uptime <- 
+        (get_cor_weekly_detector_uptime(weekly_detector_uptime, subcorridors) %>%
+             filter(!is.na(Corridor)))
+    
+    monthly_detector_uptime <- 
+        get_monthly_detector_uptime(avg_daily_detector_uptime)
+    cor_monthly_detector_uptime <- 
+        get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
+    sub_monthly_detector_uptime <- 
+        (get_cor_monthly_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
+             filter(!is.na(Corridor)))
+    
+    addtoRDS(
+        avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    addtoRDS(
+        weekly_detector_uptime, "weekly_detector_uptime.rds", "uptime", 
+        report_start_date, wk_calcs_start_date)
+    addtoRDS(
+        monthly_detector_uptime, "monthly_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    
+    addtoRDS(
+        cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    addtoRDS(
+        cor_weekly_detector_uptime, "cor_weekly_detector_uptime.rds", "uptime", 
+        report_start_date, wk_calcs_start_date)
+    addtoRDS(
+        cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    
+    addtoRDS(
+        sub_avg_daily_detector_uptime, "sub_avg_daily_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    addtoRDS(
+        sub_weekly_detector_uptime, "sub_weekly_detector_uptime.rds", "uptime", 
+        report_start_date, wk_calcs_start_date)
+    addtoRDS(
+        sub_monthly_detector_uptime, "sub_monthly_detector_uptime.rds", "uptime", 
+        report_start_date, calcs_start_date)
+    
+    # rm(ddu)
+    # rm(daily_detector_uptime)
+    rm(avg_daily_detector_uptime)
+    rm(weekly_detector_uptime)
+    rm(monthly_detector_uptime)
+    rm(cor_avg_daily_detector_uptime)
+    rm(cor_weekly_detector_uptime)
+    rm(cor_monthly_detector_uptime)
+    rm(sub_avg_daily_detector_uptime)
+    rm(sub_weekly_detector_uptime)
+    rm(sub_monthly_detector_uptime)
+    # gc()
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+
+# DAILY PEDESTRIAN DETECTOR UPTIME ###############################################
+
+print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
+
+tryCatch({
+
+    # papd <- s3_read_parquet_parallel(
+    #     bucket = conf$bucket,
+    #     table_name = "ped_actuations_pd",
+    #     start_date = report_start_date, # We have to look at the entire report period for pau
+    #     end_date = report_end_date,
+    #     signals_list = signals_list
+    # ) %>%
+    #     replace_na(list(CallPhase = 0)) %>%
+    #     mutate(
+    #         SignalID = factor(SignalID),
+    #         CallPhase = factor(CallPhase),
+    #         Date = date(Date),
+    #         papd = as.numeric(papd)
+    #     )
+
+    pau_start_date <- floor_date(ymd(report_end_date) - months(6), "month") %>% 
+        format("%F")
+
+    counts_ped_hourly <- s3_read_parquet_parallel(
+        bucket = conf$bucket,
+        table_name = "counts_ped_1hr",
+        start_date = pau_start_date, # We have to look at a longer duration for pau
+        end_date = report_end_date,
+        signals_list = signals_list
+    ) %>%
+        #replace_na(list(CallPhase = 0)) %>%
+        filter(!is.na(CallPhase)) %>%    # Added 1/14/20 to perhaps exclude non-programmed ped detectors
+        mutate(
+            SignalID = factor(SignalID),
+            Detector = factor(Detector),
+            CallPhase = factor(CallPhase),
+            Date = date(Date),
+            DOW = wday(Date), 
+            Week = week(Date),
+            vol = as.numeric(vol)
+        )
+    
+    counts_ped_daily <- counts_ped_hourly %>%
+        group_by(SignalID, Date, DOW, Week, Detector, CallPhase) %>% 
+        summarize(papd = sum(vol, na.rm = TRUE)) %>%
+        ungroup()
+
+    papd <- counts_ped_daily
+    paph <- counts_ped_hourly %>% 
+        filter(Date >= report_start_date) %>%   # TODO: Check this.
+        rename(Hour = Timeperiod,
+               paph = vol)
+    rm(counts_ped_daily)
+    rm(counts_ped_hourly)
+    
+    pau <- get_pau(papd, corridors)
+
+    # We have do to this here rather than in Monthly_Report_Calcs
+    # because we need the whole time series to calculate ped detector uptime
+    # based on the exponential distribution method.
+    get_bad_ped_detectors(pau) %>%
+        filter(Date > ymd(report_end_date) - days(90)) %>%
+    
+        s3_upload_parquet_date_split(
+            bucket = conf$bucket,
+            prefix = "bad_ped_detectors",
+            table_name = "bad_ped_detectors",
+            conf_athena = conf$athena)
+
+    # Hack to make the aggregation functions work
+    addtoRDS(
+        pau, "pa_uptime.rds", "uptime",
+        report_start_date, report_start_date)
+    pau <- pau %>% 
+        mutate(CallPhase = Detector)
+
+        
+    daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
+    weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
+    monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
+    
+    cor_daily_pa_uptime <- 
+        get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
+    sub_daily_pa_uptime <- 
+        get_cor_weekly_avg_by_day(daily_pa_uptime, subcorridors, "uptime") %>%
+             filter(!is.na(Corridor))
+    
+    cor_weekly_pa_uptime <- 
+        get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
+    sub_weekly_pa_uptime <- 
+        get_cor_weekly_avg_by_day(weekly_pa_uptime, subcorridors, "uptime") %>%
+             filter(!is.na(Corridor))
+    
+    cor_monthly_pa_uptime <- 
+        get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
+    sub_monthly_pa_uptime <- 
+        get_cor_monthly_avg_by_day(monthly_pa_uptime, subcorridors, "uptime") %>%
+             filter(!is.na(Corridor))
+
+    addtoRDS(
+        daily_pa_uptime, "daily_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        cor_daily_pa_uptime, "cor_daily_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        sub_daily_pa_uptime, "sub_daily_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    
+    addtoRDS(
+        weekly_pa_uptime, "weekly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        sub_weekly_pa_uptime, "sub_weekly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    
+    addtoRDS(
+        monthly_pa_uptime, "monthly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    addtoRDS(
+        sub_monthly_pa_uptime, "sub_monthly_pa_uptime.rds",  "uptime",
+        report_start_date, report_start_date)
+    
+    # rm(papd)
+    # rm(bad_ped_detectors)
+    rm(pau)
+    rm(daily_pa_uptime)
+    rm(weekly_pa_uptime)
+    rm(monthly_pa_uptime)
+    rm(cor_daily_pa_uptime)
+    rm(cor_weekly_pa_uptime)
+    rm(cor_monthly_pa_uptime)
+    rm(sub_daily_pa_uptime)
+    rm(sub_weekly_pa_uptime)
+    rm(sub_monthly_pa_uptime)
+    # gc()
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+
+
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [1 of 23]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 23]"))
 
 tryCatch({
     # -- Alerts: detector downtime --
@@ -218,249 +461,6 @@ tryCatch({
 })
 
 
-
-
-# # DETECTOR UPTIME ###########################################################
-
-print(glue("{Sys.time()} Vehicle Detector Uptime [2 of 23]"))
-
-tryCatch({
-    cb <- function(x) {
-        get_avg_daily_detector_uptime(x) %>%
-            mutate(Date = date(Date))
-    }
-    
-    avg_daily_detector_uptime <- s3_read_parquet_parallel(
-        bucket = conf$bucket,
-        table_name = "detector_uptime_pd",
-        start_date = wk_calcs_start_date,
-        end_date = report_end_date,
-        signals_list = signals_list,
-        callback = cb
-    ) %>%
-        mutate(
-            SignalID = factor(SignalID)
-        )
-    
-    plan(sequential)
-    plan(multiprocess)
-    
-    cor_avg_daily_detector_uptime <- 
-        get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
-    sub_avg_daily_detector_uptime <- 
-        (get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
-             filter(!is.na(Corridor)))
-    
-    weekly_detector_uptime <- 
-        get_weekly_detector_uptime(avg_daily_detector_uptime)
-    cor_weekly_detector_uptime <- 
-        get_cor_weekly_detector_uptime(weekly_detector_uptime, corridors)
-    sub_weekly_detector_uptime <- 
-        (get_cor_weekly_detector_uptime(weekly_detector_uptime, subcorridors) %>%
-             filter(!is.na(Corridor)))
-    
-    monthly_detector_uptime <- 
-        get_monthly_detector_uptime(avg_daily_detector_uptime)
-    cor_monthly_detector_uptime <- 
-        get_cor_monthly_detector_uptime(avg_daily_detector_uptime, corridors)
-    sub_monthly_detector_uptime <- 
-        (get_cor_monthly_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
-             filter(!is.na(Corridor)))
-    
-    addtoRDS(
-        avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    addtoRDS(
-        weekly_detector_uptime, "weekly_detector_uptime.rds", "uptime", 
-        report_start_date, wk_calcs_start_date)
-    addtoRDS(
-        monthly_detector_uptime, "monthly_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    
-    addtoRDS(
-        cor_avg_daily_detector_uptime, "cor_avg_daily_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    addtoRDS(
-        cor_weekly_detector_uptime, "cor_weekly_detector_uptime.rds", "uptime", 
-        report_start_date, wk_calcs_start_date)
-    addtoRDS(
-        cor_monthly_detector_uptime, "cor_monthly_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    
-    addtoRDS(
-        sub_avg_daily_detector_uptime, "sub_avg_daily_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    addtoRDS(
-        sub_weekly_detector_uptime, "sub_weekly_detector_uptime.rds", "uptime", 
-        report_start_date, wk_calcs_start_date)
-    addtoRDS(
-        sub_monthly_detector_uptime, "sub_monthly_detector_uptime.rds", "uptime", 
-        report_start_date, calcs_start_date)
-    
-    # rm(ddu)
-    # rm(daily_detector_uptime)
-    rm(avg_daily_detector_uptime)
-    rm(weekly_detector_uptime)
-    rm(monthly_detector_uptime)
-    rm(cor_avg_daily_detector_uptime)
-    rm(cor_weekly_detector_uptime)
-    rm(cor_monthly_detector_uptime)
-    rm(sub_avg_daily_detector_uptime)
-    rm(sub_weekly_detector_uptime)
-    rm(sub_monthly_detector_uptime)
-    # gc()
-}, error = function(e) {
-    print("ENCOUNTERED AN ERROR:")
-    print(e)
-})
-
-# DAILY PEDESTRIAN DETECTOR UPTIME ###############################################
-
-print(glue("{Sys.time()} Ped Detector Uptime [3 of 23]"))
-
-tryCatch({
-
-    # papd <- s3_read_parquet_parallel(
-    #     bucket = conf$bucket,
-    #     table_name = "ped_actuations_pd",
-    #     start_date = report_start_date, # We have to look at the entire report period for pau
-    #     end_date = report_end_date,
-    #     signals_list = signals_list
-    # ) %>%
-    #     replace_na(list(CallPhase = 0)) %>%
-    #     mutate(
-    #         SignalID = factor(SignalID),
-    #         CallPhase = factor(CallPhase),
-    #         Date = date(Date),
-    #         papd = as.numeric(papd)
-    #     )
-
-    pau_start_date <- floor_date(ymd(report_end_date) - months(6), "month") %>% 
-        format("%F")
-
-    counts_ped_hourly <- s3_read_parquet_parallel(
-        bucket = conf$bucket,
-        table_name = "counts_ped_1hr",
-        start_date = pau_start_date, # We have to look at a longer duration for pau
-        end_date = report_end_date,
-        signals_list = signals_list
-    ) %>%
-        #replace_na(list(CallPhase = 0)) %>%
-        filter(!is.na(CallPhase)) %>%    # Added 1/14/20 to perhaps exclude non-programmed ped detectors
-        mutate(
-            SignalID = factor(SignalID),
-            Detector = factor(Detector),
-            CallPhase = factor(CallPhase),
-            Date = date(Date),
-            DOW = wday(Date), 
-            Week = week(Date),
-            vol = as.numeric(vol)
-        )
-    
-    counts_ped_daily <- counts_ped_hourly %>%
-        group_by(SignalID, Date, DOW, Week, Detector, CallPhase) %>% 
-        summarize(papd = sum(vol, na.rm = TRUE)) %>%
-        ungroup()
-
-    papd <- counts_ped_daily
-    paph <- counts_ped_hourly %>% 
-        filter(Date >= report_start_date) %>%   # TODO: Check this.
-        rename(Hour = Timeperiod,
-               paph = vol)
-    rm(counts_ped_daily)
-    rm(counts_ped_hourly)
-    
-    pau <- get_pau(papd, corridors)
-
-    # We have do to this here rather than in Monthly_Report_Calcs
-    # because we need the whole time series to calculate ped detector uptime
-    # based on the exponential distribution method.
-    get_bad_ped_detectors(pau) %>%
-        filter(Date > ymd(report_end_date) - days(90)) %>%
-    
-        s3_upload_parquet_date_split(
-            bucket = conf$bucket,
-            prefix = "bad_ped_detectors",
-            table_name = "bad_ped_detectors",
-            conf_athena = conf$athena)
-
-    # Hack to make the aggregation functions work
-    addtoRDS(
-        pau, "pa_uptime.rds", "uptime",
-        report_start_date, report_start_date)
-    pau <- pau %>% 
-        mutate(CallPhase = Detector)
-
-        
-    daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
-    weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
-    monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
-    
-    cor_daily_pa_uptime <- 
-        get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
-    sub_daily_pa_uptime <- 
-        get_cor_weekly_avg_by_day(daily_pa_uptime, subcorridors, "uptime") %>%
-             filter(!is.na(Corridor))
-    
-    cor_weekly_pa_uptime <- 
-        get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
-    sub_weekly_pa_uptime <- 
-        get_cor_weekly_avg_by_day(weekly_pa_uptime, subcorridors, "uptime") %>%
-             filter(!is.na(Corridor))
-    
-    cor_monthly_pa_uptime <- 
-        get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
-    sub_monthly_pa_uptime <- 
-        get_cor_monthly_avg_by_day(monthly_pa_uptime, subcorridors, "uptime") %>%
-             filter(!is.na(Corridor))
-
-    addtoRDS(
-        daily_pa_uptime, "daily_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        cor_daily_pa_uptime, "cor_daily_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        sub_daily_pa_uptime, "sub_daily_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    
-    addtoRDS(
-        weekly_pa_uptime, "weekly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        cor_weekly_pa_uptime, "cor_weekly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        sub_weekly_pa_uptime, "sub_weekly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    
-    addtoRDS(
-        monthly_pa_uptime, "monthly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        cor_monthly_pa_uptime, "cor_monthly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    addtoRDS(
-        sub_monthly_pa_uptime, "sub_monthly_pa_uptime.rds",  "uptime",
-        report_start_date, report_start_date)
-    
-    # rm(papd)
-    # rm(bad_ped_detectors)
-    rm(pau)
-    rm(daily_pa_uptime)
-    rm(weekly_pa_uptime)
-    rm(monthly_pa_uptime)
-    rm(cor_daily_pa_uptime)
-    rm(cor_weekly_pa_uptime)
-    rm(cor_monthly_pa_uptime)
-    rm(sub_daily_pa_uptime)
-    rm(sub_weekly_pa_uptime)
-    rm(sub_monthly_pa_uptime)
-    # gc()
-}, error = function(e) {
-    print("ENCOUNTERED AN ERROR:")
-    print(e)
-})
 
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################

@@ -33,7 +33,7 @@ suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
-suppressMessages(library(RJSONIO))
+#suppressMessages(library(RJSONIO))
 #suppressMessages(library(RAthena))
 suppressMessages(library(shinycssloaders))
 library(compiler)
@@ -2068,7 +2068,7 @@ volplot_plotly2_older <- function(db, signalid, plot_start_date, plot_end_date, 
     pl <- function(dfi, i) {
         
         dfi <- dfi %>% 
-            mutate(maxy = if_else(bad_day==1, max(vol_rc, na.rm = TRUE), as.integer(0)),
+            mutate(maxy = if_else(bad_day==1, as.integer(max(vol_rc, na.rm = TRUE)), as.integer(0)),
                    colr = colrs[as.character(CallPhase)], 
                    fill_colr = "")
         
@@ -2298,7 +2298,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                 "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
             incProgress(amount = 0.1)
             fc <- tbl(athena, sql(glue(paste(
-                "SELECT signalid, date, timeperiod, detector, callphase, vol",
+                "SELECT signalid, date, timeperiod, detector, callphase, vol, good_day",
                 "FROM {db$database}.filtered_counts_1hr",
                 "WHERE signalid = '{signalid}'",
                 "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
@@ -2315,7 +2315,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                 rename(ac, vol_ac = vol)) %>%
                 reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
                 ) %>%
-                mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE)) %>% 
+                mutate(bad_day = if_else(good_day==0, TRUE, FALSE)) %>% 
                 #select(-date, -vol_fc) %>% 
                 collect() %>%
                 transmute(
