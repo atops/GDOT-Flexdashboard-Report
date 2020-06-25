@@ -3708,3 +3708,30 @@ get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NU
         df$Comments[1]
     }
 }
+
+read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
+    df <- dbGetQuery(
+        conn, 
+        sql(glue(paste('select "{signalid}", timeperiod from gdot_spm.signal_details', 
+                       'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
+        as_tibble()
+    
+    df$data <- lapply(
+        lapply(
+            lapply(df[signalid][[signalid]], 
+                   jsonlite::fromJSON),  # this was written with rjson::toJSON
+            as.data.frame), 
+        bind_rows)
+    
+    df$SignalID = signalid
+    
+    df %>% 
+        select(
+            SignalID, 
+            Timeperiod, 
+            data) %>% 
+        unnest(data) %>%
+        mutate(
+            SignalID = factor(SignalID),
+            Timeperiod = ymd_hms(Timeperiod))
+}
