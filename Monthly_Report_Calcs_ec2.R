@@ -313,6 +313,11 @@ get_counts_based_measures <- function(month_abbrs) {
         rm(adjusted_counts_1hr)
         gc()
         
+        lapply(date_range, function(x) {
+            write_signal_details(x, conf$athena, signals_list)
+        })
+        
+        
         # foreach(date_ = date_range) %dopar% {
         lapply(date_range, function(date_) {
             if (between(date_, start_date, end_date)) {

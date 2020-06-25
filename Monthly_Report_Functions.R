@@ -4813,6 +4813,8 @@ get_ped_delay_s3 <- function(date_, conf) {
   
 }
 
+
+
 keep_trying = function(func, n_tries, ...){
   
   possibly_func = purrr::possibly(func, otherwise = NULL)
@@ -4832,4 +4834,76 @@ keep_trying = function(func, n_tries, ...){
   }
   
   return(result)
+}
+
+
+
+write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
+  print(plot_date)
+  #--- This takes approx one minute per day -----------------------
+  athena <- get_athena_connection(conf_athena)
+  rc <- s3_read_parquet(
+    bucket = conf$bucket, 
+    object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet")) %>% 
+    convert_to_utc() %>%
+    select(
+      SignalID, Date, Timeperiod, Detector, CallPhase, vol)
+  
+  fc <- s3_read_parquet(
+    bucket = conf$bucket, 
+    object = glue("mark/filtered_counts_1hr/date={plot_date}/filtered_counts_1hr_{plot_date}.parquet")) %>% 
+    convert_to_utc() %>%
+    select(
+      SignalID, Date, Timeperiod, Detector, CallPhase, Good_Day)
+  
+  ac <- s3_read_parquet(
+    bucket = conf$bucket, 
+    object = glue("mark/adjusted_counts_1hr/date={plot_date}/adjusted_counts_1hr_{plot_date}.parquet")) %>% 
+    convert_to_utc() %>%
+    select(
+      SignalID, Date, Timeperiod, Detector, CallPhase, vol)
+
+  if (!is.null(signals_list)) { 
+    rc <- rc %>% 
+      filter(as.character(SignalID) %in% signals_list)
+    fc <- fc %>% 
+      filter(as.character(SignalID) %in% signals_list)
+    ac <- ac %>% 
+      filter(as.character(SignalID) %in% signals_list)
+  }
+
+  df <- list(
+    rename(rc, vol_rc = vol),
+    fc,
+    rename(ac, vol_ac = vol)) %>%
+    reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+    ) %>%
+    mutate(bad_day = if_else(Good_Day==0, TRUE, FALSE)) %>% 
+    transmute(
+      SignalID = factor(SignalID), 
+      Timeperiod = Timeperiod, 
+      Detector = factor(as.integer(Detector)), 
+      CallPhase = factor(CallPhase),
+      vol_rc = as.integer(vol_rc),
+      vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
+      bad_day) %>%
+    arrange(SignalID, Detector, Timeperiod)
+  #----------------------------------------------------------------
+  
+  df <- df %>% 
+    nest(data = -c(SignalID, Timeperiod))
+  df$data <- sapply(df$data, toJSON)
+  df <- df %>% 
+    spread(SignalID, data)
+  
+  s3write_using(
+    df, 
+    write_parquet, 
+    use_deprecated_int96_timestamps = TRUE,
+    bucket = conf$bucket, 
+    object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
+    opts = list(multipart=TRUE))
+  
+  dbGetQuery(athena, sql(glue(paste("ALTER TABLE {conf_athena$database}.signal_details",
+                                    "ADD PARTITION (date = '{plot_date}')"))))
 }
