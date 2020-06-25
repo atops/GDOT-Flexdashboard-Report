@@ -4574,7 +4574,7 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
     rename(cor$mo$sfd, sf = sf_freq, sf.delta = delta),
     rename(cor$mo$tti, tti.delta = delta),
     rename(cor$mo$pti, pti.delta = delta),
-    rename(cor$mo$tasks, tasks = Outstanding, tasks.delta = delta.out), #tasks added 10/29/19
+    rename(cor$mo$tasks, tasks = Outstanding, tasks.delta = delta.out) #tasks added 10/29/19
   ) %>%
     reduce(left_join, by = c("Zone_Group", "Corridor", "Month")) %>%
     filter(
