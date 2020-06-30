@@ -11,6 +11,7 @@ athena:
     jar_path: AthenaJDBC42_2.0.9.jar
     database: gdot_spm
     atspm_table: atspm2
+    region: us-east-1
 atspm:
     odbc_dsn: atspm
     uid_env: ATSPM_USERNAME
@@ -20,25 +21,25 @@ atspm:
 
 # Sections of Monthly_Report_Calcs_ec2 to run
 run:
-    cctv: FALSE
-    rsus: FALSE
-    travel_times: FALSE
-    counts: FALSE
+    cctv: TRUE
+    rsus: TRUE
+    travel_times: TRUE
+    counts: TRUE
     counts_based_measures: TRUE
-    etl: FALSE
-    arrivals_on_green: FALSE
-    queue_spillback: FALSE
-    split_failures: FALSE
-    ped_delay: FALSE
+    etl: TRUE
+    arrivals_on_green: TRUE
+    queue_spillback: TRUE
+    split_failures: TRUE
+    ped_delay: TRUE
 
 
-start_date: 2020-05-01
+start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2019-04-01
+report_start_date: 2019-05-01
 report_end_date: yesterday
 calcs_start_date: 2020-05-01
-production_report_end_date: 2020-04-01
+production_report_end_date: 2020-05-01
 
 corridors_filename_s3: Corridors_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
