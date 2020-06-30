@@ -32,6 +32,7 @@ suppressMessages(library(sf))
 suppressMessages(library(yaml))
 suppressMessages(library(utils))
 suppressMessages(library(readxl))
+suppressMessages(library(rjson))
 
 suppressMessages(library(plotly))
 suppressMessages(library(crosstalk))
@@ -4552,7 +4553,7 @@ dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
 
 
 
-get_corridor_summary_data <- function(cor) { #}, current_month) {
+get_corridor_summary_data <- function(cor) {
   
   #' Converts cor data set to a single data frame for the current_month
   #' for use in get_corridor_summary_table function
@@ -4561,8 +4562,6 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
   #' @param current_month Current month in date format
   #' @return A data frame, monthly data of all metrics by Zone and Corridor
   
-  
-  #    current_month <- months[order(months)][match(current_month, months.formatted)]
   data <- list(
     rename(cor$mo$du, du = uptime, du.delta = delta), # detector uptime - note that zone group is factor not character
     rename(cor$mo$pau, pau = uptime, pau.delta = delta),
@@ -4579,8 +4578,7 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
     reduce(left_join, by = c("Zone_Group", "Corridor", "Month")) %>%
     filter(
       grepl("^Zone", Zone_Group),
-      !grepl("^Zone", Corridor)#,
-      #Month == ymd(current_month)
+      !grepl("^Zone", Corridor)
     ) %>%
     select(
       -uptime.sb,
@@ -4592,28 +4590,7 @@ get_corridor_summary_data <- function(cor) { #}, current_month) {
       -starts_with("vol"),
       -starts_with("Description"),
       -c(All,Reported,Resolved,cum_Reported,cum_Resolved,delta.rep,delta.res) #tasks added 10/29/19
-    ) #%>%
-    # rename(
-    #   du = uptime.x, # looks like this field has been updated 9/10
-    #   du.delta = delta.x,
-    #   pau = uptime.y, # updated 9/10
-    #   pau.delta = delta.y,
-    #   cctvu = uptime.x.x, # updated 9/10
-    #   cctvu.delta = delta.x.x,
-    #   cu = uptime.y.y, # updated 9/10
-    #   cu.delta = delta.y.y,
-    #   tp = vph,
-    #   tp.delta = delta.x.x.x,
-    #   aog.delta = delta.y.y.y,
-    #   qs = qs_freq,
-    #   qs.delta = delta.x.x.x.x,
-    #   sf = sf_freq,
-    #   sf.delta = delta.y.y.y.y,
-    #   tti.delta = delta.x.x.x.x.x,
-    #   pti.delta = delta.y.y.y.y.y,
-    #   tasks = Outstanding, #tasks added 10/29/19
-    #   tasks.delta = delta.out #tasks added 10/29/19
-    # )
+    )
   return(data)
 }
 
@@ -4841,7 +4818,6 @@ keep_trying = function(func, n_tries, ...){
 write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
   print(plot_date)
   #--- This takes approx one minute per day -----------------------
-  athena <- get_athena_connection(conf_athena)
   rc <- s3_read_parquet(
     bucket = conf$bucket, 
     object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet")) %>% 
@@ -4892,7 +4868,7 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
   
   df <- df %>% 
     nest(data = -c(SignalID, Timeperiod))
-  df$data <- sapply(df$data, toJSON)
+  df$data <- sapply(df$data, rjson::toJSON)
   df <- df %>% 
     spread(SignalID, data)
   
@@ -4903,7 +4879,16 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
     bucket = conf$bucket, 
     object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
     opts = list(multipart=TRUE))
-  
-  dbGetQuery(athena, sql(glue(paste("ALTER TABLE {conf_athena$database}.signal_details",
-                                    "ADD PARTITION (date = '{plot_date}')"))))
+
+  conn <- get_athena_connection(conf_athena)
+  table_name <- "signal_details"
+  tryCatch({
+    response <- dbGetQuery(conn,
+                           sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
+                                          "ADD PARTITION (date='{plot_date}')"))))
+    print(glue("Successfully created partition (date='{plot_date}') for {conf_athena$database}.{table_name}"))
+  }, error = function(e) {
+    message <- e
+  })
+  dbDisconnect(conn)
 }

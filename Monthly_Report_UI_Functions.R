@@ -33,7 +33,7 @@ suppressMessages(library(htmltools))
 suppressMessages(library(leaflet))
 suppressMessages(library(sp))
 suppressMessages(library(RJDBC))
-#suppressMessages(library(RJSONIO))
+suppressMessages(library(jsonlite))
 #suppressMessages(library(RAthena))
 suppressMessages(library(shinycssloaders))
 library(compiler)
@@ -116,6 +116,7 @@ no.color <- "red"
 # ###########################################################
 
 conf <- read_yaml("Monthly_Report.yaml")
+
 
 conf$mode <- conf_mode
 
@@ -2286,138 +2287,105 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
                                       font = list(size = 12),
                                       showarrow = FALSE))
     }
-    if (class(db) == "list") {
-        # db = conf$athena
-        withProgress(message = "Loading chart", value = 0, {
-            athena <- get_athena_connection(db)
-            incProgress(amount = 0.1)
-            rc <- tbl(athena, sql(glue(paste(
-                "SELECT signalid, date, timeperiod, detector, callphase, vol",
-                "FROM {db$database}.counts_1hr",
-                "WHERE signalid = '{signalid}'",
-                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
-            incProgress(amount = 0.1)
-            fc <- tbl(athena, sql(glue(paste(
-                "SELECT signalid, date, timeperiod, detector, callphase, vol, good_day",
-                "FROM {db$database}.filtered_counts_1hr",
-                "WHERE signalid = '{signalid}'",
-                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
-            incProgress(amount = 0.1)
-            ac <- tbl(athena, sql(glue(paste(
-                "SELECT signalid, date, timeperiod, detector, callphase, vol",
-                "FROM {db$database}.adjusted_counts_1hr",
-                "WHERE signalid = '{signalid}'",
-                "AND date BETWEEN '{plot_start_date}' AND '{plot_end_date}'"))))
-            incProgress(amount = 0.2)
+    
+    withProgress(message = "Loading chart", value = 0, {
+        incProgress(amount = 0.1)
+        if (class(db) == "list") {
+            df <- read_signal_data(db, signalid, plot_start_date, plot_end_date)
+            
+        } else if (class(db) == "Pool") {
+            # db = aurora connection pool
+            rc <- tbl(db, "counts_1hr") %>% 
+                filter(
+                    SignalID == signalid, 
+                    Timeperiod >= plot_start_date, 
+                    Timeperiod < plot_end_date)
+            fc <- tbl(aurora, "filtered_counts_1hr") %>% 
+                filter(
+                    SignalID == signalid, 
+                    Timeperiod >= plot_start_date, 
+                    Timeperiod < plot_end_date)
+            ac <- tbl(aurora, "adjusted_counts_1hr") %>%
+                filter(
+                    SignalID == signalid,
+                    Timeperiod >= plot_start_date,
+                    Timeperiod < plot_end_date)
+            
+            # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
+            lj <- left_join(
+                rename(rc, vol_rc = vol), 
+                rename(fc, vol_fc = vol), 
+                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
+            rj <- right_join(
+                rename(rc, vol_rc = vol), 
+                rename(fc, vol_fc = vol), 
+                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
+            df <- bind_rows(collect(lj), collect(rj)) %>% distinct()
+            
+            # Poor man's MySQL Full Join (MySQL does not support full joins, apparently)
+            lj <- left_join(
+                df,
+                collect(rename(ac, vol_ac = vol)),
+                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+            )
+            rj <- right_join(
+                df,
+                collect(rename(ac, vol_ac = vol)),
+                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+            )
+            df <- bind_rows(lj, rj) %>% distinct()
+            
             df <- list(
                 rename(rc, vol_rc = vol),
                 rename(fc, vol_fc = vol),
                 rename(ac, vol_ac = vol)) %>%
                 reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
                 ) %>%
-                mutate(bad_day = if_else(good_day==0, TRUE, FALSE)) %>% 
-                #select(-date, -vol_fc) %>% 
+                arrange(signalid, as.integer(detector), timeperiod) %>%
+                mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE),
+                       vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA)) %>% 
+                select(-date, -vol_fc) %>% 
                 collect() %>%
                 transmute(
-                    SignalID = factor(signalid), 
-                    Timeperiod = timeperiod, 
-                    Detector = factor(as.integer(detector)), 
+                    SignalID = factor(signalid),
+                    Timeperiod = timeperiod,
+                    Detector = factor(as.integer(detector)),
                     CallPhase = factor(callphase),
-                    vol_rc = as.integer(vol_rc),
-                    vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA),
-                    bad_day) %>%
-                arrange(SignalID, Detector, Timeperiod)
-            incProgress(amount = 0.4)
-        })
+                    vol_rc,
+                    vol_ac,
+                    bad_day
+                )
+        }
+        incProgress(amount = 0.5)
         
-    } else if (class(db) == "Pool") {
-        # db = aurora connection pool
-        rc <- tbl(db, "counts_1hr") %>% 
-            filter(
-                SignalID == signalid, 
-                Timeperiod >= plot_start_date, 
-                Timeperiod < plot_end_date)
-        fc <- tbl(aurora, "filtered_counts_1hr") %>% 
-            filter(
-                SignalID == signalid, 
-                Timeperiod >= plot_start_date, 
-                Timeperiod < plot_end_date)
-        ac <- tbl(aurora, "adjusted_counts_1hr") %>%
-            filter(
-                SignalID == signalid,
-                Timeperiod >= plot_start_date,
-                Timeperiod < plot_end_date)
-        
-        # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
-        lj <- left_join(
-            rename(rc, vol_rc = vol), 
-            rename(fc, vol_fc = vol), 
-            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
-        rj <- right_join(
-            rename(rc, vol_rc = vol), 
-            rename(fc, vol_fc = vol), 
-            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
-        df <- bind_rows(collect(lj), collect(rj)) %>% distinct()
-        
-        # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
-        lj <- left_join(
-            df,
-            collect(rename(ac, vol_ac = vol)),
-            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-        )
-        rj <- right_join(
-            df,
-            collect(rename(ac, vol_ac = vol)),
-            by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-        )
-        df <- bind_rows(lj, rj) %>% distinct()
-        
-        df <- list(
-            rename(rc, vol_rc = vol),
-            rename(fc, vol_fc = vol),
-            rename(ac, vol_ac = vol)) %>%
-            reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
-            ) %>%
-            arrange(signalid, as.integer(detector), timeperiod) %>%
-            mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE),
-                   vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA)) %>% 
-            select(-date, -vol_fc) %>% 
-            collect() %>%
-        transmute(
-            SignalID = factor(signalid),
-            Timeperiod = timeperiod,
-            Detector = factor(as.integer(detector)),
-            CallPhase = factor(callphase),
-            vol_rc,
-            vol_ac,
-            bad_day
-        )
-        #reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-    }
+        if (nrow(df)) {
+            dfs <- split(df, df$Detector)
+            dfs <- dfs[lapply(dfs, nrow)>0]
+            names(dfs) <- NULL
+            
+            plts <- purrr::imap(dfs, ~pl(.x, .y))
+            incProgress(amount = 0.3)
+            
+            #plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
+            subplot(plts, nrows = length(plts), shareX = TRUE) %>%
+                layout(annotations = list(text = title,
+                                          xref = "paper",
+                                          yref = "paper",
+                                          yanchor = "bottom",
+                                          xanchor = "center",
+                                          align = "center",
+                                          x = 0.5,
+                                          y = 1,
+                                          showarrow = FALSE),
+                       showlegend = TRUE,
+                       margin = list(l = 120),
+                       xaxis = list(
+                           type = 'date'))
+        } else {
+            no_data_plot("")
+        }
+    })
     
-    #dbDisconnect(conn)
-    
-    dfs <- split(df, df$Detector)
-    dfs <- dfs[lapply(dfs, nrow)>0]
-    names(dfs) <- NULL
-    
-    plts <- purrr::imap(dfs, ~pl(.x, .y))
-    
-    #plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
-    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
-        layout(annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1,
-                                  showarrow = FALSE),
-               showlegend = TRUE,
-               margin = list(l = 120),
-               xaxis = list(
-                   type = 'date'))
 }
 
 
@@ -3525,7 +3493,7 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
         # table with deltas - to be used for formatting data table
         dt.deltas <- filter(data, Month == current_month, Zone_Group == zone_group) %>%
             select(-c(seq(4, 24, 2)), -Zone_Group, -Month) %>%
-            rename_at(vars(ends_with(".delta")), funs(str_replace(., ".delta", ""))) %>%
+            rename_at(vars(ends_with(".delta")), ~str_replace(., ".delta", "")) %>%
             gather("Metric", "value", 2:12) %>%
             spread(Corridor, value)
         dt.deltas <- dt.deltas[order(match(dt.deltas$Metric, metric.order)), ]
@@ -3562,11 +3530,11 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
         
         # overall data table
         dt.overall <- dt[dt.deltas, on = .(Metrics = Metrics, Goal = Goal)] %>%
-            rename_at(vars(starts_with("i.")), funs(str_replace(., "i.", "Delta.")))
+            rename_at(vars(starts_with("i.")), ~str_replace(., "i.", "Delta."))
         dt.overall <- dt.overall[dt.checks, on = .(Metrics = Metrics, Goal = Goal)] %>%
-            rename_at(vars(starts_with("i.")), funs(str_replace(., "i.", "Check.Goal.")))
+            rename_at(vars(starts_with("i.")), str_replace(., "i.", "Check.Goal."))
         dt.overall <- dt.overall[dt.deltas.checks,on = .(Metrics=Metrics,Goal=Goal)] %>%
-            rename_at(vars(starts_with("i.")), funs(str_replace(., "i.", "Check.Delta.")))
+            rename_at(vars(starts_with("i.")), str_replace(., "i.", "Check.Delta."))
         
         no.corridors <- (ncol(dt.overall) - 2) / 4 # how many corridors are we working with?
         
@@ -3696,7 +3664,6 @@ get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
 
 get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
     df <- get_last_modified(zmdf_, zone_, month_)
-    
     # If Last Modified is blank (no last modified enttry), return default if provided
     if (nrow(df) == 0) {
         if (!is.null(default_)) {
@@ -3709,29 +3676,39 @@ get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NU
     }
 }
 
-read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
+read_signal_data <- function(conf_athena, signalid, plot_start_date, plot_end_date) {
+    conn <- get_athena_connection(conf_athena)
     df <- dbGetQuery(
         conn, 
         sql(glue(paste('select "{signalid}", timeperiod from gdot_spm.signal_details', 
                        'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
         as_tibble()
     
-    df$data <- lapply(
-        lapply(
-            lapply(df[signalid][[signalid]], 
-                   jsonlite::fromJSON),  # this was written with rjson::toJSON
-            as.data.frame), 
-        bind_rows)
-    
-    df$SignalID = signalid
-    
-    df %>% 
-        select(
-            SignalID, 
-            Timeperiod, 
-            data) %>% 
-        unnest(data) %>%
-        mutate(
-            SignalID = factor(SignalID),
-            Timeperiod = ymd_hms(Timeperiod))
+    if (sum(!is.na(df[signalid]))) {
+        df$data <- lapply(
+            lapply(
+                lapply(df[signalid][[signalid]], 
+                       jsonlite::fromJSON),  # this was written with rjson::toJSON
+                as.data.frame), 
+            bind_rows)
+        
+        df$SignalID = signalid
+        
+        df %>% 
+            select(
+                SignalID, 
+                Timeperiod = timeperiod, 
+                data) %>% 
+            unnest(data) %>%
+            mutate(
+                SignalID = factor(SignalID),
+                Timeperiod = ymd_hms(Timeperiod),
+                Detector = factor(as.integer(as.character(Detector))),
+                CallPhase = factor(as.integer(CallPhase))) %>%
+            arrange(
+                Detector, 
+                Timeperiod)
+    } else {
+        data.frame()
+    }
 }
