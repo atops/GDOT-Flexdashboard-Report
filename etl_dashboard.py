@@ -60,16 +60,15 @@ def etl2(s, date_, det_config):
     print('{} | {} Starting...'.format(s, date_str))
 
     try:
-        #print('|{} reading from database...'.format(s)) 
         key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
         df = read_parquet_file('gdot-spm', key)
         
     
         if len(df)==0:
-            print('|{} no event data for this signal on {}.'.format(s, date_str))
+            print('{}: No event data for this signal on {}.'.format(s, date_str))
     
         if len(det_config_good)==0:
-            print('|{} no detector configuration data for this signal on {}.'.format(s, date_str))
+            print('{}: No detector configuration data for this signal on {}.'.format(s, date_str))
             
         if len(df) > 0 and len(det_config_good) > 0:
     
@@ -95,11 +94,11 @@ def etl2(s, date_, det_config):
     
                 print('{}: {} seconds'.format(s, round(time.time()-t0, 1)))
             else:
-                print('{}: {} seconds -- no cycles'.format(s, round(time.time()-t0, 1)))
+                print('{}: No cycles'.format(s))
         
     
     except Exception as e:
-        print(s, e)
+        print(f'{s}: {e}')
 
 
         
