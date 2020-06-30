@@ -2995,11 +2995,12 @@ filter_alerts_by_date <- function(alerts, dr) {
 }
 
 
-filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, id_filter_)  {
+#------------------------------------------------------------------------------    
+filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, phase_, id_filter_, active_streak)  {
     
-    most_recent_date <- max(alerts$Date)
+    most_recent_date <- max(alerts_by_date$Date)
     #df <- alerts
-    df <- filter(alerts, Alert == alert_type_)
+    df <- filter(alerts_by_date, Alert == alert_type_)
     
     if (nrow(df)) {
         
@@ -3040,13 +3041,24 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, i
     if (nrow(df)) {
         
         table_df <- df %>%
+            # Streak is 0 unless it's the most recent date in the alerts_by_date data set
+            # So, if the streak is not current as of the last date, it's 0. Streak is "Current Streak"
+            mutate(Streak = if_else(Date == most_recent_date, streak, as.integer(0))) %>%
             group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
-            mutate(Streak = streak[Date == max(Date)]) %>%
             summarize(
                 Occurrences = n(), 
-                Streak = max(Streak)) %>% 
+                Streak = max(Streak),
+                MaxDate = max(Date)) %>%
             ungroup() %>%
             arrange(desc(Streak), desc(Occurrences))
+        
+        if (active_streak == "Active") {
+            table_df <- table_df %>% filter(Streak > 0)
+            df <- df %>% right_join(select(table_df, SignalID, Detector))
+        } else if (active_streak == "Active 3-days") {
+            table_df <- table_df %>% filter(Streak > 2)
+            df <- df %>% right_join(select(table_df, SignalID, Detector))
+        }
         
         if (alert_type_ == "Missing Records") {
             
@@ -3075,8 +3087,7 @@ filter_alerts <- function(alerts, alert_type_, zone_group_, corridor_, phase_, i
                 mutate(signal_phase = factor(signal_phase))
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
-            
-        # "Bad Ped Detection", "Pedestrian Activations", "Force Offs", "Max Outs", "Count"
+
         } else { 
             
             plot_df <- df %>%
