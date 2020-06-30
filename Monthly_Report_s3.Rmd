@@ -239,10 +239,10 @@ mr_str <- reactive(
 
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
-#
+# 
 # renderText({"\nEnd of Selected Month"})
 # renderPrint({endof_current_month()})
-#
+# 
 # renderText({"Selected Querter"})
 # renderPrint({current_quarter()})
 #
@@ -2272,14 +2272,6 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 
 ```{r Summary Table, eval = TRUE}
 
-# corridor_summary_data <- reactive({ 
-#     get_corridor_summary_data(cor, current_month()) 
-# })
-# corridor_summary_table <- reactive({
-#     get_corridor_summary_table(corridor_summary_data(), input$zone_group)
-# })
-
-# Future. save corridor summary table offline as cor$summary_table
 corridor_summary_table <- reactive({
     get_corridor_summary_table(cor$summary_data, current_month(), input$zone_group)
 })
@@ -2613,12 +2605,14 @@ output$udc_plot <- renderPlotly({
 })
 
 output$udc_table <- renderFormattable({
-      validate(need(startsWith(zone_group(), "Zone"), ""))
+      shiny::validate(
+          need(startsWith(zone_group(), "Zone"), ""))
       
       month_str <- format(current_month(), "%F")
       data <- cor$mo$udc_trend_table
       
-      validate(need(month_str %in% names(data), "No data"))
+      shiny::validate(
+          need(month_str %in% names(data), "No data"))
       
       data <- data[[month_str]] %>% 
           filter(Zone == zone_group()) %>%
@@ -2626,7 +2620,8 @@ output$udc_table <- renderFormattable({
           rename(`Month Change` = `Month-over-Month`,
                  `Year Change` = `Year-over-Year`)
       
-      validate(need(nrow(data)>0, "No data"))
+      shiny::validate(
+          need(nrow(data)>0, "No data"))
       
       column_formats <- list(
           formatter("span"),
@@ -2651,8 +2646,9 @@ output$udc_table <- renderFormattable({
 fillCol(
     fillRow(
         renderUI({
-            validate(need(startsWith(zone_group(), "Zone"),
-                          "Select a Zone for User Delay Costs by Corridor"))
+            shiny::validate(
+                need(startsWith(zone_group(), "Zone"),
+                     "Select a Zone for User Delay Costs by Corridor"))
             plotlyOutput("udc_plot")#,
                        #height = udc_plot_height())
         })
@@ -2664,6 +2660,7 @@ fillCol(
     ), height = 1200
 )
 ```
+
 
 
 
@@ -2702,18 +2699,16 @@ filtered_alerts <- reactive({
                   phase_,
                   input$id_filter)
 })
-    
-
 
 output$alerts_plot <- renderPlot({
 
     dataset <- filtered_alerts()
 
     if (nrow(dataset$plot) > 0) {
-        
+
         plot_df <- dataset$plot %>% 
             mutate(signal_phase = factor(signal_phase))
-        
+
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
         } else {
@@ -2798,13 +2793,13 @@ fillRow(
                       "Filter on the intersection name or ID number.")
             ),
             renderUI({
-              
+
                 shiny::validate(
                     need(filtered_alerts()$intersections < 2000, 
                          paste("\n\n\nTOO MUCH DATA TO PLOT.",
                                "Select a Zone, Corridor of Phase", 
                                "to reduce the number of records.")))
-                
+
                 plotOutput("alerts_plot",
                            height = plot_height())
             })
@@ -2869,7 +2864,7 @@ Signal Details
 
 ```{r signal_detail, eval = TRUE}
 fillCol(height = 100,
-    
+
     fluidRow(
         column(width = 4,
         renderUI(selectInput("signalid", "Select Signal:",
@@ -2884,7 +2879,7 @@ fillCol(height = 100,
 
 sid <- eventReactive(input$signal_details_button, {
     req(input$signalid)
-    sub(":.+", "", input$signalid)
+    gsub(":.+", "", input$signalid)
 })
 
                      
