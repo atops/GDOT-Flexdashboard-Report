@@ -4498,13 +4498,24 @@ get_pau <- function(df, corridors) {
     mutate(mean = lambda ** -1, # property of exponential distribution
            var = lambda ** -2) # property of exponential distribution
   
+  
+  p <- c(0.8, 1)
+  p_names <- map_chr(p, ~paste0(.x*100, "%"))
+  
+  p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+    set_names(nm = p_names)
+  
   pau <- left_join(papd, pz, by = c("SignalID", "Detector", "CallPhase")) %>%
+    group_by(SignalID, CallPhase, Detector) %>% 
+    mutate_at(vars(papd), p_funs) %>%
     ungroup() %>%
     mutate(
       SignalID = as.character(SignalID),
       Detector = as.character(Detector),
       CallPhase = as.character(CallPhase),
-      probbad = if_else(papd == 0,  1 - exp(-lambda * ms), 0)
+      papd,
+      problow = if_else(papd == 0,  1 - exp(-lambda * ms), 0),
+      toohigh = (papd > `80%` * 100) & (`80%` > 0),
     ) %>%
     transmute(
       SignalID = factor(SignalID),
@@ -4513,12 +4524,14 @@ get_pau <- function(df, corridors) {
       Date = Date,
       DOW = DOW,
       Week = Week,
-      probbad = probbad,
-      uptime = if_else(probbad > 0.99, 0, 1),
-      all = 1)
-  
+      papd = papd,
+      problow = problow,
+      probhigh = as.integer(toohigh),
+      uptime = if_else((problow > 0.99) | (probhigh == 1), 0, 1),
+      all = 1)  
   pau
 }
+
 dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
   # per is Month|Date|Hour|Quarter
   if ("Date" %in% names(df)) {
