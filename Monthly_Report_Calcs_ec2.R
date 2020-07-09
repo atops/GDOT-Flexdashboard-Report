@@ -172,52 +172,6 @@ if (conf$run$counts == TRUE) {
                 counts = TRUE)
         }
     }
-
-#     future({    
-# 	    #lapply(date_range, function(date_) {
-# 		counts_1hr <- s3_read_parquet_parallel(
-# 		    bucket = conf$bucket,
-# 		    table_name = "counts_1hr",
-# 		    start_date = start_date,
-# 		    end_date = end_date
-# 		) %>%
-# 		    transmute(
-#     			SignalID = as.integer(SignalID),
-#     			Date = date(Date),
-#     			Timeperiod,
-#     			Detector = as.integer(Detector),
-#     			CallPhase = as.integer(CallPhase),
-#     			vol = as.integer(vol)
-#     	    )
-# 		
-# 		aurora_write_parquet(
-# 		    aurora_pool,
-# 		    counts_1hr,
-# 		    table_name = "counts_1hr")
-# 		rm(counts_1hr)
-# 		
-# 		filtered_counts_1hr <- s3_read_parquet_parallel(
-# 		    bucket = conf$bucket,
-# 		    table_name = "filtered_counts_1hr",
-# 		    start_date = start_date,
-# 		    end_date = end_date
-# 		) %>%
-# 		    transmute(
-#     			SignalID = as.integer(SignalID),
-#     			Date = date(Date),
-#     			Timeperiod,
-#     			Detector = as.integer(Detector),
-#     			CallPhase = as.integer(CallPhase),
-#     			vol = as.integer(vol)
-# 		    )
-# 		
-# 		aurora_write_parquet(
-# 		    aurora_pool,
-# 		    filtered_counts_1hr,
-# 		    table_name = "filtered_counts_1hr")
-# 		rm(filtered_counts_1hr)
-# 	    #})
-#     })
 }
 print("\n---------------------- Finished counts ---------------------------\n")
 
@@ -289,7 +243,7 @@ get_counts_based_measures <- function(month_abbrs) {
         # clear memory of large dataframe
         rm(filtered_counts_1hr)
         
-        # # get adjusted counts and thruput on each partition (file)            
+        # # get adjusted counts and throughput on each partition (file)            
         # #adjusted_counts_1hr <- mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
         # adjusted_counts_1hr <- lapply(as.character(seq(0,9)), function(i) {
         #     cat(c(i, ""))
@@ -435,7 +389,7 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         
         if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {
-            print("adjusted counts and thruput")
+            print("adjusted counts and throughput")
             
             # clear partition files
             lapply(as.character(seq(0,9)), function(i) {
@@ -451,10 +405,11 @@ get_counts_based_measures <- function(month_abbrs) {
                     filter(endsWith(as.character(SignalID), i)) %>%
                     write_fst(glue("fc{i}.fst"))
             })
+            print("")
             # clear memory of large dataframe
             rm(filtered_counts_15min)
             
-            # get adjusted counts and thruput on each partition (file)            
+            # get adjusted counts and throughput on each partition (file)            
             throughput <- lapply(as.character(seq(0,9)), function(i) {
                 cat(c(i, ""))
                 read_fst(glue("fc{i}.fst")) %>% 
@@ -660,7 +615,7 @@ get_pd_date_range <- function(start_date, end_date) {
     lapply(date_range, function(date_) {
         #foreach(date_ = date_range) %dopar% {
         print(date_)
-        pd <- get_ped_delay_s3(date_, conf)
+        pd <- get_ped_delay(date_, conf)
         if (nrow(pd) > 0) {
             s3_upload_parquet_date_split(
                 pd, 
