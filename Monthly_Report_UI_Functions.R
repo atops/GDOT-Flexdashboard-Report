@@ -36,13 +36,13 @@ suppressMessages(library(RJDBC))
 suppressMessages(library(jsonlite))
 #suppressMessages(library(RAthena))
 suppressMessages(library(shinycssloaders))
-library(compiler)
+suppressMessages(library(DT))
+suppressMessages(library(compiler))
     
 #plan(multiprocess)
 #plan(sequential)
 plan(multisession)
 
-suppressMessages(library(DT))
 
 options(dplyr.summarise.inform = FALSE)
 

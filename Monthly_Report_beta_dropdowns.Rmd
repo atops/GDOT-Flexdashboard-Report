@@ -2,16 +2,17 @@
 title: "MARK 1 (beta)"
 resource_files:
 - all_Corridors_Latest.qs
+- AthenaJDBC42_2.0.9.jar
+runtime: shiny
 output:
   flexdashboard::flex_dashboard:
-    orientation: rows
-    vertical_layout: scroll
-    logo: GDOTLogo.svg
-    favicon: GDOTLogo.svg
     css: style.css
+    favicon: GDOTLogo.svg
     includes:
       in_header: google-analytics.html
-runtime: shiny
+    logo: GDOTLogo.svg
+    orientation: rows
+    vertical_layout: scroll
 ---
 
 <style>
