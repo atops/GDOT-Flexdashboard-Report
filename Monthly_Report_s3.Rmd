@@ -62,12 +62,12 @@ sub <- qs::qread("sub.qs")
 # sig <- readRDS("sig.rds")
 # sub <- readRDS("sub.rds")
 
-alerts %<-% aws.s3::s3read_using(
-        qs::qread,
-        object = "mark/watchdog/alerts.qs", 
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY))
+# alerts %<-% aws.s3::s3read_using(
+#         qs::qread,
+#         object = "mark/watchdog/alerts.qs", 
+#         bucket = "gdot-spm",
+#         opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+#                     secret = aws_conf$AWS_SECRET_ACCESS_KEY))
 #alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 ```
 
@@ -2676,15 +2676,15 @@ Row {data-height = 92}
 ```{r watchdog, fig.height = 0.92}
 
 plot_height <- reactive({
-    #n <- length(levels(filtered_alerts()$plot$signal_phase))
+
     n <- filtered_alerts()$intersections
     css_px <- as.character(50 + n * 14)
     paste0(css_px, "px")
 })
 
 filtered_alerts <- reactive({
-
-    alerts_by_date <- filter_alerts_by_date(alerts, input$date_range)
+  
+    alerts_by_date <- filter_alerts_by_date(alerts(), input$date_range)
     
     phase_ <- if(input$phase.eight != "All") {
         input$phase.eight
@@ -2697,18 +2697,25 @@ filtered_alerts <- reactive({
                   zone_group(),
                   corridor(),
                   phase_,
-                  input$id_filter)
+                  input$id_filter,
+                  input$active_streak)
 })
+    
+
 
 output$alerts_plot <- renderPlot({
 
     dataset <- filtered_alerts()
 
     if (nrow(dataset$plot) > 0) {
-
+        
         plot_df <- dataset$plot %>% 
+            mutate(signal_phase = if_else(
+                Zone_Group == "Ramp Meters",
+                stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
+                as.character(signal_phase))) %>%
             mutate(signal_phase = factor(signal_phase))
-
+        
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
         } else {
@@ -2721,11 +2728,12 @@ output$alerts_plot <- renderPlot({
 })
 
 
-# Main panel with tabs: Map, Table, Plots
-fluidRow(
-    column(
-        width = 3,
-        dateRangeInput(
+div(
+    style = "display: grid; 
+             grid-template-columns: 250px 250px 150px 250px 150px;
+             grid-column-gap: 10px;",
+    
+    dateRangeInput(
             "date_range", "Date Range:",
             start = today() - days(14),
             end = today(),
@@ -2734,11 +2742,9 @@ fluidRow(
             format = "mm/dd/yy", 
             startview = "month", 
             weekstart = 0,
-            separator = " - ")
-    ),
-    column(
-        width = 3,
-        selectInput(
+            separator = " - "),
+    
+    selectInput(
             "alert_type", "Alert:",
             choices = c("No Camera Image",
                         "Bad Vehicle Detection",
@@ -2748,17 +2754,15 @@ fluidRow(
                         "Max Outs",
                         "Count",
                         "Missing Records"),
-            selected = "No Camera Image")
-    ),
-    column(
-        width = 2,
-        conditionalPanel(
+            selected = "No Camera Image"),
+    
+    conditionalPanel(
             "(input.alert_type == 'Missing Records') ||
              (input.alert_type == 'No Camera Image')",
             selectInput("phase.all", "Phase:",
                         choices = "All",
                         selected = "All")),
-        conditionalPanel(
+    conditionalPanel(
             "(input.alert_type == 'Pedestrian Activations') || 
             (input.alert_type == 'Force Offs') ||
             (input.alert_type == 'Max Outs') ||
@@ -2767,12 +2771,12 @@ fluidRow(
             (input.alert_type == 'Bad Ped Detection')",
             selectInput("phase.eight", "Phase:",
                         choices = c("All", seq_len(8)),
-                        selected = "All"))
-    ),
-    column(
-        width = 4,
-        textInput("id_filter", "Intersection Filter:")
-    )
+                        selected = "All")),
+    
+    textInput("id_filter", "Intersection Filter:"),
+    selectInput("active_streak", "Streak:",
+                        choices = c("All", "Active", "Active 3-days"),
+                        selected = "All")
 )
 ```
 
