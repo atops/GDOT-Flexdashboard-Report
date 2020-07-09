@@ -196,6 +196,8 @@ s3reactivePoll <- function(intervalMillis, bucket, object, aws_s3) {
                  valueFunc = s3valueFunc(bucket = bucket, object = object, aws_s3))
 }
 
+poll_interval <- 1000*3600 # 3600 seconds = 1 hour
+
 if (conf$mode == "production") {
     
     # corridors %<-% read_feather("all_corridors.feather")
@@ -206,7 +208,6 @@ if (conf$mode == "production") {
     
 } else if (conf$mode == "beta") {
     
-    poll_interval <- 1000*3600 # 3600 seconds = 1 hour
     
     # corridors %<-% aws.s3::s3read_using(
     #     read_feather, 
@@ -248,16 +249,14 @@ if (conf$mode == "production") {
     cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
     sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
     subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
-
-    alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs", aws_conf) 
     
 
-    perf_plots %<-% (aws.s3::s3read_using(
-        qs::qread,
-        object = "perf_plots.qs",
-        bucket = "gdot-spm",
-        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-                    secret = aws_conf$AWS_SECRET_ACCESS_KEY)))
+    # perf_plots %<-% (aws.s3::s3read_using(
+    #     qs::qread,
+    #     object = "perf_plots.qs",
+    #     bucket = "gdot-spm",
+    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)))
     
     
     # map_data <- aws.s3::s3readRDS(
@@ -270,6 +269,7 @@ if (conf$mode == "production") {
     stop("mode defined in configuration yaml file must be either production or beta")
 }
 
+alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs", aws_conf) 
 
 as_int <- function(x) {scales::comma_format()(as.integer(x))}
 as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
@@ -3047,8 +3047,8 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
             group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
             summarize(
                 Occurrences = n(), 
-                Streak = max(Streak),
-                MaxDate = max(Date)) %>%
+                Streak = max(Streak) #, MaxDate = max(Date)
+            ) %>%
             ungroup() %>%
             arrange(desc(Streak), desc(Occurrences))
         
