@@ -2998,7 +2998,11 @@ filter_alerts_by_date <- function(alerts, dr) {
 #------------------------------------------------------------------------------    
 filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, phase_, id_filter_, active_streak)  {
     
-    most_recent_date <- max(alerts_by_date$Date)
+    #most_recent_date <- max(alerts_by_date$Date)
+    most_recent_date <- alerts_by_date %>% 
+        group_by(Alert) %>% 
+        summarize(Date = max(Date)) %>% 
+        spread(Alert, Date) %>% as.list()
     #df <- alerts
     df <- filter(alerts_by_date, Alert == alert_type_)
     
@@ -3043,7 +3047,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
         table_df <- df %>%
             # Streak is 0 unless it's the most recent date in the alerts_by_date data set
             # So, if the streak is not current as of the last date, it's 0. Streak is "Current Streak"
-            mutate(Streak = if_else(Date == most_recent_date, streak, as.integer(0))) %>%
+            mutate(Streak = if_else(Date == most_recent_date[[alert_type_]], streak, as.integer(0))) %>%
             group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
             summarize(
                 Occurrences = n(), 
@@ -3543,9 +3547,9 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
         dt.overall <- dt[dt.deltas, on = .(Metrics = Metrics, Goal = Goal)] %>%
             rename_at(vars(starts_with("i.")), ~str_replace(., "i.", "Delta."))
         dt.overall <- dt.overall[dt.checks, on = .(Metrics = Metrics, Goal = Goal)] %>%
-            rename_at(vars(starts_with("i.")), str_replace(., "i.", "Check.Goal."))
+            rename_at(vars(starts_with("i.")), ~str_replace(., "i.", "Check.Goal."))
         dt.overall <- dt.overall[dt.deltas.checks,on = .(Metrics=Metrics,Goal=Goal)] %>%
-            rename_at(vars(starts_with("i.")), str_replace(., "i.", "Check.Delta."))
+            rename_at(vars(starts_with("i.")), ~str_replace(., "i.", "Check.Delta."))
         
         no.corridors <- (ncol(dt.overall) - 2) / 4 # how many corridors are we working with?
         
