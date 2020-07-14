@@ -2196,10 +2196,11 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     gdf <- left_join(df, corridors) %>%
         mutate(Corridor = factor(Corridor)) %>%
         group_by(Zone, Corridor, Zone_Group, !!per_) 
-    
+    #browser()
     if (is.null(wt_)) {
         gdf %>% 
-            summarize(!!var_ := mean(!!var_, na.rm = TRUE)) %>%
+            summarize(!!var_ := mean(!!var_, na.rm = TRUE), 
+                      .groups = "drop_last") %>%
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2207,7 +2208,8 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     } else {
         gdf %>% 
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                      !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
+                      !!wt_ := sum(!!wt_, na.rm = TRUE), 
+                      .groups = "drop_last") %>%
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2287,7 +2289,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         gr_(per_, var_, wt_, "Zone 7")
     
     # concatenate all summaries with corridor averages
-    dplyr::bind_rows(select_(df, "Corridor", Zone_Group = "Zone", per_, var_, wt_, "delta"),
+    dplyr::bind_rows(select(df, "Corridor", Zone_Group = "Zone", !!per_, !!var_, !!wt_, "delta"),
                      all_zones,
                      all_rtop,
                      all_rtop1,
