@@ -64,7 +64,7 @@ sub <- qs::qread("sub.qs")
 
 # alerts %<-% aws.s3::s3read_using(
 #         qs::qread,
-#         object = "mark/watchdog/alerts.qs", 
+#         object = "mark/watchdog/alerts.qs",
 #         bucket = "gdot-spm",
 #         opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
 #                     secret = aws_conf$AWS_SECRET_ACCESS_KEY))
@@ -220,7 +220,7 @@ filtered_corridors <- reactive({
 
 
 filtered_signalids <- reactive({
-    x <- filtered_corridors() %>% 
+    x <- filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
@@ -239,10 +239,10 @@ mr_str <- reactive(
 
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
-# 
+#
 # renderText({"\nEnd of Selected Month"})
 # renderPrint({endof_current_month()})
-# 
+#
 # renderText({"Selected Querter"})
 # renderPrint({current_quarter()})
 #
@@ -299,8 +299,8 @@ Row
 tp_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
-            mr()$mo$tp, "vph", as_int, 
-            zone = zone_group(), mo = current_month(), 
+            mr()$mo$tp, "vph", as_int,
+            zone = zone_group(), mo = current_month(),
             break_ = TRUE
         ),
         icon = "fa-bar-chart",
@@ -315,8 +315,8 @@ renderValueBox({tp_valuebox()})
 aog_valuebox <- reactive({
   valueBox(
       value = get_valuebox(
-          mr()$mo$aogd, "aog", as_pct, 
-          zone = zone_group(), mo = current_month(), 
+          mr()$mo$aogd, "aog", as_pct,
+          zone = zone_group(), mo = current_month(),
           break_ = TRUE),
       icon = "fa-car",
     color = BLUE)
@@ -330,8 +330,8 @@ renderValueBox({aog_valuebox()})
 pr_valuebox <- reactive({
   valueBox(
       value = get_valuebox(
-          mr()$mo$prd, "pr", as_2dec, 
-          zone = zone_group(), mo = current_month(), 
+          mr()$mo$prd, "pr", as_2dec,
+          zone = zone_group(), mo = current_month(),
           break_ = TRUE),
       icon = "fa-car",
       color = BLUE)
@@ -345,8 +345,8 @@ renderValueBox({pr_valuebox()})
 qs_valuebox <- reactive({
   valueBox(
       value = get_valuebox(
-          mr()$mo$qsd, "qs_freq", as_pct, 
-          zone = zone_group(), mo = current_month(), 
+          mr()$mo$qsd, "qs_freq", as_pct,
+          zone = zone_group(), mo = current_month(),
           break_ = TRUE),
       icon = "fa-car",
       color = BLUE)
@@ -361,7 +361,7 @@ sf_valuebox <- reactive({
   valueBox(
       value = get_valuebox(
           mr()$mo$sfd, "sf_freq", as_pct,
-          zone = zone_group(), mo = current_month(), 
+          zone = zone_group(), mo = current_month(),
           break_ = TRUE),
       icon = "fa-car",
       color = BLUE)
@@ -391,7 +391,7 @@ tti_valuebox <- reactive({
   valueBox(
       value = get_valuebox(
           cor$mo$tti, "tti", as_2dec,
-          zone = zone_group(), mo = current_month(), 
+          zone = zone_group(), mo = current_month(),
           break_ = TRUE),
       icon = "fa-dashboard",
       color = BLUE)
@@ -406,7 +406,7 @@ pti_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
             cor$mo$pti, "pti", as_2dec,
-            zone = zone_group(), mo = current_month(), 
+            zone = zone_group(), mo = current_month(),
             break_ = TRUE),
         icon = "fa-dashboard",
         color = BLUE)
@@ -472,7 +472,7 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            mr()$mo$papd, 
+            mr()$mo$papd,
             "papd", as_int,
             zone = zone_group(),
             mo = current_month(),
@@ -881,11 +881,11 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox(
-            cor$qu$papd, 
+            cor$qu$papd,
             "papd", as_int,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(), 
+            qu = current_quarter(),
             break_ = FALSE),
       icon = "fa-area-chart",
       color = GDOT_YELLOW
@@ -1127,7 +1127,7 @@ fillCol(
             data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
-                data.set, "vph", "Throughput", RED2, 
+                data.set, "vph", "Throughput", RED2,
                 format_func = as_int)
         }),
         flex = c(2, 10)
@@ -1479,20 +1479,20 @@ Row {.tabset .tabset-fade}
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 renderPlotly({
-    
+
     mr_wk_tp <- mr()$wk$tp
     mr_mo_tp <- mr()$mo$tp
     current_month_ <- current_month()
     zone_group_ <- zone_group()
     input_month <- input$month
-        
+
     #future({
         get_bar_line_dashboard_plot(
-            mr_wk_tp, 
-            mr_mo_tp, 
+            mr_wk_tp,
+            mr_mo_tp,
             NULL,
             "vph", "integer", highlight_color = RED2,
-            month_ = current_month_, 
+            month_ = current_month_,
             zone_group_ = zone_group_,
             x_bar_title = paste(input_month, "Throughput (vph)"),
             x_line1_title = "Vehicles per Hour Trend",
@@ -1514,14 +1514,14 @@ renderPlotly({
     current_month_ <- current_month()
     zone_group_ <- zone_group()
     input_month <- input$month
-    
+
     #future({
         get_bar_line_dashboard_plot(
             mr_wk_aog,
             mr_mo_aogd,
             mr_mo_aogh,
             "aog", "percent", highlight_color = RED2,
-            month_ = current_month_, 
+            month_ = current_month_,
             zone_group_ = zone_group_,
             x_bar_title = paste(input_month, "AOG"),
             x_line1_title = "AOG Trend",
@@ -1573,13 +1573,13 @@ renderPlotly({
 #rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
-        mr()$wk$sf, 
-        mr()$mo$sfd, 
+        mr()$wk$sf,
+        mr()$mo$sfd,
         mr()$mo$sfh,
-        "sf_freq", 
-        "percent", 
+        "sf_freq",
+        "percent",
         highlight_color = RED2,
-        month_ = current_month(), 
+        month_ = current_month(),
         zone_group_ = zone_group(),
         x_bar_title = paste(input$month, "Split Failures Rate"),
         x_line1_title = "Peak Period Split Failures Trend",
@@ -1595,13 +1595,13 @@ renderPlotly({
 #rmarkdown::render_delayed({
 renderPlotly({
     get_bar_line_dashboard_plot(
-        mr()$wk$sfo, 
-        mr()$mo$sfo, 
+        mr()$wk$sfo,
+        mr()$mo$sfo,
         mr()$mo$sfh,
-        "sf_freq", 
-        "percent", 
+        "sf_freq",
+        "percent",
         highlight_color = RED2,
-        month_ = current_month(), 
+        month_ = current_month(),
         zone_group_ = zone_group(),
         x_bar_title = paste(input$month, "Off_Peak Split Failures Rate"),
         x_line1_title = "Off-Peak Split Failures Trend",
@@ -1617,13 +1617,13 @@ renderPlotly({
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, eval = TRUE, warning = FALSE}
 #rmarkdown::render_delayed({
 renderPlotly({
-    
+
     input_month <- input$month
     current_month_ <- current_month()
-    zone_group_ <- zone_group() 
-    
+    zone_group_ <- zone_group()
+
     future({
-        get_tt_plot(cor$mo$tti, cor$mo$ttih, 
+        get_tt_plot(cor$mo$tti, cor$mo$ttih,
                     cor$mo$pti, cor$mo$ptih,
                     month_ = current_month_,
                     zone_group_ = zone_group_,
@@ -2277,7 +2277,7 @@ corridor_summary_table <- reactive({
 })
 
 output$corridor_summary_table <- renderFormattable({
-            validate(need(corridor_summary_table(), 
+            shiny::validate(need(corridor_summary_table(),
                           "Select a Zone for the Metrics Summary Table"))
             corridor_summary_table()
         })
@@ -2289,10 +2289,10 @@ fillRow(
     renderUI({
         req(corridor_summary_table())
         tags$div(
-            p(strong("Legend:")), 
+            p(strong("Legend:")),
             p("Green text indicates a metric meeting the monthly goal; ",
               "red text indicates not meeting goal."),
-            
+
             p(span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
               span(class = "glyphicon glyphicon-arrow-down", style = "color: green"),
               "A green arrow indicates an improvement from the previous month ",
@@ -2317,9 +2317,9 @@ tinyMCE <- function(inputId, content, options = NULL){
   tagList(
     singleton(tags$head(tags$script(src = glue("//cdn.tiny.cloud/1/{tinymce_api_key}/tinymce/5/tinymce.min.js")))),
     tags$div(
-        id = inputId, 
-        class = "shinytinymce", 
-        content, 
+        id = inputId,
+        class = "shinytinymce",
+        content,
         style = "resize: none; width: 100%; height: 100%; border-style: none; background: gainsboro;"),
     tags$script(paste0('tinymce.init({selector:".shinytinymce", ', options, '});')),
     singleton(tags$head(tags$script(src = 'shinyMCE/shiny-tinymce-bindings.js')))
@@ -2329,7 +2329,7 @@ tinyMCE <- function(inputId, content, options = NULL){
 
 tinymce_api_key <- 'ee9qvzyyw4te05yjk9lxcmdephacz40a5qpni2kwh2cu74la'
 
-editor_opts <- 
+editor_opts <-
   'plugins: ["advlist autolink lists link image charmap print preview anchor",
              "searchreplace visualblocks code fullscreen",
              "insertdatetime media table contextmenu paste"],
@@ -2356,7 +2356,7 @@ editor_opts <-
     };
     reader.readAsDataURL(file);
   };
-  
+
   input.click();
   }'
 
@@ -2383,14 +2383,14 @@ shinyApp(
             column(width = 9,
                    hr(),
                    h3('Comments:'),
-                   tinyMCE('editor1', 
+                   tinyMCE('editor1',
                            verbatimTextOutput('zmdf_comment1'),
                            editor_opts),
 
 #                   hr(),
 #                   p('HTML of editor text:'),
 #                   verbatimTextOutput('editor1_content'),
-#                   
+#
 #                   p('The most recent comment in the data table:'),
 #                   verbatimTextOutput('zm_data'),
 #
@@ -2410,9 +2410,9 @@ shinyApp(
             object = "Zone_Manager_Report_Content.rds",
             bucket = "gdot-spm",
             key = aws_conf$AWS_ACCESS_KEY_ID,
-            secret = aws_conf$AWS_SECRET_ACCESS_KEY) %>% 
-          
-            group_by(Month, Zone) %>% 
+            secret = aws_conf$AWS_SECRET_ACCESS_KEY) %>%
+
+            group_by(Month, Zone) %>%
             top_n(10, LastModified) %>%
             ungroup()
 
@@ -2420,8 +2420,8 @@ shinyApp(
 
 #        # Show (don't change) ZM Data on Zone and Month (all, not just Last Modified)
 #        output$zmdf_table <- renderTable({
-#            zmdf %>% 
-#                filter(Zone == zone_group(), Month == current_month()) %>% 
+#            zmdf %>%
+#                filter(Zone == zone_group(), Month == current_month()) %>%
 #                arrange(desc(LastModified))
 #        })
 #
@@ -2433,17 +2433,17 @@ shinyApp(
 #        output$zm_data <- renderText({
 #            get_latest_comment(zmdf, zone_group(), current_month())
 #        })
-        
+
         # Populate Editor on ZM Data, Zone and Month (first time only)
         output$zmdf_comment1 <- renderPrint({
             get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
         })
-        
+
         # Update Editor with ZM Data on user selection of new Zone or Group
         # only if editor text has changed
         observe({
             print("UpdateTinyMCE observed")
-          
+
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
                 print('--------Update Editor--------')
@@ -2465,12 +2465,12 @@ shinyApp(
                 'editor1',
                 get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
             )
-            
+
             memory$month <- current_month()
             memory$zone <- zone_group()
         })
-        
-        
+
+
         # Undo Button
         observeEvent(input$undo_zm_edits, {
             showModal(modalDialog(
@@ -2481,24 +2481,24 @@ shinyApp(
                 )
             ))
         })
-        
+
         # On Undo, reload ZM Data from S3.
         observeEvent(input$confirmUndo, {
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
-          
+
             zmdf <<- aws.s3::s3readRDS(
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             removeModal()
-            
+
             updateTinyMCE(
                 session,
                 'editor1',
                 get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month), default_comment)
             )
-            
+
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
@@ -2511,11 +2511,11 @@ shinyApp(
                 )
             ))
         })
-        
+
         observeEvent(input$confirmSave, {
-          
+
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
-          
+
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
@@ -2532,7 +2532,7 @@ shinyApp(
                     print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
-            
+
             # Read back from S3 in case it's changed by someone else.
             # and combine with new data; drop duplicates to keep only unique rows.
             x <- aws.s3::s3readRDS(
@@ -2541,16 +2541,16 @@ shinyApp(
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             zmdf <<- bind_rows(zmdf, x) %>% distinct()
-            
+
             # Save to S3, updated with new data.
             aws.s3::s3saveRDS(
-                zmdf, 
+                zmdf,
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
                 key = aws_conf$AWS_ACCESS_KEY_ID,
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             removeModal()
-            
+
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
@@ -2568,8 +2568,8 @@ shinyApp(
 #     object = "Zone_Manager_Report_Content.rds",
 #     bucket = "gdot-spm")
 
-zmdf <- readRDS("Zone_Manager_Report_Content.rds") %>% 
-            group_by(Month, Zone) %>% 
+zmdf <- readRDS("Zone_Manager_Report_Content.rds") %>%
+            group_by(Month, Zone) %>%
             top_n(10, LastModified) %>%
             ungroup()
 
@@ -2607,31 +2607,31 @@ output$udc_plot <- renderPlotly({
 output$udc_table <- renderFormattable({
       shiny::validate(
           need(startsWith(zone_group(), "Zone"), ""))
-      
+
       month_str <- format(current_month(), "%F")
       data <- cor$mo$udc_trend_table
-      
+
       shiny::validate(
           need(month_str %in% names(data), "No data"))
-      
-      data <- data[[month_str]] %>% 
+
+      data <- data[[month_str]] %>%
           filter(Zone == zone_group()) %>%
           select(-Month) %>%
           rename(`Month Change` = `Month-over-Month`,
                  `Year Change` = `Year-over-Year`)
-      
+
       shiny::validate(
           need(nrow(data)>0, "No data"))
-      
+
       column_formats <- list(
           formatter("span"),
           formatter("span"),
           formatter("span", x ~ as_currency(x)),
-          formatter("span", 
+          formatter("span",
                     style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
                     x ~ as_pct(x)),
           formatter("span", x ~ as_currency(x)),
-          formatter("span", 
+          formatter("span",
                     style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
                     x ~ as_pct(x)),
           formatter("span", x ~ as_currency(x)))
@@ -2683,9 +2683,9 @@ plot_height <- reactive({
 })
 
 filtered_alerts <- reactive({
-  
+
     alerts_by_date <- filter_alerts_by_date(alerts(), input$date_range)
-    
+
     phase_ <- if(input$phase.eight != "All") {
         input$phase.eight
     } else {
@@ -2700,7 +2700,7 @@ filtered_alerts <- reactive({
                   input$id_filter,
                   input$active_streak)
 })
-    
+
 
 
 output$alerts_plot <- renderPlot({
@@ -2708,14 +2708,14 @@ output$alerts_plot <- renderPlot({
     dataset <- filtered_alerts()
 
     if (nrow(dataset$plot) > 0) {
-        
-        plot_df <- dataset$plot %>% 
+
+        plot_df <- dataset$plot %>%
             mutate(signal_phase = if_else(
                 Zone_Group == "Ramp Meters",
                 stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
                 as.character(signal_phase))) %>%
             mutate(signal_phase = factor(signal_phase))
-        
+
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
         } else {
@@ -2729,21 +2729,21 @@ output$alerts_plot <- renderPlot({
 
 
 div(
-    style = "display: grid; 
+    style = "display: grid;
              grid-template-columns: 250px 250px 150px 250px 150px;
              grid-column-gap: 10px;",
-    
+
     dateRangeInput(
             "date_range", "Date Range:",
             start = today() - days(14),
             end = today(),
             min = today() - days(365),
             max = today(),
-            format = "mm/dd/yy", 
-            startview = "month", 
+            format = "mm/dd/yy",
+            startview = "month",
             weekstart = 0,
             separator = " - "),
-    
+
     selectInput(
             "alert_type", "Alert:",
             choices = c("No Camera Image",
@@ -2755,7 +2755,7 @@ div(
                         "Count",
                         "Missing Records"),
             selected = "No Camera Image"),
-    
+
     conditionalPanel(
             "(input.alert_type == 'Missing Records') ||
              (input.alert_type == 'No Camera Image')",
@@ -2763,7 +2763,7 @@ div(
                         choices = "All",
                         selected = "All")),
     conditionalPanel(
-            "(input.alert_type == 'Pedestrian Activations') || 
+            "(input.alert_type == 'Pedestrian Activations') ||
             (input.alert_type == 'Force Offs') ||
             (input.alert_type == 'Max Outs') ||
             (input.alert_type == 'Count') ||
@@ -2772,7 +2772,7 @@ div(
             selectInput("phase.eight", "Phase:",
                         choices = c("All", seq_len(8)),
                         selected = "All")),
-    
+
     textInput("id_filter", "Intersection Filter:"),
     selectInput("active_streak", "Streak:",
                         choices = c("All", "Active", "Active 3-days"),
@@ -2788,9 +2788,9 @@ fillRow(
     tabsetPanel(
         type = "tabs",
         tabPanel(
-            "Plot", 
+            "Plot",
             helpText(
-                div(class = "heatmap-explanation", 
+                div(class = "heatmap-explanation",
                     paste("Darker colors mean more consecutive days", "
                           in which the alert condition is active.")),
                 paste("Use the 'Intersection Filter' box to reduce the size of the list.",
@@ -2799,9 +2799,9 @@ fillRow(
             renderUI({
 
                 shiny::validate(
-                    need(filtered_alerts()$intersections < 2000, 
+                    need(filtered_alerts()$intersections < 2000,
                          paste("\n\n\nTOO MUCH DATA TO PLOT.",
-                               "Select a Zone, Corridor of Phase", 
+                               "Select a Zone, Corridor of Phase",
                                "to reduce the number of records.")))
 
                 plotOutput("alerts_plot",
@@ -2809,11 +2809,11 @@ fillRow(
             })
         ),
         tabPanel(
-            "Table", 
+            "Table",
             renderDataTable({
-                datatable(filtered_alerts()$table, 
+                datatable(filtered_alerts()$table,
                           escape = FALSE,
-                          extensions = 'Scroller', 
+                          extensions = 'Scroller',
                           options = list(
                               deferRender = TRUE,
                               scrollY = 500,
@@ -2886,7 +2886,7 @@ sid <- eventReactive(input$signal_details_button, {
     gsub(":.+", "", input$signalid)
 })
 
-                     
+
 fillCol(height = 700,
 
         renderPlotly({
@@ -2941,7 +2941,7 @@ The calculation uses detector data from _Advance Count_ or _Exit_ detectors, as 
 
 #### **Progression Ratio**
 
-The percent of vehicles arriving during green is correlated very strongly with the amount of green time given to each phase. For phases with a high proportion of green time per cycle, there will naturally tend to be more arrivals on green, regardless of the arrival pattern. 
+The percent of vehicles arriving during green is correlated very strongly with the amount of green time given to each phase. For phases with a high proportion of green time per cycle, there will naturally tend to be more arrivals on green, regardless of the arrival pattern.
 
 Progression Ratio addresses this fact by controlling for the amount of green time per cycle on each phase. It is calculated as the arrival on green percentage divided by the percentage of green time (g/C) for that phase. It can be considered the quality of progression.
 
@@ -2951,7 +2951,7 @@ The Highway Capacity Manual (HCM) gives a range of values progression ratio and 
 
 Queue Spillback Rate is an experimental measure of effectiveness.
 It is a measure of unmet demand in a cycle as measured by setback detectors. When vehicle dwell times on setback detectors exceed a threshold above what is typical for setback detectors under
-freely flowing conditions, that is interpreted as standing or slowed traffic over that detector, meaning the queue has reached the setback detector. 
+freely flowing conditions, that is interpreted as standing or slowed traffic over that detector, meaning the queue has reached the setback detector.
 
 Specifically, under freely flowing conditions, the time between subsequent detector on and off events is typically around 0.1 seconds for setback detectors. When the 95^th^ percentile detector occupancy duration increases above 3 seconds in a cycle, it will be assumed there is standing traffic on the setback detector and a spillback event will be flagged for that phase in that cycle.
 
@@ -2959,7 +2959,7 @@ If any lane on a phase registers high dwell time over a setback detector, that p
 
 #### **Split Failures**
 
-Split failure is another measure of unmet demand. It identifies cycles 
+Split failure is another measure of unmet demand. It identifies cycles
 where a phase has unserved demand. A phase is flagged for split failure when the average occupancy of the stop bar detectors on the phase are greater than 80% during the green phase and greater than 80% during the first five seconds of the red phase, which means there was demand at the stop bar both before and after the green interval. The intersection is flagged as a split failure on that cycle if at least one phase meets the criteria for split failure during that phase.
 
 This metrics only uses _Stop Bar Presence_ detection, and is only run for side street and left turn phases, i.e., all phases other than main street through phases.
@@ -2976,7 +2976,7 @@ the month.
 
 An hourly Travel Time Index is then calculated for each corridor as the
 average travel time for that hour of the day divided by the free flow
-travel time for the corridor, i.e., each of the 24 hours of the day has its own measure for the month. The TTI for each hour is the average for each hour over the Tuesdays, Wednesdays and Thursdays in the month, divided by the free flow travel time for the corridor. The TTI for the day is the calculated as the average hourly travel time weighted by the hourly volume for the corridor, which is the hourly volume averaged over all signals in the corridor. This gives more weight to peak periods than off-peak periods). 
+travel time for the corridor, i.e., each of the 24 hours of the day has its own measure for the month. The TTI for each hour is the average for each hour over the Tuesdays, Wednesdays and Thursdays in the month, divided by the free flow travel time for the corridor. The TTI for the day is the calculated as the average hourly travel time weighted by the hourly volume for the corridor, which is the hourly volume averaged over all signals in the corridor. This gives more weight to peak periods than off-peak periods).
 
 #### **Planning Time Index**
 
@@ -2987,7 +2987,7 @@ for each hour in the month, it takes the 90^th^ percentile of the day over the T
 
 #### **Daily Volume**
 
-Volume is a measure of demand on a corridor. Total volume on main street 
+Volume is a measure of demand on a corridor. Total volume on main street
 through phases are summed over each Tuesday, Wednesday and Thursday,
 and then averaged over all days in the month.
 
@@ -3022,7 +3022,7 @@ Each detector is evaluated over each day. A detector is considered if failed for
 
 #### **Pedestrian Pushbutton Uptime**
 
-Pedestrian Pushbutton Uptime is the percentage of pedestrian inputs likely to be operational. 
+Pedestrian Pushbutton Uptime is the percentage of pedestrian inputs likely to be operational.
 It is based on the historical distribution of the daily number of pedestrian actuations.
 Currently, when the number of consecutive days without an input yields a probability
 of failure based on the historical distribution for that input, it is flagged as failed.
@@ -3040,7 +3040,7 @@ certainty from the data whether that the push button is indeed failed.
 
 #### **CCTV Uptime**
 
-Through December 2017, CCTV Uptime was reported by Corridor Managers in their 
+Through December 2017, CCTV Uptime was reported by Corridor Managers in their
 monthly reports. In January, 2018, it came from TSOS based on a manual check
 of each camera during the month and reporting whether it returns an
 image and whether it can be controlled (pan-tilt-zoom).
@@ -3052,7 +3052,7 @@ working as of its "last modified" timestamp from the website.
 #### **Communications Uptime**
 
 This is calculated from gaps in the ATSPM high resolution data. Any gaps
-in subsequent events greater than 15 minutes are considered to be due to 
+in subsequent events greater than 15 minutes are considered to be due to
 communication loss. The sum of these gaps converted to a percent is the
 daily communication uptime for that controller. If comms are lost for all
 intersections, it is considered a system failure and that time is excluded
@@ -3061,7 +3061,7 @@ from the uptime calculation.
 #### **Events Reported, Resolved, Outstanding**
 
 Activity measures come from TEAMS reports from data as entered by corridor managers.
-TEAMS is GDOT's ticketing and tracking system for signal equipment and 
+TEAMS is GDOT's ticketing and tracking system for signal equipment and
 incident-related activity.
 
 All events reported in the month are counted, as are the number of
