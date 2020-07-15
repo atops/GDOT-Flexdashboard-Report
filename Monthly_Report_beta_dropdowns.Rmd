@@ -194,6 +194,11 @@ filtered_corridors <- reactive({
     corr %>% select(-Description, -Asof)
 })
 
+ntraces <- reactive({
+    filtered_corridors() %>% 
+        distinct(Corridor) %>% 
+        nrow()
+})
 
 filtered_signalids <- reactive({
     x <- filtered_corridors() %>%
@@ -1785,8 +1790,8 @@ output$equipment <- renderPlotly({
         zone_group_ <- zone_group()
         current_month_ <- current_month()
         input_month <- input$month
-
-        if (zone_group() == "All RTOP") {
+        
+        if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_bar_line_dashboard_plot(
                 cordata()$wk$du,
                 cordata()$mo$du,
@@ -1831,7 +1836,7 @@ output$equipment <- renderPlotly({
         current_month_ <- current_month()
         input_month <- input$month
 
-        if (zone_group() == "All RTOP") {
+        if (zone_group() == "All RTOP" || ntraces() > 24) {
 
             get_bar_line_dashboard_plot(
                 cordata()$wk$pau,
@@ -1906,7 +1911,7 @@ output$equipment <- renderPlotly({
         current_month_ <- current_month()
         input_month <- input$month
 
-        if (zone_group() == "All RTOP") {
+        if (zone_group() == "All RTOP" || ntraces() > 24) {
 
             get_bar_line_dashboard_plot(
                 cordata()$wk$cu,
@@ -1943,7 +1948,7 @@ output$equipment <- renderPlotly({
 
     } else if (input$equipment_metric == "RSU Uptime") {
 
-        if (zone_group() == "All RTOP") {
+        if (zone_group() == "All RTOP" || ntraces() > 24) {
 
             get_bar_line_dashboard_plot(
                 cordata()$wk$ru,
