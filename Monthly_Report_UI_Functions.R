@@ -3702,16 +3702,16 @@ read_signal_data <- function(conf_athena, signalid, plot_start_date, plot_end_da
     if (sum(!is.na(df[signalid]))) {
         df$data <- lapply(
             lapply(
-                lapply(df[signalid][[signalid]], 
+                lapply(df[[signalid]], 
                        jsonlite::fromJSON),  # this was written with rjson::toJSON
                 as.data.frame), 
-            bind_rows)
-        
-        df$SignalID = signalid
-        
+            function(x) {bind_rows(x) %>% 
+                    mutate_at(vars(starts_with("vol")), ~as.numeric(as.character(.)))}
+        )
+
         df %>% 
-            select(
-                SignalID, 
+            transmute(
+                SignalID = signalid, 
                 Timeperiod = timeperiod, 
                 data) %>% 
             unnest(data) %>%
