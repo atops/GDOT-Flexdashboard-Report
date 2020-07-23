@@ -160,7 +160,7 @@ if (conf$run$counts == TRUE) {
             date_, 
             bucket = conf$bucket, 
             conf_athena = conf$athena, 
-            uptime = TRUE,  # TRUE
+            uptime = TRUE,
             counts = TRUE)
     } else {
         foreach(date_ = date_range, .errorhandling = "pass") %dopar% {
@@ -168,7 +168,7 @@ if (conf$run$counts == TRUE) {
                 date_, 
                 bucket = conf$bucket, 
                 conf_athena = conf$athena,
-                uptime = FALSE,  # TRUE 
+                uptime = TRUE, 
                 counts = TRUE)
         }
     }
@@ -575,39 +575,10 @@ if (conf$run$queue_spillback == TRUE) {
 
 
 
-# # GET SPLIT FAILURES ########################################################
-
-print(glue("{Sys.time()} split failures [10 of 10]"))
-
-get_sf_date_range <- function(start_date, end_date) {
-    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-    
-    lapply(date_range, function(date_) {
-        #foreach(date_ = date_range) %dopar% {
-        print(date_)
-        sf <- get_sf_utah(date_, conf$athena, signals_list)
-        s3_upload_parquet_date_split(
-            sf, 
-            bucket = conf$bucket, 
-            prefix = "sf", 
-            table_name = "split_failures",
-            conf_athena = conf$athena)
-        #}
-    })
-    registerDoSEQ()
-    gc()
-}
-
-if (conf$run$split_failures == TRUE) {
-    get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
-}
-
-
-
 # # GET PED DELAY ########################################################
 
 # Ped delay using ATSPM method, based on push button-start of walk durations
-print(glue("{Sys.time()} ped delay [11 of 10]"))
+print(glue("{Sys.time()} ped delay [10 of 10]"))
 
 get_pd_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
@@ -632,6 +603,47 @@ get_pd_date_range <- function(start_date, end_date) {
 if (conf$run$ped_delay == TRUE) {
     get_pd_date_range(start_date, end_date)
 }
+
+
+
+# # GET SPLIT FAILURES ########################################################
+
+print(glue("{Sys.time()} split failures [11 of 10]"))
+
+get_sf_date_range <- function(start_date, end_date) {
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+    
+    lapply(date_range, function(date_) {
+        #foreach(date_ = date_range) %dopar% {
+        print(date_)
+        
+        # This tends to run out of memory.
+        # Split into 10 roughly equal groups of signals. Run separately. Combine.
+        # sf <- lapply(seq(0,9,1), function(i) {
+        #     print(i)
+        #     get_sf_utah(
+        #         date_, 
+        #         conf$athena, 
+        #         signals_list[endsWith(as.character(signals_list), as.character(i))])
+        # }) %>% bind_rows
+        sf <- get_sf_utah(date_, conf$athena, signals_list)
+        s3_upload_parquet_date_split(
+            sf, 
+            bucket = conf$bucket, 
+            prefix = "sf", 
+            table_name = "split_failures",
+            conf_athena = conf$athena)
+        #}
+    })
+    #registerDoSEQ()
+    gc()
+}
+
+if (conf$run$split_failures == TRUE) {
+    get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
+}
+
+
 
 #system2('python reload_parquet.py', wait = FALSE)
 
