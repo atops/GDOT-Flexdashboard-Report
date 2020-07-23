@@ -101,3 +101,5 @@ print(report_end_date)
 
 date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
 date_range_str <- paste0("{", paste0(as.character(date_range), collapse = ","), "}")
+
+#options(warn = 2) # Turn warnings into errors we can run a traceback on. For debugging only.
