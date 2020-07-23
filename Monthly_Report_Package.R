@@ -571,22 +571,36 @@ tryCatch({
 
 print(glue("{Sys.time()} Pedestrian Delay [6 of 23]"))
 
-#tryCatch({
-if (FALSE) {   # this is done in Python using the script Anthony wrote
+tryCatch({
+    # cb <- function(x) {
+    #     filter(x,
+    #            Duration < 300) %>%
+    #         transmute(
+    #             SignalID,
+    #             CallPhase = EventParam,
+    #             Date = date(Date),
+    #             Date_Hour = Begin_Walk,
+    #             DOW = wday(Date),
+    #             Week = week(Date),
+    #             Duration)
+    # }
     cb <- function(x) {
-        filter(x,
-               Duration < 300) %>%
-            transmute(
-                SignalID,
-                CallPhase = EventParam,
-                Date = date(Date),
-                Date_Hour = Begin_Walk,
+        x <- if ("Avg.Max.Ped.Delay" %in% names(x)) {
+            x %>% 
+                rename(
+                    pd = Avg.Max.Ped.Delay) %>%
+                mutate(
+                    CallPhase = factor(0))
+        } else {
+            x
+        }
+        x %>%
+            mutate(
                 DOW = wday(Date),
-                Week = week(Date),
-                Duration)
+                Week = week(Date))
     }
     
-    ped_delay <- s3_read_parquet(
+    ped_delay <- s3_read_parquet_parallel(
         bucket = conf$bucket, 
         table_name = "ped_delay", 
         start_date = wk_calcs_start_date,
@@ -596,27 +610,28 @@ if (FALSE) {   # this is done in Python using the script Anthony wrote
     ) %>%
         mutate(
             SignalID = factor(SignalID),
-            CallPhase = factor(CallPhase))
+            CallPhase = factor(CallPhase)) %>%
+        replace_na(list(Events = 1))
     
     
-    daily_pd <- get_daily_avg(ped_delay, "Duration")
-    weekly_pd_by_day <- get_weekly_avg_by_day(ped_delay, "Duration", peak_only = FALSE)
-    monthly_pd_by_day <- get_monthly_avg_by_day(ped_delay, "Duration", peak_only = FALSE)
+    daily_pd <- get_daily_avg(ped_delay, "pd", "Events")
+    weekly_pd_by_day <- get_weekly_avg_by_day(ped_delay, "pd", "Events", peak_only = FALSE)
+    monthly_pd_by_day <- get_monthly_avg_by_day(ped_delay, "pd", "Events", peak_only = FALSE)
     
-    cor_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, corridors, "Duration")
-    cor_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, corridors, "Duration")
+    cor_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, corridors, "pd", "Events")
+    cor_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, corridors, "pd", "Events")
     
-    sub_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, subcorridors, "Duration") %>%
+    sub_weekly_pd_by_day <- get_cor_weekly_avg_by_day(weekly_pd_by_day, subcorridors, "pd", "Events") %>%
         filter(!is.na(Corridor))
-    sub_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, subcorridors, "Duration") %>%
+    sub_monthly_pd_by_day <- get_cor_monthly_avg_by_day(monthly_pd_by_day, subcorridors, "pd", "Events") %>%
         filter(!is.na(Corridor))
     
-    addtoRDS(weekly_pd_by_day, "weekly_pd_by_day.rds", "Duration", report_start_date, wk_calcs_start_date)
-    addtoRDS(monthly_pd_by_day, "monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
-    addtoRDS(cor_weekly_pd_by_day, "cor_weekly_pd_by_day.rds", "Duration", report_start_date, wk_calcs_start_date)
-    addtoRDS(cor_monthly_pd_by_day, "cor_monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
-    addtoRDS(sub_weekly_pd_by_day, "sub_weekly_pd_by_day.rds", "Duration", report_start_date, wk_calcs_start_date)
-    addtoRDS(sub_monthly_pd_by_day, "sub_monthly_pd_by_day.rds", "Duration", report_start_date, calcs_start_date)
+    addtoRDS(weekly_pd_by_day, "weekly_pd_by_day.rds", "pd", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_pd_by_day, "monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_pd_by_day, "cor_weekly_pd_by_day.rds", "pd", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_pd_by_day, "cor_monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_pd_by_day, "sub_weekly_pd_by_day.rds", "pd", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_pd_by_day, "sub_monthly_pd_by_day.rds", "pd", report_start_date, calcs_start_date)
     
     rm(ped_delay)
     rm(daily_pd)
@@ -626,11 +641,11 @@ if (FALSE) {   # this is done in Python using the script Anthony wrote
     rm(cor_monthly_pd_by_day)
     rm(sub_weekly_pd_by_day)
     rm(sub_monthly_pd_by_day)
-#}, error = function(e) {
-#    print("ENCOUNTERED AN ERROR:")
-#    print(e)
-#})
-}
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+#}
 
 
 # GET COMMUNICATIONS UPTIME ###################################################
@@ -639,17 +654,51 @@ print(glue("{Sys.time()} Communication Uptime [7 of 23]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
-        bucket = conf$bucket, 
-        table_name = "comm_uptime", 
-        start_date = wk_calcs_start_date, 
-        end_date = report_end_date, 
+        bucket = conf$bucket,
+        table_name = "comm_uptime",
+        start_date = wk_calcs_start_date,
+        end_date = report_end_date,
         signals_list = signals_list
-    ) %>%
+        ) %>%
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
             Date = date(Date)
         )
+    
+    # # New version of comm uptime (as of 7/9/2020) based on gaps in all data
+    # # python get_event_gaps.py run from the SAM and written to mark/comm_uptime_new
+    # # Previously we only looked at gaps in a subset of event codes. This new method
+    # # should result in higher (more representative) uptimes.
+    # cu <- s3_read_parquet_parallel(
+    #     bucket = conf$bucket, 
+    #     table_name = "comm_uptime_new", 
+    #     start_date = wk_calcs_start_date, 
+    #     end_date = report_end_date, 
+    #     signals_list = signals_list) %>%
+    # mutate(
+    #     SignalID = factor(SignalID),
+    #     CallPhase = factor(0)) %>% 
+    # group_by(
+    #     SignalID, 
+    #     CallPhase,
+    #     Date) %>% 
+    # summarize(
+    #     uptime = 1 - sum(gap)/(24*60*60), 
+    #     gap_num = sum(gap>0), 
+    #     .groups = "drop") %>%
+    # transmute(
+    #     SignalID,
+    #     CallPhase,
+    #     Date_Hour = as_datetime(Date),
+    #     DOW = wday(Date),
+    #     Week = week(Date),
+    #     uptime,
+    #     Date) %>% 
+    # arrange(
+    #     Date,
+    #     as.integer(as.character(SignalID)))
+
     
     plan(sequential)
     plan(multiprocess)
@@ -1958,7 +2007,7 @@ tryCatch({
         "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
         "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
         "papd" = get_quarterly(cor$mo$papd, "papd"),
-        "pd" = get_quarterly(cor$mo$pd, "Duration"),
+        "pd" = get_quarterly(cor$mo$pd, "pd"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
         "aogd" = get_quarterly(cor$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(cor$mo$prd, "pr", "vol"),
@@ -2023,7 +2072,7 @@ tryCatch({
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = readRDS("sub_weekly_paph.rds"),
         "pd" = readRDS("sub_weekly_pd_by_day.rds") %>%
-            select(Zone_Group, Corridor, Date, Duration),
+            select(Zone_Group, Corridor, Date, pd),
         "tp" = readRDS("sub_weekly_throughput.rds") %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = readRDS("sub_weekly_aog_by_day.rds") %>%
@@ -2147,7 +2196,7 @@ tryCatch({
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
         "pd" = sigify(readRDS("weekly_pd_by_day.rds"), cor$wk$pd, corridors) %>%
-            select(Zone_Group, Corridor, Date, Duration),
+            select(Zone_Group, Corridor, Date, pd),
         "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
             select(Zone_Group, Corridor, Date, vph),
         "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors) %>%
@@ -2187,7 +2236,7 @@ tryCatch({
         #"paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
         #    select(-c(Name, ones)),
         "pd" = sigify(readRDS("monthly_pd_by_day.rds"), cor$mo$pd, corridors) %>%
-            select(-c(Name, ones)),
+            select(-c(Name, Events)),
         "tp" = sigify(readRDS("monthly_throughput.rds"), cor$mo$tp, corridors) %>%
             select(-c(Name, ones)),
         "aogd" = sigify(readRDS("monthly_aog_by_day.rds"), cor$mo$aogd, corridors) %>%
