@@ -15,10 +15,12 @@ import polling
 import time
 import yaml
 from datetime import datetime, timedelta
+import pytz
 from zipfile import ZipFile
 import json
 import io
 import boto3
+import dask.dataframe as dd
 
 #os.environ['TZ'] = 'America/New_York'
 #time.tzset()
@@ -26,6 +28,16 @@ import boto3
 s3 = boto3.client('s3')
 
 pd.options.display.max_columns = 10
+
+
+def is_success(response):
+    x = json.loads(response.content.decode('utf-8'))
+    if 'state' in x.keys() and x['state']=='SUCCEEDED':
+        return True
+    else:
+        # print(f"state: {x['state']} | progress: {x['progress']}")
+        return False
+
 
 def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     
@@ -94,8 +106,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
 
         polling.poll(
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
-            check_success = lambda x: json.loads(x.content.decode('utf-8'))['state']=='SUCCEEDED',
-            step=1,
+            check_success = is_success,
+            step=10,
             timeout=600)
 
         results = requests.get(uri.format('jobs/export/results'), 
@@ -167,14 +179,15 @@ if __name__=='__main__':
     # start_date is either the given day or the first day of the month
     start_date = conf['start_date']
     if start_date == 'yesterday': 
-        start_date = datetime.today() - timedelta(days=1)
-    start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
+        #start_date = datetime.today() - timedelta(days=1)
+        start_date = (datetime.now(pytz.timezone('America/New_York')) - timedelta(days=7)).strftime('%Y-%m-%d')
+    # start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
 
     # end date is either the given date + 1 or today. 
     # end_date is not included in the query results
     end_date = conf['end_date']
     if end_date == 'yesterday': 
-        end_date = datetime.today() - timedelta(days=1)
+        end_date = datetime.now(pytz.timezone('America/New_York')) - timedelta(days=1)
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
     
     
@@ -192,8 +205,8 @@ if __name__=='__main__':
     print(start_date)
     print(end_date)
 
-    group_size = 1000
-    tmc_groups = np.split(tmc_list, range(group_size, len(tmc_list), group_size))
+    # group_size = 1000
+    # tmc_groups = np.split(tmc_list, range(group_size, len(tmc_list), group_size))
 
     try:
         tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
@@ -220,15 +233,24 @@ if __name__=='__main__':
         df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
              
         get_corridor_travel_times(
-                df, ['Corridor'], conf['bucket'], 'cor_travel_times')
-            
-        get_corridor_travel_time_metrics(
-                df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
-    
+            df, ['Corridor'], conf['bucket'], 'cor_travel_times')
+
         get_corridor_travel_times(
-                df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_times')
+            df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_times')
             
-        get_corridor_travel_time_metrics(
-                df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
+       
+        months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in (start_date, end_date)]))
+        for yyyy_mm in months:
+             
+            df = dd.read_parquet(f's3://gdot-spm/mark/cor_travel_times/date={yyyy_mm}-*/*').compute()
+            if not df.empty:
+                 get_corridor_travel_time_metrics(
+                     df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
+    
+            if not df.empty:
+                df = dd.read_parquet(f's3://gdot-spm/mark/sub_travel_times/date={yyyy_mm}-*/*').compute()
+                get_corridor_travel_time_metrics(
+                    df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
+
     else:
         print('No records returned.')
