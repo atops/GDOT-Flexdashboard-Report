@@ -66,7 +66,7 @@ def get_aog(signalid, date_, det_config):
 
         all_hours = pd.date_range(date_, periods=25, freq='H')
 
-        detection_events = pd.read_parquet(de_fn)
+        detection_events = pd.read_parquet(de_fn).drop_duplicates()
 
         df = (pd.merge(
                 detection_events,
