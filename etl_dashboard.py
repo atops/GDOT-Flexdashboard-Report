@@ -57,7 +57,7 @@ def etl2(s, date_, det_config):
     
     t0 = time.time()
     
-    print('{} | {} Starting...'.format(s, date_str))
+    #print('{} | {} Starting...'.format(s, date_str))
 
     try:
         key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
@@ -65,10 +65,11 @@ def etl2(s, date_, det_config):
         
     
         if len(df)==0:
-            print('{}: No event data for this signal on {}.'.format(s, date_str))
+            print(f'{date_str} | {s} | No event data for this signal')
+
     
         if len(det_config_good)==0:
-            print('{}: No detector configuration data for this signal on {}.'.format(s, date_str))
+            print(f'{date_str} | {s} | No detector configuration data for this signal')
             
         if len(df) > 0 and len(det_config_good) > 0:
     
@@ -92,7 +93,7 @@ def etl2(s, date_, det_config):
                              allow_truncated_timestamps=True)
     
     
-                print('{}: {} seconds'.format(s, round(time.time()-t0, 1)))
+                print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
             else:
                 print('{}: No cycles'.format(s))
         
@@ -201,8 +202,13 @@ def main(start_date, end_date):
 
         
     while True:
-        response1 = s3.list_objects(Bucket='gdot-spm-athena', Prefix=response_repair_cycledata['QueryExecutionId'])
-        response2 = s3.list_objects(Bucket='gdot-spm-athena', Prefix=response_repair_detection_events['QueryExecutionId'])
+        response1 = s3.list_objects(
+            Bucket='gdot-spm-athena', 
+            Prefix=response_repair_cycledata['QueryExecutionId'])
+        response2 = s3.list_objects(
+            Bucket='gdot-spm-athena', 
+            Prefix=response_repair_detection_events['QueryExecutionId'])
+
         if 'Contents' in response1 and 'Contents' in response2:
             print('done.')
             break
