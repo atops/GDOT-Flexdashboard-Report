@@ -1020,33 +1020,68 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                       CallPhase = factor(CallPhase))
     }
     
-    df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
-        select(timestamp, signalid, eventcode, eventparam, date) %>%
-        filter(date == as.character(start_date))
+    df <- tbl(conn, sql(glue(paste(
+        "select distinct timestamp, signalid, eventcode, eventparam", 
+        "from {conf_athena$database}.{conf_athena$atspm_table}", 
+        "where date = '{start_date}'"))))
+    
+    # df <- tbl(conn, sql(glue("select distinct * from {conf_athena$database}.{conf_athena$atspm_table}"))) %>%
+    #     select(timestamp, signalid, eventcode, eventparam, date) %>%
+    #     filter(date == as.character(start_date))
     
     #print(head(arrange(df, timestamp)))
     print(paste("-- Get Counts for:", start_date, "-----------"))
     
     if (uptime == TRUE) {
-        
-        # get uptime$sig, uptime$all
-        uptime <- get_uptime(df, start_date, end_time)
-        
-        
-        # Reduce to comm uptime for signals_sublist
+
+
+        # Uptime is updated as of July 2020
+        # Takes comm codes from MaxView EventLog table (500,501,502,503,504)
+        # These codes show comm attempts, failures and percent failures every 5 minutes. 
+        # If failure rate is less than 100% we say we have comm at that time period
+        # We average up the periods with comms to get the uptime for the day. 
+        # Typically (# periods with some comm)/(total number of periods) = % uptime
+        #
+        # When we start pulling from the ATSPM database for events, we'll have
+        # to pull these codes separately since they only appear in MaxView's EventLog
+        #
         print(glue("Communications uptime {date_}"))
-        
-        uptime$sig %>%
-            ungroup() %>%
-            left_join(uptime$all) %>%
-            mutate(SignalID = factor(SignalID),
+        df %>% 
+            filter(eventcode %in% c(502,503)) %>%
+            collect() %>% 
+            group_by(signalid) %>% 
+            summarize(
+                success_rate = sum(eventparam[eventcode==502]<100, na.rm=TRUE),
+                denom = sum(eventparam[eventcode==502]>-1, na.rm=TRUE),
+                response_ms = mean(eventparam[eventcode==503], na.rm=TRUE), 
+                .groups = "drop") %>%
+            mutate(SignalID = factor(signalid),
                    CallPhase = factor(0),
-                   uptime = uptime + (1 - uptime_all),
+                   uptime = success_rate/denom,
                    Date_Hour = ymd_hms(paste(start_date, "00:00:00")),
                    Date = date(start_date),
                    DOW = wday(start_date), 
                    Week = week(start_date)) %>%
-            dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime) %>%
+            dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime, response_ms) %>%
+        
+        
+        # # get uptime$sig, uptime$all
+        # uptime <- get_uptime(df, start_date, end_time)
+        # 
+        # # Reduce to comm uptime for signals_sublist
+        # print(glue("Communications uptime {date_}"))
+        # 
+        # uptime$sig %>%
+        #     ungroup() %>%
+        #     left_join(uptime$all) %>%
+        #     mutate(SignalID = factor(SignalID),
+        #            CallPhase = factor(0),
+        #            uptime = uptime + (1 - uptime_all),
+        #            Date_Hour = ymd_hms(paste(start_date, "00:00:00")),
+        #            Date = date(start_date),
+        #            DOW = wday(start_date), 
+        #            Week = week(start_date)) %>%
+        #     dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime) %>%
             
             s3_upload_parquet(date_, 
                               fn = glue("cu_{date_}"), 
@@ -1646,7 +1681,7 @@ get_spm_data <- function(start_date, end_date, signals_list, conf_atspm, table, 
 }
 
 
-get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, table, TWR_only=TRUE) {
+get_spm_data_aws <- function(start_date, end_date, signals_list = NULL, conf_athena, table, TWR_only=TRUE) {
     
     conn <- get_athena_connection(conf_athena)
     
@@ -1656,13 +1691,24 @@ get_spm_data_aws <- function(start_date, end_date, signals_list, conf_athena, ta
         query_where <- ""
     }
     
-    query <- glue("SELECT * FROM {conf_athena$database}.{tolower(table)} {query_where}")
+    query <- glue("SELECT DISTINCT * FROM {conf_athena$database}.{tolower(table)} {query_where}")
     
     df <- tbl(conn, sql(query))
+
+    if (!is.null(signals_list)) {
+        if (is.factor(signals_list)) {
+            signals_list <- as.integer(as.character(signals_list))
+        } else if (is.character(signals_list)) {
+            signals_list <- as.integer(signals_list)
+        }
+        #print(signals_list)
+        df <- df %>% filter(signalid %in% signals_list)
+    }
     
     end_date1 <- ymd(end_date) + days(1)
     
-    dplyr::filter(df, date >= as.character(start_date) & date < as.character(end_date1))
+    df %>%
+        dplyr::filter(date >= as.character(start_date) & date < as.character(end_date1))
 }
 
 
