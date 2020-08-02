@@ -79,6 +79,13 @@ LIGHT_BROWN = "#FFFF99";  BROWN = "#B15928"
 RED2 = "#e41a1c"
 GDOT_BLUE = "#256194"
 
+BLACK <- "#000000"
+WHITE <- "#FFFFFF"
+GRAY <- "#D0D0D0"
+DARK_GRAY <- "#7A7A7A"
+DARK_DARK_GRAY <- "#494949"
+
+
 SUN = 1; MON = 2; TUE = 3; WED = 4; THU = 5; FRI = 6; SAT = 7
 
 AM_PEAK_HOURS = conf$AM_PEAK_HOURS
@@ -438,19 +445,26 @@ s3_read_parquet_parallel <- function(table_name,
                                      end_date,
                                      signals_list = NULL,
                                      bucket = NULL,
-                                     callback = function(x) {x}) {
+                                     callback = function(x) {x},
+                                     parallel = FALSE) {
     
     dates <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-    # When using mclapply, it fails. When using lapply, it works. 6/23/2020
-    #dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = function(date_) {
-    dfs <- lapply(dates, function(date_) {
+
+    func <- function(date_) {
         prefix <- glue("mark/{table_name}/date={date_}")
         objects = aws.s3::get_bucket(bucket = bucket, prefix = prefix)
         lapply(objects, function(obj) {
             s3_read_parquet(bucket = bucket, object = get_objectkey(obj), date_) %>%
                 callback()
         }) %>% bind_rows()
-    })
+    }
+    # When using mclapply, it fails. When using lapply, it works. 6/23/2020
+    # Give to option to run in parallel, like when in interactive mode
+    if (parallel) {
+        dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = func)
+    } else {
+        dfs <- lapply(dates, func)
+    }
     dfs[lapply(dfs, nrow)>0] %>% bind_rows() %>% convert_to_utc()
 }
 
