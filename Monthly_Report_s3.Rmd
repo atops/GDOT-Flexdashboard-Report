@@ -58,17 +58,8 @@ corridors <- qs::qread("all_Corridors_Latest.qs")
 cor <- qs::qread("cor.qs")
 sig <- qs::qread("sig.qs")
 sub <- qs::qread("sub.qs")
-# cor <- readRDS("cor.rds")
-# sig <- readRDS("sig.rds")
-# sub <- readRDS("sub.rds")
+mapdata <- qs::qread("map_data.qs")
 
-# alerts %<-% aws.s3::s3read_using(
-#         qs::qread,
-#         object = "mark/watchdog/alerts.qs",
-#         bucket = "gdot-spm",
-#         opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-#                     secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-#alerts <- aws.s3::s3readRDS("mark/watchdog/alerts.rds", "gdot-spm")
 ```
 
 
