@@ -952,8 +952,9 @@ get_uptime <- function(df, start_date, end_time) {
             mutate(span = if_else(span > 15, span, 0)) %>%
             
             group_by(SignalID, Date) %>% 
-            summarize(uptime = 1 - sum(span, na.rm = TRUE)/(60 * 24)) %>%
-            ungroup()
+            summarize(uptime = 1 - sum(span, na.rm = TRUE)/(60 * 24),
+                      .groups = "drop") #%>%
+            #ungroup()
     })
     names(uptime) <- c("sig", "all")
     uptime$all <- uptime$all %>%
@@ -1554,9 +1555,9 @@ get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g.,
         summarize(Good = sum(Good, na.rm = TRUE),
                   All = n(),
                   Pct_Good = as.integer(sum(Good, na.rm = TRUE)/n()*100),
-                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE)) %>%
-        ungroup() %>%
-        
+                  mean_abs_delta = mean(abs(delta_vol), na.rm = TRUE),
+                  .groups = "drop") %>%
+
         # manually calibrated
         mutate(Good_Day = as.integer(ifelse(Pct_Good >= 70 & mean_abs_delta < max_abs_delta, 1, 0))) %>%
         dplyr::select(SignalID, CallPhase, Detector, Date, mean_abs_delta, Good_Day)
@@ -1603,8 +1604,9 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
                 
                 # phase contribution factors--fraction of phase volume a detector contributes
                 group_by(SignalID, CallPhase, Detector) %>% 
-                summarize(vol = sum(vol, na.rm = TRUE)) %>% 
-                group_by(SignalID, CallPhase) %>% 
+                summarize(vol = sum(vol, na.rm = TRUE),
+                          .groups = "drop_last") %>% 
+                #group_by(SignalID, CallPhase) %>% 
                 mutate(sum_vol = sum(vol, na.rm = TRUE),
                        Ph_Contr = vol/sum_vol) %>% 
                 dplyr::select(-vol, -sum_vol) %>% ungroup()
@@ -1620,8 +1622,8 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
             #hourly volumes over the month to fill in missing data for all detectors in a phase
             mo_hrly_vols <- fc_phc %>%
                 group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
-                summarize(Hourly_Volume = median(vol, na.rm = TRUE)) %>%
-                ungroup()
+                summarize(Hourly_Volume = median(vol, na.rm = TRUE), .groups = "drop") #%>%
+                #ungroup()
             # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
             
             # fill in missing detectors by hour and day of week volume in the month
@@ -1779,7 +1781,7 @@ get_vpd <- function(counts, mainline_only = TRUE) {
                Week = week(date(Timeperiod)),
                Date = date(Timeperiod)) %>% 
         group_by(SignalID, CallPhase, Week, DOW, Date) %>% 
-        summarize(vpd = sum(vol, na.rm = TRUE))
+        summarize(vpd = sum(vol, na.rm = TRUE), .groups = "drop")
     
     # SignalID | CallPhase | Week | DOW | Date | vpd
 }
@@ -1793,11 +1795,13 @@ get_thruput <- function(counts) {
                DOW = wday(Date), 
                Week = week(Date)) %>%
         group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
-        summarize(vph = sum(vol, na.rm = TRUE)) %>%
+        summarize(vph = sum(vol, na.rm = TRUE), 
+                  .groups = "drop_last") %>%
         
-        group_by(SignalID, Week, DOW, Date) %>%
-        summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4) %>%
-        ungroup() %>%
+        #group_by(SignalID, Week, DOW, Date) %>%
+        summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4,
+                  .groups = "drop") %>%
+        #ungroup() %>%
         
         arrange(SignalID, Date) %>%
         mutate(CallPhase = 0) %>%
@@ -1854,8 +1858,10 @@ get_daily_aog <- function(aog) {
                CallPhase = factor(CallPhase)) %>%
         filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
         group_by(SignalID, CallPhase, Date, Week, DOW) %>%
-        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE)) %>%
-        ungroup()
+        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
+                  vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
     
     # SignalID | CallPhase | Date | Week | DOW | aog | vol
 }
@@ -1870,8 +1876,10 @@ get_daily_pr <- function(aog) {
                CallPhase = factor(CallPhase)) %>%
         #filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
         group_by(SignalID, CallPhase, Date, Week, DOW) %>%
-        summarize(pr = weighted.mean(pr, vol, na.rm = TRUE), vol = sum(vol, na.rm = TRUE)) %>%
-        ungroup()
+        summarize(pr = weighted.mean(pr, vol, na.rm = TRUE), 
+                  vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
     
     # SignalID | CallPhase | Date | Week | DOW | pr | vol
 }
@@ -1997,12 +2005,14 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
                    occ_duration = as.numeric(occ_duration),
                    int_duration = as.numeric(int_duration)) %>%
             
-            group_by(signalid, phase, detector, cyclestart) %>%
-            summarize(occ = sum(occ_duration)/max(int_duration)) %>%
+            group_by(signalid, phase, cyclestart, detector) %>%
+            summarize(occ = sum(occ_duration)/max(int_duration),
+                      .groups = "drop_last") %>%
             
-            group_by(signalid, phase, cyclestart) %>%
-            summarize(occ = max(occ)) %>%
-            ungroup() %>%
+            #group_by(signalid, phase, cyclestart) %>%
+            summarize(occ = max(occ),
+                      .groups = "drop") %>%
+            #ungroup() %>%
             
             mutate(signalid = factor(signalid),
                    phase = factor(phase))
@@ -2024,7 +2034,7 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
     
     # if a split failure on any phase
     df0 <- df %>% group_by(signalid, phase = factor(0), cyclestart) %>% 
-        summarize(sf = max(sf))
+        summarize(sf = max(sf), .groups = "drop")
     
     sf <- bind_rows(df, df0) %>% 
         mutate(phase = factor(phase)) %>%
@@ -2032,8 +2042,9 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
         group_by(signalid, phase, hour = floor_date(cyclestart, unit = "hour")) %>% 
         summarize(cycles = n(),
                   sf_freq = sum(sf, na.rm = TRUE)/cycles, 
-                  sf = sum(sf, na.rm = TRUE)) %>%
-        ungroup() %>%
+                  sf = sum(sf, na.rm = TRUE),
+                  .groups = "drop") %>%
+        #ungroup() %>%
         
         transmute(SignalID = factor(signalid), 
                   CallPhase = factor(phase), 
@@ -2061,8 +2072,9 @@ get_peak_sf_utah <- function(msfh) {
                  Peak = if_else(hour(Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS),
                                 "Peak", "Off_Peak")) %>%
         summarize(sf_freq = weighted.mean(sf_freq, cycles, na.rm = TRUE), 
-                  cycles = sum(cycles, na.rm = TRUE)) %>%
-        ungroup() %>%
+                  cycles = sum(cycles, na.rm = TRUE),
+                  .groups = "drop") %>%
+        #ungroup() %>%
         select(-cycles) %>% 
         split(.$Peak)
     
@@ -2217,7 +2229,7 @@ get_rsu_uptime <- function(report_start_date) {
     start_dates <- rsu %>% 
         filter(uptime == 1) %>% 
         group_by(signalid) %>% 
-        summarize(start_date = min(date))
+        summarize(start_date = min(date), .groups = "drop")
     
     rsu %>% 
         left_join(start_dates, by = c("signalid")) %>% 
@@ -2251,7 +2263,7 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     gdf <- left_join(df, corridors) %>%
         mutate(Corridor = factor(Corridor)) %>%
         group_by(Zone, Corridor, Zone_Group, !!per_) 
-    #browser()
+    
     if (is.null(wt_)) {
         gdf %>% 
             summarize(!!var_ := mean(!!var_, na.rm = TRUE), 
@@ -2277,7 +2289,8 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
     df %>%
         group_by(!!per_) %>%
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(Corridor = factor(corr_grp)) %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
@@ -2289,7 +2302,8 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
 group_corridor_by_sum_ <- function(df, per_, var_, wt_, corr_grp) {
     df %>%
         group_by(!!per_) %>%
-        summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>%
+        summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(Corridor = factor(corr_grp)) %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
@@ -2374,7 +2388,8 @@ get_daily_avg <- function(df, var_, wt_ = "ones", peak_only = FALSE) {
     df %>%
         group_by(SignalID, Date) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Sum of phases 2,6
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
@@ -2392,7 +2407,8 @@ get_daily_avg_cctv <- function(df, var_ = "uptime", wt_ = "num", peak_only = FAL
     df %>%
         group_by(CameraID, Date) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Sum of phases 2,6
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
@@ -2411,7 +2427,8 @@ get_daily_sum <- function(df, var_, per_) {
     df %>%
         complete(nesting(SignalID, CallPhase), !!var_ := full_seq(!!var_, 1)) %>%
         group_by(SignalID, !!per_) %>% 
-        summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>%
+        summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
@@ -2426,11 +2443,13 @@ get_weekly_sum_by_day <- function(df, var_) {
     Tuesdays <- get_Tuesdays(df)
     
     df %>%
-        group_by(SignalID, CallPhase, Week) %>% 
-        summarize(!!var_ := mean(!!var_, na.rm = TRUE)) %>% # Mean over 3 days in the week
+        group_by(SignalID, Week, CallPhase) %>% 
+        summarize(!!var_ := mean(!!var_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Mean over 3 days in the week
         
-        group_by(SignalID, Week) %>% 
-        summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>% # Sum of phases 2,6
+        #group_by(SignalID, Week) %>% 
+        summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Sum of phases 2,6
         
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
@@ -2463,11 +2482,13 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
         complete(nesting(SignalID, CallPhase), Week = full_seq(Week, 1)) %>%
         group_by(SignalID, CallPhase, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop") %>% # Mean over 3 days in the week
         
         group_by(SignalID, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Sum of phases 2,6
         
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
@@ -2492,11 +2513,13 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
         left_join(Tuesdays, by = c("Week")) %>%
         group_by(CameraID, Zone_Group, Zone, Corridor, Subcorridor, Description, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "keep") %>% # Mean over 3 days in the week
         
-        group_by(CameraID, Zone_Group, Zone, Corridor, Subcorridor, Description, Week) %>% 
+        #group_by(CameraID, Zone_Group, Zone, Corridor, Subcorridor, Description, Week) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>% # Sum of phases 2,6
         
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
@@ -2551,13 +2574,15 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
         group_by(SignalID, CallPhase) %>%
         complete(nesting(SignalID, CallPhase), 
                  Month = seq(min(Month), current_month, by = "1 month")) %>%
-        group_by(SignalID, CallPhase, Month)
+        group_by(SignalID, Month, CallPhase)
     
     if (is.null(wt_)) {
         gdf %>%
-            summarize(!!var_ := mean(!!var_, na.rm = TRUE)) %>%
-            group_by(SignalID, Month) %>%
-            summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>% # Sum over Phases (2,6)
+            summarize(!!var_ := mean(!!var_, na.rm = TRUE),
+                      .groups = "drop_last") %>%
+            #group_by(SignalID, Month) %>%
+            summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                      .groups = "drop_last") %>% # Sum over Phases (2,6)
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2567,10 +2592,12 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
         wt_ <- as.name(wt_)
         gdf %>%
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                      !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
-            group_by(SignalID, Month) %>%
+                      !!wt_ := sum(!!wt_, na.rm = TRUE),
+                      .groups = "drop_last") %>%
+            #group_by(SignalID, Month) %>%
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean over Phases(2,6)
-                      !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
+                      !!wt_ := sum(!!wt_, na.rm = TRUE),
+                      .groups = "drop_last") %>%
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2613,10 +2640,12 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
     if (is.null(wt_)) {
         df_ %>%
-            group_by(SignalID, CallPhase, Week, Hour) %>%
-            summarize(!!var_ := mean(!!var_, na.rm = TRUE)) %>% # Mean over 3 days in the week
-            group_by(SignalID, Week, Hour) %>% 
-            summarize(!!var_ := mean(!!var_, na.rm = TRUE)) %>% # Mean of phases 2,6
+            group_by(SignalID, Week, Hour, CallPhase) %>%
+            summarize(!!var_ := mean(!!var_, na.rm = TRUE),
+                      .groups = "drop_last") %>% # Mean over 3 days in the week
+            #group_by(SignalID, Week, Hour) %>% 
+            summarize(!!var_ := mean(!!var_, na.rm = TRUE),
+                      .groups = "drop_last") %>% # Mean of phases 2,6
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2624,12 +2653,14 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     } else {
         wt_ <- as.name(wt_)
         df_ %>%
-            group_by(SignalID, CallPhase, Week, Hour) %>%
+            group_by(SignalID, Week, Hour, CallPhase) %>%
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                      !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Mean over 3 days in the week
-            group_by(SignalID, Week, Hour) %>% 
+                      !!wt_ := sum(!!wt_, na.rm = TRUE),
+                      .groups = "drop_last") %>% # Mean over 3 days in the week
+            #group_by(SignalID, Week, Hour) %>% 
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases 2,6
-                      !!wt_ := sum(!!wt_, na.rm = TRUE)) %>% # Sum of phases 2,6
+                      !!wt_ := sum(!!wt_, na.rm = TRUE),
+                      .groups = "drop_last") %>% # Sum of phases 2,6
             mutate(lag_ = lag(!!var_),
                    delta = ((!!var_) - lag_)/lag_) %>%
             ungroup() %>%
@@ -2663,7 +2694,8 @@ get_sum_by_hr <- function(df, var_) {
                Week = week(date(Timeperiod)),
                Hour = floor_date(Timeperiod, unit = '1 hour')) %>%
         group_by(SignalID, CallPhase, Week, DOW, Hour) %>%
-        summarize(!!var_ := sum(!!var_, na.rm = TRUE)) %>%
+        summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
@@ -2711,11 +2743,13 @@ get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
     df %>% 
         group_by(SignalID, Hour) %>% 
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(Hour = Hour - days(day(Hour)) + days(1)) %>%
         group_by(SignalID, Hour) %>%
         summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                  !!wt_ := sum(!!wt_, na.rm = TRUE)) %>%
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
@@ -2755,8 +2789,9 @@ summarize_by_peak <- function(df, date_col) {
             x %>% 
                 group_by(SignalID, Period = date(!!date_col_), Peak) %>%
                 summarize(sf_freq = weighted.mean(sf_freq, cycles),
-                          cycles = sum(cycles)) %>%
-                ungroup() %>%
+                          cycles = sum(cycles),
+                          .groups = "drop") %>%
+                #ungroup() %>%
                 select(-Peak)
         })
 }
@@ -2808,7 +2843,8 @@ get_daily_detector_uptime <- function(filtered_counts) {
     # this seems ripe for optimization
     bad_comms <- filtered_counts %>%
         group_by(SignalID, Timeperiod) %>%
-        summarize(vol = sum(vol, na.rm = TRUE)) %>%
+        summarize(vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop") %>%
         dplyr::filter(vol == 0) %>%
         dplyr::select(-vol)
     fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
@@ -2826,8 +2862,9 @@ get_daily_detector_uptime <- function(filtered_counts) {
             x %>%
                 group_by(SignalID, CallPhase, Date, Date_Hour, setback) %>%
                 summarize(uptime = sum(Good_Day, na.rm = TRUE), 
-                          all = n()) %>%
-                ungroup() %>% 
+                          all = n(),
+                          .groups = "drop") %>%
+                #ungroup() %>% 
                 mutate(uptime = uptime/all,
                        all = as.double(all))
         }) #, mc.cores = usable_cores)
@@ -2877,7 +2914,6 @@ get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corrido
                                    # average corridor by ones instead of all: 
                                    #  to treat all signals equally instead of weighted by # of detectors
                                    get_cor_weekly_avg_by_day(corridors, "uptime", "ones")) 
-    
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
               dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
@@ -3087,7 +3123,8 @@ get_vph <- function(counts, mainline_only = TRUE) {
         mutate(Date_Hour = floor_date(Timeperiod, "1 hour"))
     get_sum_by_hr(df, "vol") %>% 
         group_by(SignalID, Week, DOW, Hour) %>% 
-        summarize(vph = sum(vol, na.rm = TRUE))
+        summarize(vph = sum(vol, na.rm = TRUE),
+                  .groups = "drop")
     
     # SignalID | CallPhase | Week | DOW | Hour | aog | vph
 }
@@ -3120,11 +3157,14 @@ get_monthly_vph <- function(vph) {
     vph %>% 
         ungroup() %>%
         filter(DOW %in% c(TUE,WED,THU)) %>%
-        group_by(SignalID, Hour) %>% summarize(vph = sum(vph, na.rm = TRUE)) %>%
+        group_by(SignalID, Hour) %>% 
+        summarize(vph = sum(vph, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(Hour = Hour - days(day(Hour)) + days(1)) %>%
         group_by(SignalID, Hour) %>%
-        summarize(vph = mean(vph, na.rm = TRUE)) %>%
-        ungroup()
+        summarize(vph = mean(vph, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
     
     # SignalID | CallPhase | Hour | vph
 }
@@ -3143,12 +3183,14 @@ get_monthly_aog_by_hr <- function(aog_by_hr) {
     aog_by_hr %>% 
         group_by(SignalID, Hour) %>% 
         summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
-                  vol = sum(vol, na.rm = TRUE)) %>%
+                  vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop_last") %>%
         mutate(Hour = Hour - days(day(Hour)) + days(1)) %>%
         group_by(SignalID, Hour) %>%
         summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
-                  vol = sum(vol, na.rm = TRUE)) %>%
-        ungroup()
+                  vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
     
     # SignalID | CallPhase | Hour | vph
 }
@@ -3215,8 +3257,9 @@ get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
         group_by(Zone_Group, Zone, Corridor, month(Hour)) %>% 
         mutate(pct = vph/sum(vph, na.rm = TRUE)) %>% 
         group_by(Zone_Group, Zone, Corridor, hr = hour(Hour)) %>% 
-        summarize(pct = mean(pct, na.rm = TRUE)) %>%
-        ungroup()
+        summarize(pct = mean(pct, na.rm = TRUE),
+                  .groups = "drop_last") #%>%
+        #ungroup()
     
     left_join(ti, 
               distinct(corridors, Zone_Group, Zone, Corridor), 
@@ -3238,6 +3281,8 @@ get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
         tindx = "pti"
     } else if ("bi" %in% colnames(ti)) {
         tindx = "bi"
+    } else if ("speed_mph" %in% colnames(ti)) {
+        tindx = "speed_mph"
     } else {
         tindx = "oops"
     }
@@ -3256,6 +3301,8 @@ get_cor_monthly_ti_by_day <- function(ti, cor_monthly_vph, corridors) {
         tindx = "pti"
     } else if ("bi" %in% colnames(ti)) {
         tindx = "bi"
+    } else if ("speed_mph" %in% colnames(ti)) {
+        tindx = "speed_mph"
     } else {
         tindx = "oops"
     }
@@ -3391,8 +3438,9 @@ get_det_uptime_from_manual_xl <- function(bucket, key, corridors) {
         group_by(Corridor, Zone_Group, Zone, Month, Type) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
                   up = sum(up, na.rm = TRUE),
-                  num = sum(num, na.rm = TRUE)) %>%
-        ungroup() %>%
+                  num = sum(num, na.rm = TRUE),
+                  .groups = "drop") %>%
+        #ungroup() %>%
         dplyr::select(Zone_Group, Zone, Corridor, Month, Type, up, num, uptime) %>%
         arrange(Zone_Group, Zone, Corridor)
 }
@@ -3406,8 +3454,9 @@ get_cor_monthly_xl_uptime <- function(df, corridors) {
         group_by(Zone_Group, Corridor, Month) %>%
         summarize(uptime = weighted.mean(uptime, num, na.rm = TRUE),
                   up = sum(up, na.rm = TRUE),
-                  num = sum(num, na.rm = TRUE)) %>%
-        ungroup()
+                  num = sum(num, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
     
     # RTOP1 and RTOP2
     b <- a %>% 
@@ -3448,8 +3497,9 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
         group_by(Date, Corridor, Zone_Group) %>% 
         summarize(up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE),
-                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE)) %>%
-        ungroup()
+                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
+                  .groups = "drop") #%>%
+        #ungroup()
 }
 
 
@@ -3460,8 +3510,8 @@ get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
         group_by(Month, Corridor, Zone_Group) %>% 
         summarize(up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE),
-                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE)) #%>%
-    #get_cor_monthly_xl_uptime()
+                  uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
+                  .groups = "drop")
 }
 
 
@@ -3637,10 +3687,12 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
     if (operation == "avg") {
         quarterly_df <- quarterly_df %>%
             summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), 
-                      !!wt_ := sum(!!wt_, na.rm = TRUE))
+                      !!wt_ := sum(!!wt_, na.rm = TRUE),
+                      .groups = "drop_last")
     } else if (operation == "sum") {
         quarterly_df <- quarterly_df %>%
-            summarize(!!var_ := sum(!!var_, na.rm = TRUE))
+            summarize(!!var_ := sum(!!var_, na.rm = TRUE),
+                      .groups = "drop_last")
     } else if (operation == "latest") {
         quarterly_df <- monthly_df %>% 
             group_by(Corridor, 
@@ -3652,7 +3704,8 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
                           Quarter,
                           !!var_,
                           !!wt_) %>%
-            group_by(Corridor, Zone_Group) %>% arrange(Zone_Group, Corridor, Quarter)
+            group_by(Corridor, Zone_Group) %>% 
+            arrange(Zone_Group, Corridor, Quarter)
     }
     
     quarterly_df %>%
@@ -3892,9 +3945,10 @@ get_daily_tasks_status <- function(daily_tasks_status, groupings) {
         arrange(!!!groupings, Date) %>%
         summarize(
             Reported = sum(n_reported),
-            Resolved = sum(n_resolved)) %>%
-        ungroup() %>%
-        group_by(!!!groupings) %>%
+            Resolved = sum(n_resolved),
+            .groups = "drop_last") %>%
+        #ungroup() %>%
+        #group_by(!!!groupings) %>%
         mutate(
             cum_Reported = cumsum(Reported),
             cum_Resolved = cumsum(Resolved),
@@ -3927,8 +3981,9 @@ get_outstanding_tasks_by_month <- function(df, task_param_) {
             Resolved = sum(Resolved), 
             cum_Reported = cum_Reported[which.max(Date)],
             cum_Resolved = cum_Resolved[which.max(Date)],
-            Outstanding = Outstanding[which.max(Date)]) %>%
-        ungroup() %>%
+            Outstanding = Outstanding[which.max(Date)],
+            .groups = "drop") %>%
+        #ungroup() %>%
         
         # Complete because not all Zone Group, Corridor, Month, param combinations
         # may be represented and we need to fill in zeros for reported and resolved
@@ -4131,8 +4186,9 @@ get_outstanding_tasks_by_day_range <- function(teams, report_start_date, first_o
         group_by(Zone_Group, Zone, Corridor, Month) %>% 
         summarize(
             mttr = mean(ttr),
-            num_resolved = n()) %>%
-        ungroup()
+            num_resolved = n(),
+            .groups = "drop") #%>%
+        #ungroup()
     
     over45 <- teams %>% 
         filter(`Date Reported` < last_day - days(45),
@@ -4187,7 +4243,8 @@ get_outstanding_tasks_by_day_range <- function(teams, report_start_date, first_o
                 over90 = sum(over90),
                 mttr = weighted.mean(mttr, num_resolved, na.rm = TRUE),
                 num_outstanding = sum(num_outstanding),
-                num_resolved = sum(num_resolved))
+                num_resolved = sum(num_resolved),
+                .groups = "drop_last")
     ) %>%
         mutate(Zone_Group = factor(Zone_Group),
                Corridor = factor(Corridor))
@@ -4203,18 +4260,20 @@ get_outstanding_events <- function(teams, group_var, spatial_grouping="Zone_Grou
         filter(!is.na(`Date Reported`)) %>%
         mutate(Month = floor_date(`Date Reported`, "1 month")) %>%
         arrange(Month) %>%
-        group_by_(group_var, spatial_grouping, quote(Month)) %>%
-        summarize(Rep = n()) %>% 
-        group_by_(spatial_grouping, group_var) %>%
+        group_by_(spatial_grouping, group_var, quote(Month)) %>%
+        summarize(Rep = n(), 
+                  .groups = "drop_last") %>% 
+        #group_by_(spatial_grouping, group_var) %>%
         mutate(cumRep = cumsum(Rep))
     
     res <- teams %>% 
         filter(!is.na(`Date Resolved`)) %>%
         mutate(Month = `Date Resolved` - days(day(`Date Resolved`) -1)) %>%
         arrange(Month) %>%
-        group_by_(group_var, spatial_grouping, quote(Month)) %>%
-        summarize(Res = n()) %>% 
-        group_by_(spatial_grouping, group_var) %>%
+        group_by_(spatial_grouping, group_var, quote(Month)) %>%
+        summarize(Res = n(),
+                  .groups = "drop_last") %>% 
+        #group_by_(spatial_grouping, group_var) %>%
         mutate(cumRes = cumsum(Res))
     
     left_join(rep, res) %>% 
@@ -4691,7 +4750,7 @@ get_ped_delay <- function(date_, conf) {
         rename(Phase = EventParam)
     
     coord.type <- group_by(pe, SignalID) %>%
-        summarise(CL = max(CycleLength, na.rm = T)) %>%
+        summarise(CL = max(CycleLength, na.rm = T), .groups = "drop") %>%
         mutate(Pattern = ifelse( (CL == 0 | !is.finite(CL)), "Free", "Coordinated"))
     
     pe <- inner_join(pe, coord.type, by = "SignalID") %>%
@@ -4722,7 +4781,8 @@ get_ped_delay <- function(date_, conf) {
         summarise(
             Pattern = "Free",
             Avg.Max.Ped.Delay = sum(Delay) / n(),
-            Events = n()
+            Events = n(),
+            .groups = "drop"
         )
     
     pe.coordinated.summary.byphase <- filter(pe, Pattern == "Coordinated") %>%
@@ -4730,7 +4790,8 @@ get_ped_delay <- function(date_, conf) {
         summarise(
             Pattern = "Coordinated",
             Max.Ped.Delay.per.Cycle = sum(Delay) / n(),
-            Events = n()
+            Events = n(),
+            .groups = "drop"
         )
     
     pe.coordinated.summary <- pe.coordinated.summary.byphase %>%
@@ -4738,7 +4799,8 @@ get_ped_delay <- function(date_, conf) {
         summarise(
             Pattern = "Coordinated",
             Avg.Max.Ped.Delay = weighted.mean(Max.Ped.Delay.per.Cycle,Events),
-            Events = sum(Events)
+            Events = sum(Events),
+            .groups = "drop"
         )
     
     pe.summary.overall <- bind_rows(pe.free.summary, pe.coordinated.summary) %>%
