@@ -4539,36 +4539,90 @@ readRDS_multiple <- function(pattern) {
 
 ## Gui's improved function
 # Function to add Probabilities
-get_pau <- function(df, corridors) {
+get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
+
+    paph <- paph %>% filter(Date >= wk_calcs_start_date)
     
-    begin_date <- min(df$Date)  #ymd("2018-08-01")
+    # Fail pushbutton input if mean hourly count > 600
+    # or std dev hourly count > 9000
+    print("too high filter (based on mean and sd for the day)...")
+    too_high_distn <- paph %>% 
+        filter(hour(Hour) >= 6, hour(Hour) <= 22) %>% 
+        complete(
+            nesting(SignalID, Detector, CallPhase), 
+            nesting(Date, Hour, DOW, Week),
+            fill = list(paph = 0)) %>%
+        group_by(SignalID, Detector, CallPhase, Date) %>% 
+        summarize(
+            mn = mean(paph, na.rm = TRUE), 
+            sd = sd(paph, na.rm = TRUE), 
+            .groups = "drop") %>% 
+        filter(mn > 600 | sd > 9000) %>%
+        mutate(toohigh_distn = TRUE)
+
+    # Fail pushbutton input if between midnight and 6am,
+    # at least one hour > 300 or at least three hours > 60
+    print("too high filter (early morning counts)...")
+    too_high_am <- paph %>%
+        filter(hour(Hour) < 6) %>% 
+        group_by(SignalID, Detector, CallPhase, Date) %>% 
+        summarize(
+            mvol = sort(paph, TRUE)[3], 
+            hvol = max(paph), 
+            .groups = "drop") %>% 
+        filter(hvol > 300 | mvol > 60) %>%
+        transmute(
+            SignalID = as.character(SignalID),
+            Detector = as.character(Detector),
+            CallPhase = as.character(CallPhase),
+            Date,
+            toohigh_am = TRUE) %>% 
+        arrange(SignalID, Detector, CallPhase, Date)
     
-    corrs <- corridors %>% group_by(SignalID) %>% summarize(Asof = min(Asof))
+    # Fail pushbutton inputs if between hourly count is > 300 
+    # and exceeds 100 times the hourly count of next highest pushbutton input
+    # (if next highest pushbutton input count is 0, use 1 instead)
+    print("too high filter (compared to other phases)...")
+    too_high_nn <- paph %>% 
+        complete(
+            nesting(SignalID, Detector, CallPhase), 
+            nesting(Date, Hour, DOW, Week), 
+            fill = list(paph = 0)) %>% 
+        group_by(SignalID, Hour) %>% 
+        mutate(outlier = paph > max(1, sort(paph, TRUE)[2]) * 100 & paph > 300) %>% 
+        
+        group_by(SignalID, Date, Detector, CallPhase) %>% 
+        summarize(toohigh_nn = sum(outlier) >= 4, .groups = "drop") %>%
+        filter(toohigh_nn)
     
-    ped_config <- mclapply(unique(df$Date), function(d) {
+    too_high <- list(too_high_distn, too_high_am, too_high_nn) %>% 
+        reduce(full_join, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        transmute(
+            SignalID, Detector, CallPhase, Date, 
+            toohigh = as.logical(max(c_across(starts_with("toohigh")), na.rm = TRUE)))
+
+    rm(too_high_distn, too_high_am, too_high_nn)
+
+    begin_date <- min(papd$Date)  #ymd("2018-08-01")
+    
+    corrs <- corridors %>% 
+        group_by(SignalID) %>% 
+        summarize(Asof = min(Asof),
+                  .groups = "drop")
+    
+    ped_config <- mclapply(unique(papd$Date), function(d) {
         get_ped_config(d) %>%
             mutate(Date = d) %>%
-            filter(SignalID %in% df$SignalID)
+            filter(SignalID %in% papd$SignalID)
     }, mc.cores = usable_cores) %>%
         bind_rows() %>%
         mutate(SignalID = factor(SignalID),
                Detector = factor(Detector),
                CallPhase = factor(CallPhase))
-    # doParallel::registerDoParallel(cores = min(1, usable_cores - 1))
-    # 
-    # ped_config <- foreach(d = unique(df$Date), .combine = rbind) %dopar% {
-    #     
-    #     get_ped_config(d) %>% 
-    #         mutate(Date = d) %>%
-    #         filter(SignalID %in% df$SignalID)
-    # } %>% 
-    #     mutate(SignalID = factor(SignalID),
-    #            Detector = factor(Detector),
-    #            CallPhase = factor(CallPhase)) 
     
-    papd <- df %>% 
+    print("too low...")
+    papd <- papd %>% 
         full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date")) 
-    rm(df)
     rm(ped_config)
     gc()
     
@@ -4596,7 +4650,7 @@ get_pau <- function(df, corridors) {
                DOW = wday(Date)) %>%
         left_join(corrs, by = c("SignalID")) %>%
         replace_na(list(Asof = begin_date)) %>%
-        filter(Date >= Asof) %>%
+        filter(Date >= max(wk_calcs_start_date, Asof)) %>%
         dplyr::select(-Asof) %>%
         mutate(SignalID = factor(SignalID))
     
@@ -4616,24 +4670,42 @@ get_pau <- function(df, corridors) {
                var = lambda ** -2) # property of exponential distribution
     
     
-    p <- c(0.8, 1)
-    p_names <- map_chr(p, ~paste0(.x*100, "%"))
+    # p <- c(0.8, 1)
+    # p_names <- map_chr(p, ~paste0(.x*100, "%"))
+    # 
+    # p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
+    #     set_names(nm = p_names)
     
-    p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
-        set_names(nm = p_names)
-    
+    # A pushbutton input (aka "detector") is failed for a given day if:
+    # the streak of days with no actuations is greater that what
+    # would be expected based on the distribution of daily presses
+    # (the probability of that many consecutive zero days is < 0.01)
+    #  - or -
+    # the number of acutations is more than 100 times the 80% percentile
+    # number of daily presses for that pushbutton input
+    # (i.e., it's a [high] outlier for that input)
+    # - or -
+    # between midnight and 6am, there is at least one hour in a day with
+    # at least 300 actuations or at least three hours with over 60
+    # (i.e., it is an outlier based on what would be expected 
+    # for any input in the early morning hours)
+    print("all filters combined...")
     pau <- left_join(papd, pz, by = c("SignalID", "Detector", "CallPhase")) %>%
-        group_by(SignalID, CallPhase, Detector) %>% 
-        mutate_at(vars(papd), p_funs) %>%
-        ungroup() %>%
+        #group_by(SignalID, CallPhase, Detector) %>% 
+        #mutate_at(vars(papd), p_funs) %>%
+        #ungroup() %>%
         mutate(
             SignalID = as.character(SignalID),
             Detector = as.character(Detector),
             CallPhase = as.character(CallPhase),
             papd,
             problow = if_else(papd == 0,  1 - exp(-lambda * ms), 0),
-            toohigh = (papd > `80%` * 100) & (`80%` > 0),
+            #toohigh_ptile = (papd > `80%` * 100) & (`80%` > 0),
         ) %>%
+        
+        left_join(too_high, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        replace_na(list(toohigh = FALSE)) %>%
+        
         transmute(
             SignalID = factor(SignalID),
             Detector = factor(Detector),
@@ -4644,10 +4716,14 @@ get_pau <- function(df, corridors) {
             papd = papd,
             problow = problow,
             probhigh = as.integer(toohigh),
-            uptime = if_else((problow > 0.99) | (probhigh == 1), 0, 1),
-            all = 1)  
+            #probhigh_ptile = as.integer(toohigh_ptile),
+            #probhigh_am = as.integer(toohigh_am),
+            uptime = if_else(problow > 0.99 | toohigh, 0, 1),
+            all = 1)
     pau
 }
+
+
 
 dbUpdateTable <- function(conn, table_name, df, asof = NULL) {
     # per is Month|Date|Hour|Quarter
