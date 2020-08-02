@@ -270,7 +270,7 @@ tryCatch({
     #     as_tibble() 
     
     bad_det <- lapply(
-        seq(today() - days(90), today()-days(1), by = "1 day"), 
+        seq(today() - days(90), today() - days(1), by = "1 day"), 
         function(date_) {
             key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
             #print(key)
@@ -353,7 +353,7 @@ tryCatch({
     #     as_tibble() %>%
         
     bad_ped <- lapply(
-        seq(today() - days(90), today()-days(1), by = "1 day"), 
+        seq(today() - days(90), today() - days(1), by = "1 day"), 
         function(date_) {
             key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
             tryCatch({
@@ -391,7 +391,7 @@ tryCatch({
     # -- Alerts: CCTV downtime --
     
     bad_cam <- lapply(
-        floor_date(seq(today() - months(9), today(), by = "1 month"), "month"), 
+        floor_date(seq(today() - months(9), today() - days(1), by = "1 month"), "month"), 
         function(date_) {
             key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
             #print(key)
@@ -1389,13 +1389,16 @@ tryCatch({
         filter(!is.na(Zone_Group))
     
     tti <- tt %>%
-        dplyr::select(-c(pti, bi))
+        dplyr::select(-c(pti, bi, speed_mph))
     
     pti <- tt %>%
-        dplyr::select(-c(tti, bi))
+        dplyr::select(-c(tti, bi, speed_mph))
     
     bi <- tt %>%
-        dplyr::select(-c(tti, pti))
+        dplyr::select(-c(tti, pti, speed_mph))
+    
+    spd <- tt %>% 
+        dplyr::select(-c(tti, pti, bi))
     
     cor_monthly_vph <- readRDS("cor_monthly_vph.rds") %>% rename(Zone = Zone_Group) %>%
         left_join(distinct(corridors, Zone_Group, Zone), by=("Zone"))
@@ -1403,10 +1406,12 @@ tryCatch({
     cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, cor_monthly_vph, all_corridors)
     cor_monthly_bi_by_hr <- get_cor_monthly_ti_by_hr(bi, cor_monthly_vph, all_corridors)
+    cor_monthly_spd_by_hr <- get_cor_monthly_ti_by_hr(spd, cor_monthly_vph, all_corridors)
     
     cor_monthly_tti <- get_cor_monthly_ti_by_day(tti, cor_monthly_vph, all_corridors)
     cor_monthly_pti <- get_cor_monthly_ti_by_day(pti, cor_monthly_vph, all_corridors)
     cor_monthly_bi <- get_cor_monthly_ti_by_day(bi, cor_monthly_vph, all_corridors)
+    cor_monthly_spd <- get_cor_monthly_ti_by_day(spd, cor_monthly_vph, all_corridors)
     
     addtoRDS(cor_monthly_tti, "cor_monthly_tti.rds", "tti", report_start_date, calcs_start_date)
     addtoRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds", "tti", report_start_date, calcs_start_date)
@@ -1416,6 +1421,9 @@ tryCatch({
     
     addtoRDS(cor_monthly_bi, "cor_monthly_bi.rds", "bi", report_start_date, calcs_start_date)
     addtoRDS(cor_monthly_bi_by_hr, "cor_monthly_bi_by_hr.rds", "bi", report_start_date, calcs_start_date)
+
+    addtoRDS(cor_monthly_spd, "cor_monthly_spd.rds", "speed_mph", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_spd_by_hr, "cor_monthly_spd_by_hr.rds", "speed_mph", report_start_date, calcs_start_date)
     
     # ------- Subcorridor Travel Time Metrics ------- #
     
@@ -1434,24 +1442,29 @@ tryCatch({
         left_join(distinct(subcorridors, Zone_Group, Zone))
     
     tti <- tt %>%
-        dplyr::select(-c(pti, bi))
+        dplyr::select(-c(pti, bi, speed_mph))
     
     pti <- tt %>%
-        dplyr::select(-c(tti, bi))
+        dplyr::select(-c(tti, bi, speed_mph))
     
     bi <- tt %>%
-        dplyr::select(-c(tti, pti))
+        dplyr::select(-c(tti, pti, speed_mph))
     
+    spd <- tt %>%
+        dplyr::select(-c(tti, pti, bi))
+
     sub_monthly_vph <- readRDS("sub_monthly_vph.rds") %>% rename(Zone = Zone_Group) %>%
         left_join(distinct(subcorridors, Zone_Group, Zone), by=("Zone"))
     
     sub_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, sub_monthly_vph, subcorridors)
     sub_monthly_pti_by_hr <- get_cor_monthly_ti_by_hr(pti, sub_monthly_vph, subcorridors)
     sub_monthly_bi_by_hr <- get_cor_monthly_ti_by_hr(bi, sub_monthly_vph, subcorridors)
+    sub_monthly_spd_by_hr <- get_cor_monthly_ti_by_hr(spd, sub_monthly_vph, subcorridors)
     
     sub_monthly_tti <- get_cor_monthly_ti_by_day(tti, sub_monthly_vph, subcorridors)
     sub_monthly_pti <- get_cor_monthly_ti_by_day(pti, sub_monthly_vph, subcorridors)
     sub_monthly_bi <- get_cor_monthly_ti_by_day(bi, sub_monthly_vph, subcorridors)
+    sub_monthly_spd <- get_cor_monthly_ti_by_day(spd, sub_monthly_vph, subcorridors)
     
     addtoRDS(sub_monthly_tti, "sub_monthly_tti.rds", "tti", report_start_date, calcs_start_date)
     addtoRDS(sub_monthly_tti_by_hr, "sub_monthly_tti_by_hr.rds", "tti", report_start_date, calcs_start_date)
@@ -1462,6 +1475,8 @@ tryCatch({
     addtoRDS(sub_monthly_bi, "sub_monthly_bi.rds", "bi", report_start_date, calcs_start_date)
     addtoRDS(sub_monthly_bi_by_hr, "sub_monthly_bi_by_hr.rds", "bi", report_start_date, calcs_start_date)
     
+    addtoRDS(sub_monthly_spd, "sub_monthly_spd.rds", "speed_mph", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_spd_by_hr, "sub_monthly_spd_by_hr.rds", "speed_mph", report_start_date, calcs_start_date)
     
     rm(tt)
     rm(tti)
@@ -1490,67 +1505,9 @@ tryCatch({
 
 
 
-# DETECTOR UPTIME AS REPORTED BY FIELD ENGINEERS ##############################
+# CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} Uptimes [20 of 23]"))
-
-if (TRUE==FALSE) {
-    # # VEH, PED UPTIME - AS REPORTED BY FIELD ENGINEERS via EXCEL
-    
-    keys <- aws.s3::get_bucket_df(conf$bucket, prefix = "manual_veh_ped_uptime")$Key
-    keys <- keys[endsWith(keys, ".xlsx")]
-    
-    months <- str_extract(basename(keys), "^\\S+ \\d{4}")
-    #xl_uptime_fns <- basename(keys)[!is.na(months)]
-    #xl_uptime_mos <- dmy(paste("1", months[!is.na(months)]))
-    
-    # xl_uptime_fns <- file.path(conf$xl_uptime$path, conf$xl_uptime$filenames)
-    # xl_uptime_fns <- conf$xl_uptime$filenames
-    # xl_uptime_mos <- conf$xl_uptime$months
-    
-    man_xl <- lapply(keys, 
-                     function(k) {
-                         get_det_uptime_from_manual_xl(
-                             bucket = conf$bucket, 
-                             key = k, 
-                             corridors = all_corridors)
-                     }) %>%
-        bind_rows() %>%
-        filter(!is.na(Zone_Group)) %>%
-        mutate(Corridor = factor(Corridor))
-    
-    # man_xl <- purrr::map2(
-    #     xl_uptime_fns,
-    #     xl_uptime_mos,
-    #     get_det_uptime_from_manual_xl
-    # ) %>%
-    #     bind_rows() %>%
-    #     mutate(Zone_Group = factor(Zone_Group)) %>%
-    #     filter(Month >= report_start_date)
-    
-    man_veh_xl <- man_xl %>% filter(Type == "Vehicle")
-    man_ped_xl <- man_xl %>% filter(Type == "Pedestrian")
-    
-    
-    cor_monthly_xl_veh_uptime <- man_veh_xl %>% # bind_rows(mrs_veh_xl, man_veh_xl) %>%
-        dplyr::select(-c(Zone_Group, Type)) %>%
-        get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
-    
-    
-    cor_monthly_xl_ped_uptime <- man_ped_xl %>% # bind_rows(mrs_ped_xl, man_ped_xl) %>%
-        dplyr::select(-c(Zone_Group, Type)) %>%
-        get_cor_monthly_avg_by_day(all_corridors, "uptime", "num")
-    
-    saveRDS(cor_monthly_xl_veh_uptime, "cor_monthly_xl_veh_uptime.rds")
-    saveRDS(cor_monthly_xl_ped_uptime, "cor_monthly_xl_ped_uptime.rds")
-    
-    
-}#, error = function(e) {
-#    print("ENCOUNTERED AN ERROR:")
-#    print(e)
-#})
-
-# # CCTV UPTIME From 511 and Encoders
+print(glue("{Sys.time()} CCTV Uptimes [20 of 23]"))
 
 tryCatch({
     
