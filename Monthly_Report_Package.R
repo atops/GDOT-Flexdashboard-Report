@@ -1544,7 +1544,8 @@ tryCatch({
         summarize(
             sup = sum(uptime),
             snum = sum(num),
-            suptime = sum(uptime) / sum(num)
+            suptime = sum(uptime) / sum(num),
+            .groups = "drop"
         ) %>%
         filter(suptime < 0.2)
     
@@ -1554,8 +1555,11 @@ tryCatch({
         group_by(
             Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, 
             Month = floor_date(Date, unit = "months")) %>%
-        summarize(up = sum(uptime), uptime = weighted.mean(uptime, num), num = sum(num)) %>%
-        ungroup()
+        summarize(
+            up = sum(uptime), 
+            uptime = weighted.mean(uptime, num), num = sum(num),
+            .groups = "drop") #%>%
+        #ungroup()
     
     cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
         daily_cctv_uptime, all_corridors, "uptime", "num")
@@ -1758,8 +1762,8 @@ tryCatch({
         #     Month = date(floor_date(month_hour, "month")), # YYYY-mm-01  # year_month
         #     delay_cost = combined.delay_cost) %>% 
         group_by(Zone, Corridor, Month, month_hour) %>%  # year_month
-        summarize(delay_cost = sum(delay_cost, na.rm = TRUE)) %>% 
-        ungroup() 
+        summarize(delay_cost = sum(delay_cost, na.rm = TRUE), .groups = "drop") #%>% 
+        #ungroup() 
     
     
     months <- unique(udc$analysis_month)
@@ -1786,8 +1790,9 @@ tryCatch({
             group_by(
                 Zone, Corridor, Month) %>% 
             summarize(
-                delay_cost = sum(delay_cost, na.rm = TRUE)) %>%
-            ungroup() %>%
+                delay_cost = sum(delay_cost, na.rm = TRUE),
+                .groups = "drop") %>%
+            #ungroup() %>%
             mutate(
                 Month = format(Month, "%B %Y")) %>%
             spread(
@@ -1815,8 +1820,17 @@ tryCatch({
 })
 
 
+#map_data <- get_map_data()
+map_data <- list(signals_sp = get_signals_sp(corridors))
 
+qsave(map_data, "map_data.qs")
 
+aws.s3::put_object(
+    file = "map_data.qs",
+    object = "map_data.qs",
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
 # Package up for Flexdashboard
 
@@ -1938,6 +1952,8 @@ tryCatch({
         "ptih" = readRDS("cor_monthly_pti_by_hr.rds"),
         "bi" = readRDS("cor_monthly_bi.rds"),
         "bih" = readRDS("cor_monthly_bi_by_hr.rds"),
+        "spd" = readRDS("cor_monthly_spd.rds"),
+        "spdh" = readRDS("cor_monthly_spd_by_hr.rds"),
         "du" = readRDS("cor_monthly_detector_uptime.rds"),
         "cu" = readRDS("cor_monthly_comm_uptime.rds"),
         "pau" = readRDS("cor_monthly_pa_uptime.rds"),
@@ -1977,6 +1993,7 @@ tryCatch({
         "tti" = get_quarterly(cor$mo$tti, "tti"),
         "pti" = get_quarterly(cor$mo$pti, "pti"),
         "bi" = get_quarterly(cor$mo$bi, "bi"),
+        "spd" = get_quarterly(cor$mo$spd, "speed_mph"),
         "du" = get_quarterly(cor$mo$du, "uptime"),
         "cu" = get_quarterly(cor$mo$cu, "uptime"),
         "pau" = get_quarterly(cor$mo$pau, "uptime"),
@@ -2084,6 +2101,8 @@ tryCatch({
         "ptih" = readRDS("sub_monthly_pti_by_hr.rds"),
         "bi" = readRDS("sub_monthly_bi.rds"),
         "bih" = readRDS("sub_monthly_bi_by_hr.rds"),
+        "spd" = readRDS("sub_monthly_spd.rds"),
+        "spdh" = readRDS("sub_monthly_spd_by_hr.rds"),
         "du" = readRDS("sub_monthly_detector_uptime.rds"),
         "cu" = readRDS("sub_monthly_comm_uptime.rds"),
         "pau" = readRDS("sub_monthly_pa_uptime.rds"),
@@ -2220,6 +2239,7 @@ tryCatch({
         "tti" = data.frame(),
         "pti" = data.frame(),
         "bi" = data.frame(),
+        "spd" = data.frame(),
         "du" = sigify(readRDS("monthly_detector_uptime.rds"), cor$mo$du, corridors) %>%
             select(Zone_Group, Corridor, Month, uptime, uptime.sb, uptime.pr, delta),
         "cu" = sigify(readRDS("monthly_comm_uptime.rds"), cor$mo$cu, corridors) %>%
@@ -2300,30 +2320,30 @@ for (tab in c("du", "cu", "ru", "pau")) {
 
 
 
-saveRDS(cor, "cor.rds")
-saveRDS(sig, "sig.rds")
-saveRDS(sub, "sub.rds")
+# saveRDS(cor, "cor.rds")
+# saveRDS(sig, "sig.rds")
+# saveRDS(sub, "sub.rds")
 
 print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
 
-aws.s3::put_object(
-    file = "cor.rds",
-    object = "cor_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-aws.s3::put_object(
-    file = "sig.rds",
-    object = "sig_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-aws.s3::put_object(
-    file = "sub.rds",
-    object = "sub_ec2.rds",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
+# aws.s3::put_object(
+#     file = "cor.rds",
+#     object = "cor_ec2.rds",
+#     bucket = conf$bucket,
+#     multipart = TRUE
+# )
+# aws.s3::put_object(
+#     file = "sig.rds",
+#     object = "sig_ec2.rds",
+#     bucket = conf$bucket,
+#     multipart = TRUE
+# )
+# aws.s3::put_object(
+#     file = "sub.rds",
+#     object = "sub_ec2.rds",
+#     bucket = conf$bucket,
+#     multipart = TRUE
+# )
 
 
 qsave(cor, "cor.qs")
