@@ -371,24 +371,26 @@ get_counts_based_measures <- function(month_abbrs) {
             print(date_)
             s3_read_parquet_parallel("filtered_counts_15min", date_, date_, bucket = conf$bucket)
             #}
-        }) %>% bind_rows() %>%
-            transmute(
-                SignalID = factor(SignalID),
-                CallPhase = factor(CallPhase),
-                Detector = factor(Detector),
-                # CountPriority = CountPriority,
-                Date = date(Date),
-                Timeperiod = Timeperiod,
-                Month_Hour = Month_Hour,
-                Hour = Hour,
-                vol = vol,
-                #Good = Good,
-                Good_Day = Good_Day,
-                delta_vol = delta_vol,
-                mean_abs_delta = mean_abs_delta
-            )
+        }) %>% bind_rows()
         
         if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {
+            
+            filtered_counts_15min <- filtered_counts_15min %>%
+                transmute(
+                    SignalID = factor(SignalID),
+                    CallPhase = factor(CallPhase),
+                    Detector = factor(Detector),
+                    # CountPriority = CountPriority,
+                    Date = date(Date),
+                    Timeperiod = Timeperiod,
+                    Month_Hour = Month_Hour,
+                    Hour = Hour,
+                    vol = vol,
+                    #Good = Good,
+                    Good_Day = Good_Day,
+                    delta_vol = delta_vol,
+                    mean_abs_delta = mean_abs_delta
+                )
             print("adjusted counts and throughput")
             
             # clear partition files
