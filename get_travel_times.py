@@ -146,17 +146,20 @@ def get_corridor_travel_times(df, corr_grouping, bucket, table_name):
 
 def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
     
-    df = df.groupby(corr_grouping + ['Hour'], as_index=False)[['travel_time_minutes', 'reference_minutes']].sum()
+    df = df.groupby(corr_grouping + ['Hour'], as_index=False)[
+        ['travel_time_minutes', 'reference_minutes', 'miles']].sum()
 
     # -- Travel Time Metrics Summarized by tti, pti by hour --
     df['Hour'] = df['Hour'].apply(lambda x: x.replace(day=1))
+    df['speed'] = df['miles']/(df['travel_time_minutes']/60)
 
     desc = df.groupby(corr_grouping + ['Hour']).describe(percentiles = [0.90])
     tti = desc['travel_time_minutes']['mean'] / desc['reference_minutes']['mean']
     pti = desc['travel_time_minutes']['90%'] / desc['reference_minutes']['mean']
     bi = pti - tti
+    speed = desc['speed']['mean']
 
-    summ_df = pd.DataFrame({'tti': tti, 'pti': pti, 'bi': bi})
+    summ_df = pd.DataFrame({'tti': tti, 'pti': pti, 'bi': bi, 'speed_mph': speed})
 
     def uf(df): # upload parquet file
         date_string = df.date.values[0]
@@ -167,6 +170,7 @@ def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
             
     # Write to parquet files and upload to S3
     summ_df.reset_index().assign(date = lambda x: x.Hour.dt.date).groupby(['date']).apply(uf)
+
 
 if __name__=='__main__':
 
@@ -241,16 +245,18 @@ if __name__=='__main__':
        
         months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in (start_date, end_date)]))
         for yyyy_mm in months:
-             
-            df = dd.read_parquet(f's3://gdot-spm/mark/cor_travel_times/date={yyyy_mm}-*/*').compute()
-            if not df.empty:
-                 get_corridor_travel_time_metrics(
-                     df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
-    
-            if not df.empty:
-                df = dd.read_parquet(f's3://gdot-spm/mark/sub_travel_times/date={yyyy_mm}-*/*').compute()
-                get_corridor_travel_time_metrics(
-                    df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
+            try:
+                df = dd.read_parquet(f's3://gdot-spm/mark/cor_travel_times/date={yyyy_mm}-*/*').compute()
+                if not df.empty:
+                     get_corridor_travel_time_metrics(
+                         df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
+
+                if not df.empty:
+                    df = dd.read_parquet(f's3://gdot-spm/mark/sub_travel_times/date={yyyy_mm}-*/*').compute()
+                    get_corridor_travel_time_metrics(
+                        df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
+            except IndexError:
+                print(f'No data for {yyyy_mm}')
 
     else:
         print('No records returned.')
