@@ -16,7 +16,7 @@ def get_camids(camids_file):
     with open(camids_file) as f:
         for camid in f.readlines()[1:]:
             yield camid.split(': ')[0].strip()
-            
+
 
 def get_camera_data(camid):
     if 'GWIN-CAM' in camid or 'GCDOT-CAM' in camid:
@@ -25,45 +25,49 @@ def get_camera_data(camid):
         #url = 'http://navigator-c2c.dot.ga.gov/snapshots/{}.jpg'.format(camid)
         url = 'http://cdn.511ga.org/cameras/{}.jpg'.format(camid)
 
-    response = requests.get(url, timeout=2)
-    print(camid, end=': ')
+    try:
+        response = requests.get(url, timeout=2)
+        print(camid, end=': ')
 
-    if response.status_code == 200:
+        if response.status_code == 200:
 
-        dict_ = dict(response.headers)
-        dict_['ID'] = camid
-        json_data = json.dumps(dict_)
-        
-        if 'Last-Modified' in dict_.keys():
-            dt = datetime.strptime(dict_['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z')
-            dt_ = dt.replace(tzinfo=pytz.utc).astimezone(pytz.timezone('US/Eastern'))
-            now_ = datetime.now().astimezone(pytz.timezone('US/Eastern'))
-            
-            if (now_ - dt_).total_seconds()/60 < 120: # not older than two hours
-                print(json_data)
-                fn = os.path.join(base_path, 'cctvlog_{}.json'.format(dt_.strftime('%Y-%m-%d')))
-                
-                with open(fn, mode='a') as f:
-                    f.write(json_data + '\n')
-            else:
-                print('Data too old.')
+            dict_ = dict(response.headers)
+            dict_['ID'] = camid
+            json_data = json.dumps(dict_)
 
-    else:
-        print('No data.')
+            if 'Last-Modified' in dict_.keys():
+                dt = datetime.strptime(dict_['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z')
+                dt_ = dt.replace(tzinfo=pytz.utc).astimezone(pytz.timezone('US/Eastern'))
+                now_ = datetime.now().astimezone(pytz.timezone('US/Eastern'))
 
-    print('---')
-    
+                if (now_ - dt_).total_seconds()/60 < 120: # not older than two hours
+                    print(json_data)
+                    fn = os.path.join(base_path, 'cctvlog_{}.json'.format(dt_.strftime('%Y-%m-%d')))
+
+                    with open(fn, mode='a') as f:
+                        f.write(json_data + '\n')
+                else:
+                    print('Data too old.')
+        else:
+            print('No data.')
+
+    except Exception as e:
+        print('{}: ERROR '.format(camid), e)
+
+    finally:
+        print('---')
+
 
 
 if __name__=='__main__':
 
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
-    
+
     gdot_folder = os.path.join(os.path.expanduser('~'), 'Code', 'GDOT', 'GDOT-Flexdashboard-Report')
     camids_file = os.path.join(gdot_folder, conf['cctv_config_filename'])
-    
+
     base_path = os.path.join(gdot_folder, '../cctvlogs')
-        
+
     for camid in get_camids(camids_file):
         get_camera_data(camid)
