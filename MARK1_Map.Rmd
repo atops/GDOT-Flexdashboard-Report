@@ -25,8 +25,9 @@ library(aws.s3)
 library(readr)
 library(htmltools)
 library(glue)
-library(feather)
+#library(feather)
 library(forcats)
+library(qs)
 
 BLACK <- "#000000"
 WHITE <- "#FFFFFF"
@@ -127,7 +128,6 @@ get_geom_coords <- function(coords_string) {
 #----------------------------------------------------------
 ```
 
-
 ```{r Read MARK1 Data, echo=FALSE, eval=FALSE}
 
 # This is the source of the signal performance data
@@ -136,7 +136,6 @@ sig <- s3readRDS(bucket = "gdot-spm", object = "sig_ec2.rds")
 # This is the corridor-based data
 cor <- s3readRDS(bucket = "gdot-spm", object = "cor_ec2.rds")
 ```
-
 
 ```{r Corridors and Colors, echo=FALSE, eval=TRUE}
 
@@ -235,7 +234,7 @@ tmcs <- read_excel("c:/users/alan.toppen/downloads/Corridor_TMCs_Latest.xlsx") %
 tls <- s3readRDS(bucket = "gdot-spm", object = "teams_locations_shp.rds")
 ```
 
-```{r TMC Segments from s3 xlsx, echo=FALSE, eval=FALSE}
+```{r TMC Segments from s3 xlsx 2, echo=FALSE, eval=FALSE}
 tmcs <- s3read_using(
     read_excel,
     bucket = "gdot-spm",
