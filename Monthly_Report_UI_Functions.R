@@ -3715,7 +3715,8 @@ read_signal_data <- function(conf_athena, signalid, plot_start_date, plot_end_da
                 SignalID = factor(SignalID),
                 Timeperiod = ymd_hms(Timeperiod),
                 Detector = factor(as.integer(as.character(Detector))),
-                CallPhase = factor(as.integer(CallPhase))) %>%
+                CallPhase = factor(as.integer(as.character(CallPhase)))
+            ) %>%
             arrange(
                 Detector, 
                 Timeperiod)
