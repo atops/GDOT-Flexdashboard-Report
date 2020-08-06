@@ -69,6 +69,7 @@ colrs <- c("1" = LIGHT_BLUE, "2" = BLUE,
            "9" = LIGHT_PURPLE, "10" = PURPLE, 
            "11" = LIGHT_BROWN, "12" = BROWN,
            "0" = DARK_GRAY,
+           "NA" = DARK_GRAY,
            "Mainline" = BLUE,
            "Passage" = GREEN,
            "Demand" = RED,
@@ -3715,7 +3716,7 @@ read_signal_data <- function(conf_athena, signalid, plot_start_date, plot_end_da
                 SignalID = factor(SignalID),
                 Timeperiod = ymd_hms(Timeperiod),
                 Detector = factor(as.integer(as.character(Detector))),
-                CallPhase = factor(as.integer(as.character(CallPhase)))
+                CallPhase = fct_explicit_na(as.character(CallPhase))
             ) %>%
             arrange(
                 Detector, 
