@@ -1587,7 +1587,7 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
     }
     
     filtered_counts %>%
-        left_join(det_config) %>%
+        left_join(det_config, by = c("SignalID", "CallPhase", "Detector", "Date")) %>%
         filter(!is.na(CountPriority)) %>%
         
         split(.$SignalID) %>% mclapply(function(fc) {
@@ -1603,13 +1603,11 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
                 dplyr::select(-na.vol) %>% 
                 
                 # phase contribution factors--fraction of phase volume a detector contributes
+                group_by(SignalID, Timeperiod, CallPhase) %>% 
+                mutate(share = vol/sum(vol)) %>% 
+                filter(share > 0.1, share < 0.9) %>% 
                 group_by(SignalID, CallPhase, Detector) %>% 
-                summarize(vol = sum(vol, na.rm = TRUE),
-                          .groups = "drop_last") %>% 
-                #group_by(SignalID, CallPhase) %>% 
-                mutate(sum_vol = sum(vol, na.rm = TRUE),
-                       Ph_Contr = vol/sum_vol) %>% 
-                dplyr::select(-vol, -sum_vol) %>% ungroup()
+                summarize(Ph_Contr = mean(share, na.rm = TRUE), .groups = "drop")
             
             # fill in missing detectors from other detectors on that phase
             fc_phc <- left_join(fc, ph_contr, by = c("SignalID", "CallPhase", "Detector")) %>%
@@ -5429,4 +5427,114 @@ compare_dfs <- function(df1, df2) {
         rows_in_x_but_not_in_y = df1[rows_in_x_but_not_in_y,],
         rows_in_y_but_not_in_x = df2[rows_in_y_but_not_in_x,]
     )
+}
+
+
+
+
+
+#---------------------------- temporary for testing
+get_adjusted_counts_temp <- function(filtered_counts) {
+    
+    plan(multiprocess)
+    usable_cores <- get_usable_cores()
+    
+    print("Getting detector config...")
+    det_config <- lapply(unique(filtered_counts$Date), get_det_config_vol) %>% 
+        bind_rows() %>%
+        mutate(SignalID = factor(SignalID))
+    
+    # Define temporary directory and file names
+    temp_dir <- tempdir()
+    if (!dir.exists(temp_dir)) {
+        dir.create(temp_dir)
+    }
+    temp_file_root <- stringi::stri_rand_strings(1,8)
+    temp_path_root <- file.path(temp_dir, temp_file_root)
+    print(temp_path_root)
+    
+    # Join with det_config
+    print("Joining with detector configuration...")
+    filtered_counts <- filtered_counts %>%
+        mutate(
+            SignalID = factor(SignalID), 
+            CallPhase = factor(CallPhase),
+            Detector = factor(Detector)) %>%
+        left_join(det_config, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        filter(!is.na(CountPriority))
+    
+    print("Writing to temporary files by SignalID...")
+    signalids <- as.character(unique(filtered_counts$SignalID))
+    splits <- split(signalids, ceiling(seq_along(signalids)/100))
+    lapply(
+        names(splits),
+        function(i) {
+            #print(paste0(temp_file_root, "_", i, ".fst"))
+            cat('.')
+            filtered_counts %>%
+                filter(SignalID %in% splits[[i]]) %>%
+                write_fst(paste0(temp_path_root, "_", i, ".fst"))
+    })
+    cat('.', sep='\n')
+
+    file_names <- paste0(temp_path_root, "_", names(splits), ".fst")
+    
+    # Read in each temporary file and run adjusted counts in parallel. Afterward, clean up.
+    print("getting adjusted counts for each SignalID...")
+    df <- mclapply(file_names, mc.cores = usable_cores, FUN = function(fn) {
+    #df <- lapply(file_names, function(fn) {
+        cat('.')
+        fc <- read_fst(fn) %>% 
+            mutate(DOW = wday(Timeperiod),
+                   vol = as.double(vol))
+        
+        ph_contr <- fc %>%
+            group_by(SignalID, CallPhase, Timeperiod) %>% 
+            mutate(na.vol = sum(is.na(vol))) %>%
+            ungroup() %>% 
+            filter(na.vol == 0) %>% 
+            dplyr::select(-na.vol) %>% 
+            
+            # phase contribution factors--fraction of phase volume a detector contributes
+            group_by(SignalID, CallPhase, Detector) %>% 
+            summarize(vol = sum(vol, na.rm = TRUE),
+                      .groups = "drop_last") %>% 
+            #group_by(SignalID, CallPhase) %>% 
+            mutate(sum_vol = sum(vol, na.rm = TRUE),
+                   Ph_Contr = vol/sum_vol) %>% 
+            ungroup() %>% 
+            dplyr::select(-vol, -sum_vol)
+        
+        # fill in missing detectors from other detectors on that phase
+        fc_phc <- left_join(fc, ph_contr, by = c("SignalID", "CallPhase", "Detector")) %>%
+            # fill in missing detectors from other detectors on that phase
+            group_by(SignalID, Timeperiod, CallPhase) %>%
+            mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
+        
+        fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
+        
+        #hourly volumes over the month to fill in missing data for all detectors in a phase
+        mo_hrly_vols <- fc_phc %>%
+            group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
+            summarize(Hourly_Volume = median(vol, na.rm = TRUE), .groups = "drop") #%>%
+        #ungroup()
+        # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
+        
+        # fill in missing detectors by hour and day of week volume in the month
+        left_join(fc_phc, 
+                  mo_hrly_vols, 
+                  by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>% 
+            ungroup() %>%
+            mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
+            
+            dplyr::select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
+            
+            filter(!is.na(vol))
+    }) %>% bind_rows()
+    cat('.', sep='\n')
+    
+    mclapply(file_names, mc.cores = usable_cores, FUN = file.remove)
+    file.remove(temp_dir)
+    
+    df
 }
