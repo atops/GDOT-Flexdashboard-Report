@@ -2218,7 +2218,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
         
         dfi <- dfi %>% 
             mutate(maxy = if_else(bad_day==1, as.integer(max(1,max(vol_rc, na.rm = TRUE))), as.integer(0)),
-                   colr = colrs[CallPhase], 
+                   colr = colrs[as.character(CallPhase)], 
                    fill_colr = "")
         
         plot_ly(data = dfi) %>%
