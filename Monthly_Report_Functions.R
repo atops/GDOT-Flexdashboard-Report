@@ -454,7 +454,8 @@ s3_read_parquet_parallel <- function(table_name,
         prefix <- glue("mark/{table_name}/date={date_}")
         objects = aws.s3::get_bucket(bucket = bucket, prefix = prefix)
         lapply(objects, function(obj) {
-            s3_read_parquet(bucket = bucket, object = get_objectkey(obj), date_) %>%
+            s3_read_parquet(bucket = bucket, object = get_objectkey(obj), date_) %>% 
+                convert_to_utc() %>%
                 callback()
         }) %>% bind_rows()
     }
@@ -465,7 +466,7 @@ s3_read_parquet_parallel <- function(table_name,
     } else {
         dfs <- lapply(dates, func)
     }
-    dfs[lapply(dfs, nrow)>0] %>% bind_rows() %>% convert_to_utc()
+    dfs[lapply(dfs, nrow)>0] %>% bind_rows()
 }
 
 
