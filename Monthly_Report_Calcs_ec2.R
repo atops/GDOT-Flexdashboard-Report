@@ -224,38 +224,10 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         print("Read filtered_counts. Getting adjusted counts...")
 
-        adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
+        #adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
+        adjusted_counts_1hr <- get_adjusted_counts_split(filtered_counts_1hr)
         
-        # # clear partition files
-        # lapply(as.character(seq(0,9)), function(i) {
-        #     tryCatch({
-        #         file.remove(glue("fc{i}.fst"))
-        #     }, warning = function(w) {})
-        # })
-        # 
-        # # split into 10 files, partitioned by signalid
-        # #mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
-        # lapply(as.character(seq(0,9)), function(i) {
-        #     filtered_counts_1hr %>% 
-        #         filter(endsWith(as.character(SignalID), i)) %>%
-        #         write_fst(glue("fc{i}.fst"))
-        # })
-        # clear memory of large dataframe
         rm(filtered_counts_1hr)
-        
-        # # get adjusted counts and throughput on each partition (file)            
-        # #adjusted_counts_1hr <- mclapply(as.character(seq(0,9)), mc.cores = usable_cores, FUN = function(i) {
-        # adjusted_counts_1hr <- lapply(as.character(seq(0,9)), function(i) {
-        #     cat(c(i, ""))
-        #     read_fst(glue("fc{i}.fst")) %>% 
-        #         get_adjusted_counts(ends_with = i)
-        # }) %>% bind_rows() %>%
-        #     mutate(SignalID = factor(SignalID),
-        #            CalPhase = factor(CallPhase))
-
-        # adjusted_counts_1hr <- filtered_counts_1hr %>%
-        #     get_adjusted_counts_split10()
-        # rm(filtered_counts_1hr)
         
         s3_upload_parquet_date_split(
             adjusted_counts_1hr,
@@ -407,7 +379,7 @@ get_counts_based_measures <- function(month_abbrs) {
                     filter(endsWith(as.character(SignalID), i)) %>%
                     write_fst(glue("fc{i}.fst"))
             })
-            print("")
+            cat("", end = "\n")
             # clear memory of large dataframe
             rm(filtered_counts_15min)
             
@@ -420,6 +392,7 @@ get_counts_based_measures <- function(month_abbrs) {
             }) %>% bind_rows() %>%
                 mutate(SignalID = factor(SignalID),
                        CalPhase = factor(CallPhase))
+            cat("", end = "\n")
             
             s3_upload_parquet_date_split(
                 throughput, 

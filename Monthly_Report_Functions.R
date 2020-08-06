@@ -5434,8 +5434,9 @@ compare_dfs <- function(df1, df2) {
 
 
 
-#---------------------------- temporary for testing
-get_adjusted_counts_temp <- function(filtered_counts) {
+# Variant that splits signals into equally sized chunks
+# may be a template for other memory-intenstive functions.
+get_adjusted_counts_split <- function(filtered_counts) {
     
     plan(multiprocess)
     usable_cores <- get_usable_cores()
