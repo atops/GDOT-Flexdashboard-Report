@@ -91,20 +91,21 @@ conditionalPanel("input.zone_group != 'All RTOP'",
 
 observe({
     choices_ <- if (is.null(input$zone_group)) {
-                    NULL
-                } else {
-                    if (input$zone_group == "All RTOP") {
-                        c("All Corridors")
-                    } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
-                        c("All Corridors",
-                          as.character(unique(filter(
-                              corridors(), Zone_Group == input$zone_group)$Corridor)))
+        NULL
+        } else {
+            if (input$zone_group == "All RTOP") {
+                c("All Corridors")
+                } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
+                    c("All Corridors",
+                      as.character(unique(filter(
+                          corridors(), Zone_Group == input$zone_group)$Corridor)))
                     } else {
                         c("All Corridors",
                           as.character(unique(filter(
                               corridors(), Zone == input$zone_group)$Corridor)))
                     }
-                }
+        }
+    print(choices_)
 
     updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
@@ -2837,20 +2838,28 @@ shinyApp(
         #                           choices = c("Monthly"),  # "Weekly"),
         #                           selected = 1,
         #                           width = "150px")),
-        absolutePanel(top = 10, left = 100,  # 260,
+        div(absolutePanel(top = 10, left = 100,  # 260,
                       selectInput(inputId = "metric_input", 
                                   label = "Select Metric", 
                                   choices = metrics_df$description, 
                                   width = "300px")),
+            style = "font-family: Source Sans Pro;"),
         # absolutePanel(top = 10, left = 570,
         #               selectInput(inputId = "period_input", 
         #                           label = "Select Period", 
         #                           choices = format(today(), "%B %Y"),
         #                           selected = 1,
         #                           width = "150px")),
+        div(absolutePanel(top = 10, left = 430,
+                      radioButtons("filter_input", label = "Filter by",
+                      choices = list(
+                          "View all signals" = 1, 
+                          "Filter by signal group in sidebar" = 2), 
+                      selected = 1)),
+            style = "font-family: Source Sans Pro"),
         div(absolutePanel(top = 110, left = 50,
                           dataTableOutput("top10_table")),
-            style = "font-size: 12px; background-color: rbga(0,0,0,0.4)")
+            style = "font-family: Source Sans Pro; font-size: 14px; background-color: rbga(0,0,0,0.4)")
     ),
     
     server = function(input, output, session) {
@@ -2926,11 +2935,15 @@ shinyApp(
                     Signal = paste0(SignalID, ": ", Name), 
                     Corridor = Zone_Group, 
                     !!v := format_(!!v)) %>%
-                distinct() %>%
-                head(10)
+                distinct()
             
+            if (input$filter_input != 1) {
+                data_ <- data_ %>%
+                    filter(as.character(Corridor) %in% unique(as.character(filtered_corridors()$Corridor)))
+            }
             #print(data_)
-            data_
+            data_ %>%
+                head(10)
         })
         
         output$top10_table <- renderDataTable({
@@ -2994,6 +3007,17 @@ shinyApp(
         # to keep track of previously selected row
         prev_row <- reactiveVal()
         
+        
+        observeEvent(input$MapPlot1_click, {
+            # Reset previously selected marker
+            if(!is.null(prev_row()))
+            {
+                MapPlot1_proxy %>%
+                    removeMarker(as.character(prev_row()$SignalID))
+            }
+            # set new value to reactiveVal 
+            #prev_row(data_selected)
+        })
         
         observeEvent(input$top10_table_rows_selected, {
             
