@@ -92,20 +92,19 @@ conditionalPanel("input.zone_group != 'All RTOP'",
 observe({
     choices_ <- if (is.null(input$zone_group)) {
         NULL
+    } else {
+        if (input$zone_group == "All RTOP") {
+            c("All Corridors")
+        } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
+            c("All Corridors",
+              as.character(unique(filter(
+                  corridors, Zone_Group == input$zone_group)$Corridor)))
         } else {
-            if (input$zone_group == "All RTOP") {
-                c("All Corridors")
-                } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
-                    c("All Corridors",
-                      as.character(unique(filter(
-                          corridors(), Zone_Group == input$zone_group)$Corridor)))
-                    } else {
-                        c("All Corridors",
-                          as.character(unique(filter(
-                              corridors(), Zone == input$zone_group)$Corridor)))
-                    }
+            c("All Corridors",
+              as.character(unique(filter(
+                  corridors, Zone == input$zone_group)$Corridor)))
         }
-    print(choices_)
+    #print(choices_)
 
     updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
@@ -2215,10 +2214,9 @@ fillRow(
 
 
 
-
 ### Zone Activity Reports
 
-```{r, echo=FALSE, eval = TRUE}
+```{r, echo=FALSE, eval=TRUE}
 
 tinyMCE <- function(inputId, content, options = NULL){
   tagList(
@@ -2464,7 +2462,7 @@ shinyApp(
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
-    },
+},
 
     options = list(height = 800)
 )
