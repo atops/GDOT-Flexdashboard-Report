@@ -2218,7 +2218,8 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
     pl <- function(dfi, i) {
         
         dfi <- dfi %>% 
-            mutate(maxy = if_else(bad_day==1, as.integer(max(1,max(vol_rc, na.rm = TRUE))), as.integer(0)),
+            mutate(#maxy = if_else(bad_day==1, as.integer(max(1,max(vol_rc, na.rm = TRUE))), as.integer(0)),
+                   maxy = if_else(bad_day==1, as.integer(max(1, vol_rc, na.rm = TRUE)), as.integer(0)),
                    colr = colrs[as.character(CallPhase)], 
                    fill_colr = "")
         
@@ -3045,13 +3046,17 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
             # Streak is 0 unless it's the most recent date in the alerts_by_date data set
             # So, if the streak is not current as of the last date, it's 0. Streak is "Current Streak"
             mutate(Streak = if_else(Date == most_recent_date[[alert_type_]], streak, as.integer(0))) %>%
-            group_by(Zone, Corridor, SignalID, CallPhase, Detector, Name, Alert) %>%
+            group_by(Zone, Corridor, SignalID, CallPhase, Detector, ApproachDesc, Name, Alert) %>%
             summarize(
                 Occurrences = n(), 
                 Streak = max(Streak) #, MaxDate = max(Date)
             ) %>%
             ungroup() %>%
             arrange(desc(Streak), desc(Occurrences))
+        
+        if (alert_type_ != "Bad Vehicle Detection") {
+            table_df <- table_df %>% select(-ApproachDesc)
+        }
         
         if (active_streak == "Active") {
             table_df <- table_df %>% filter(Streak > 0)
@@ -3102,6 +3107,18 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                 table_df <- table_df %>% dplyr::select(-Detector)
             }
         }
+        
+        plot_df <- plot_df %>%
+            mutate(signal_phase = if_else(
+                Zone_Group == "Ramp Meters",
+                stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
+                as.character(signal_phase))) %>%
+            mutate(signal_phase = factor(signal_phase))
+        
+        # if (Zone_Group == "Ramp Meters") {
+        #     table_df <- 
+        #         
+        # }
         
         intersections <- length(unique(plot_df$signal_phase))
         
@@ -3246,17 +3263,26 @@ plot_alerts <- function(df, date_range) {
         start_date <- max(min(df$Date), date_range[1])
         end_date <- max(max(df$Date), date_range[2])
         
+        if (df$Zone_Group[[1]] == "Ramp Meters") {
+            scale_fill <- scale_fill_manual(values = colrs, name = "Phase")
+            fill_variable <- as.name("CallPhase")
+        } else {
+            scale_fill <- scale_fill_gradient(low = "#fc8d59", high = "#7f0000", limits = c(0,90))
+            fill_variable <- as.name("streak")
+        }
+
         p <- ggplot() + 
             
             # tile plot
             geom_tile(data = df, 
                       aes(x = Date, 
                           y = signal_phase,
-                          fill = streak),  # CallPhase), 
+                          fill = !!fill_variable), # streak),  # CallPhase), 
                       color = "white") + 
             
             #scale_fill_manual(values = colrs, name = "Phase") +
-            scale_fill_gradient(low = "#fc8d59", high = "#7f0000", limits = c(0,90)) +
+            #scale_fill_gradient(low = "#fc8d59", high = "#7f0000", limits = c(0,90)) +
+            scale_fill +
             
             # fonts, text size and labels and such
             theme(panel.grid.major = element_blank(),
