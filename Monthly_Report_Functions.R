@@ -163,6 +163,53 @@ retry_function <- function(.f, max_attempts = 5,
 }
 
 
+split_wrapper <- function(FUN) {
+    
+    # Creates a function that runs a function, splits by signalid and recombines
+    
+    f <- function(df, split_size, ...) {
+        # Define temporary directory and file names
+        temp_dir <- tempdir()
+        if (!dir.exists(temp_dir)) {
+            dir.create(temp_dir)
+        }
+        temp_file_root <- stringi::stri_rand_strings(1,8)
+        temp_path_root <- file.path(temp_dir, temp_file_root)
+        print(temp_path_root)
+        
+        
+        print("Writing to temporary files by SignalID...")
+        signalids <- as.character(unique(df$SignalID))
+        splits <- split(signalids, ceiling(seq_along(signalids)/split_size))
+        lapply(
+            names(splits),
+            function(i) {
+                cat('.')
+                df %>%
+                    filter(SignalID %in% splits[[i]]) %>%
+                    write_fst(paste0(temp_path_root, "_", i, ".fst"))
+            })
+        cat('.', sep='\n')
+        
+        file_names <- paste0(temp_path_root, "_", names(splits), ".fst")
+        
+        # Read in each temporary file and run adjusted counts in parallel. Afterward, clean up.
+        print("Running for each SignalID...")
+        df <- mclapply(file_names, mc.cores = usable_cores, FUN = function(fn) {
+            #df <- lapply(file_names, function(fn) {
+            cat('.')
+            FUN(read_fst(fn), ...)
+        }) %>% bind_rows()
+        cat('.', sep='\n')
+        
+        lapply(file_names, FUN = file.remove)
+        #file.remove(temp_dir)
+        
+        df
+    }
+}
+
+
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
@@ -410,7 +457,7 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
     } else { # loop through dates
         df %>% 
             split(.$Date) %>% 
-            mclapply(mc.cores = max(1,detectCores()-1), FUN = function(x) {
+            mclapply(mc.cores = max(usable_cores, detectCores()-1), FUN = function(x) {
                 date_ <- as.character(x$Date[1])
                 s3_upload_parquet(x, date_,
                                   fn = glue("{prefix}_{date_}"), 
@@ -462,7 +509,7 @@ s3_read_parquet_parallel <- function(table_name,
     # When using mclapply, it fails. When using lapply, it works. 6/23/2020
     # Give to option to run in parallel, like when in interactive mode
     if (parallel) {
-        dfs <- mclapply(dates, mc.cores = max(1,detectCores()-1), FUN = func)
+        dfs <- mclapply(dates, mc.cores = max(usable_cores, detectCores()-1), FUN = func)
     } else {
         dfs <- lapply(dates, func)
     }
@@ -4533,13 +4580,7 @@ readRDS_multiple <- function(pattern) {
 
 
 
-
-
-
-## Gui's improved function
-# Function to add Probabilities
-get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
-
+get_pau_high_ <- function(paph, wk_calcs_start_date) {
     paph <- paph %>% filter(Date >= wk_calcs_start_date)
     
     # Fail pushbutton input if mean hourly count > 600
@@ -4558,7 +4599,7 @@ get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
             .groups = "drop") %>% 
         filter(mn > 600 | sd > 9000) %>%
         mutate(toohigh_distn = TRUE)
-
+    
     # Fail pushbutton input if between midnight and 6am,
     # at least one hour > 300 or at least three hours > 60
     print("too high filter (early morning counts)...")
@@ -4581,7 +4622,7 @@ get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
     # Fail pushbutton inputs if between hourly count is > 300 
     # and exceeds 100 times the hourly count of next highest pushbutton input
     # (if next highest pushbutton input count is 0, use 1 instead)
-    print("too high filter (compared to other phases)...")
+    print("too high filter (compared to other phases for the same signal)...")
     too_high_nn <- paph %>% 
         complete(
             nesting(SignalID, Detector, CallPhase), 
@@ -4599,8 +4640,33 @@ get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
         transmute(
             SignalID, Detector, CallPhase, Date, 
             toohigh = as.logical(max(c_across(starts_with("toohigh")), na.rm = TRUE)))
+    
+    too_high
+}
 
-    rm(too_high_distn, too_high_am, too_high_nn)
+get_pau_high <- split_wrapper(get_pau_high_)
+
+
+## Gui's improved function
+# Function to add Probabilities
+get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
+
+    # A pushbutton input (aka "detector") is failed for a given day if:
+    # the streak of days with no actuations is greater that what
+    # would be expected based on the distribution of daily presses
+    # (the probability of that many consecutive zero days is < 0.01)
+    #  - or -
+    # the number of acutations is more than 100 times the 80% percentile
+    # number of daily presses for that pushbutton input
+    # (i.e., it's a [high] outlier for that input)
+    # - or -
+    # between midnight and 6am, there is at least one hour in a day with
+    # at least 300 actuations or at least three hours with over 60
+    # (i.e., it is an outlier based on what would be expected 
+    # for any input in the early morning hours)
+    
+    too_high <- get_pau_high(paph, 200, wk_calcs_start_date)
+    gc()
 
     begin_date <- min(papd$Date)  #ymd("2018-08-01")
     
@@ -4609,17 +4675,18 @@ get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
         summarize(Asof = min(Asof),
                   .groups = "drop")
     
-    ped_config <- mclapply(unique(papd$Date), function(d) {
+    #ped_config <- mclapply(unique(papd$Date), mc.cores = usable_cores, FUN = function(d) {
+    ped_config <- lapply(unique(papd$Date), function(d) {
         get_ped_config(d) %>%
             mutate(Date = d) %>%
             filter(SignalID %in% papd$SignalID)
-    }, mc.cores = usable_cores) %>%
+    }) %>%
         bind_rows() %>%
         mutate(SignalID = factor(SignalID),
                Detector = factor(Detector),
                CallPhase = factor(CallPhase))
     
-    print("too low...")
+    print("too low filter...")
     papd <- papd %>% 
         full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date")) 
     rm(ped_config)
@@ -4675,19 +4742,6 @@ get_pau <- function(papd, paph, corridors, wk_calcs_start_date) {
     # p_funs <- map(p, ~partial(quantile, probs = .x, na.rm = TRUE)) %>% 
     #     set_names(nm = p_names)
     
-    # A pushbutton input (aka "detector") is failed for a given day if:
-    # the streak of days with no actuations is greater that what
-    # would be expected based on the distribution of daily presses
-    # (the probability of that many consecutive zero days is < 0.01)
-    #  - or -
-    # the number of acutations is more than 100 times the 80% percentile
-    # number of daily presses for that pushbutton input
-    # (i.e., it's a [high] outlier for that input)
-    # - or -
-    # between midnight and 6am, there is at least one hour in a day with
-    # at least 300 actuations or at least three hours with over 60
-    # (i.e., it is an outlier based on what would be expected 
-    # for any input in the early morning hours)
     print("all filters combined...")
     pau <- left_join(papd, pz, by = c("SignalID", "Detector", "CallPhase")) %>%
         #group_by(SignalID, CallPhase, Detector) %>% 
@@ -5394,13 +5448,13 @@ get_map_data <- function() {
         )
     
     corridors_sp <- do.call(rbind, tmcs$sp_data) %>%
-        SpatialLinesDataFrame(z, match.ID = FALSE)
+        SpatialLinesDataFrame(tmcs, match.ID = FALSE)
     
     subcor_tmcs <- tmcs %>% 
         filter(!is.na(Subcorridor))
     
     subcorridors_sp <- do.call(rbind, subcor_tmcs$sp_data) %>%
-        SpatialLinesDataFrame(sz, match.ID = FALSE)
+        SpatialLinesDataFrame(tmcs, match.ID = FALSE)
     
     signals_sp <- get_signals_sp()
     
@@ -5540,3 +5594,114 @@ get_adjusted_counts_split <- function(filtered_counts) {
     
     df
 }
+
+
+get_flash_events <- function(conf_athena, start_date, end_date) {
+    
+    conn <- get_athena_connection(conf_athena)
+    x <- tbl(conn, sql(glue(paste(
+            "select date, timestamp, signalid, eventcode, eventparam", 
+            "from gdot_spm.atspm2 where eventcode = 173", 
+            "and date between '{start_date}' and '{end_date}'")))) %>% 
+        collect()
+    
+    flashes <- if (nrow(x)) {
+        x %>%
+            transmute(
+                Timestamp = ymd_hms(timestamp),
+                SignalID = factor(signalid),
+                EventCode = as.integer(eventcode),
+                EventParam = as.integer(eventparam),
+                Date = ymd(date)) %>% 
+            arrange(SignalID, Timestamp) %>% 
+            group_by(SignalID) %>% 
+            filter(EventParam - lag(EventParam) > 0) %>%
+            mutate(
+                FlashDuration_s = as.numeric(Timestamp - lag(Timestamp)),
+                EndParam = lead(EventParam)) %>%
+            ungroup() %>%
+            filter(!EventParam %in% c(2)) %>%
+            transmute(
+                SignalID,
+                Timestamp,
+                FlashMode = case_when(
+                    EventParam == 1 ~ "other(1)",
+                    EventParam == 2 ~ "notFlash(2)",
+                    EventParam == 3 ~ "automatic(3)",
+                    EventParam == 4 ~ "localManual(4)",
+                    EventParam == 5 ~ "faultMonitor(5)",
+                    EventParam == 6 ~ "mmu(6)",
+                    EventParam == 7 ~ "startup(7)",
+                    EventParam == 8 ~ "preempt (8)"),
+                EndFlashMode = case_when(
+                    EndParam == 1 ~ "other(1)",
+                    EndParam == 2 ~ "notFlash(2)",
+                    EndParam == 3 ~ "automatic(3)",
+                    EndParam == 4 ~ "localManual(4)",
+                    EndParam == 5 ~ "faultMonitor(5)",
+                    EndParam == 6 ~ "mmu(6)",
+                    EndParam == 7 ~ "startup(7)",
+                    EndParam == 8 ~ "preempt (8)"),
+                FlashDuration_s,
+                Date) %>%
+            arrange(SignalID, Timestamp)
+    } else {
+        data.frame()
+    }
+    flashes
+}
+
+
+# flashes['Month'] = flashes.TimeStamp.dt.strftime('%Y-%m-01')
+# 
+# fmt = (flashes.rename(columns={'TimeStamp': 'Events'})
+#        .groupby(['SignalID','Month','EventParam'])[['Events']]
+#        .count()
+#        .unstack(fill_value=0))
+# fmt['all'] = fmt.sum(axis=1)
+# fmt['MeanDuration'] = flashes.groupby(['SignalID','Month'])[['FlashDuration']].mean()
+# fmt.reset_index().to_csv('flash_averages_by_month.csv')
+# # ----
+# fmt = (flashes.rename(columns={'TimeStamp': 'Events'})
+#        .groupby(['SignalID','EventParam'])[['Events']]
+#        .count()
+#        .unstack(fill_value=0))
+# fmt['all'] = fmt.sum(axis=1)
+# fmt['MeanDuration'] = flashes.groupby(['SignalID'])[['FlashDuration']].mean()
+# fmt.reset_index().to_csv('flash_averages.csv')
+
+
+# '''
+# # R Code to finish up
+# 
+# fe <- read_csv("c:/Users/alan.toppen/Code/GDOT/flash_events.csv") %>% 
+#     select(-X1) %>% 
+#     mutate_at(vars(-c(TimeStamp, FlashDuration)), as.integer) %>% 
+#     arrange(SignalID, TimeStamp)
+# fe %>% write_csv("flash_events_2019.csv")
+# 
+# 
+# fa <- read_csv("c:/Users/alan.toppen/Code/GDOT/flash_averages.csv") %>% 
+#     rename(
+#         FaultMonitor = Events, 
+#         MMU = Events_1, 
+#         Startup = Events_2, 
+#         Preempt = Events_3) %>% 
+#     filter(X1 != "EventParam") %>% 
+#     select(-X1) %>% 
+#     mutate_at(vars(-MeanDuration), as.integer) %>% 
+#     arrange(desc(all))
+# fa %>% write_csv("flash_averages_2019.csv")
+# 
+# 
+# fam <- read_csv("c:/Users/alan.toppen/Code/GDOT/flash_averages_by_month.csv") %>% 
+#     rename(
+#         FaultMonitor = Events, 
+#         MMU = Events_1, 
+#         Startup = Events_2, 
+#         Preempt = Events_3) %>% 
+#     filter(X1 != "EventParam") %>% 
+#     select(-X1) %>% 
+#     mutate_at(vars(-c(Month, MeanDuration)), as.integer)
+# fam %>% write_csv("flash_averages_by_month_2019.csv")
+# '''

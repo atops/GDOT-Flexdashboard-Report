@@ -173,6 +173,19 @@ if (conf$run$counts == TRUE) {
         }
     }
 }
+
+flashes <- get_flash_events(conf$athena, start_date, end_date)
+print("flash events...")
+print(flashes)
+if (nrow(flashes)) {
+    s3_upload_parquet_date_split(
+        flashes,
+        bucket = conf$bucket, 
+        prefix = "flashes",
+        table_name = "flash_events",
+        conf_athena = conf$athena)
+}
+    
 print("\n---------------------- Finished counts ---------------------------\n")
 
 print(glue("{Sys.time()} monthly cu [5 of 10]"))
@@ -382,7 +395,7 @@ get_counts_based_measures <- function(month_abbrs) {
             cat("", end = "\n")
             # clear memory of large dataframe
             rm(filtered_counts_15min)
-            
+            gc() 
             # get adjusted counts and throughput on each partition (file)            
             throughput <- lapply(as.character(seq(0,9)), function(i) {
                 cat(c(i, ""))
