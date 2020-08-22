@@ -2205,7 +2205,7 @@ volplot_plotly2_older <- function(db, signalid, plot_start_date, plot_end_date, 
                    type = 'date'))
 }
 
-volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+volplot_plotly2_ <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
     # db is either conf$athena (list) or aurora (Pool)
     
     if (is.null(ymax)) {
@@ -2391,6 +2391,7 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
     })
     
 }
+volplot_plotly2 <- memoise(volplot_plotly2_, cache = fc)
 
 
 udcplot_plotly <- function(hourly_udc) {
