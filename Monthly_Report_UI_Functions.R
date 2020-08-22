@@ -2288,9 +2288,15 @@ volplot_plotly2 <- function(db, signalid, plot_start_date, plot_end_date, title 
     
     withProgress(message = "Loading chart", value = 0, {
         incProgress(amount = 0.1)
-        if (class(db) == "list") {
-            df <- read_signal_data(db, signalid, plot_start_date, plot_end_date)
-            
+        
+        if (TRUE) {
+            conn <- poolCheckout(dbpool_)
+            df <- read_signal_data(conn, signalid, plot_start_date, plot_end_date)
+            poolReturn(conn)      
+        # }
+        # if (class(db) == "list") {
+        #     df <- read_signal_data(db, signalid, plot_start_date, plot_end_date)
+        #     
         } else if (class(db) == "Pool") {
             # db = aurora connection pool
             rc <- tbl(db, "counts_1hr") %>% 
@@ -3714,36 +3720,28 @@ get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NU
     }
 }
 
-read_signal_data <- function(conf_athena, signalid, plot_start_date, plot_end_date) {
-    conn <- get_athena_connection(conf_athena)
+read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
     df <- dbGetQuery(
         conn, 
         sql(glue(paste('select "{signalid}", timeperiod from gdot_spm.signal_details', 
                        'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
         as_tibble()
-    
+        
     if (sum(!is.na(df[signalid]))) {
-        df$data <- lapply(
-            lapply(
-                lapply(df[[signalid]], 
-                       jsonlite::fromJSON),  # this was written with rjson::toJSON
-                as.data.frame), 
-            function(x) {bind_rows(x) %>% 
-                    mutate_at(vars(starts_with("vol")), ~as.numeric(as.character(.)))}
-        )
-
-        df %>% 
+        dfs <- lapply(df[[signalid]], function(x) jsonlite::fromJSON(x) %>% as_tibble)
+        
+        purrr::map2(dfs, df$timeperiod, function(df, t) {mutate(df, Timeperiod = t)}) %>%
+            bind_rows() %>%
+            mutate_at(vars(starts_with("vol")), ~as.numeric(as.character(.))) %>%
+            
             transmute(
-                SignalID = signalid, 
-                Timeperiod = timeperiod, 
-                data) %>% 
-            unnest(data) %>%
-            mutate(
-                SignalID = factor(SignalID),
-                Timeperiod = ymd_hms(Timeperiod),
+                SignalID = factor(signalid), 
+                Timeperiod,
                 Detector = factor(as.integer(as.character(Detector))),
-                CallPhase = fct_explicit_na(as.character(CallPhase))
-            ) %>%
+                CallPhase = fct_explicit_na(as.character(CallPhase)),
+                vol_rc,
+                vol_ac,
+                bad_day) %>% 
             arrange(
                 Detector, 
                 Timeperiod)
