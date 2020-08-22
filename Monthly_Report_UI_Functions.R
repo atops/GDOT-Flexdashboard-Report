@@ -41,6 +41,8 @@ plan(multisession)
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
 
+fc <- cache_filesystem("~/.cache")
+
 select <- dplyr::select
 filter <- dplyr::filter
 layout <- plotly::layout
@@ -316,6 +318,7 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, dbPool)
 }
+athena_connection_pool <- get_athena_connection_pool(conf$athena)
 
 
 get_athena_connection_needs_boto3 <- function(conf_athena) {
@@ -2205,7 +2208,7 @@ volplot_plotly2_older <- function(db, signalid, plot_start_date, plot_end_date, 
                    type = 'date'))
 }
 
-volplot_plotly2_ <- function(db, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+volplot_plotly2_ <- function(dbpool_, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
     # db is either conf$athena (list) or aurora (Pool)
     
     if (is.null(ymax)) {
