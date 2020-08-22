@@ -3740,7 +3740,7 @@ read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
             
             transmute(
                 SignalID = factor(signalid), 
-                Timeperiod,
+                Timeperiod = ymd_hms(Timeperiod),
                 Detector = factor(as.integer(as.character(Detector))),
                 CallPhase = fct_explicit_na(as.character(CallPhase)),
                 vol_rc,
