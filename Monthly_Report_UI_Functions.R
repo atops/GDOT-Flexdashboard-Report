@@ -3732,6 +3732,7 @@ read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
         as_tibble()
         
     if (sum(!is.na(df[signalid]))) {
+        df <- df %>% filter(!is.na(!!as.name(signalid)))
         dfs <- lapply(df[[signalid]], function(x) jsonlite::fromJSON(x) %>% as_tibble)
         
         purrr::map2(dfs, df$timeperiod, function(df, t) {mutate(df, Timeperiod = t)}) %>%
