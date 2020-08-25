@@ -1432,7 +1432,7 @@ get_det_config_vol <- function(date_) {
 get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
     if (interval == "1 hour") {
-        max_volume <- 1000  # 1000 - increased on 3/19/2020 (down to 2000 on 3/31) to accommodate mainline ramp meters
+        max_volume <- 1200  # 1000 - increased on 3/19/2020 (down to 2000 on 3/31) to accommodate mainline ramp meters
         max_volume_mainline <- 3000 # New on 5/21/2020
         max_delta <- 500
         max_abs_delta <- 200  # 200 - increased on 3/24 to make less stringent
@@ -1440,7 +1440,7 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
         max_flat <- 5
         hi_vol_pers <- 5
     } else if (interval == "15 min") {
-        max_volume <- 250  #250 - increased on 3/19/2020 (down to 500 on 3/31) to accommodate mainline ramp meter detectors
+        max_volume <- 300  #250 - increased on 3/19/2020 (down to 500 on 3/31) to accommodate mainline ramp meter detectors
         max_volume_mainline <- 750 # New on 5/21/2020
         max_delta <- 125
         max_abs_delta <- 50  # 50 - increased on 3/24 to make less stringent
