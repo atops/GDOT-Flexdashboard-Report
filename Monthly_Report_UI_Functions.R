@@ -3724,32 +3724,33 @@ get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NU
     }
 }
 
+
 read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
-    df <- dbGetQuery(
+    DT <- dbGetQuery(
         conn, 
-        sql(glue(paste('select "{signalid}", timeperiod from gdot_spm.signal_details', 
+        sql(glue(paste('select "{signalid}" as data, timeperiod from gdot_spm.signal_details', 
                        'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
-        as_tibble()
+        as.data.table()
+
+    DT <- DT[!is.na(data)]
+    if (nrow(DT)) {
+        dfs <- lapply(DT$data, function(x) jsonlite::fromJSON(x))
         
-    if (sum(!is.na(df[signalid]))) {
-        df <- df %>% filter(!is.na(!!as.name(signalid)))
-        dfs <- lapply(df[[signalid]], function(x) jsonlite::fromJSON(x) %>% as_tibble)
+        dfs <- purrr::map2(dfs, DT$timeperiod, function(df, t) {df$Timeperiod <- t; df})
+        df0 <- rbindlist(dfs)
+
+        df0[, SignalID := factor(signalid)]
+        df0[, Timeperiod := ymd_hms(Timeperiod)]
+        df0[, Detector := factor(Detector)]
+        df0[, CallPhase := factor(CallPhase)]
+        df0[, vol_rc := as.numeric(as.character(vol_rc))]
+        df0[, vol_ac := as.numeric(as.character(vol_ac))]
+        df0[, bad_day := as.logical(bad_day)]
         
-        purrr::map2(dfs, df$timeperiod, function(df, t) {mutate(df, Timeperiod = t)}) %>%
-            bind_rows() %>%
-            mutate_at(vars(starts_with("vol")), ~as.numeric(as.character(.))) %>%
-            
-            transmute(
-                SignalID = factor(signalid), 
-                Timeperiod = ymd_hms(Timeperiod),
-                Detector = factor(as.integer(as.character(Detector))),
-                CallPhase = fct_explicit_na(as.character(CallPhase)),
-                vol_rc,
-                vol_ac,
-                bad_day) %>% 
-            arrange(
-                Detector, 
-                Timeperiod)
+        setcolorder(df0, c( "SignalID", "Detector", "CallPhase", "vol_rc", "vol_ac", "bad_day", "Timeperiod"))
+        setorderv(df0, c("Detector", "Timeperiod"))
+        
+        return(as_tibble(df0))
     } else {
         data.frame()
     }
