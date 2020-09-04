@@ -42,6 +42,7 @@ suppressMessages({
     library(qs)
     library(sp)
     library(DBI)
+    library(tictoc)
 })
 
 
@@ -4580,8 +4581,8 @@ readRDS_multiple <- function(pattern) {
 
 
 
-get_pau_high_ <- function(paph, wk_calcs_start_date) {
-    paph <- paph %>% filter(Date >= wk_calcs_start_date)
+get_pau_high_ <- function(paph, pau_start_date) {
+    paph <- paph %>% filter(Date >= pau_start_date)
     
     # Fail pushbutton input if mean hourly count > 600
     # or std dev hourly count > 9000
@@ -4619,8 +4620,9 @@ get_pau_high_ <- function(paph, wk_calcs_start_date) {
             toohigh_am = TRUE) %>% 
         arrange(SignalID, Detector, CallPhase, Date)
     
-    # Fail pushbutton inputs if between hourly count is > 300 
-    # and exceeds 100 times the hourly count of next highest pushbutton input
+    # Fail pushbutton inputs if there are at least four outlier data points.
+    # An outlier data point is when, for a given hour, the count is > 300 
+    # and exceeds 100 times the count of next highest pushbutton input
     # (if next highest pushbutton input count is 0, use 1 instead)
     print("too high filter (compared to other phases for the same signal)...")
     too_high_nn <- paph %>% 
@@ -4645,6 +4647,137 @@ get_pau_high_ <- function(paph, wk_calcs_start_date) {
 }
 
 get_pau_high <- split_wrapper(get_pau_high_)
+
+
+
+get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_date) {
+    
+    # A pushbutton input (aka "detector") is failed for a given day if:
+    # the streak of days with no actuations is greater that what
+    # would be expected based on the distribution of daily presses
+    # (the probability of that many consecutive zero days is < 0.01)
+    #  - or -
+    # the number of acutations is more than 100 times the 80% percentile
+    # number of daily presses for that pushbutton input
+    # (i.e., it's a [high] outlier for that input)
+    # - or -
+    # between midnight and 6am, there is at least one hour in a day with
+    # at least 300 actuations or at least three hours with over 60
+    # (i.e., it is an outlier based on what would be expected 
+    # for any input in the early morning hours)
+    
+    tic()
+    too_high <- get_pau_high(paph, 200, wk_calcs_start_date)
+    gc()
+    toc()
+    
+    begin_date <- min(papd$Date)
+    
+    corrs <- corridors %>% 
+        group_by(SignalID) %>% 
+        summarize(Asof = min(Asof),
+                  .groups = "drop")
+    
+    ped_config <- lapply(unique(papd$Date), function(d) {
+        get_ped_config(d) %>%
+            mutate(Date = d) %>%
+            filter(SignalID %in% papd$SignalID)
+    }) %>%
+        bind_rows() %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               CallPhase = factor(CallPhase))
+    
+    print("too low filter...")
+    papd <- papd %>% 
+        full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date")) 
+    rm(ped_config)
+    gc()
+    
+    tic()
+    papd <- papd %>%
+        transmute(SignalID = factor(SignalID),
+                  CallPhase = factor(CallPhase),
+                  Detector = factor(Detector),
+                  Date = Date,
+                  Week = week(Date),
+                  DOW = wday(Date),
+                  weekday = DOW %in% c(2,3,4,5,6),
+                  papd = papd) %>%
+        filter(CallPhase != 0) %>% 
+        complete(
+            nesting(SignalID, CallPhase, Detector), 
+            nesting(Date, weekday), 
+            fill = list(papd=0)) %>%
+        arrange(SignalID, Detector, CallPhase, Date) %>%
+        group_by(SignalID, Detector, CallPhase) %>%
+        mutate(
+            streak_id = runner::which_run(papd, which = "last"), 
+            streak_id = ifelse(papd > 0, NA, streak_id)) %>%
+        ungroup() %>%
+        left_join(corrs, by = c("SignalID")) %>%
+        replace_na(list(Asof = begin_date)) %>%
+        filter(Date >= max(ymd(pau_start_date), Asof)) %>%
+        dplyr::select(-Asof) %>%
+        mutate(SignalID = factor(SignalID))
+    toc()
+    
+    tic()
+    #plan(multisession, workers = detectCores()-1)
+    modres <- papd %>%
+        group_by(SignalID, Detector, CallPhase, weekday) %>% 
+        filter(n() > 2) %>%
+        ungroup() %>% 
+        select(-c(Week, DOW, streak_id)) %>%
+        nest(data = c(Date, papd)) %>%
+        mutate(
+            p0 = purrr::map(data, get_gamma_p0)) %>%
+        unnest(p0) %>% 
+        select(-data)
+    toc()
+    
+    pz <- left_join(
+        papd, modres, 
+        by = c("SignalID", "CallPhase", "Detector", "weekday")
+    ) %>% 
+        group_by(SignalID, CallPhase, Detector, streak_id) %>% 
+        mutate(
+            prob_streak = if_else(is.na(streak_id), 1, prod(p0)), 
+            prob_bad = 1 - prob_streak) %>%
+        ungroup() %>%
+        select(SignalID, CallPhase, Detector, Date, problow = prob_bad)
+    
+    print("all filters combined...")
+    pau <- left_join(
+        select(papd, SignalID, CallPhase, Detector, Date, Week, DOW, papd),
+        pz, 
+        by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        mutate(
+            SignalID = as.character(SignalID),
+            Detector = as.character(Detector),
+            CallPhase = as.character(CallPhase),
+            papd
+        ) %>%
+        filter(Date >= wk_calcs_start_date) %>%
+        left_join(too_high, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        replace_na(list(toohigh = FALSE)) %>%
+        
+        transmute(
+            SignalID = factor(SignalID),
+            Detector = factor(Detector),
+            CallPhase = factor(CallPhase),
+            Date = Date,
+            DOW = wday(Date),
+            Week = week(Date),
+            papd = papd,
+            problow = problow,
+            probhigh = as.integer(toohigh),
+            uptime = if_else(problow > 0.99 | toohigh, 0, 1),
+            all = 1)
+    pau
+}
+
+
 
 
 ## Gui's improved function
@@ -5705,3 +5838,35 @@ get_flash_events <- function(conf_athena, start_date, end_date) {
 #     mutate_at(vars(-c(Month, MeanDuration)), as.integer)
 # fam %>% write_csv("flash_averages_by_month_2019.csv")
 # '''
+
+
+
+fitdist_trycatch <- function(x, ...) {
+    tryCatch({
+        fitdist(x, ...)
+    }, error = function(e) {
+        NULL
+    })
+}
+
+pgamma_trycatch <- function(x, ...) {
+    tryCatch({
+        pgamma(x, ...)
+    }, error = function(e) {
+        0
+    })
+}
+
+get_gamma_p0 <- function(df) {
+    tryCatch({
+        if (max(df$papd)==0) {
+            1
+        } else {
+            model <- fitdist(df$papd, "gamma", method = "mme")
+            pgamma(1, shape = model$estimate["shape"], rate = model$estimate[["rate"]])
+        }
+    }, error = function(e) {
+        print(e)
+        1
+    })
+}

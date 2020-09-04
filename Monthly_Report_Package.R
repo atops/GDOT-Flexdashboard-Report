@@ -98,7 +98,7 @@ tryCatch({
     print(e)
 })
 
-# DAILY PEDESTRIAN DETECTOR UPTIME ###############################################
+# DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
 print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
 
@@ -119,7 +119,7 @@ tryCatch({
         parallel = FALSE
     ) %>%
         #replace_na(list(CallPhase = 0)) %>%
-        filter(!is.na(CallPhase)) %>%    # Added 1/14/20 to perhaps exclude non-programmed ped detectors
+        filter(!is.na(CallPhase)) %>%    # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons 
         mutate(
             SignalID = factor(SignalID),
             Detector = factor(Detector),
@@ -144,19 +144,28 @@ tryCatch({
     qsave(papd, "papd.qs")
     qsave(paph, "paph.qs")
     
-    pau <- get_pau(papd, paph, corridors, pau_start_date)
-    
+    pau <- get_pau_gamma(papd, paph, corridors, wk_calcs_start_date, pau_start_date)
+    qsave(pau, "pau.qs")
+ 
     # Remove and replace papd for bad days, similar to filtered_counts.
     # Replace papd with papd averaged over all days in the date range
     # for that signal and pushbutton input (detector)
-    papd <- papd %>% 
-        left_join(
-            select(pau, SignalID, Date, Detector, CallPhase, uptime),
-            by = c("SignalID", "Date", "Detector", "CallPhase")) %>% 
-        mutate(papd = ifelse(uptime == 1, papd, NA)) %>%
-        select(-uptime) %>%
+    papd <- pau %>% 
         group_by(SignalID, Detector, CallPhase) %>% 
-        mutate(papd0 = ifelse(is.na(papd), as.integer(mean(papd, na.rm = TRUE)), papd))
+        mutate(
+            papd = ifelse(uptime == 1, papd, floor(mean(papd)))) %>%
+        ungroup() %>%
+        select(SignalID, Detector, CallPhase, Date, DOW, Week, papd, uptime, all)
+    
+    # papd <- papd %>% 
+    #     filter(Date >= wk_calcs_start_date) %>% 
+    #     left_join(
+    #         select(pau, SignalID, Date, Detector, CallPhase, uptime),
+    #         by = c("SignalID", "Date", "Detector", "CallPhase")) %>% 
+    #     mutate(papd = ifelse(uptime == 1, papd, NA)) %>%
+    #     select(-uptime) %>%
+    #     group_by(SignalID, Detector, CallPhase) %>% 
+    #     mutate(papd0 = ifelse(is.na(papd), as.integer(mean(papd, na.rm = TRUE)), papd))
     
     # We have do to this here rather than in Monthly_Report_Calcs
     # because we need a longer time series to calculate ped detector uptime
@@ -338,18 +347,6 @@ tryCatch({
     
     # -- Alerts: pedestrian detector downtime --
     
-    # bad_ped <- dbGetQuery(conn, sql(glue(paste(
-    #     "select signalid, detector, date", 
-    #     "from {conf$athena$database}.bad_ped_detectors", 
-    #     "where date >='{today() - days(90)}'")))) %>%
-    #     transmute(
-    #         SignalID = factor(signalid),
-    #         Detector = factor(detector),
-    #         Date = date(date)
-    #     ) %>%
-    #     distinct() %>%
-    #     as_tibble() %>%
-        
     bad_ped <- lapply(
         seq(today() - days(90), today() - days(1), by = "1 day"), 
         function(date_) {
@@ -404,7 +401,6 @@ tryCatch({
         bind_rows() %>%
         left_join(cam_config, by = c("CameraID")) %>%
         filter(Date > As_of_Date) %>%
-        #left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
         transmute(
             Zone_Group,
             Zone,
@@ -415,32 +411,7 @@ tryCatch({
             Date, Alert = factor("No Camera Image"),
             Name = factor(Location)
         )
-    
-    # bad_cam <- tbl(conn, sql(glue(paste(
-    #     "select cameraid, date", 
-    #     "from {conf$athena$database}.cctv_uptime",
-    #     "where size = 0")))) %>%
-    #     #filter(size == 0) %>%
-    #     collect() %>%
-    #     transmute(
-    #         CameraID = factor(cameraid),
-    #         Date = date(date)
-    #     ) %>%
-    #     filter(Date > today() - months(9)) %>%
-    #     left_join(cam_config, by = c("CameraID")) %>%
-    #     filter(Date > As_of_Date) %>%
-    #     #left_join(distinct(all_corridors, Zone_Group, Zone, Corridor), by = c("Corridor")) %>%
-    #     transmute(
-    #         Zone_Group, 
-    #         Zone,
-    #         Corridor = factor(Corridor),
-    #         SignalID = factor(CameraID), 
-    #         CallPhase = factor(0), 
-    #         Detector = factor(0),
-    #         Date, Alert = factor("No Camera Image"), 
-    #         Name = factor(Location)
-    #     )
-    
+
     s3write_using(
         bad_cam,
         FUN = write_fst,
