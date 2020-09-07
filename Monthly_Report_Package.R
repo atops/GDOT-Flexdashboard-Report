@@ -100,7 +100,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Detector Uptime [2 of 23]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 23]"))
 
 tryCatch({
 

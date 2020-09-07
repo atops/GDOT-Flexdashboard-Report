@@ -42,6 +42,7 @@ plan(multisession)
 options(dplyr.summarise.inform = FALSE)
 
 fc <- cache_filesystem("~/.cache")
+#fc <- cache_s3("aws-athena-query-results-322643905670-us-east-1")
 
 select <- dplyr::select
 filter <- dplyr::filter
@@ -407,7 +408,6 @@ filter_mr_data_ <- function(df, zone_group_) {
     }
 }
 filter_mr_data <- memoise(filter_mr_data_, cache = fc)
-#filter_mr_data <- cmpfun(filter_mr_data_)
 
 get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
                           zone, mo, qu = NULL) {
@@ -536,7 +536,6 @@ perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
         plotly::config(displayModeBar = F)
 }
 perf_plot_beta <- memoise(perf_plot_beta_, cache = fc)
-#perf_plot_beta <- cmpfun(perf_plot_beta_)
 
 ## ------------ With Goals and Fill Colors ---------------------------------------
 
@@ -902,7 +901,6 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
     )
 }
 get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = fc)
-#get_bar_line_dashboard_plot <- cmpfun(get_bar_line_dashboard_plot_)
 
 get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
                          cor_monthly_pti, cor_monthly_pti_by_hr, 
@@ -1087,7 +1085,6 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
     }
 }
 get_tt_plot <- memoise(get_tt_plot_, cache = fc)
-#get_tt_plot <- cmpfun(get_tt_plot_)
 
 get_pct_ch_plot_ <- function(cor_monthly_vpd,
                              month_,
@@ -1961,7 +1958,6 @@ get_uptime_plot_ <- function(daily_df,
     }
 }
 get_uptime_plot <- memoise(get_uptime_plot_, cache = fc)
-#get_uptime_plot <- cmpfun(get_uptime_plot_)
 
 # No longer used
 plot_cctvs <- function(df, month_) {
