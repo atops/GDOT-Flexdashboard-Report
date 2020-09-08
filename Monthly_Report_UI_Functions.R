@@ -3073,43 +3073,54 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
         
         if (alert_type_ == "Missing Records") {
             
-            plot_df <- df %>%
-                mutate(SignalID2 = SignalID) %>%
-                unite(Name2, SignalID2, Name, sep = ": ") %>%
-                mutate(signal_phase = factor(Name2))
+            plot_df <- df %>% 
+                arrange(
+                    as.integer(as.character(SignalID)), Name) %>%
+                mutate(
+                    signal_phase = paste0(as.character(SignalID), ": ", Name),
+                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                select(-Name)
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
             
         } else if (alert_type_ == "Bad Vehicle Detection" || alert_type_ == "Bad Ped Pushbuttons") {
             
             plot_df <- df %>%
-                mutate(Detector = as.character(Detector)) %>%
-                unite(signal_phase2, Name, Detector, sep = " | det ") %>%
-                
-                mutate(SignalID2 = SignalID) %>%
-                unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
-                mutate(signal_phase = factor(signal_phase))
+                arrange(
+                    as.integer(as.character(SignalID)), 
+                    Name,
+                    as.integer(as.character(Detector))) %>%
+                mutate(
+                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | det ", Detector),
+                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                select(-c(Name, Detector))
             
         } else if (alert_type_ == "No Camera Image") {
             
-            plot_df <- df %>%
-                mutate(SignalID2 = SignalID) %>%
-                unite(signal_phase, SignalID2, Name, sep = ": ") %>% 
-                mutate(signal_phase = factor(signal_phase))
+            plot_df <- df %>% 
+                arrange(
+                    as.integer(as.character(SignalID)), Name) %>%
+                mutate(
+                    signal_phase = paste0(as.character(SignalID), ": ", Name),
+                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                select(-Name)
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
-
+            
         } else { 
             
-            plot_df <- df %>%
-                unite(signal_phase2, Name, CallPhase, sep = " | ph ") %>% # potential problem
-                
-                mutate(SignalID2 = SignalID) %>%
-                unite(signal_phase, SignalID2, signal_phase2, sep = ": ") %>% 
-                mutate(signal_phase = factor(signal_phase))
+            plot_df <- df %>% 
+                arrange(
+                    as.integer(as.character(SignalID)), 
+                    Name,
+                    as.integer(as.character(CallPhase))) %>%
+                mutate(
+                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | ph ", CallPhase),
+                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                select(-Name)
             
             if (alert_type_ != "Count") {
-                table_df <- table_df %>% dplyr::select(-Detector)
+                table_df <- table_df %>% select(-Detector)
             }
         }
         
