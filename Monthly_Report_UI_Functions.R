@@ -88,7 +88,7 @@ RTOP2_ZONES <- c("Zone 4", "Zone 5", "Zone 6", "Zone 7m", "Zone 7d")
 metric.order <- c("du", "pau", "cctvu", "cu", "tp", "aog", "qs", "sf", "tti", "pti", "tasks")
 metric.names <- c(
     "Vehicle Detector Availability",
-    "Ped Detector Availability",
+    "Ped Pushbutton Availability",
     "CCTV Availability",
     "Communications Uptime",
     "Traffic Volume (Throughput)",
@@ -3080,7 +3080,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
             
-        } else if (alert_type_ == "Bad Vehicle Detection" || alert_type_ == "Bad Ped Detection") {
+        } else if (alert_type_ == "Bad Vehicle Detection" || alert_type_ == "Bad Ped Pushbuttons") {
             
             plot_df <- df %>%
                 mutate(Detector = as.character(Detector)) %>%

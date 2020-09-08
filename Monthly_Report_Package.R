@@ -372,14 +372,14 @@ tryCatch({
                   SignalID = factor(SignalID),
                   Detector = factor(Detector),
                   Date,
-                  Alert = factor("Bad Ped Detection"),
+                  Alert = factor("Bad Ped Pushbuttons"),
                   Name = factor(Name)
         )
     
     s3write_using(
         bad_ped,
         FUN = write_fst,
-        object = "mark/watchdog/bad_ped_detectors.fst",
+        object = "mark/watchdog/bad_ped_pushbuttons.fst",
         bucket = conf$bucket)
     rm(bad_ped)
     

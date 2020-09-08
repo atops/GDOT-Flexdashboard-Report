@@ -513,7 +513,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 renderValueBox({
@@ -926,7 +926,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 
@@ -1732,7 +1732,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
@@ -2630,7 +2630,7 @@ div(
             "alert_type", "Alert:",
             choices = c("No Camera Image",
                         "Bad Vehicle Detection",
-                        "Bad Ped Detection",
+                        "Bad Ped Pushbuttons",
                         "Pedestrian Activations",
                         "Force Offs",
                         "Max Outs",
@@ -2650,7 +2650,7 @@ div(
             (input.alert_type == 'Max Outs') ||
             (input.alert_type == 'Count') ||
             (input.alert_type == 'Bad Vehicle Detection') ||
-            (input.alert_type == 'Bad Ped Detection')",
+            (input.alert_type == 'Bad Ped Pushbuttons')",
             selectInput("phase.eight", "Phase:",
                         choices = c("All", seq_len(8)),
                         selected = "All")),
