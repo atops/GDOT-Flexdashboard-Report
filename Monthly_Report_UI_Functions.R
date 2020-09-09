@@ -41,7 +41,7 @@ plan(multisession)
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
 
-fc <- cache_filesystem("~/.cache")
+#fc <- cache_filesystem("~/.cache")
 #fc <- cache_s3("aws-athena-query-results-322643905670-us-east-1")
 
 select <- dplyr::select
@@ -350,7 +350,7 @@ read_zipped_feather <- function(x) {
 }
 
 # Hyperlinks for Progress Reports
-get_progress_report_link_ <- function(corr, current_month_, rtop_) {
+get_progress_report_link <- function(corr, current_month_, rtop_) {
     
     yyyy <- format(current_month_, "%Y")
     mm <- format(current_month_, "%m")
@@ -362,10 +362,10 @@ get_progress_report_link_ <- function(corr, current_month_, rtop_) {
            target = "_blank",
            corr)
 }
-get_progress_report_link <- memoise(get_progress_report_link_, cache = fc)
+#get_progress_report_link <- memoise(get_progress_report_link_, cache = fc)
 
 # Hyperlinks for Progress Reports by Zone (February 2019 and later)
-get_progress_report_link_by_zone_ <- function(zone_, current_month_, rtop_) {
+get_progress_report_link_by_zone <- function(zone_, current_month_, rtop_) {
     
     yyyy <- format(current_month_, "%Y")
     mm <- format(current_month_, "%m")
@@ -377,12 +377,12 @@ get_progress_report_link_by_zone_ <- function(zone_, current_month_, rtop_) {
            target = "_blank",
            zone_)
 }
-get_progress_report_link_by_zone <- memoise(get_progress_report_link_by_zone_, cache = fc)
+#get_progress_report_link_by_zone <- memoise(get_progress_report_link_by_zone_, cache = fc)
 
 
 
 # Filter for zone_group and zone
-filter_mr_data_ <- function(df, zone_group_) {
+filter_mr_data <- function(df, zone_group_) {
     if (zone_group_ == "All RTOP") {
        df %>% 
             filter(Zone_Group %in% c(RTOP1_ZONES, RTOP2_ZONES, "RTOP1", "RTOP2", "All RTOP"),
@@ -407,9 +407,9 @@ filter_mr_data_ <- function(df, zone_group_) {
             filter(Zone_Group == zone_group_)
     }
 }
-filter_mr_data <- memoise(filter_mr_data_, cache = fc)
+#filter_mr_data <- memoise(filter_mr_data_, cache = fc)
 
-get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
+get_valuebox <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
                           zone, mo, qu = NULL) {
 
     if (is.null(qu)) { # want monthly, not quarterly data
@@ -439,11 +439,11 @@ get_valuebox_ <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE,
         )))
     }
 }
-get_valuebox <- memoise(get_valuebox_, cache = fc)
+#get_valuebox <- memoise(get_valuebox_, cache = fc)
 
 
 
-perf_plot_no_data_ <- function(name_) {
+perf_plot_no_data <- function(name_) {
     
     ax <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
     ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
@@ -464,11 +464,11 @@ perf_plot_no_data_ <- function(name_) {
                              r = 40)) %>% 
         plotly::config(displayModeBar = F)
 }
-perf_plot_no_data <- memoise(perf_plot_no_data_, cache = fc)
+#perf_plot_no_data <- memoise(perf_plot_no_data_, cache = fc)
 
 
 ## ------------ With Goals and Fill Colors ---------------------------------------
-perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
+perf_plot_beta <- function(data_, value_, name_, color_, fill_color_,
                        format_func = function(x) {x},
                        hoverformat_ = ",.0f",
                        goal_ = NULL) {
@@ -535,12 +535,12 @@ perf_plot_beta_ <- function(data_, value_, name_, color_, fill_color_,
                              b = 10)) %>%
         plotly::config(displayModeBar = F)
 }
-perf_plot_beta <- memoise(perf_plot_beta_, cache = fc)
+#perf_plot_beta <- memoise(perf_plot_beta_, cache = fc)
 
 ## ------------ With Goals and Fill Colors ---------------------------------------
 
 
-perf_plot_ <- function(data_, value_, name_, color_,
+perf_plot <- function(data_, value_, name_, color_,
                       format_func = function(x) {x},
                       hoverformat_ = ",.0f",
                       goal_ = NULL) {
@@ -602,7 +602,7 @@ perf_plot_ <- function(data_, value_, name_, color_,
                              r = 40)) %>%
         plotly::config(displayModeBar = F)
 }
-perf_plot <- memoise(perf_plot_, cache = fc)
+#perf_plot <- memoise(perf_plot_, cache = fc)
 
 
 get_perf_plot_updates <- function(data.set, var_, name_, color_, 
@@ -674,7 +674,7 @@ get_perf_plot_updates <- function(data.set, var_, name_, color_,
 }
 
 
-no_data_plot_ <- function(name_) {
+no_data_plot <- function(name_) {
     
     ax <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
     ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
@@ -703,14 +703,14 @@ no_data_plot_ <- function(name_) {
         plotly::config(displayModeBar = F)
     
 }
-no_data_plot <- memoise(no_data_plot_, cache = fc)
+#no_data_plot <- memoise(no_data_plot_, cache = fc)
 
 # Empty plot - space filler
 x0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
 p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis = x0)
 
 
-get_bar_line_dashboard_plot_ <- function(cor_weekly, 
+get_bar_line_dashboard_plot <- function(cor_weekly, 
                                          cor_monthly, 
                                          cor_hourly = NULL, 
                                          var_,
@@ -900,9 +900,9 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         no_data_plot("")
     )
 }
-get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = fc)
+#get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = fc)
 
-get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
+get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
                          cor_monthly_pti, cor_monthly_pti_by_hr, 
                          highlight_color = RED2,
                          month_,
@@ -1084,9 +1084,9 @@ get_tt_plot_ <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         no_data_plot("")
     }
 }
-get_tt_plot <- memoise(get_tt_plot_, cache = fc)
+#get_tt_plot <- memoise(get_tt_plot_, cache = fc)
 
-get_pct_ch_plot_ <- function(cor_monthly_vpd,
+get_pct_ch_plot <- function(cor_monthly_vpd,
                              month_,
                              zone_group_) {
     pl <- function(df) { 
@@ -1137,9 +1137,9 @@ get_pct_ch_plot_ <- function(cor_monthly_vpd,
         no_data_plot("")
     }
 }
-get_pct_ch_plot <- memoise(get_pct_ch_plot_, cache = fc)
+#get_pct_ch_plot <- memoise(get_pct_ch_plot_, cache = fc)
 
-get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle, 
+get_vph_peak_plot <- function(df, chart_title, bar_subtitle, 
                                month_ = current_month(), zone_group_ = zone_group()) {
     
     df <- filter_mr_data(df, zone_group_)
@@ -1196,9 +1196,9 @@ get_vph_peak_plot_ <- function(df, chart_title, bar_subtitle,
         no_data_plot("")
     }
 }
-get_vph_peak_plot <- memoise(get_vph_peak_plot_, cache = fc)
+#get_vph_peak_plot <- memoise(get_vph_peak_plot_, cache = fc)
 
-get_minmax_hourly_plot_ <- function(cor_monthly_vph, 
+get_minmax_hourly_plot <- function(cor_monthly_vph, 
                                     month_ = current_month(), 
                                     zone_group_ = zone_group()) {
     
@@ -1273,10 +1273,10 @@ get_minmax_hourly_plot_ <- function(cor_monthly_vph,
         no_data_plot("")
     }
 }
-get_minmax_hourly_plot <- memoise(get_minmax_hourly_plot_, cache = fc)
+#get_minmax_hourly_plot <- memoise(get_minmax_hourly_plot_, cache = fc)
 
 
-det_uptime_bar_plot_ <- function(df, xtitle, month_) {
+det_uptime_bar_plot <- function(df, xtitle, month_) {
     
     data = df %>%
         dplyr::filter(month(X)==month_) %>%
@@ -1312,10 +1312,10 @@ det_uptime_bar_plot_ <- function(df, xtitle, month_) {
             plot_bgcolor = "#f0f0f0"
         )
 }
-det_uptime_bar_plot <- memoise(det_uptime_bar_plot_, cache = fc)
+#det_uptime_bar_plot <- memoise(det_uptime_bar_plot_, cache = fc)
 
 # Subplots
-det_uptime_line_plot_ <- function(df, corr, showlegend_) {
+det_uptime_line_plot <- function(df, corr, showlegend_) {
     
     plot_ly(data = df) %>%
         add_lines(x = ~X,
@@ -1346,9 +1346,9 @@ det_uptime_line_plot_ <- function(df, corr, showlegend_) {
                                   showarrow = FALSE),
                plot_bgcolor = "#ffffff")
 }
-det_uptime_line_plot <- memoise(det_uptime_line_plot_, cache = fc)
+#det_uptime_line_plot <- memoise(det_uptime_line_plot_, cache = fc)
 
-get_cor_det_uptime_plot_ <- function(avg_daily_uptime, 
+get_cor_det_uptime_plot <- function(avg_daily_uptime, 
                                      avg_monthly_uptime,
                                      month_,
                                      zone_group_,
@@ -1461,9 +1461,9 @@ get_cor_det_uptime_plot_ <- function(avg_daily_uptime,
         no_data_plot("")
     }
 }
-get_cor_det_uptime_plot <- memoise(get_cor_det_uptime_plot_, cache = fc)
+#get_cor_det_uptime_plot <- memoise(get_cor_det_uptime_plot_, cache = fc)
 
-get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
+get_cor_comm_uptime_plot <- function(avg_daily_uptime,
                                       avg_monthly_uptime,
                                       month_,
                                       zone_group_,
@@ -1568,7 +1568,7 @@ get_cor_comm_uptime_plot_ <- function(avg_daily_uptime,
         no_data_plot("")
     }
 }
-get_cor_comm_uptime_plot <- memoise(get_cor_comm_uptime_plot_, cache = fc)
+#get_cor_comm_uptime_plot <- memoise(get_cor_comm_uptime_plot_, cache = fc)
 
 # Reshape to show multiple on the same chart
 gather_outstanding_events <- function(cor_monthly_events) {
@@ -1579,7 +1579,7 @@ gather_outstanding_events <- function(cor_monthly_events) {
         gather(Events, Status, -c(Month, Corridor, Zone_Group))
 }
 
-plot_teams_tasks_ <- function(tab, var_,
+plot_teams_tasks <- function(tab, var_,
                               title_ = "", textpos = "auto", height_ = 300) { #
     
     var_ <- as.name(var_)
@@ -1638,9 +1638,9 @@ plot_teams_tasks_ <- function(tab, var_,
         #layout(title = title_, titlefont = list(size = 12))
         layout(title = list(text = title_, font = list(size = 12)))
 }
-plot_teams_tasks <- memoise(plot_teams_tasks_, cache = fc)
+#plot_teams_tasks <- memoise(plot_teams_tasks_, cache = fc)
 
-plot_tasks_ <- function(type_plot, source_plot, priority_plot, 
+plot_tasks <- function(type_plot, source_plot, priority_plot, 
                         month_name = input$month) {
     
     p1 <- subplot(type_plot, source_plot, priority_plot, 
@@ -1691,10 +1691,10 @@ plot_tasks_ <- function(type_plot, source_plot, priority_plot,
     
     subplot(p1, p2, nrows = 1, margin = 0.1)
 }
-plot_tasks <- memoise(plot_tasks_, cache = fc)
+#plot_tasks <- memoise(plot_tasks_, cache = fc)
 
 # Number reported and resolved in each month. Side-by-side.
-cum_events_plot_ <- function(df) {
+cum_events_plot <- function(df) {
     plot_ly(height = 300) %>%
         add_bars(data = filter(df, Events == "Reported"),
                  x = ~Month,
@@ -1724,11 +1724,11 @@ cum_events_plot_ <- function(df) {
                xaxis = list(title = ""),
                legend = list(x = 0.5, y = 0.9, orientation = "h"))
 }
-cum_events_plot <- memoise(cum_events_plot_, cache = fc)
+#cum_events_plot <- memoise(cum_events_plot_, cache = fc)
 
 
 
-# plot_individual_cctvs_ <- function(daily_cctv_df, 
+# plot_individual_cctvs <- function(daily_cctv_df, 
 #                                    month_ = current_month(), 
 #                                    zone_group_ = zone_group()) {
 #     
@@ -1762,7 +1762,7 @@ cum_events_plot <- memoise(cum_events_plot_, cache = fc)
 #                             title = ""),
 #                margin = list(l = 150))
 # }
-plot_individual_cctvs_ <- function(daily_cctv_df, 
+plot_individual_cctvs <- function(daily_cctv_df, 
                                    month_ = current_month(), 
                                    zone_group_ = zone_group()) {
     
@@ -1807,7 +1807,7 @@ plot_individual_cctvs_ <- function(daily_cctv_df,
                             title = ""),
                margin = list(l = 150))
 }
-plot_individual_cctvs <- memoise(plot_individual_cctvs_, cache = fc)
+#plot_individual_cctvs <- memoise(plot_individual_cctvs_, cache = fc)
 
 
 
@@ -1869,7 +1869,7 @@ uptime_heatmap <- function(df_,
 }
 
 
-get_uptime_plot_ <- function(daily_df,
+get_uptime_plot <- function(daily_df,
                              monthly_df,
                              var_,
                              num_format, # percent, integer, decimal
@@ -1957,7 +1957,7 @@ get_uptime_plot_ <- function(daily_df,
         no_data_plot("")
     }
 }
-get_uptime_plot <- memoise(get_uptime_plot_, cache = fc)
+#get_uptime_plot <- memoise(get_uptime_plot_, cache = fc)
 
 # No longer used
 plot_cctvs <- function(df, month_) {
@@ -2203,7 +2203,7 @@ volplot_plotly2_older <- function(db, signalid, plot_start_date, plot_end_date, 
                    type = 'date'))
 }
 
-volplot_plotly2_ <- function(dbpool_, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
+volplot_plotly2 <- function(dbpool_, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
     # db is either conf$athena (list) or aurora (Pool)
     
     if (is.null(ymax)) {
@@ -2389,7 +2389,7 @@ volplot_plotly2_ <- function(dbpool_, signalid, plot_start_date, plot_end_date, 
     })
     
 }
-volplot_plotly2 <- memoise(volplot_plotly2_, cache = fc)
+#volplot_plotly2 <- memoise(volplot_plotly2_, cache = fc)
 
 
 udcplot_plotly <- function(hourly_udc) {
@@ -3347,7 +3347,7 @@ reconstitute <- function(df, col_name) {
 }
 
 
-m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL, zone_group = NULL) {
+m1dynq <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL, zone_group = NULL) {
     cid <- glue("{res}-{per}-{tab}")
     
     if (class(start_date) == "Date") {
@@ -3381,9 +3381,9 @@ m1dynq_ <- function(res, per, tab, start_date, end_date = NULL, corridor = NULL,
     
     df
 }
-m1dynq <- memoise(m1dynq_)
+#m1dynq <- memoise(m1dynq_)
 
-rds_vb_query_ <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
+rds_vb_query <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
     
     table <- glue("{mr}_{per}_{tab}")
     df <- tbl(conn, table)
@@ -3400,9 +3400,9 @@ rds_vb_query_ <- function(mr, per, tab, zone_group, current_month = NULL, curren
             collect()
     }
 }
-rds_vb_query <- memoise(rds_vb_query_)
+#rds_vb_query <- memoise(rds_vb_query_)
 
-rds_pp_query_ <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
+rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
     
     table <- glue("{mr}_{per}_{tab}")
     df <- tbl(conn, table)
@@ -3441,7 +3441,7 @@ rds_pp_query_ <- function(mr, per, tab, first_month, current_month, zone_group =
     }
     df
 }
-rds_pp_query <- memoise(rds_pp_query_)
+#rds_pp_query <- memoise(rds_pp_query_)
 
 
 
