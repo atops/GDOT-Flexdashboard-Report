@@ -500,7 +500,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 renderValueBox({
@@ -913,7 +913,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 
@@ -1719,7 +1719,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbotton Availability {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({

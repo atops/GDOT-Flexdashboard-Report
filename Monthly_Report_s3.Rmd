@@ -515,7 +515,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 renderValueBox({
@@ -928,7 +928,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
 
@@ -1791,7 +1791,7 @@ renderValueBox({
 })
 ```
 
-### Pedestrian Detector Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r, warning = FALSE}
 renderValueBox({
@@ -2223,45 +2223,6 @@ fillRow(
 
 
 
-### RTOP Activity Logs
-
-
-#### **Download TSOS Monthly Reports (docx)**
-
-`r lapply(rev(report_months[report_months >= '2018-01-01']), function(d) {
-    Month_yyyy <- format(d, "%B %Y")
-    yyyy_mm <- format(d, "%Y-%m")
-    glue("[{Month_yyyy}](https://s3.amazonaws.com/gdot-spm/tsos_reports/TSOS+Monthly+Meeting+Report+-+{yyyy_mm}.docx)")
-}) %>% paste(collapse = " | ")`
-
-
-#### **Download Traffic Engineers' Activity Reports (pdf)**
-
-```{r}
-zone_links2 <- function(corrs_, current_month_, rtop_) {
-    lapply(corrs_, function(corr) {
-        yyyy <- format(current_month_, "%Y")
-        mm <- format(current_month_, "%m")
-
-        corr_plus <- paste(yyyy, mm, gsub("/", "-", corr))
-        corr_plus <- gsub(" ", "+", corr_plus)
-        glue("[{corr}]({AWS_BUCKET}/{rtop_}/{yyyy}-{mm}/{corr_plus}.pdf)")
-    }) %>% paste(collapse = " | ")
-}
-zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"), current_month(), "RTOP1"))
-```
-
-
-**February 2019 and later**
-
-`r renderUI({get_progress_report_link_by_zone("Zone 1", current_month(), "RTOP1")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 2", current_month(), "RTOP1")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 3", current_month(), "RTOP1")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 4", current_month(), "RTOP2")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 5", current_month(), "RTOP2")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 6", current_month(), "RTOP2")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 7", current_month(), "RTOP2")})` |
-`r renderUI({get_progress_report_link_by_zone("Zone 8", current_month(), "RTOP1")})`
 
 
 ### Zone Performance Summaries
@@ -2269,17 +2230,23 @@ zl <- reactive(zone_links2(c("SR 13/42/155", "SR 141S", "SR 237", "SR 9-Atlanta"
 ```{r Summary Table, eval = TRUE}
 
 corridor_summary_table <- reactive({
-    get_corridor_summary_table(cor$summary_data, current_month(), input$zone_group)
+    if (startsWith(zone_group(), "Zone")) {
+        get_corridor_summary_table(cor$summary_data, current_month(), input$zone_group)
+    } else {
+        data.frame()
+    }
 })
 
-output$corridor_summary_table <- renderFormattable({
-            shiny::validate(need(corridor_summary_table(),
-                          "Select a Zone for the Metrics Summary Table"))
+   #corridor_summary_table(),
+tags$div(class = "corridor_summary_table",
+    fillRow(
+        renderFormattable({
+            shiny::validate(
+                need(startsWith(input$zone_group, "Zone"),
+                     "Select a Zone for the Metrics Summary Table"))
             corridor_summary_table()
         })
-
-fillRow(
-    formattableOutput("corridor_summary_table")
+    )
 )
 fillRow(
     renderUI({
@@ -2746,7 +2713,7 @@ div(
             "alert_type", "Alert:",
             choices = c("No Camera Image",
                         "Bad Vehicle Detection",
-                        "Bad Ped Detection",
+                        "Bad Ped Pushbuttons",
                         "Pedestrian Activations",
                         "Force Offs",
                         "Max Outs",
@@ -2766,7 +2733,7 @@ div(
             (input.alert_type == 'Max Outs') ||
             (input.alert_type == 'Count') ||
             (input.alert_type == 'Bad Vehicle Detection') ||
-            (input.alert_type == 'Bad Ped Detection')",
+            (input.alert_type == 'Bad Ped Pushbuttons')",
             selectInput("phase.eight", "Phase:",
                         choices = c("All", seq_len(8)),
                         selected = "All")),
@@ -2987,12 +2954,39 @@ shinyApp(
         
         output$MapPlot1 <- renderLeaflet({
             
+            format_ <- value_format(value())
+                
+            pal <- colorBin(
+                palette = "YlGnBu",
+                domain = data()[[value()]],
+                bins = 5,
+                pretty = TRUE)
+            
             leaflet() %>%
                 addProviderTiles(providers$CartoDB.Positron) %>%
                 setView(
                     lat = 33.7995454, 
                     lng = -84.3729367, 
-                    zoom = 12) 
+                    zoom = 12) %>% 
+                addCircleMarkers(
+                    data = data(),
+                    lng = ~Longitude,
+                    lat = ~Latitude,
+                    popup = paste(
+                        sep = "<br/>",
+                        glue("<b>Signal: {data()$SignalID}</b> | {data()$Name}"),
+                        glue("<b>{value()}:</b> {format_(data()[[value()]])}")),
+                    radius = 5,
+                    fillColor = pal(data()[[value()]]),
+                    stroke = FALSE,
+                    fillOpacity = 1,
+                    group = "the_group") %>%
+                addLegend(
+                    position = "topright", 
+                    pal = pal, 
+                    values = data()[[value()]],
+                    title = input$metric_input,
+                    opacity = 1)
         })
         
         MapPlot1_proxy <- leafletProxy("MapPlot1")
