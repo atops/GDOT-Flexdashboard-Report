@@ -3106,7 +3106,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                 select(-Name)
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
-            
+
         } else { 
             
             plot_df <- df %>% 
