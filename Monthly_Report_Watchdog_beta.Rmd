@@ -40,17 +40,17 @@ source("Monthly_Report_UI_Functions.R")
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
 
-# alerts %<-% (aws.s3::s3read_using(
-#     qs::qread,
-#     object = "mark/watchdog_new/alerts.qs", 
-#     bucket = "gdot-spm",
-#     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-#                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)) %>% 
+alerts <- aws.s3::s3read_using(
+    qs::qread,
+    object = "mark/watchdog_new/alerts.qs",
+    bucket = "gdot-spm",
+    opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
+                secret = aws_conf$AWS_SECRET_ACCESS_KEY)) #%>%
 #         filter(!SignalID %in% c(9801, 9970, 9825, 9855))) # Temporary until the config can be sorted out
 
 
-load(file = "filter_alerts.rda")
-load(file = "plot_alerts.rds")
+#load(file = "filter_alerts.rda")
+#load(file = "plot_alerts.rds")
 
 
 ```
