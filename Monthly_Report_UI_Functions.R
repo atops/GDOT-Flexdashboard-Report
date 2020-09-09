@@ -3077,8 +3077,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                 arrange(
                     as.integer(as.character(SignalID)), Name) %>%
                 mutate(
-                    signal_phase = paste0(as.character(SignalID), ": ", Name),
-                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                    signal_phase = paste0(as.character(SignalID), ": ", Name)) %>%
                 select(-Name)
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
@@ -3091,8 +3090,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                     Name,
                     as.integer(as.character(Detector))) %>%
                 mutate(
-                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | det ", Detector),
-                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | det ", Detector)) %>%
                 select(-c(Name, Detector))
             
         } else if (alert_type_ == "No Camera Image") {
@@ -3101,8 +3099,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                 arrange(
                     as.integer(as.character(SignalID)), Name) %>%
                 mutate(
-                    signal_phase = paste0(as.character(SignalID), ": ", Name),
-                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                    signal_phase = paste0(as.character(SignalID), ": ", Name)) %>%
                 select(-Name)
             
             table_df <- table_df %>% select(-c(CallPhase, Detector))
@@ -3115,8 +3112,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                     Name,
                     as.integer(as.character(CallPhase))) %>%
                 mutate(
-                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | ph ", CallPhase),
-                    signal_phase = factor(signal_phase, levels = unique(signal_phase))) %>%
+                    signal_phase = paste0(as.character(SignalID), ": ", Name, " | ph ", CallPhase)) %>%
                 select(-Name)
             
             if (alert_type_ != "Count") {
@@ -3129,8 +3125,8 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
                 Zone_Group == "Ramp Meters",
                 stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
                 as.character(signal_phase))) %>%
-            mutate(signal_phase = factor(signal_phase))
-        
+            mutate(signal_phase = ordered(signal_phase, levels = unique(signal_phase)))
+
         # if (Zone_Group == "Ramp Meters") {
         #     table_df <- 
         #         
