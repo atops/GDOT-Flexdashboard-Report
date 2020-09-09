@@ -2554,16 +2554,9 @@ filtered_alerts <- reactive({
 
 output$alerts_plot <- renderPlot({
 
-    dataset <- filtered_alerts()
+    plot_df <- filtered_alerts()$plot
 
-    if (nrow(dataset$plot) > 0) {
-
-        plot_df <- dataset$plot %>%
-            mutate(signal_phase = if_else(
-                Zone_Group == "Ramp Meters",
-                stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
-                as.character(signal_phase))) %>%
-            mutate(signal_phase = factor(signal_phase))
+    if (nrow(plot_df) > 0) {
 
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
@@ -2597,7 +2590,7 @@ div(
             "alert_type", "Alert:",
             choices = c("No Camera Image",
                         "Bad Vehicle Detection",
-                        "Bad Ped Detection",
+                        "Bad Ped Pushbuttons",
                         "Pedestrian Activations",
                         "Force Offs",
                         "Max Outs",
@@ -2617,7 +2610,7 @@ div(
             (input.alert_type == 'Max Outs') ||
             (input.alert_type == 'Count') ||
             (input.alert_type == 'Bad Vehicle Detection') ||
-            (input.alert_type == 'Bad Ped Detection')",
+            (input.alert_type == 'Bad Ped Pushbuttons')",
             selectInput("phase.eight", "Phase:",
                         choices = c("All", seq_len(8)),
                         selected = "All")),

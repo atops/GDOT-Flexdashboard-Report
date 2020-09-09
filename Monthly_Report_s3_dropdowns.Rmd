@@ -2589,16 +2589,9 @@ filtered_alerts <- reactive({
 
 output$alerts_plot <- renderPlot({
 
-    dataset <- filtered_alerts()
+    plot_df <- filtered_alerts()$plot
 
-    if (nrow(dataset$plot) > 0) {
-
-        plot_df <- dataset$plot %>%
-            mutate(signal_phase = if_else(
-                Zone_Group == "Ramp Meters",
-                stringr::str_replace(signal_phase, " \\| ", glue(" | {ApproachDesc} | ")),
-                as.character(signal_phase))) %>%
-            mutate(signal_phase = factor(signal_phase))
+    if (nrow(plot_df) > 0) {
 
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
