@@ -199,50 +199,11 @@ poll_interval <- 1000*3600 # 3600 seconds = 1 hour
 
 if (conf$mode == "production") {
     
-    # corridors %<-% read_feather("all_corridors.feather")
-    # cor <- readRDS("cor.rds")
-    # sig %<-% readRDS("sig.rds")
-    # sub %<-% readRDS("sub.rds")
-    # teams_tables %<-% readRDS("teams_tables.rds")
+    # Do nothing. Files are read in .Rmd file
     
 } else if (conf$mode == "beta") {
     
-    
-    # corridors %<-% aws.s3::s3read_using(
-    #     read_feather, 
-    #     object = sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3)), 
-    #     bucket = "gdot-spm",
-    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-    # cor %<-% aws.s3::s3read_using(
-    #     qs::qread,
-    #     object = "cor_ec2.qs", 
-    #     bucket = "gdot-spm",
-    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-    # sig %<-% aws.s3::s3read_using(
-    #     qs::qread,
-    #     object = "sig_ec2.qs", 
-    #     bucket = "gdot-spm",
-    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-    # sub %<-% aws.s3::s3read_using(
-    #     qs::qread,
-    #     object = "sub_ec2.qs", 
-    #     bucket = "gdot-spm",
-    #     opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-    #                 secret = aws_conf$AWS_SECRET_ACCESS_KEY))
-
     corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
-    #corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
-    #corridors <- reactivePoll(poll_interval, session = NULL,
-    #    checkFunc = s3checkFunc(conf$bucket, corridors_key),
-    #    valueFunc = function() {aws.s3::s3read_using(
-    #        read_feather, 
-    #        object = corridors_key, 
-    #        bucket = conf$bucket,
-    #        opts = list(key = aws_conf$AWS_ACCESS_KEY_ID,
-    #        secret = aws_conf$AWS_SECRET_ACCESS_KEY))})
     corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
 
     cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
@@ -1728,40 +1689,6 @@ cum_events_plot <- function(df) {
 
 
 
-# plot_individual_cctvs <- function(daily_cctv_df, 
-#                                    month_ = current_month(), 
-#                                    zone_group_ = zone_group()) {
-#     
-#     #df <- filter(daily_cctv_df, Date < month_ + months(1))
-#     #df <- filter(df, Zone_Group == zone_group_)
-#     
-#     spr <- daily_cctv_df %>%
-#         filter(Date < month_ + months(1),
-#                Zone_Group == zone_group_, 
-#                Corridor != Zone_Group) %>% 
-#         rename(CameraID = Corridor, 
-#                Corridor = Zone_Group) %>%
-#         dplyr::select(-c(num, uptime, Corridor, Name, delta, Week)) %>% 
-#         distinct() %>% 
-#         spread(Date, up, fill = 0) %>%
-#         arrange(desc(CameraID))
-#     
-#     m <- as.matrix(spr %>% dplyr::select(-CameraID))
-#     row.names(m) <- spr$CameraID
-#     m <- round(m,0)
-#     
-#     plot_ly(x = colnames(m), 
-#             y = row.names(m), 
-#             z = m, 
-#             colors = c(LIGHT_GRAY_BAR, BROWN),
-#             type = "heatmap",
-#             #xgap = 1,
-#             ygap = 1,
-#             showscale = FALSE) %>% 
-#         layout(yaxis = list(type = "category",
-#                             title = ""),
-#                margin = list(l = 150))
-# }
 plot_individual_cctvs <- function(daily_cctv_df, 
                                    month_ = current_month(), 
                                    zone_group_ = zone_group()) {
@@ -1772,7 +1699,6 @@ plot_individual_cctvs <- function(daily_cctv_df,
                as.character(Corridor) != as.character(Zone_Group)) %>% 
         rename(CameraID = Corridor, 
                Corridor = Zone_Group) %>%
-        #dplyr::select(-c(up_511, up_enc, num, uptime, Corridor, Name, delta, Week)) %>% 
         dplyr::select(CameraID, Description, Date, up) %>%
         distinct() %>% 
         spread(Date, up, fill = 0) %>%
@@ -3685,10 +3611,6 @@ create_zm_prog_rep_content_df <- function(cor) {
     df = expand_grid(df, months) %>%
         rename(Month = months)
     df
-    #df <- expand.grid(zones, months) %>% 
-    #    rename(Zone = Var1, Month = Var2) %>%
-    #    mutate(Report = content)
-    #df
 }
 
 
