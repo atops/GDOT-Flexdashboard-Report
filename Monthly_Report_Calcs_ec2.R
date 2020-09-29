@@ -85,6 +85,11 @@ aws.s3::put_object(
 signals_list <- unique(corridors$SignalID)
 
 
+# Most recent detector config. Needed for Watchdog Notes, as feather files
+# can't be read from shinyapps.io for some unknown reason.
+get_latest_det_config() %>%
+    s3write_using(qsave, bucket = conf$bucket, object = "ATSPM_Det_Config_Good_Latest.qs")
+
 # -- TMC Codes for Corridors
 # tmc_routes <- get_tmc_routes()
 # write_feather(tmc_routes, "tmc_routes.feather")

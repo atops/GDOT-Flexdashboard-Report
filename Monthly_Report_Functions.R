@@ -65,9 +65,9 @@ if (Sys.info()["sysname"] == "Windows") {
     stop("Unknown operating system.")
 }
 
-use_python(python_path)
+#use_python(python_path)
 
-pqlib <- reticulate::import_from_path("parquet_lib", path = ".")
+#pqlib <- reticulate::import_from_path("parquet_lib", path = ".")
 
 # Colorbrewer Paired Palette Colors
 LIGHT_BLUE = "#A6CEE3";   BLUE = "#1F78B4"
@@ -5869,4 +5869,38 @@ get_gamma_p0 <- function(df) {
         print(e)
         1
     })
+}
+
+
+
+get_latest_det_config <- function() {
+    
+    date_ <- today(tzone = "America/New_York")
+    
+    # Get most recent detector config file, start with today() and work backward
+    while (TRUE) {
+        x <- aws.s3::get_bucket(
+            bucket = "gdot-devices", 
+            prefix = glue("atspm_det_config_good/date={format(date_, '%F')}"))
+        if (length(x)) {
+            det_config <- s3read_using(arrow::read_feather, 
+                                       bucket = "gdot-devices", 
+                                       object = x$Contents$Key
+            )# %>% 
+                # filter(!is.na(ApproachDesc)) %>%
+                # transmute(
+                #     SignalID = factor(SignalID), 
+                #     Description = paste(trimws(PrimaryName), trimws(SecondaryName), sep = " & "), 
+                #     CallPhase, 
+                #     Detector, 
+                #     ApproachDesc, 
+                #     LaneNumber,
+                #     Type = factor(Name), 
+                #     Selector = paste0(Detector, ": ", ApproachDesc, " Lane ", LaneNumber, "/", Type))
+            break
+        } else {
+            date_ <- date_ - days(1)
+        }
+    }
+    det_config
 }
