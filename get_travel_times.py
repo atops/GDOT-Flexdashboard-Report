@@ -183,9 +183,8 @@ if __name__=='__main__':
     # start_date is either the given day or the first day of the month
     start_date = conf['start_date']
     if start_date == 'yesterday': 
-        #start_date = datetime.today() - timedelta(days=1)
-        start_date = (datetime.now(pytz.timezone('America/New_York')) - timedelta(days=7)).strftime('%Y-%m-%d')
-    # start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
+        start_date = (datetime.now(pytz.timezone('America/New_York')) - timedelta(days=7))
+    start_date = start_date.strftime('%Y-%m-%d')
 
     # end date is either the given date + 1 or today. 
     # end_date is not included in the query results
