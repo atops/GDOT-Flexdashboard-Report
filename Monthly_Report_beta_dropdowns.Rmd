@@ -1,5 +1,7 @@
 ---
-title: "MARK 1 (beta)"
+# ------------------------------
+title: "SigOps Metrics (beta)"
+# ------------------------------
 resource_files:
 - all_Corridors_Latest.qs
 output:
@@ -15,18 +17,11 @@ runtime: shiny
 ---
 
 <style>
-
-#corridor_summary_table .table thead tr th:nth-child(2n+4) {
-    /*color: white;*/
+.corridor_summary_table th:nth-child(2n+4) {
     visibility: hidden;
     font-size:1px;
     width:"50px";
 }
-
-#corridor_summary_table .table thead tr th:nth-child(2) {
-    width:"1000px";
-}
-
 </style>
 
 
