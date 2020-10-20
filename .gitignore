@@ -30,6 +30,7 @@
 *.exe
 *.pyc
 *.db
+*.ipynb
 
 !corridors.feather
 Monthly_Report_AWS.yaml
