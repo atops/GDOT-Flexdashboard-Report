@@ -60,7 +60,7 @@ def etl2(s, date_, det_config):
     #print('{} | {} Starting...'.format(s, date_str))
 
     try:
-        key = 'atspm/date={d}/atspm_{s}_{d}.parquet'.format(s = s, d = date_str)
+        key = f'atspm/date={date_str}/atspm_{s}_{date_str}.parquet'
         df = read_parquet_file('gdot-spm', key)
         
     
@@ -86,16 +86,16 @@ def etl2(s, date_, det_config):
                 #     os.mkdir('../DetectionEvents/' + date_str)
     
     
-                c.to_parquet('s3://gdot-spm-cycles/date={}/cd_{}_{}.parquet'.format(date_str, s, date_str), 
+                c.to_parquet(f's3://gdot-spm-cycles/date={date_str}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
     
-                d.to_parquet('s3://gdot-spm-detections/date={}/de_{}_{}.parquet'.format(date_str, s, date_str), 
+                d.to_parquet(f's3://gdot-spm-detections/date={date_str}/de_{s}_{date_str}.parquet', 
                              allow_truncated_timestamps=True)
     
     
                 print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
             else:
-                print('{}: No cycles'.format(s))
+                print(f'{date_str} | {s} | No cycles')
         
     
     except Exception as e:
@@ -144,7 +144,8 @@ def main(start_date, end_date):
         with io.BytesIO() as data:
             s3.download_fileobj(
                 Bucket='gdot-devices', 
-                Key='atspm_det_config_good/date={}/ATSPM_Det_Config_Good.feather'.format(date_str), Fileobj=data)
+                Key=f'atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather',
+                Fileobj=data)
 
             det_config_raw = feather.read_dataframe(data)\
                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
@@ -153,7 +154,7 @@ def main(start_date, end_date):
 
         try:
             bad_detectors = pd.read_parquet(
-                's3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'.format(d = date_str))\
+                f's3://gdot-spm/mark/bad_detectors/date={date_str}/bad_detectors_{date_str}.parquet')\
                         .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                         .assign(Detector = lambda x: x.Detector.astype('int64'))
 
@@ -198,7 +199,7 @@ def main(start_date, end_date):
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         
-    print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len(dates), int((time.time()-t0)/60)))
+    print('\n{len(signalids)} signals in {len(dates)} days. Done in {int((time.time()-t0)/60)} minutes')
 
         
     while True:
