@@ -1187,6 +1187,9 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             filtered_counts_1hr <- get_filtered_counts_3stream(
                 counts_1hr, 
                 interval = "1 hour")
+            
+            filtered_counts_1hr <- filtered_counts_hack(filtered_counts_1hr)
+            
             s3_upload_parquet(filtered_counts_1hr, date_, 
                               fn = filtered_counts_1hr_fn, 
                               bucket = bucket,
@@ -1534,6 +1537,25 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
             Month_Hour = Timeperiod - days(day(Timeperiod) - 1),
             Hour = Month_Hour - months(month(Month_Hour) - 1),
             vol = if_else(Good_Day==1, vol, as.double(NA)))
+}
+
+
+filtered_counts_hack <- function(filtered_counts) {
+    
+    # This is an unabashed hack to temporarily deal with one problematic detector
+
+    hack_slice <- (filtered_counts$SignalID == 7242 & filtered_counts$Detector == 23)
+    
+    fc_7242 <- filtered_counts[hack_slice,]
+    replacement_values <- fc_7242 %>% 
+        mutate(vol = ifelse(mean(vol) > 500, NA, vol)) %>% 
+        mutate(Good_Day = ifelse(is.na(vol), 0, 1))
+    
+    
+    filtered_counts[hack_slice, "vol"] <- replacement_values$vol
+    filtered_counts[hack_slice, "Good_Day"] <- replacement_values$Good_Day
+    
+    filtered_counts
 }
 
 # Single threaded

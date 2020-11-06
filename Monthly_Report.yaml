@@ -29,17 +29,17 @@ run:
     etl: TRUE
     arrivals_on_green: TRUE
     queue_spillback: TRUE
-    split_failures: TRUE
     ped_delay: TRUE
+    split_failures: TRUE
 
 
 start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2019-05-01
+report_start_date: 2019-10-01
 report_end_date: yesterday
-calcs_start_date: 2020-05-01
-production_report_end_date: 2020-05-01
+calcs_start_date: auto
+production_report_end_date: 2020-10-01
 
 corridors_filename_s3: Corridors_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx

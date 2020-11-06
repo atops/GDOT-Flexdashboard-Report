@@ -291,6 +291,7 @@ Row
 
 ```{r}
 tp_valuebox <- reactive({
+    print('tp_valuebox - one-month summary')
     valueBox(
         value = get_valuebox(
             mr()$mo$tp, "vph", as_int,
