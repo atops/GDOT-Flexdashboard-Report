@@ -4717,7 +4717,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
         ungroup() %>%
         left_join(corrs, by = c("SignalID")) %>%
         replace_na(list(Asof = begin_date)) %>%
-        filter(Date >= max(ymd(pau_start_date), Asof)) %>%
+        filter(Date >= pmax(ymd(pau_start_date), Asof)) %>%
         dplyr::select(-Asof) %>%
         mutate(SignalID = factor(SignalID))
     toc()
