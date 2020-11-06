@@ -2220,7 +2220,8 @@ tryCatch({
             select(Zone_Group, Corridor, Description, Month, uptime, delta) %>%
             mutate(Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                    Description = factor(Description)),
-        "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors),
+        "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors) %>%
+            select(Zone_Group, Corridor, Month, uptime, delta),
         "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
         "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
         "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
