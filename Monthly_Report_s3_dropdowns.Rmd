@@ -68,7 +68,8 @@ mapdata <- qs::qread("map_data.qs")
 Inputs {.sidebar}
 =====================================
 
-Measurement, Accuracy, and Reliability Kit (MARK 1)
+Performance Measures Dashboard for GDOT's SigOps Program.
+
 
 Past month reports can be viewed back to `r format(first_month, "%B %Y")`.
 

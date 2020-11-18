@@ -151,9 +151,10 @@ tryCatch({
     # Replace papd with papd averaged over all days in the date range
     # for that signal and pushbutton input (detector)
     papd <- pau %>% 
-        group_by(SignalID, Detector, CallPhase) %>% 
+        mutate(papd = ifelse(uptime == 1, papd, NA)) %>%
+        group_by(SignalID, Detector, CallPhase, yr = year(Date), mo = month(Date)) %>% 
         mutate(
-            papd = ifelse(uptime == 1, papd, floor(mean(papd)))) %>%
+            papd = ifelse(uptime == 1, papd, floor(mean(papd, na.rm = TRUE)))) %>%
         ungroup() %>%
         select(SignalID, Detector, CallPhase, Date, DOW, Week, papd, uptime, all)
     
