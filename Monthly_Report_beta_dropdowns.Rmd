@@ -3083,6 +3083,254 @@ fillCol(height = 700,
 
 
 
+Health Metrics
+=====================================
+
+Row {.tabset .tabset-fade data-height=900}
+------------------------------------------
+
+### Maintenance
+
+#### Maintenance Health Summary
+
+```{r Maintenance, warning = FALSE}
+
+checkboxGroupInput(
+    "maintenance_cols_checked",
+    label = NULL,
+    c("Show Scores" = "scores",
+      "Show Metrics" = "metrics"),
+    selected = NULL,  # c("scores", "metrics"),
+    inline = TRUE
+)
+
+maintenance_cols <- list(
+    "all" = c(0:18),
+    "default" = c(0:6), 
+    "scores" = c(7:12), 
+    "metrics" = c(13:18))
+
+observe({
+    
+     # adding these makes sure the hideCols function is run upon change to lhs filters
+    current_month(); input$zone_group; input$corridor_x
+    
+    # columns to show = default (label columns) + columns selected in checkbox
+    maintenance_cols_to_show <- c(
+        maintenance_cols$default, maintenance_cols[input$maintenance_cols_checked]
+        ) %>% 
+        unlist() %>% unname()
+    
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    maint_hide_cols <- setdiff(maintenance_cols$all, maintenance_cols_to_show)
+    
+    dataTableProxy("maintenance_table") %>% 
+        hideCols(maint_hide_cols, reset = TRUE)
+})
+
+
+output$maintenance_table <- renderDT({
+    if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
+        df <- sub$maint
+    } else {
+        df <- sig$maint
+    }
+    print(df)
+    get_monthly_maintenance_health_table(
+        df, current_month(), zone_group(), corridor()) 
+        # input$zone_group, input$corridor_x)  # zone_group(), corridor()
+})
+
+
+fillRow(
+    DTOutput('maintenance_table')
+)
+
+```
+
+### Maintenance Trend
+
+```{r Maintenance Trend, warning = FALSE}
+
+selectInput("maintenance_var", 
+            label = "Maintenance Health Metric:",
+            choices = names(maintenance_sub)[7:19],
+            selected = "Percent Health")
+
+
+hr()
+
+fillRow(
+    renderPlotly(
+        get_bar_line_dashboard_plot(
+            cor_weekly = rename(mr()$mo$maint_plot, Date = Month),  # maint$sub
+            cor_monthly = mr()$mo$maint_plot, 
+            cor_hourly = NULL, 
+            var_ = input$maintenance_var,  #  "Percent Health", 
+            num_format = "percent",
+            highlight_color = GDOT_BLUE, 
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = "x_title",
+            x_line1_title = "x_bar_title",
+            plot_title = "title")
+    )
+)
+
+```
+
+
+### Operations
+
+#### Operations Health Summary
+
+```{r Operations, warning = FALSE}
+
+checkboxGroupInput(
+    "operations_cols_checked",
+    label = NULL,
+    c("Show Scores" = "scores",
+      "Show Metrics" = "metrics"),
+    selected = NULL,
+    inline = TRUE
+)
+
+operations_cols <- list(
+    "all" = c(0:16),
+    "default" = c(0:6), 
+    "scores" = c(7:11), 
+    "metrics" = c(12:16))
+
+observe({
+
+     # adding these makes sure the hideCols function is run upon change to lhs filters
+    current_month(); input$zone_group; input$corridor_x
+    
+    # columns to show = default (label columns) + columns selected in checkbox
+    operations_cols_to_show <- c(
+        operations_cols$default, operations_cols[input$operations_cols_checked]
+        ) %>% 
+        unlist() %>% unname()
+    
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    operations_hide_cols <- setdiff(operations_cols$all, operations_cols_to_show)
+    
+    print(operations_cols_to_show)
+    print(operations_hide_cols)
+    
+    dataTableProxy("operations_table") %>% 
+        hideCols(operations_hide_cols, reset = TRUE)
+})
+    
+
+output$operations_table <- renderDT({
+    if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
+        df <- operations_sub
+    } else {
+        df <- operations_sig
+    }
+
+    get_monthly_operations_health_table(
+        df, current_month(), input$zone_group, input$corridor_x)
+})
+
+
+fillRow(
+    DTOutput('operations_table')
+)
+```
+
+### Operations Trend
+
+```{r Operations Trend, warning = FALSE}
+
+selectInput("operations_var", 
+            "Operations Health Metric:",
+            #choices = "Percent Health",
+            #choices = maintenance_metric_choices(),
+            choices = names(operations_sub)[7:17],
+            selected = "Percent Health")
+
+fillRow(
+    renderPlotly({
+        
+        get_bar_line_dashboard_plot(
+        cor_weekly = rename(mr()$mo$ops_plot, Date = Month), 
+        cor_monthly = mr()$mo$ops_plot, 
+        cor_hourly = NULL, 
+        var_ = input$operations_var,  #  "Percent Health", 
+        num_format = "percent",
+        highlight_color = GDOT_BLUE, 
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = "x_title",
+        x_line1_title = "x_bar_title",
+        plot_title = "title")
+    })
+)
+        
+        
+#         if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
+#             df <- operations_sub
+#         } else {
+#             df <- operations_sig
+#         }
+#         df <- df %>%
+#             filter(Month >= '2020-01-01')
+#         
+#         if (corridor() != "All Corridors") {
+#             df <- filter(df, !(Zone == Corridor))  %>%
+#                 mutate(
+#                     Zone_Group = Corridor,
+#                     Corridor = Subcorridor,
+#                     Description = Subcorridor
+#                 )
+#             operations_var <- input$operations_var_
+#         } else {
+#             df <- filter(df, Corridor == Subcorridor | Zone == Corridor) %>%
+#                 rename(Zone_Group = Zone) %>%
+#                 mutate(Description = Corridor)
+#             operations_var <- "Percent Health"
+#         }
+#         
+#         if (grepl("Score", operations_var) | operations_var == "Ped Delay") {
+#             num_format_ = "integer"
+#         } else if (operations_var %in% c("Platoon Ratio", "Travel Time Index", "Buffer Index")) {
+#             num_format_ = "decimal"
+#         } else
+#             num_format_ = "percent"
+#         
+#         get_bar_line_dashboard_plot(
+#             cor_weekly = rename(df, Date = Month),
+#             cor_monthly = df,
+#             cor_hourly = NULL,
+#             var_ = operations_var,
+#             num_format = num_format_,
+#             highlight_color = GDOT_BLUE,
+#             month_ = current_month(),
+#             zone_group_ = zone_group(),
+#             x_bar_title = paste(input$month, operations_var),
+#             x_line1_title = paste0(operations_var," Trend"),
+#             plot_title = operations_var
+#         )
+#     }), height = "700px"
+# )
+
+```
+
+### Safety
+```{r Safety, warning = FALSE}
+
+
+
+```
+
+### Safety Trend
+```{r Safety Trend, warning = FALSE}
+
+
+
+```
 
 
 
