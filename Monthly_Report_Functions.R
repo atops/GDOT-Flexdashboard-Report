@@ -1187,6 +1187,9 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             filtered_counts_1hr <- get_filtered_counts_3stream(
                 counts_1hr, 
                 interval = "1 hour")
+            
+            filtered_counts_1hr <- filtered_counts_hack(filtered_counts_1hr)
+            
             s3_upload_parquet(filtered_counts_1hr, date_, 
                               fn = filtered_counts_1hr_fn, 
                               bucket = bucket,
@@ -1536,6 +1539,50 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
             vol = if_else(Good_Day==1, vol, as.double(NA)))
 }
 
+
+filtered_counts_hack <- function(filtered_counts) {
+    
+    # This is an unabashed hack to temporarily deal with one problematic phase
+
+    # 21 - max(vol) > 1000 --> bad
+    
+    hack_slice <- (filtered_counts$SignalID == 7242 & filtered_counts$Detector == 21)
+    
+    fc_7242 <- filtered_counts[hack_slice,]
+    replacement_values <- fc_7242 %>% 
+        mutate(vol = ifelse(max(vol) > 1000, NA, vol)) %>% 
+        mutate(Good_Day = ifelse(is.na(vol), 0, 1))
+    
+    filtered_counts[hack_slice, "vol"] <- replacement_values$vol
+    filtered_counts[hack_slice, "Good_Day"] <- replacement_values$Good_Day
+    
+    # 22 - max(vol) > 1000 --> bad
+    
+    hack_slice <- (filtered_counts$SignalID == 7242 & filtered_counts$Detector == 22)
+    
+    fc_7242 <- filtered_counts[hack_slice,]
+    replacement_values <- fc_7242 %>% 
+        mutate(vol = ifelse(max(vol) > 1000, NA, vol)) %>% 
+        mutate(Good_Day = ifelse(is.na(vol), 0, 1))
+    
+    filtered_counts[hack_slice, "vol"] <- replacement_values$vol
+    filtered_counts[hack_slice, "Good_Day"] <- replacement_values$Good_Day
+    
+    # 23 - max(vol) > 500 --> bad
+    
+    hack_slice <- (filtered_counts$SignalID == 7242 & filtered_counts$Detector == 23)
+    
+    fc_7242 <- filtered_counts[hack_slice,]
+    replacement_values <- fc_7242 %>% 
+        mutate(vol = ifelse(max(vol) > 500, NA, vol)) %>% 
+        mutate(Good_Day = ifelse(is.na(vol), 0, 1))
+
+    filtered_counts[hack_slice, "vol"] <- replacement_values$vol
+    filtered_counts[hack_slice, "Good_Day"] <- replacement_values$Good_Day
+
+    filtered_counts
+}
+
 # Single threaded
 get_filtered_counts <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
     
@@ -1644,6 +1691,9 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
                 mutate(DOW = wday(Timeperiod),
                        vol = as.double(vol))
             
+            ## Phase Contribution - The fraction of volume within each phase on each detector
+            ## For instance, for a three-lane phase with equal volumes on each lane, 
+            ## ph_contr would be 0.33, 0.33, 0.33.
             ph_contr <- fc %>%
                 group_by(SignalID, CallPhase, Timeperiod) %>% 
                 mutate(na.vol = sum(is.na(vol))) %>%
@@ -1658,27 +1708,39 @@ get_adjusted_counts <- function(filtered_counts, ends_with = NULL) {
                 group_by(SignalID, CallPhase, Detector) %>% 
                 summarize(Ph_Contr = mean(share, na.rm = TRUE), .groups = "drop")
             
-            # fill in missing detectors from other detectors on that phase
+            ## Get the expected volume for the phase based on the volumes and phc
+            ## for the detectors with volumes (not NA)
             fc_phc <- left_join(fc, ph_contr, by = c("SignalID", "CallPhase", "Detector")) %>%
-                # fill in missing detectors from other detectors on that phase
                 group_by(SignalID, Timeperiod, CallPhase) %>%
                 mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
             
+            ## Fill in the NA detector volumes with the expected volume for the phase
+            ## and the phc for the missing detectors within the same timeperiod
             fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
             
-            #hourly volumes over the month to fill in missing data for all detectors in a phase
-            mo_hrly_vols <- fc_phc %>%
+            ## Calculate median hourly volumes over the month by DOW 
+            ## to fill in missing data for all detectors in a phase
+            mo_dow_hrly_vols <- fc_phc %>%
                 group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
-                summarize(Hourly_Volume = median(vol, na.rm = TRUE), .groups = "drop") #%>%
-                #ungroup()
+                summarize(dow_hrly_vol = median(vol, na.rm = TRUE), .groups = "drop")
             # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
             
-            # fill in missing detectors by hour and day of week volume in the month
-            left_join(fc_phc, 
-                      mo_hrly_vols, 
-                      by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>% 
-                ungroup() %>%
-                mutate(vol = if_else(is.na(vol), as.integer(Hourly_Volume), as.integer(vol))) %>%
+            ## Calculate median hourly volumes over the month (for all days, not by DOW)
+            ## to fill in missing data for all detectors in a phase
+            mo_hrly_vols <- fc_phc %>%
+                group_by(SignalID, CallPhase, Detector, Month_Hour) %>% 
+                summarize(hrly_vol = median(vol, na.rm = TRUE), .groups = "drop")
+            
+            fc_phc %>% 
+                # fill in missing detectors by hour and day of week volume in the month
+                left_join(mo_dow_hrly_vols, 
+                          by = (c("SignalID", "CallPhase", "Detector", "DOW", "Month_Hour"))) %>%
+                mutate(vol = if_else(is.na(vol), as.integer(dow_hrly_vol), as.integer(vol))) %>%
+                
+                # fill in remaining missing detectors by hourly volume in the month
+                left_join(mo_hrly_vols,
+                          by = (c("SignalID", "CallPhase", "Detector", "Month_Hour"))) %>%
+                mutate(vol = if_else(is.na(vol), as.integer(hrly_vol), as.integer(vol))) %>%
                 
                 dplyr::select(SignalID, CallPhase, Detector, Timeperiod, vol) %>%
                 

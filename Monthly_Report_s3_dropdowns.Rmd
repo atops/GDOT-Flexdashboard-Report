@@ -68,7 +68,8 @@ mapdata <- qs::qread("map_data.qs")
 Inputs {.sidebar}
 =====================================
 
-Measurement, Accuracy, and Reliability Kit (MARK 1)
+Performance Measures Dashboard for GDOT's SigOps Program.
+
 
 Past month reports can be viewed back to `r format(first_month, "%B %Y")`.
 
@@ -291,6 +292,7 @@ Row
 
 ```{r}
 tp_valuebox <- reactive({
+    print('tp_valuebox - one-month summary')
     valueBox(
         value = get_valuebox(
             mr()$mo$tp, "vph", as_int,
@@ -2321,11 +2323,11 @@ shinyApp(
         # Update Editor with ZM Data on user selection of new Zone or Group
         # only if editor text has changed
         observe({
-            print("UpdateTinyMCE observed")
+            #print("UpdateTinyMCE observed")
 
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-                print('--------Update Editor--------')
+                #print('--------Update Editor--------')
                 #print(latest_comment)
                 #print(input$editor1)
                 if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
@@ -2335,7 +2337,7 @@ shinyApp(
                         Zone = memory$zone,
                         Comments = input$editor1,
                         LastModified = now())
-                    print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
+                    #print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
 
@@ -2378,7 +2380,7 @@ shinyApp(
                 get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month), default_comment)
             )
 
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
+            #print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
         observeEvent(input$save_zm_edits, {
@@ -2393,12 +2395,12 @@ shinyApp(
 
         observeEvent(input$confirmSave, {
 
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
+            #print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
 
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-                print('--------ConfirmSave--------')
+                #print('--------ConfirmSave--------')
                 #print(get_latest_comment(zmdf, memory$zone, memory$month))
                 #print(input$editor1)
                 if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
@@ -2408,7 +2410,7 @@ shinyApp(
                         Zone = memory$zone,
                         Comments = input$editor1,
                         LastModified = now())
-                    print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
+                    #print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
 
@@ -2430,7 +2432,7 @@ shinyApp(
                 secret = aws_conf$AWS_SECRET_ACCESS_KEY)
             removeModal()
 
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
+            #print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
 
 },
