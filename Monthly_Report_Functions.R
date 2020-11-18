@@ -5966,3 +5966,20 @@ get_latest_det_config <- function() {
     }
     det_config
 }
+
+
+get_names_in_nested_list <- function(df, indent=0) {
+    if (!is.null(names(df))) {
+        #cat(paste(strrep(" ", indent)))
+        #print(names(df))
+        for (n in names(df)) {
+            cat(paste(strrep(" ", indent)))
+            print(n)
+            if (!is.null(names(df[[n]]))) {
+                get_names(df[[n]], indent = indent+10)
+            }
+        }
+    } else {
+        print("--")
+    }
+}
