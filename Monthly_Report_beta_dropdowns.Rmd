@@ -2,8 +2,6 @@
 # ------------------------------
 title: "SigOps Metrics (beta)"
 # ------------------------------
-resource_files:
-- all_Corridors_Latest.qs
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -50,7 +48,8 @@ styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 Inputs {.sidebar}
 =====================================
 
-Measurement, Accuracy, and Reliability Kit (MARK 1)
+Performance Measures Dashboard for GDOT's SigOps Program.
+
 
 Past month reports can be viewed back to `r format(first_month, "%B %Y")`.
 
@@ -92,11 +91,11 @@ observe({
         } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
             c("All Corridors",
               as.character(unique(filter(
-                  corridors, Zone_Group == input$zone_group)$Corridor)))
+                  corridors(), Zone_Group == input$zone_group)$Corridor)))
         } else {
             c("All Corridors",
               as.character(unique(filter(
-                  corridors, Zone == input$zone_group)$Corridor)))
+                  corridors(), Zone == input$zone_group)$Corridor)))
         }
     }
     #print(choices_)
@@ -1810,7 +1809,7 @@ output$equipment <- renderPlotly({
 
         } else {
 
-            get_uptime_plot_(
+            get_uptime_plot(
                 sigdata()$dy$du,
                 sigdata()$mo$du,
                 var_ = "uptime",
@@ -2827,7 +2826,10 @@ shinyApp(
         output$MapPlot1 <- renderLeaflet({
             
             format_ <- value_format(value())
-                
+
+            # cols6 <- RColorBrewer::brewer.pal(6, "YlGnBu")
+            # cols6 <- cols6[2:length(cols6)]
+
             pal <- colorBin(
                 palette = "YlGnBu",
                 domain = data()[[value()]],
@@ -2943,7 +2945,10 @@ shinyApp(
             
             if (nrow(data())) {
                 format_ <- value_format(value())
-                
+
+                # cols6 <- RColorBrewer::brewer.pal(6, "YlGnBu")
+                # cols6 <- cols6[2:length(cols6)]
+
                 pal <- colorBin(
                     palette = "YlGnBu",
                     domain = data()[[value()]],
