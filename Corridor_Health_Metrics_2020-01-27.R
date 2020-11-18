@@ -17,8 +17,8 @@ get_summary_data <- function(df, current_month = NULL) {
     data <- list(
         rename(df$mo$du, du = uptime, du.delta = delta),
         rename(df$mo$pau, pau = uptime, pau.delta = delta),
-        rename(df$mo$pdc, pdc = Avg.Max.Ped.Delay, pdc.delta = delta),
-        rename(df$mo$pdf, pdf = Avg.Max.Ped.Delay, pdf.delta = delta),
+        #rename(df$mo$pdc, pdc = Avg.Max.Ped.Delay, pdc.delta = delta),
+        #rename(df$mo$pdf, pdf = Avg.Max.Ped.Delay, pdf.delta = delta),
         rename(df$mo$cctv, cctv = uptime, cctv.delta = delta),
         rename(df$mo$ru, rsu = uptime, rsu.delta = delta),
         rename(df$mo$cu, cu = uptime, cu.delta = delta),
@@ -27,6 +27,7 @@ get_summary_data <- function(df, current_month = NULL) {
         rename(df$mo$prd, pr.delta = delta),
         rename(df$mo$qsd, qs.delta = delta),
         rename(df$mo$sfd, sf.delta = delta),
+        rename(df$mo$pd, pd.delta = delta) %>% relocate(pd.delta, .after = pd),
         rename(df$mo$tti, tti.delta = delta),
         rename(df$mo$pti, pti.delta = delta)
     ) %>%
@@ -37,13 +38,15 @@ get_summary_data <- function(df, current_month = NULL) {
         select(
             -uptime.sb,
             -uptime.pr,
+            -Duration,
+            -Events,
             #-num,
             -starts_with("Description"),
             -starts_with("ones"),
             -starts_with("cycles"),
             -starts_with("pct"),
             -starts_with("vol"),
-            -starts_with("num")
+            -starts_with("num"),
         )
     if ("mttr" %in% names(df$mo)) { # cor, not sub
         data <- data %>% 
@@ -65,28 +68,28 @@ get_summary_data <- function(df, current_month = NULL) {
 
 
 source("Monthly_Report_Package_init.R")
-options(dplyr.summarise.inform = FALSE)
+#options(dplyr.summarise.inform = FALSE)
 
 # Ped delay - coordinated and free signals, csv from Anthony
-pdc <- read_csv("health_ped_delay_data/ped_delay_summary_coordinated_Q12020_monthly.csv") %>% 
-    mutate(
-        SignalID = factor(SignalID),
-        Month = ymd(glue("2020-{Month}-01")))
-pdf <- read_csv("health_ped_delay_data/ped_delay_summary_free_Q12020_monthly.csv") %>% 
-    mutate(
-        SignalID = factor(SignalID),
-        Month = ymd(glue("2020-{Month}-01")))
+# pdc <- read_csv("health_ped_delay_data/ped_delay_summary_coordinated_Q12020_monthly.csv") %>% 
+#     mutate(
+#         SignalID = factor(SignalID),
+#         Month = ymd(glue("2020-{Month}-01")))
+# pdf <- read_csv("health_ped_delay_data/ped_delay_summary_free_Q12020_monthly.csv") %>% 
+#     mutate(
+#         SignalID = factor(SignalID),
+#         Month = ymd(glue("2020-{Month}-01")))
+# 
+# sub_mo_pdc <- get_cor_monthly_avg_by_day(pdc, subcorridors, "Avg.Max.Ped.Delay")
+# sub_mo_pdf <- get_cor_monthly_avg_by_day(pdf, subcorridors, "Avg.Max.Ped.Delay")
 
-sub_mo_pdc <- get_cor_monthly_avg_by_day(pdc, subcorridors, "Avg.Max.Ped.Delay")
-sub_mo_pdf <- get_cor_monthly_avg_by_day(pdf, subcorridors, "Avg.Max.Ped.Delay")
+sub <- s3read_using(qs::qread, bucket = "gdot-spm", object = "sub_ec2.qs")
+cor <- s3read_using(qs::qread, bucket = "gdot-spm", object = "cor_ec2.qs")
 
-sub <- s3readRDS(bucket = "gdot-spm", object = "sub_ec2.rds")
-cor <- s3readRDS(bucket = "gdot-spm", object = "cor_ec2.rds")
+# sub$mo$pdc <- sub_mo_pdc
+# sub$mo$pdf <- sub_mo_pdf
 
-sub$mo$pdc <- sub_mo_pdc
-sub$mo$pdf <- sub_mo_pdf
-
-current_month <- ymd("2020-04-01")
+current_month <- ymd("2020-06-01")
 
 csd <- get_summary_data(sub)
 cmd <- get_summary_data(cor)
@@ -110,4 +113,4 @@ lapply(sub$dy, names)
 
 
                                     
-write_csv(csd, "health_metrics_data_2020-06-03.csv")
+write_csv(csd, "health_metrics_data_2020-08-04.csv")
