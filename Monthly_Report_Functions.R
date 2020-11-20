@@ -437,7 +437,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
 
 
 
-s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_athena) {
+s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_athena, parallel = TRUE) {
     
     if (!("Date" %in% names(df))) {
         if ("Timeperiod" %in% names(df)) { 
@@ -456,17 +456,31 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
                           table_name = table_name, 
                           conf_athena = conf_athena)
     } else { # loop through dates
-        df %>% 
-            split(.$Date) %>% 
-            mclapply(mc.cores = max(usable_cores, detectCores()-1), FUN = function(x) {
-                date_ <- as.character(x$Date[1])
-                s3_upload_parquet(x, date_,
-                                  fn = glue("{prefix}_{date_}"), 
-                                  bucket = bucket,
-                                  table_name = table_name, 
-                                  conf_athena = conf_athena)
-                Sys.sleep(1)
+        if (parallel) {
+        	df %>% 
+        	    split(.$Date) %>% 
+        	    mclapply(mc.cores = max(usable_cores, detectCores()-1), FUN = function(x) {
+        	        date_ <- as.character(x$Date[1])
+        	        s3_upload_parquet(x, date_,
+        	                          fn = glue("{prefix}_{date_}"), 
+        	                          bucket = bucket,
+        	                          table_name = table_name, 
+        	                          conf_athena = conf_athena)
+        	        Sys.sleep(1)
             })
+        } else {
+        	df %>% 
+        	    split(.$Date) %>% 
+        	    lapply(function(x) {
+        	        date_ <- as.character(x$Date[1])
+        	        s3_upload_parquet(x, date_,
+        	                          fn = glue("{prefix}_{date_}"), 
+        	                          bucket = bucket,
+        	                          table_name = table_name, 
+        	                          conf_athena = conf_athena)
+        	    })
+
+        }
     }
     
 }
