@@ -199,7 +199,7 @@ def main(start_date, end_date):
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         
-    print('\n{len(signalids)} signals in {len(dates)} days. Done in {int((time.time()-t0)/60)} minutes')
+    print(f'{len(signalids)} signals in {len(dates)} days. Done in {int((time.time()-t0)/60)} minutes')
 
         
     while True:
