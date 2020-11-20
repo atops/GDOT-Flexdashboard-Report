@@ -2875,9 +2875,6 @@ shinyApp(
         
         data <- reactive({
             
-            cat(file = stderr(), "table =", table(), ", class=", class(table()), "\n")
-            cat(file = stderr(), "value =", value(), ", class=", class(value()), "\n")
-            
             format_ <- value_format(value())
             
             data <- sigdata()$mo[[table()]] %>% 
@@ -3131,9 +3128,9 @@ observe({
 
 output$maintenance_table <- renderDT({
     if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
-        df <- sub$maint
+        df <- subdata()$mo$maint
     } else {
-        df <- sig$maint
+        df <- sigdata()$mo$maint
     }
     print(df)
     get_monthly_maintenance_health_table(
@@ -3154,14 +3151,20 @@ fillRow(
 
 selectInput("maintenance_var", 
             label = "Maintenance Health Metric:",
-            choices = names(maintenance_sub)[7:19],
+            #choices = names(maintenance_sub)[7:19],
+            choices = c("Percent Health", "Missing Data", "Detection Uptime Score", 
+                        "Ped Actuation Uptime Score", "Comm Uptime Score", 
+                        "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score", 
+                        "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime", 
+                        "CCTV Uptime", "RSU Uptime"),
             selected = "Percent Health")
 
 
 hr()
 
-fillRow(
-    renderPlotly(
+plotlyOutput("health_maint_plot", height = "80%", width = "100%")
+
+output$health_maint_plot <- renderPlotly({
         get_bar_line_dashboard_plot(
             cor_weekly = rename(mr()$mo$maint_plot, Date = Month),  # maint$sub
             cor_monthly = mr()$mo$maint_plot, 
@@ -3174,8 +3177,7 @@ fillRow(
             x_bar_title = "x_title",
             x_line1_title = "x_bar_title",
             plot_title = "title")
-    )
-)
+})
 
 ```
 
@@ -3225,9 +3227,9 @@ observe({
 
 output$operations_table <- renderDT({
     if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
-        df <- operations_sub
+        df <- subdata()$mo$ops # operations_sub
     } else {
-        df <- operations_sig
+        df <- sigdata()$mo$ops # operations_sig
     }
 
     get_monthly_operations_health_table(
@@ -3246,14 +3248,19 @@ fillRow(
 
 selectInput("operations_var", 
             "Operations Health Metric:",
-            #choices = "Percent Health",
-            #choices = maintenance_metric_choices(),
-            choices = names(operations_sub)[7:17],
+            #choices = names(operations_sub)[7:17],
+            choices = c("Percent Health", "Missing Data", "Platoon Ratio Score", 
+                        "Ped Delay Score", "Split Failures Score", 
+                        "Travel Time Index Score", "Buffer Index Score", 
+                        "Platoon Ratio", "Ped Delay", "Split Failures", 
+                        "Travel Time Index", "Buffer Index"),
             selected = "Percent Health")
 
-fillRow(
-    renderPlotly({
-        
+hr()
+
+plotlyOutput("health_ops_plot", height = "80%", width = "100%")
+
+output$health_ops_plot <- renderPlotly({
         get_bar_line_dashboard_plot(
         cor_weekly = rename(mr()$mo$ops_plot, Date = Month), 
         cor_monthly = mr()$mo$ops_plot, 
@@ -3266,56 +3273,7 @@ fillRow(
         x_bar_title = "x_title",
         x_line1_title = "x_bar_title",
         plot_title = "title")
-    })
-)
-        
-        
-#         if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
-#             df <- operations_sub
-#         } else {
-#             df <- operations_sig
-#         }
-#         df <- df %>%
-#             filter(Month >= '2020-01-01')
-#         
-#         if (corridor() != "All Corridors") {
-#             df <- filter(df, !(Zone == Corridor))  %>%
-#                 mutate(
-#                     Zone_Group = Corridor,
-#                     Corridor = Subcorridor,
-#                     Description = Subcorridor
-#                 )
-#             operations_var <- input$operations_var_
-#         } else {
-#             df <- filter(df, Corridor == Subcorridor | Zone == Corridor) %>%
-#                 rename(Zone_Group = Zone) %>%
-#                 mutate(Description = Corridor)
-#             operations_var <- "Percent Health"
-#         }
-#         
-#         if (grepl("Score", operations_var) | operations_var == "Ped Delay") {
-#             num_format_ = "integer"
-#         } else if (operations_var %in% c("Platoon Ratio", "Travel Time Index", "Buffer Index")) {
-#             num_format_ = "decimal"
-#         } else
-#             num_format_ = "percent"
-#         
-#         get_bar_line_dashboard_plot(
-#             cor_weekly = rename(df, Date = Month),
-#             cor_monthly = df,
-#             cor_hourly = NULL,
-#             var_ = operations_var,
-#             num_format = num_format_,
-#             highlight_color = GDOT_BLUE,
-#             month_ = current_month(),
-#             zone_group_ = zone_group(),
-#             x_bar_title = paste(input$month, operations_var),
-#             x_line1_title = paste0(operations_var," Trend"),
-#             plot_title = operations_var
-#         )
-#     }), height = "700px"
-# )
-
+})
 ```
 
 ### Safety

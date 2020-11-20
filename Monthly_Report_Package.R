@@ -178,7 +178,7 @@ tryCatch({
             bucket = conf$bucket,
             prefix = "bad_ped_detectors",
             table_name = "bad_ped_detectors",
-            conf_athena = conf$athena)
+            conf_athena = conf$athena, parallel = FALSE)
 
     # Hack to make the aggregation functions work
     addtoRDS(
@@ -2258,7 +2258,7 @@ descs <- corridors %>%
 
 for (tab in c("vpd","papd","pd",
               "tp","aog","aogd","aogh","pr","prd","prh","qs","qsd","qsh","sf","sfd","sfh","sfo",
-              "du","cu","pau","cctv","ru")) {
+              "du","cu","pau","cctv","ru", "maint_plot", "ops_plot")) {
     print(tab)
     if (tab %in% names(sig$mo) & tab != "cctv") {
         sig$mo[[tab]] <- sig$mo[[tab]] %>% 

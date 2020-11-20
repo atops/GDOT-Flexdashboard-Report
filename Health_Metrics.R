@@ -357,137 +357,8 @@ get_percent_health_subtotals <- function(df) {
     df_all
 }
 
-# function to filter health data based on user inputs
-get_health_data_filtered <- function(data_, zone_group_, corridor_) {
-    health_data <- data_
-    
-    health_data <- filter_mr_data(mutate(data_, Zone_Group = Zone), zone_group_)
-    
-    # filter by corridor - do we want this in the barplots?
-    if (corridor_ != "All Corridors") {
-        health_data <- filter(health_data, Corridor == corridor_)
-    }
-    
-
-    # # filter by zone group
-    # if (startsWith(zone_group_, "Zone") | startsWith(zone_group_, "District")) {
-    #     health_data <- filter(health_data, Zone == zone_group_)
-    # 
-    #     # what if zone group is RTOP1 / RTOP 2 / Cobb County / Ramp Meters?
-    # 
-    #     # filter by corridor - do we want this in the barplots?
-    #     if (corridor_ != "All Corridors") {
-    #         health_data <- filter(health_data, Corridor == corridor_)
-    #     }
-    # }
-    # 
-    # return(health_data)
-    health_data
-}
 
 
-# separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
-get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, corridor_) {
-    single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
-        filter(Month == month_) %>%
-        ungroup() %>%
-        select(-Month) %>%
-        mutate(
-            Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-            Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-        )
-
-    fn <- tempfile(pattern = paste(month_, zone_group_, corridor_, "_"), tmpdir = ".", fileext = ".qs")
-    qsave(single_month_table, fn)
-
-    datatable(single_month_table,
-        filter = "top",
-        rownames = FALSE,
-        extensions = "Scroller",
-        options = list(
-            scrollY = 500,
-            scrollX = TRUE,
-            pageLength = 1000,
-            columnDefs = list(
-                list(
-                    className = "dt-left",
-                    targets = c(0, 1, 2, 3, 4)
-                )
-            ),
-            dom = "t",
-            selection = "none"
-        )
-    ) %>%
-        formatPercentage(c(6:7, 14:18)) %>%
-        formatRound(8:13, 19, digits = 0) %>%
-        formatStyle("Subcorridor",
-            target = "row",
-            backgroundColor = styleEqual("ALL", "lightgray"),
-            fontStyle = styleEqual("ALL", "italic")
-        ) %>%
-        formatStyle("Corridor",
-            target = "row",
-            backgroundColor = styleEqual("ALL", "gray"),
-            fontWeight = styleEqual("ALL", "bold")
-        ) %>%
-        formatStyle("Missing Data",
-            color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
-            borderRight = "2px solid #ddd"
-        ) %>%
-        formatStyle("Flash Events Score", borderRight = "2px solid #ddd") %>%
-        formatStyle("Flash Events", borderRight = "2px solid #ddd")
-}
-
-# separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
-get_monthly_operations_health_table <- function(data_, month_, zone_group_, corridor_) {
-    single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
-        filter(Month == month_) %>%
-        ungroup() %>%
-        select(-Month) %>%
-        mutate(
-            Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-            Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-        )
-
-    datatable(single_month_table,
-        filter = "top",
-        rownames = FALSE,
-        extensions = "Scroller",
-        options = list(
-            scrollY = 500,
-            scrollX = TRUE,
-            pageLength = 1000,
-            columnDefs = list(
-                list(
-                    className = "dt-left",
-                    targets = c(0, 1, 2, 3, 4)
-                )
-            ),
-            dom = "t",
-            selection = "none"
-        )
-    ) %>%
-        formatPercentage(c(6:7, 15)) %>%
-        formatRound(8:12, digits = 0) %>%
-        formatRound(14, digits = 1) %>%
-        formatRound(c(13, 16, 17), digits = 2) %>%
-        formatStyle("Subcorridor",
-            target = "row",
-            backgroundColor = styleEqual("ALL", "lightgray"),
-            fontStyle = styleEqual("ALL", "italic")
-        ) %>%
-        formatStyle("Corridor",
-            target = "row",
-            backgroundColor = styleEqual("ALL", "gray"),
-            fontWeight = styleEqual("ALL", "bold")
-        ) %>%
-        formatStyle("Missing Data",
-            color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
-            borderRight = "2px solid #ddd"
-        ) %>%
-        formatStyle("Buffer Index Score", borderRight = "2px solid #ddd") %>%
-        formatStyle("Buffer Index", borderRight = "2px solid #ddd")
-}
 
 if (FALSE) { # TRUE
 
@@ -509,29 +380,27 @@ if (FALSE) { # TRUE
 
 if (TRUE) {
  
-    # cmd <- get_summary_data(cor) %>% distinct() # temporary hack
-    csd <- get_summary_data(sub) %>% distinct() # temporary hack
-    ssd <- get_summary_data(sig) %>% distinct() # temporary hack
+    # cmd <- get_summary_data(cor)
+    csd <- get_summary_data(sub)
+    ssd <- get_summary_data(sig)
     
-    # workaround to bring in mapping for subcorridors to context/zones 
-    # INCLUDES CONTEXT (1-5, which is NOT in corridors.qs)
-    #corridor_mapping <- read_csv("zone-corridors-subcorridors-context_mapping.csv")
     corridor_mapping <- s3read_using(
-        read_csv, 
+        read_excel, 
         bucket = conf$bucket, 
-        object = "Health_Context.csv",
-        col_types = cols(
-            Zone = col_character(),
-            Corridor = col_character(),
-            Subcorridor = col_character(),
-            Context = col_integer()
-        )
-    )
+        object = conf$corridors_filename_s3, 
+        sheet = "Contexts_Lookup", 
+        range = cell_cols("A:E")
+        ) %>%
+        mutate(Context = as.integer(Context))
     
     # AJT: This seems like a hack to fill in some context info where we have none.
     corridor_groupings <- corridors %>%
         distinct(Zone_Group, Zone, Corridor, Subcorridor) %>%
         full_join(corridor_mapping, by = c("Zone", "Corridor", "Subcorridor")) %>%
+        
+        # Hack to remove subcorridors that don't have a match in the Corridors file
+        filter(!is.na(Zone_Group)) %>%
+        
         # workaround to fill in Context
         group_by(Corridor) %>%
         tidyr::fill(Context, .direction = "downup") %>%
@@ -577,7 +446,8 @@ if (TRUE) {
             SignalID = Corridor,
             Corridor = Zone_Group
         ) %>%
-        mutate(Subcorridor = NA) %>%
+        left_join(select(corridors, Corridor, SignalID, Subcorridor), by = c("Corridor", "SignalID")) %>%
+        # mutate(Subcorridor = NA) %>%
         inner_join(corridor_groupings) %>%
         mutate(Flash_Events = NA) %>%
         # left_join(flash_events) %>%
@@ -646,13 +516,14 @@ get_health_metrics_plot_df <- function(df) {
         select(
             Zone_Group = Corridor, 
             Corridor = Subcorridor, 
-            Description = Subcorridor, 
+            #Description = Subcorridor, 
             everything()) %>% 
         select(-`Zone Group`, -Zone) %>% 
         mutate(
             Zone_Group = factor(Zone_Group), 
-            Corridor = factor(Corridor), 
-            Description = "Desc") %>%
+            Corridor = factor(Corridor)
+            #Description = "Desc"
+            ) %>%
         arrange(Zone_Group, Corridor, Month)
 }
 
@@ -662,8 +533,9 @@ get_cor_health_metrics_plot_df <- function(df) {
         rename(Zone_Group = Zone) %>% 
         mutate(
             Zone_Group = factor(Zone_Group), 
-            Corridor = factor(Corridor), 
-            Description = "Desc") %>%
+            Corridor = factor(Corridor) 
+            #Description = "Desc"
+        ) %>%
         arrange(Zone_Group, Corridor, Month)
 }
 
