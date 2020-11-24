@@ -3177,9 +3177,9 @@ output$health_maint_plot <- renderPlotly({
             highlight_color = GDOT_BLUE, 
             month_ = current_month(), 
             zone_group_ = zone_group(),
-            x_bar_title = "x_title",
-            x_line1_title = "x_bar_title",
-            plot_title = "title")
+            x_bar_title = input$maintenance_var,
+            x_line1_title = glue("{input$maintenance_var} trend"),
+            plot_title = input$maintenance_var)
 })
 
 ```
@@ -3273,9 +3273,9 @@ output$health_ops_plot <- renderPlotly({
         highlight_color = GDOT_BLUE, 
         month_ = current_month(), 
         zone_group_ = zone_group(),
-        x_bar_title = "x_title",
-        x_line1_title = "x_bar_title",
-        plot_title = "title")
+        x_bar_title = input$operations_var,
+        x_line1_title = glue("{input$operations_var} trend"),
+        plot_title = input$operations_var)
 })
 ```
 
