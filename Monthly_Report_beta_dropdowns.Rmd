@@ -3083,7 +3083,7 @@ fillCol(height = 700,
 Health Metrics
 =====================================
 
-Row {.tabset .tabset-fade data-height=900}
+Row {.tabset .tabset-fade data-height=850}
 ------------------------------------------
 
 ### Maintenance
@@ -3114,7 +3114,8 @@ observe({
     
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
-        maintenance_cols$default, maintenance_cols[input$maintenance_cols_checked]
+        maintenance_cols$default, 
+        maintenance_cols[input$maintenance_cols_checked]
         ) %>% 
         unlist() %>% unname()
     
@@ -3162,7 +3163,9 @@ selectInput("maintenance_var",
 
 hr()
 
-plotlyOutput("health_maint_plot", height = "80%", width = "100%")
+fillRow(
+    plotlyOutput("health_maint_plot"), height = "85%"
+)
 
 output$health_maint_plot <- renderPlotly({
         get_bar_line_dashboard_plot(
@@ -3210,20 +3213,18 @@ observe({
     
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
-        operations_cols$default, operations_cols[input$operations_cols_checked]
+        operations_cols$default, 
+        operations_cols[input$operations_cols_checked]
         ) %>% 
         unlist() %>% unname()
     
     # columns to hide = inverse (setdiff) of all columns and columns to show
     operations_hide_cols <- setdiff(operations_cols$all, operations_cols_to_show)
     
-    print(operations_cols_to_show)
-    print(operations_hide_cols)
-    
     dataTableProxy("operations_table") %>% 
         hideCols(operations_hide_cols, reset = TRUE)
 })
-    
+
 
 output$operations_table <- renderDT({
     if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
@@ -3233,7 +3234,7 @@ output$operations_table <- renderDT({
     }
 
     get_monthly_operations_health_table(
-        df, current_month(), input$zone_group, input$corridor_x)
+        df, current_month(), zone_group(), corridor())
 })
 
 
@@ -3258,7 +3259,9 @@ selectInput("operations_var",
 
 hr()
 
-plotlyOutput("health_ops_plot", height = "80%", width = "100%")
+fillRow(
+    plotlyOutput("health_ops_plot"), height = "85%"
+)
 
 output$health_ops_plot <- renderPlotly({
         get_bar_line_dashboard_plot(

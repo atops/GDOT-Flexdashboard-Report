@@ -3691,20 +3691,18 @@ get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, cor
     single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
         filter(Month == month_) %>%
         ungroup() %>%
-        select(-Month) %>%
+        select(-Month, -Zone_Group) %>%
         mutate(
             Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
             Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
         )
     
-    fn <- tempfile(pattern = paste(month_, zone_group_, corridor_, "_"), tmpdir = ".", fileext = ".qs")
-
     datatable(single_month_table,
               filter = "top",
               rownames = FALSE,
               extensions = "Scroller",
               options = list(
-                  scrollY = 500,
+                  scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
                   columnDefs = list(
@@ -3742,7 +3740,7 @@ get_monthly_operations_health_table <- function(data_, month_, zone_group_, corr
     single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
         filter(Month == month_) %>%
         ungroup() %>%
-        select(-Month) %>%
+        select(-Month, -Zone_Group) %>%
         mutate(
             Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
             Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
@@ -3753,7 +3751,7 @@ get_monthly_operations_health_table <- function(data_, month_, zone_group_, corr
               rownames = FALSE,
               extensions = "Scroller",
               options = list(
-                  scrollY = 500,
+                  scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
                   columnDefs = list(
