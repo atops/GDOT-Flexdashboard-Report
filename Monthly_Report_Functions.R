@@ -53,6 +53,14 @@ filter <- dplyr::filter
 
 conf <- read_yaml("Monthly_Report.yaml")
 
+aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
+           "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
+           "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+
+conf$athena$uid <- aws_conf$AWS_ACCESS_KEY_ID
+conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
+
 if (Sys.info()["sysname"] == "Windows") {
     home_path <- dirname(path.expand("~"))
     python_path <- file.path(home_path, "Anaconda3", "python.exe")
@@ -216,145 +224,34 @@ read_zipped_feather <- function(x) {
 }
 
 
-get_atspm_connection <- function(conf_atspm) {
+
+keep_trying = function(func, n_tries, ...){
     
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        dbConnect(odbc::odbc(),
-                  dsn = conf_atspm$odbc_dsn,
-                  uid = Sys.getenv(conf_atspm$uid_env),
-                  pwd = Sys.getenv(conf_atspm$pwd_env))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        dbConnect(odbc::odbc(),
-                  driver = "FreeTDS",
-                  server = Sys.getenv(conf_atspm$svr_env),
-                  database = Sys.getenv(conf_atspm$db_env),
-                  uid = Sys.getenv(conf_atspm$uid_env),
-                  pwd = Sys.getenv(conf_atspm$pwd_env))
+    possibly_func = purrr::possibly(func, otherwise = NULL)
+    
+    result = NULL
+    try_number = 1
+    sleep = 1
+    
+    while(is.null(result) && try_number <= n_tries){
+        if (try_number > 1) {
+            print(paste("Attempt:", try_number))
+        }
+        try_number = try_number + 1
+        result = possibly_func(...)
+        Sys.sleep(sleep)
+        sleep = sleep + 1
     }
+    
+    return(result)
 }
 
 
-get_maxview_connection <- function(dsn = "MaxView") {
-    
-    if (Sys.info()["sysname"] == "Windows") {
-        
-        dbConnect(odbc::odbc(),
-                  dsn = dsn,
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
-        
-    } else if (Sys.info()["sysname"] == "Linux") {
-        
-        dbConnect(odbc::odbc(),
-                  driver = "FreeTDS",
-                  server = Sys.getenv("MAXV_SERVER_INSTANCE"),
-                  database = Sys.getenv("MAXV_EVENTLOG_DB"),
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
-    }
-}
 
-
-get_maxview_eventlog_connection <- function() {
-    get_maxview_connection(dsn = "MaxView_EventLog")
-}
-
-
-get_cel_connection <- get_maxview_eventlog_connection
-
-
-get_athena_connection_broken <- function(conf_athena) {
-    
-    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = conf_athena$jar_path,
-                identifier.quote = "'")
-    
-    if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-        
-        dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = conf_athena$staging_dir,
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                  ProxyHost = "gdot-enterprise",
-                  ProxyPort = "8080",
-                  ProxyUID = Sys.getenv("GDOT_USERNAME"),
-                  ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-    } else {
-        
-        dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = conf_athena$staging_dir,
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                  UseResultsetStreaming = 1)
-    }
-}
-
-
-get_athena_connection <- function(conf_athena) {
-    dbConnect(
-        RAthena::athena(),
-        aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-        s3_staging_dir = conf_athena$staging_dir,
-        region_name = Sys.getenv("AWS_DEFAULT_REGION"))
-}
-
-
-get_aurora_connection <- function(f = RMySQL::dbConnect) {
-    
-    f(drv = RMySQL::MySQL(),
-      host = Sys.getenv("RDS_HOST"),
-      port = 3306,
-      dbname = Sys.getenv("RDS_DATABASE"),
-      username = Sys.getenv("RDS_USERNAME"),
-      password = Sys.getenv("RDS_PASSWORD"))
-}
-
-
-get_aurora_connection_pool <- function() {
-    get_aurora_connection(dbPool)
-}
-
-
-get_spark_context <- function() {
-    conf <- spark_config()
-    conf$sparklyr.defaultPackages <- c("com.amazonaws:aws-java-sdk-pom:1.10.34",
-                                       "org.apache.hadoop:hadoop-aws:2.7.3")
-    
-    
-    conf$`sparklyr.cores.local` <- 7
-    conf$`sparklyr.shell.driver-memory` <- "16G"
-    conf$spark.memory.fraction <- 0.9
-    
-    
-    sc <- spark_connect(master = "local", config = conf)
-    
-    ctx <- sparklyr::spark_context(sc)
-    
-    jsc <- invoke_static(sc, 
-                         "org.apache.spark.api.java.JavaSparkContext", 
-                         "fromSparkContext", 
-                         ctx)
-    
-    hconf <- jsc %>% 
-        invoke("hadoopConfiguration")
-    hconf %>% 
-        invoke("set", "com.amazonaws.services.s3a.enableV4", "true")
-    hconf %>% 
-        invoke("set", "fs.s3a.fast.upload", "true")
-    
-    hconf %>% 
-        invoke("set", "fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-    hconf %>% 
-        invoke("set","fs.s3a.access.key", Sys.getenv("AWS_ACCESS_KEY_ID")) 
-    hconf %>% 
-        invoke("set","fs.s3a.secret.key", Sys.getenv("AWS_SECRET_ACCESS_KEY"))
-    
-    sparklyr::spark_connection_is_open(sc=sc)
-    sc
+readRDS_multiple <- function(pattern) {
+    lf <- list.files(pattern = pattern)
+    lf <- lf[grepl(".rds", lf)]
+    bind_rows(lapply(lf, readRDS))
 }
 
 
@@ -532,80 +429,9 @@ s3_read_parquet_parallel <- function(table_name,
 }
 
 
-aurora_write_parquet <- function(pool, df, table_name) {
-    #conn <- get_aurora_connection()
-    conn <- poolCheckout(pool)
-    fieldnames <- dbListFields(conn, table_name)
-    
-    # data frame, df, needs to have a Date field
-    start_date <- min(df$Date)
-    end_date <- max(df$Date)
-    
-    # clear existing data for the given table and date
-    for (i in 1:10) {
-        while (TRUE) {
-            x <- try(response <- dbSendQuery(
-                conn, 
-                glue("delete from {table_name} where Date >= {start_date} and Date <= {end_date}"))
-            )
-            if (!is(x, 'try-error')) break
-            print(glue("Error: Retrying...{table_name} between {start_date} and {end_date}"))
-            Sys.sleep(runif(1, min=5, max=10))
-        }
-    }
-    
-    # Write data to Aurora database for the given day. 
-    # Append to table.
-    for (i in 1:10) {
-        while (TRUE) {
-            x <- try(dbAppendTable(conn, table_name, select(df, !!!fieldnames))
-                     #        dbWriteTable(
-                     # conn, 
-                     # table_name, 
-                     # select(df, !!!fieldnames), 
-                     # overwrite = FALSE, append = TRUE, row.names = FALSE)
-            )
-            if (!is(x, 'try-error')) break
-            print(glue("Error: Retrying...{table_name} between {start_date} and {end_date}"))
-            Sys.sleep(runif(1, min=5, max=10))
-        }
-    }
-    
-    poolReturn(conn)
-    print(glue("{nrow(df)} records inserted into Aurora table {table_name} on {date_}"))
-    #dbDisconnect(conn)
-}
 
 
-week <- function(d) {
-    d0 <- ymd("2016-12-25")
-    as.integer(trunc((ymd(d) - d0)/dweeks(1)))
-}
 
-
-get_month_abbrs <- function(start_date, end_date) {
-    start_date <- ymd(start_date)
-    day(start_date) <- 1
-    end_date <- ymd(end_date)
-    
-    sapply(seq(start_date, end_date, by = "1 month"), function(d) { format(d, "%Y-%m")} )
-}
-
-
-bind_rows_keep_factors <- function(dfs) {
-    ## Identify all factors
-    factors <- unique(unlist(
-        map(list(dfs[[1]]), ~ select_if(dfs[[1]], is.factor) %>% names())
-    ))
-    ## Bind dataframes, convert characters back to factors
-    suppressWarnings(bind_rows(dfs)) %>% 
-        mutate_at(vars(one_of(factors)), factor)  
-}
-
-
-match_type <- function(val, val_type_to_match) {
-    eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
-}
 
 
 addtoRDS <- function(df, fn, delta_var, rsd, csd) {

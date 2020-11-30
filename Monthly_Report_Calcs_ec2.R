@@ -4,10 +4,11 @@
 library(yaml)
 library(glue)
 
-print(glue("{Sys.time()} Starting Calcs Script"))
-
-
 source("Monthly_Report_Functions.R")
+source("Database_Functions.R")
+
+
+print(glue("{Sys.time()} Starting Calcs Script"))
 
 plan(multisession)
 

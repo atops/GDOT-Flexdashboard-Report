@@ -114,39 +114,41 @@ no.color <- "red"
 
 # ###########################################################
 
+source("Database_Functions.R")
+
 conf <- read_yaml("Monthly_Report.yaml")
 
 
 conf$mode <- conf_mode
 
-#if (conf$mode == "beta") {
-#    source("mark1_dynamodb.R")
-#}
+athena_connection_pool <- get_athena_connection_pool(conf$athena)
 
-if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-    set_config(
-        use_proxy("gdot-enterprise", port = 8080,
-                  username = Sys.getenv("GDOT_USERNAME"),
-                  password = Sys.getenv("GDOT_PASSWORD")))
 
-} else if (Sys.info()["nodename"] == "Larry") { # Linux workstation
-    aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-    Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-               "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
+# if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
+#     set_config(
+#         use_proxy("gdot-enterprise", port = 8080,
+#                   username = Sys.getenv("GDOT_USERNAME"),
+#                   password = Sys.getenv("GDOT_PASSWORD")))
+# 
+# } else if (Sys.info()["nodename"] == "Larry") { # Linux workstation
+
+aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
+           "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
+           "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
     
-} else { # shinyapps.io
-    Sys.setenv(TZ="America/New_York")
-    
-    aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-    Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-               "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-               "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
-               "RDS_HOST" = aws_conf$RDS_HOST,
-               "RDS_DATABASE" = aws_conf$RDS_DATABASE,
-               "RDS_USERNAME" = aws_conf$RDS_USERNAME,
-               "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
-}
+# } else { # shinyapps.io
+#     Sys.setenv(TZ="America/New_York")
+#     
+#     aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+#     Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
+#                "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
+#                "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
+#                "RDS_HOST" = aws_conf$RDS_HOST,
+#                "RDS_DATABASE" = aws_conf$RDS_DATABASE,
+#                "RDS_USERNAME" = aws_conf$RDS_USERNAME,
+#                "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
+# }
 conf$athena$uid <- aws_conf$AWS_ACCESS_KEY_ID
 conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 
@@ -251,94 +253,12 @@ goal <- list("tp" = NULL,
              "pau" = 0.95)
 
 
-get_athena_connection <- function(conf_athena, f = dbConnect) {
-    
-    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = conf_athena$jar_path,
-                identifier.quote = "'")
-    
-    if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-        
-        dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = conf_athena$staging_dir,
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                  ProxyHost = "gdot-enterprise",
-                  ProxyPort = "8080",
-                  ProxyUID = Sys.getenv("GDOT_USERNAME"),
-                  ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-    } else {
-        f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = conf_athena$staging_dir,
-                  UID = conf_athena$uid,  # Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  PWD = conf_athena$pwd,  # Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                  UseResultsetStreaming = 1)
-    }
-}
 
-
-get_athena_connection_pool <- function(conf_athena) {
-    get_athena_connection(conf_athena, dbPool)
-}
-athena_connection_pool <- get_athena_connection_pool(conf$athena)
-
-
-get_athena_connection_needs_boto3 <- function(conf_athena) {
-    dbConnect(
-        RAthena::athena(),
-        aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-        s3_staging_dir = conf_athena$staging_dir,
-        region_name = 'us-east-1')
-}
-
-
-get_aurora_connection <- function(aws_conf, f = dbConnect) {
-    f(
-        drv = RMySQL::MySQL(),
-        host = aws_conf$RDS_HOST,
-        dbname = aws_conf$RDS_DATABASE,
-        #port = 3306,
-        username = aws_conf$RDS_USERNAME,
-        password = aws_conf$RDS_PASSWORD
-    )
-}
-#aurora <- get_aurora_connection(aws_conf, f = dbPool)
 
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
-
-# Hyperlinks for Progress Reports
-get_progress_report_link <- function(corr, current_month_, rtop_) {
-    
-    yyyy <- format(current_month_, "%Y")
-    mm <- format(current_month_, "%m")
-    
-    corr_plus <- paste(yyyy, mm, gsub("/", "-", corr))
-    corr_plus <- gsub(" ", "+", corr_plus)
-    
-    tags$a(href = glue("{AWS_BUCKET}/zone_manager_reports/{rtop_}/{yyyy}-{mm}/{corr_plus}.pdf"), 
-           target = "_blank",
-           corr)
-}
-#get_progress_report_link <- memoise(get_progress_report_link_, cache = fc)
-
-# Hyperlinks for Progress Reports by Zone (February 2019 and later)
-get_progress_report_link_by_zone <- function(zone_, current_month_, rtop_) {
-    
-    yyyy <- format(current_month_, "%Y")
-    mm <- format(current_month_, "%m")
-    
-    #zone_plus <- paste(yyyy, mm, gsub("/", "-", zone))
-    zone_plus <- gsub(" ", "+", zone_)
-    
-    tags$a(href = glue("{AWS_BUCKET}/zone_manager_reports/{rtop_}/{yyyy}-{mm}/{zone_plus}.pdf"), 
-           target = "_blank",
-           zone_)
-}
-#get_progress_report_link_by_zone <- memoise(get_progress_report_link_by_zone_, cache = fc)
 
 
 
