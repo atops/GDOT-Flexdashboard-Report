@@ -120,31 +120,11 @@ conf$mode <- conf_mode
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
 
 
-# if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-#     set_config(
-#         use_proxy("gdot-enterprise", port = 8080,
-#                   username = Sys.getenv("GDOT_USERNAME"),
-#                   password = Sys.getenv("GDOT_PASSWORD")))
-# 
-# } else if (Sys.info()["nodename"] == "Larry") { # Linux workstation
-
 aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
 Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
            "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
            "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION)
     
-# } else { # shinyapps.io
-#     Sys.setenv(TZ="America/New_York")
-#     
-#     aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
-#     Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
-#                "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
-#                "AWS_DEFAULT_REGION" = aws_conf$AWS_DEFAULT_REGION,
-#                "RDS_HOST" = aws_conf$RDS_HOST,
-#                "RDS_DATABASE" = aws_conf$RDS_DATABASE,
-#                "RDS_USERNAME" = aws_conf$RDS_USERNAME,
-#                "RDS_PASSWORD" = aws_conf$RDS_PASSWORD)
-# }
 conf$athena$uid <- aws_conf$AWS_ACCESS_KEY_ID
 conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 
