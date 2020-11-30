@@ -3181,7 +3181,6 @@ output$health_maint_plot <- renderPlotly({
             x_line1_title = glue("{input$maintenance_var} trend"),
             plot_title = input$maintenance_var)
 })
-
 ```
 
 
