@@ -2128,7 +2128,7 @@ fillRow(
 ```{r Summary Table, eval = TRUE}
 
 corridor_summary_table <- reactive({
-    if (startsWith(zone_group(), "Zone")) {
+    if (startsWith(input$zone_group, "Zone")) {
         get_corridor_summary_table(cordata()$summary_data, current_month(), input$zone_group)
     } else {
         data.frame()
