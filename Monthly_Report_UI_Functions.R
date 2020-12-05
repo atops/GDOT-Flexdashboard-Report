@@ -110,15 +110,10 @@ no.color <- "red"
 
 # ###########################################################
 
-source("Database_Functions.R")
-
 conf <- read_yaml("Monthly_Report.yaml")
 
 
 conf$mode <- conf_mode
-
-athena_connection_pool <- get_athena_connection_pool(conf$athena)
-
 
 aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
 Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
@@ -127,6 +122,11 @@ Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
     
 conf$athena$uid <- aws_conf$AWS_ACCESS_KEY_ID
 conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
+
+source("Database_Functions.R")
+
+athena_connection_pool <- get_athena_connection_pool(conf$athena)
+
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production

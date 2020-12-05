@@ -115,23 +115,11 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
                 classPath = conf_athena$jar_path,
                 identifier.quote = "'")
     
-    if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-        
-        dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-                  s3_staging_dir = conf_athena$staging_dir,
-                  user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-                  password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-                  ProxyHost = "gdot-enterprise",
-                  ProxyPort = "8080",
-                  ProxyUID = Sys.getenv("GDOT_USERNAME"),
-                  ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-    } else {
-        f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-          s3_staging_dir = conf_athena$staging_dir,
-          UID = conf_athena$uid,  # Sys.getenv("AWS_ACCESS_KEY_ID"),
-          PWD = conf_athena$pwd,  # Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-          UseResultsetStreaming = 1)
-    }
+    f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+      s3_staging_dir = conf_athena$staging_dir,
+      UID = conf_athena$uid,
+      PWD = conf_athena$pwd,
+      UseResultsetStreaming = 1)
 }
 
 
