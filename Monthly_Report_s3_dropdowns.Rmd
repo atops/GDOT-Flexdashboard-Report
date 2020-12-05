@@ -31,7 +31,7 @@ runtime: shiny
 conf_mode <- "production"
 
 source("Monthly_Report_UI_Functions.R", local = TRUE)
-
+source("Database_Functions.R", local = TRUE)
 
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
@@ -292,7 +292,6 @@ Row
 
 ```{r}
 tp_valuebox <- reactive({
-    print('tp_valuebox - one-month summary')
     valueBox(
         value = get_valuebox(
             mr()$mo$tp, "vph", as_int,

@@ -1,8 +1,54 @@
+#
+# Shiny app for Zone Managers to edit their progress reports
+#
+
+library(shiny)
+library(yaml)
+library(tidyverse)
+library(lubridate)
+library(shinyMCE)
+library(glue)
+
 
 conf <- read_yaml("Monthly_Report.yaml")
+aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+
 
 month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>% 
     rev() %>% format("%b %Y")
+last_month <- dmy(paste(1, month_options[[1]]))
+
+
+get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
+    df <- zmdf_ %>%
+        dplyr::group_by(Month, Zone) %>%
+        dplyr::filter(LastModified == max(LastModified)) %>%
+        ungroup()
+    # Filter by zone if provided
+    if (!is.null(zone_)) {
+        df <- df %>% filter(Zone == zone_)
+    }
+    # Filter by month if provided
+    if (!is.null(month_)) {
+        df <- df %>% filter(Month == month_)
+    }
+    df
+}
+
+get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
+    df <- get_last_modified(zmdf_, zone_, month_)
+    # If Last Modified is blank (no last modified enttry), return default if provided
+    if (nrow(df) == 0) {
+        if (!is.null(default_)) {
+            default_
+        } else {
+            ""
+        }
+    } else {
+        df$Comments[1]
+    }
+}
+
 
 tinyMCE <- function(inputId, content, options = NULL) {
     tagList(
