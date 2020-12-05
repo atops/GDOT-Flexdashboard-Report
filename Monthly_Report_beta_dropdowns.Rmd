@@ -2700,6 +2700,8 @@ Map
 
 ```{r Map, echo = FALSE, eval = TRUE}
 
+library(leaflet.extras)
+
 metrics_df <- read_csv(
     "table,value,description
     vpd,vpd,Vehicles Per Day
@@ -2837,7 +2839,14 @@ shinyApp(
                 pretty = TRUE)
             
             leaflet() %>%
-                addProviderTiles(providers$CartoDB.Positron) %>%
+                addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
+                addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
+                addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+                addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo") %>%
+                addLayersControl(
+                    baseGroups = c("Light", "Dark", "Satellite", "Topo"), 
+                    options = layersControlOptions(collapsed = FALSE)) %>%
+                enableTileCaching() %>%
                 setView(
                     lat = 33.7995454, 
                     lng = -84.3729367, 
