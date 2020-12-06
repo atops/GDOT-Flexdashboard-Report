@@ -11,7 +11,14 @@ library(glue)
 
 
 conf <- read_yaml("Monthly_Report.yaml")
-aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
+cred <- read_yaml("Monthly_Report_AWS.yaml")
+
+source("Database_Functions.R")
+
+
+print("Create connection pool...")
+conn_pool <- get_aurora_connection_pool()
+print("Created.")
 
 
 month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>% 
@@ -171,8 +178,8 @@ shinyApp(
         zmdf <- aws.s3::s3readRDS(
             object = "Zone_Manager_Report_Content.rds",
             bucket = "gdot-spm",
-            key = aws_conf$AWS_ACCESS_KEY_ID,
-            secret = aws_conf$AWS_SECRET_ACCESS_KEY
+            key = cred$AWS_ACCESS_KEY_ID,
+            secret = cred$AWS_SECRET_ACCESS_KEY
         ) %>%
             group_by(Month, Zone) %>%
             top_n(10, LastModified) %>%
@@ -263,8 +270,8 @@ shinyApp(
             zmdf <<- aws.s3::s3readRDS(
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                key = aws_conf$AWS_ACCESS_KEY_ID,
-                secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+                key = cred$AWS_ACCESS_KEY_ID,
+                secret = cred$AWS_SECRET_ACCESS_KEY)
             removeModal()
             
             updateTinyMCE(
@@ -312,8 +319,8 @@ shinyApp(
             x <- aws.s3::s3readRDS(
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                key = aws_conf$AWS_ACCESS_KEY_ID,
-                secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+                key = cred$AWS_ACCESS_KEY_ID,
+                secret = cred$AWS_SECRET_ACCESS_KEY)
             zmdf <<- bind_rows(zmdf, x) %>% distinct()
             
             # Save to S3, updated with new data.
@@ -321,8 +328,8 @@ shinyApp(
                 zmdf,
                 object = "Zone_Manager_Report_Content.rds",
                 bucket = "gdot-spm",
-                key = aws_conf$AWS_ACCESS_KEY_ID,
-                secret = aws_conf$AWS_SECRET_ACCESS_KEY)
+                key = cred$AWS_ACCESS_KEY_ID,
+                secret = cred$AWS_SECRET_ACCESS_KEY)
             removeModal()
             
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)

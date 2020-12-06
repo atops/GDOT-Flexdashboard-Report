@@ -96,11 +96,11 @@ get_aurora_connection <- function(f = RMySQL::dbConnect) {
     f(drv = RMySQL::MySQL(),
       host = Sys.getenv("RDS_HOST"),
       port = 3306,
-      dbname = Sys.getenv("RDS_DATABASE"),
-      username = Sys.getenv("RDS_USERNAME"),
-      password = Sys.getenv("RDS_PASSWORD"))
+      dbname = cred$RDS_DATABASE,
+      username = cred$RDS_USERNAME,
+      password = cred$RDS_PASSWORD)
 }
-
+    
 
 get_aurora_connection_pool <- function() {
     get_aurora_connection(dbPool)
