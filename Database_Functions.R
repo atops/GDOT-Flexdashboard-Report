@@ -2,6 +2,8 @@
 # Database Functions
 library(RJDBC)
 
+cred <- read_yaml("Monthly_Report_AWS.yaml")
+
 # -- Previously from Monthly_Report_Functions.R
 
 get_atspm_connection <- function(conf_atspm) {
@@ -103,7 +105,7 @@ get_aurora_connection <- function(f = RMySQL::dbConnect) {
     
 
 get_aurora_connection_pool <- function() {
-    get_aurora_connection(dbPool)
+    get_aurora_connection(pool::dbPool)
 }
 
 

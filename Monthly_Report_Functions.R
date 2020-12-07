@@ -1438,7 +1438,7 @@ get_spm_data_aws <- function(start_date, end_date, signals_list = NULL, conf_ath
     end_date1 <- ymd(end_date) + days(1)
     
     df %>%
-        dplyr::filter(date >= as.character(start_date) & date < as.character(end_date1))
+        dplyr::filter(date >= start_date & date < end_date1)
 }
 
 

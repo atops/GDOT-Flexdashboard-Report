@@ -11,7 +11,6 @@ library(glue)
 
 
 conf <- read_yaml("Monthly_Report.yaml")
-cred <- read_yaml("Monthly_Report_AWS.yaml")
 
 source("Database_Functions.R")
 
@@ -21,10 +20,14 @@ conn_pool <- get_aurora_connection_pool()
 print("Created.")
 
 
+
 month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>% 
     rev() %>% format("%b %Y")
 last_month <- dmy(paste(1, month_options[[1]]))
 
+all_zones <- paste("Zone", c(seq(7), "7m", "7d", 8))
+initial_zone <- all_zones[1]
+                   
 
 get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
     df <- zmdf_ %>%
@@ -42,18 +45,54 @@ get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
     df
 }
 
-get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
+
+get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL) {
     df <- get_last_modified(zmdf_, zone_, month_)
-    # If Last Modified is blank (no last modified enttry), return default if provided
-    if (nrow(df) == 0) {
-        if (!is.null(default_)) {
-            default_
-        } else {
-            ""
-        }
-    } else {
-        df$Comments[1]
+    df$Comments[1]
+}
+
+
+read_from_db <- function(conn) {
+    dbReadTable(conn, "progress_report_content_test") %>%
+        group_by(Month, Zone) %>%
+        top_n(10, LastModified) %>%
+        ungroup() %>%
+        mutate(Month = date(Month),
+               LastModified = lubridate::as_datetime(LastModified))
+}
+
+
+add_row_to_zmdf <- function(zmdf, month, zone, comments) {
+    new_row <- data.frame(
+        uuid = uuid::UUIDgenerate(), 
+        Month = month, 
+        Zone = zone, 
+        Comments = comments, 
+        LastModified = now())
+    
+    bind_rows(zmdf, new_row)
+}
+
+
+write_rows_to_db <- function(conn, rows) {
+    if (nrow(rows) > 0) {
+        dbWriteTable(
+            conn, 
+            "progress_report_content_test", 
+            rows, 
+            append = TRUE, 
+            row.names = FALSE)
     }
+}
+
+
+sync_db <- function(conn, zmdf) {
+    # This function will only add rows, not delete
+    zmdb <- read_from_db(conn)
+    zmdf_local <- filter(zmdf, !uuid %in% zmdb$uuid)
+    zmdf <- bind_rows(zmdb, zmdf_local)
+    write_rows_to_db(conn, zmdf_local)
+    zmdf
 }
 
 
@@ -108,9 +147,12 @@ editor_opts <-
 default_comment <- paste0(
     "<h3>Construction/Coordination</h3>", 
     "<p>comments here.</p>",
-    "<h3>Maintenance Activities</h3><p>comments here.</p>",
-    "<h3>Performance Metrics</h3><p>comments here.</p>",
-    "<h3>Other</h3><p>comments here.</p>")
+    "<h3>Maintenance Activities</h3>", 
+    "<p>comments here.</p>",
+    "<h3>Performance Metrics</h3>", 
+    "<p>comments here.</p>",
+    "<h3>Other</h3>", 
+    "<p>comments here.</p>")
 
 
 
@@ -132,7 +174,7 @@ shinyApp(
             ),
             div(selectInput(
                 inputId = "zone", label = NULL,
-                choices = paste("Zone", c(seq(7), "7m", "7d", 8))
+                choices = all_zones
                 ),
                 style = "height: 34px;"
             ),
@@ -154,18 +196,9 @@ shinyApp(
             column(width = 9,
                    hr(),
                    tinyMCE('editor1',
+                           #get_latest_comment(zmdf, initial_zone, last_month),
                            verbatimTextOutput('zmdf_comment1'),
-                           editor_opts),
-                   
-                   hr(),
-                   p('HTML of editor text:'),
-                   verbatimTextOutput('editor1_content'),
-                   
-                   p('The most recent comment in the data table:'),
-                   verbatimTextOutput('zm_data'),
-                   
-                   p('The data table filtered by Zone and Month:'),
-                   tableOutput('zmdf_table')
+                           editor_opts)
             ),
             column(width = 3,
                    actionButton("undo_zm_edits", "Undo Edits"),
@@ -175,38 +208,14 @@ shinyApp(
     
     server <- function(input, output, session) {
         
-        zmdf <- aws.s3::s3readRDS(
-            object = "Zone_Manager_Report_Content.rds",
-            bucket = "gdot-spm",
-            key = cred$AWS_ACCESS_KEY_ID,
-            secret = cred$AWS_SECRET_ACCESS_KEY
-        ) %>%
-            group_by(Month, Zone) %>%
-            top_n(10, LastModified) %>%
-            ungroup()
-        
-        memory = reactiveValues(zone = "All RTOP", month = last_month)
-        
-        # ------------ debug elements ------------------
-        # Show (don't change) ZM Data on Zone and Month (all, not just Last Modified)
-        output$zmdf_table <- renderTable({
-            zmdf %>%
-                filter(Zone == zone_group(), Month == current_month()) %>%
-                arrange(desc(LastModified))
+        onStop(function() {
+            pool::poolReturn(conn)
         })
         
-        output$editor1_content <- renderPrint({input$editor1})
-        output$zone <- renderPrint({zone_group()})
-        output$month <- renderPrint({current_month()})
-        
-        
-        # Show ZM Data to put in Editor on Zone and Month
-        output$zm_data <- renderText({
-            get_latest_comment(zmdf, zone_group(), current_month())
-        })
-        # ------------ end debug elements --------------
-        
-        
+        print("Checkout connection from pool...")
+        conn <- pool::poolCheckout(conn_pool)
+        print("Checked out.")
+
         zone_group <- reactive({
             input$zone
         })
@@ -215,10 +224,27 @@ shinyApp(
             dmy(paste(1, input$month))
         })
         
+        zmdf <- read_from_db(conn)
+        
+        # Populate last month with default comments if nothing entered for any zone in this month.
+        if (nrow(get_last_modified(zmdf, month_ = last_month)) == 0) {
+            for (zone in all_zones) {
+                zmdf <- add_row_to_zmdf(
+                    zmdf, 
+                    month = last_month, 
+                    zone = zone, 
+                    comments = default_comment)
+            }
+        }
+        zmdf <- sync_db(conn, zmdf)
+        
+        memory = reactiveValues(zone = initial_zone, month = last_month)
+        
         # Populate Editor on ZM Data, Zone and Month (first time only)
         output$zmdf_comment1 <- renderPrint({
-            get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
+            get_latest_comment(zmdf, initial_zone, last_month)
         })
+
         
         # Update Editor with ZM Data on user selection of new Zone or Group
         # only if editor text has changed
@@ -228,15 +254,14 @@ shinyApp(
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
                 print('--------Update Editor--------')
-                #print(latest_comment)
-                #print(input$editor1)
-                if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
-                    zmdf <<- tibble::add_row(
+                if (!is.null(input$editor1) && input$editor1 != "" && input$editor1 != latest_comment) {
+
+                    zmdf <<- add_row_to_zmdf(
                         zmdf,
-                        Month = memory$month,
-                        Zone = memory$zone,
-                        Comments = input$editor1,
-                        LastModified = now())
+                        month = memory$month, 
+                        zone = memory$zone, 
+                        comments = input$editor1)
+
                     print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
@@ -244,7 +269,7 @@ shinyApp(
             updateTinyMCE(
                 session,
                 'editor1',
-                get_latest_comment(zmdf, zone_group(), current_month(), default_comment)
+                get_latest_comment(zmdf, zone_group(), current_month())
             )
             
             memory$month <- current_month()
@@ -267,20 +292,15 @@ shinyApp(
         observeEvent(input$confirmUndo, {
             print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
             
-            zmdf <<- aws.s3::s3readRDS(
-                object = "Zone_Manager_Report_Content.rds",
-                bucket = "gdot-spm",
-                key = cred$AWS_ACCESS_KEY_ID,
-                secret = cred$AWS_SECRET_ACCESS_KEY)
+            zmdf <<- read_from_db(conn)
+
             removeModal()
             
             updateTinyMCE(
                 session,
                 'editor1',
-                get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month), default_comment)
+                get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month))
             )
-            
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
         
         observeEvent(input$save_zm_edits, {
@@ -295,47 +315,64 @@ shinyApp(
         
         observeEvent(input$confirmSave, {
             
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
-            
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
                 print('--------ConfirmSave--------')
-                #print(get_latest_comment(zmdf, memory$zone, memory$month))
-                #print(input$editor1)
                 if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
-                    zmdf <<- tibble::add_row(
+                    zmdf <- add_row_to_zmdf(
                         zmdf,
-                        Month = memory$month,
-                        Zone = memory$zone,
-                        Comments = input$editor1,
-                        LastModified = now())
+                        month = memory$month, 
+                        zone = memory$zone, 
+                        comments = input$editor1)
+                    zmdf <<- sync_db(conn, zmdf)
+
                     print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
-            
-            # Read back from S3 in case it's changed by someone else.
-            # and combine with new data; drop duplicates to keep only unique rows.
-            x <- aws.s3::s3readRDS(
-                object = "Zone_Manager_Report_Content.rds",
-                bucket = "gdot-spm",
-                key = cred$AWS_ACCESS_KEY_ID,
-                secret = cred$AWS_SECRET_ACCESS_KEY)
-            zmdf <<- bind_rows(zmdf, x) %>% distinct()
-            
-            # Save to S3, updated with new data.
-            aws.s3::s3saveRDS(
-                zmdf,
-                object = "Zone_Manager_Report_Content.rds",
-                bucket = "gdot-spm",
-                key = cred$AWS_ACCESS_KEY_ID,
-                secret = cred$AWS_SECRET_ACCESS_KEY)
+
             removeModal()
-            
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
         })
         
     },
     
     options = list(height = 800)
 )
+
+
+
+# #--- Once-off database table set up steps ---
+# print("Checkout connection from pool...")
+# conn <- pool::poolCheckout(conn_pool)
+# print("Checked out.")
+# # Production
+# q <- paste("CREATE TABLE `progress_report_content` (",
+#            "`uuid` VARCHAR(36),",
+#            "`Month` DATE,",
+#            "`Zone` VARCHAR(12),",
+#            "`Comments` text,",
+#            "`LastModified` DATETIME",
+#            ") ENGINE=InnoDB DEFAULT CHARSET=latin1")
+# dbSendQuery(conn, q)
+# dbSendQuery(conn, "CREATE UNIQUE INDEX idx_progress_report_content ON progress_report_content (uuid)")
+# dbSendQuery(conn, "CREATE INDEX idx_progress_report_content_2 ON progress_report_content (Month, Zone)")
+# 
+# zmdf$uuid <- uuid::UUIDgenerate(n = nrow(zmdf))
+# dbWriteTable(conn, "progress_report_content", zmdf, append = TRUE, row.names = FALSE)
+# 
+# # Test
+# q <- paste("CREATE TABLE `progress_report_content_test` (",
+#            "`uuid` VARCHAR(36),",
+#            "`Month` DATE,",
+#            "`Zone` VARCHAR(12),",
+#            "`Comments` text,",
+#            "`LastModified` DATETIME",
+#            ") ENGINE=InnoDB DEFAULT CHARSET=latin1")
+# dbSendQuery(conn, q)
+# dbSendQuery(conn, "CREATE UNIQUE INDEX idx_progress_report_content_test ON progress_report_content_test (uuid)")
+# dbSendQuery(conn, "CREATE INDEX idx_progress_report_content_test_2 ON progress_report_content_test (Month, Zone)")
+# 
+# zmdf$uuid <- uuid::UUIDgenerate(n = nrow(zmdf))
+# dbWriteTable(conn, "progress_report_content_test", zmdf, append = TRUE, row.names = FALSE)
+# #--- End once-off database table set up steps ---
+

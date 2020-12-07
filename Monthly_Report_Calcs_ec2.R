@@ -133,8 +133,9 @@ print(Sys.time())
 print(glue("{Sys.time()} parse cctv logs [1 of 10]"))
 
 if (conf$run$cctv == TRUE) {
-    system("~/miniconda3/bin/python parse_cctvlog.py", wait = FALSE) # Run python script asynchronously
-    system("~/miniconda3/bin/python parse_cctvlog_encoders.py", wait = FALSE) # Run python script asynchronously
+    # Run python scripts asynchronously
+    system("~/miniconda3/bin/python parse_cctvlog.py", wait = FALSE)
+    system("~/miniconda3/bin/python parse_cctvlog_encoders.py", wait = FALSE)
 }
 
 # # GET RSU UPTIMES ###########################################################
@@ -142,7 +143,8 @@ if (conf$run$cctv == TRUE) {
 print(glue("{Sys.time()} parse rsu logs [2 of 10]"))
 
 if (conf$run$rsus == TRUE) {
-    system("~/miniconda3/bin/python parse_rsus.py", wait = FALSE) # Run python script asynchronously
+    # Run python script asynchronously
+    system("~/miniconda3/bin/python parse_rsus.py", wait = FALSE)
 }
 
 # # TRAVEL TIMES FROM RITIS API ###############################################
@@ -150,7 +152,8 @@ if (conf$run$rsus == TRUE) {
 print(glue("{Sys.time()} travel times [3 of 10]"))
 
 if (conf$run$travel_times == TRUE) {
-    system("~/miniconda3/bin/python get_travel_times.py", wait = FALSE) # Run python script asynchronously
+    # Run python script asynchronously
+    system("~/miniconda3/bin/python get_travel_times.py", wait = FALSE)
 }
 
 # # COUNTS ####################################################################
@@ -243,7 +246,6 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         print("Read filtered_counts. Getting adjusted counts...")
 
-        #adjusted_counts_1hr <- get_adjusted_counts(filtered_counts_1hr)
         adjusted_counts_1hr <- get_adjusted_counts_split(filtered_counts_1hr)
         
         rm(filtered_counts_1hr)
@@ -263,7 +265,6 @@ get_counts_based_measures <- function(month_abbrs) {
         })
         
         
-        # foreach(date_ = date_range) %dopar% {
         lapply(date_range, function(date_) {
             if (between(date_, start_date, end_date)) {
                 print(glue("filtered_counts_1hr: {date_}"))
@@ -355,13 +356,10 @@ get_counts_based_measures <- function(month_abbrs) {
         
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
         
-        #filtered_counts_15min <- foreach(date_ = date_range_twr) %dopar% {
         filtered_counts_15min <- lapply(date_range_twr, function(date_) {
-            #if (between(date_, start_date, end_date)) {
             date_ <- as.character(date_)
             print(date_)
             s3_read_parquet_parallel("filtered_counts_15min", date_, date_, bucket = conf$bucket)
-            #}
         }) %>% bind_rows()
         
         if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {
@@ -371,13 +369,11 @@ get_counts_based_measures <- function(month_abbrs) {
                     SignalID = factor(SignalID),
                     CallPhase = factor(CallPhase),
                     Detector = factor(Detector),
-                    # CountPriority = CountPriority,
                     Date = date(Date),
                     Timeperiod = Timeperiod,
                     Month_Hour = Month_Hour,
                     Hour = Hour,
                     vol = vol,
-                    #Good = Good,
                     Good_Day = Good_Day,
                     delta_vol = delta_vol,
                     mean_abs_delta = mean_abs_delta
@@ -436,9 +432,6 @@ get_counts_based_measures <- function(month_abbrs) {
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
         
-        #conn <- get_athena_connection(conf$athena)
-        
-        
         counts_ped_1hr <- s3_read_parquet_parallel(
             "counts_ped_1hr",
             as.character(sd),
@@ -486,23 +479,9 @@ print("--- Finished counts-based measures ---")
 print(glue("{Sys.time()} etl [7 of 10]"))
 
 if (conf$run$etl == TRUE) {
-    #library(reticulate)
-    
-    #python_path <- file.path("~", "miniconda3", "bin", "python")
-    #use_python(python_path)
-    
-    #etl <- reticulate::import_from_path("etl_dashboard", path = ".")
-    #etl$main(start_date, end_date)
-    
+
     # run python script and wait for completion
     system2("./etl_dashboard.sh", args = c(start_date, end_date))
-    
-    
-    # date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-    # foreach(date_ = date_range) %dopar% {
-    #     # run python script and wait for completion
-    #     system(glue("python etl_dashboard.py {date_} {date_}"), wait = TRUE)
-    # }
 }
 
 # --- ----------------------------- -----------
@@ -512,7 +491,6 @@ get_aog_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
     lapply(date_range, function(date_) {
-        # foreach(date_ = date_range) %dopar% {
         print(date_)
         
         cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
@@ -530,14 +508,9 @@ get_aog_date_range <- function(start_date, end_date) {
 print(glue("{Sys.time()} aog [8 of 10]"))
 
 if (conf$run$arrivals_on_green == TRUE) {
-    #get_aog_date_range(start_date, end_date)
-    
-    #etl <- reticulate::import_from_path("get_aog_new", path = ".")
-    #etl$main(start_date, end_date)
-    
+
     # run python script and wait for completion
     system2("./get_aog.sh", args = c(start_date, end_date))
-    
 }
 gc()
 
@@ -546,7 +519,6 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
     lapply(date_range, function(date_) {
-        # foreach(date_ = date_range) %dopar% {
         print(date_)
         
         detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
@@ -578,7 +550,6 @@ get_pd_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
     lapply(date_range, function(date_) {
-        #foreach(date_ = date_range) %dopar% {
         print(date_)
         pd <- get_ped_delay(date_, conf)
         if (nrow(pd) > 0) {
@@ -608,18 +579,8 @@ get_sf_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
     
     lapply(date_range, function(date_) {
-        #foreach(date_ = date_range) %dopar% {
         print(date_)
         
-        # This tends to run out of memory.
-        # Split into 10 roughly equal groups of signals. Run separately. Combine.
-        # sf <- lapply(seq(0,9,1), function(i) {
-        #     print(i)
-        #     get_sf_utah(
-        #         date_, 
-        #         conf$athena, 
-        #         signals_list[endsWith(as.character(signals_list), as.character(i))])
-        # }) %>% bind_rows
         sf <- get_sf_utah(date_, conf$athena, signals_list)
         s3_upload_parquet_date_split(
             sf, 
@@ -627,18 +588,15 @@ get_sf_date_range <- function(start_date, end_date) {
             prefix = "sf", 
             table_name = "split_failures",
             conf_athena = conf$athena)
-        #}
     })
-    #registerDoSEQ()
     gc()
 }
 
 if (conf$run$split_failures == TRUE) {
-    get_sf_date_range(start_date, end_date) # Utah method, based on green, start-of-red occupancies
+    # Utah method, based on green, start-of-red occupancies
+    get_sf_date_range(start_date, end_date)
 }
 
 
-
-#system2('python reload_parquet.py', wait = FALSE)
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")
