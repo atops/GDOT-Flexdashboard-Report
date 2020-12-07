@@ -2148,7 +2148,7 @@ fillRow(
 ```{r Summary Table, eval = TRUE}
 
 corridor_summary_table <- reactive({
-    if (startsWith(zone_group(), "Zone")) {
+    if (startsWith(input$zone_group, "Zone")) {
         get_corridor_summary_table(cor$summary_data, current_month(), input$zone_group)
     } else {
         data.frame()
@@ -2493,6 +2493,8 @@ Map
 
 ```{r Map, echo = FALSE, eval = TRUE}
 
+library(leaflet.extras)
+
 metrics_df <- read_csv(
     "table,value,description
     vpd,vpd,Vehicles Per Day
@@ -2577,28 +2579,28 @@ shinyApp(
         #                           choices = c("Monthly"),  # "Weekly"),
         #                           selected = 1,
         #                           width = "150px")),
-        div(absolutePanel(top = 10, left = 100,  # 260,
-                      selectInput(inputId = "metric_input", 
+        absolutePanel(top = 10, left = 100,  # 260,
+                      div(selectInput(inputId = "metric_input", 
                                   label = "Select Metric", 
                                   choices = metrics_df$description, 
-                                  width = "300px")),
-            style = "font-family: Source Sans Pro;"),
+                                  width = "300px"),
+            style = "font-family: Source Sans Pro;")),
         # absolutePanel(top = 10, left = 570,
         #               selectInput(inputId = "period_input", 
         #                           label = "Select Period", 
         #                           choices = format(today(), "%B %Y"),
         #                           selected = 1,
         #                           width = "150px")),
-        div(absolutePanel(top = 10, left = 430,
-                      radioButtons("filter_input", label = "Filter by",
+        absolutePanel(top = 10, left = 430,
+                      div(radioButtons("filter_input", label = "Filter by",
                       choices = list(
                           "View all signals" = 1, 
                           "Filter by signal group in sidebar" = 2), 
-                      selected = 1)),
-            style = "font-family: Source Sans Pro"),
-        div(absolutePanel(top = 110, left = 50,
-                          dataTableOutput("top10_table")),
-            style = "font-family: Source Sans Pro; font-size: 14px; background-color: rbga(0,0,0,0.4)")
+                      selected = 1),
+            style = "font-family: Source Sans Pro")),
+        absolutePanel(top = 110, left = 50,
+                      div(dataTableOutput("top10_table"),
+            style = "font-family: Source Sans Pro; font-size: 14px;"))
     ),
     
     server = function(input, output, session) {
@@ -2627,7 +2629,14 @@ shinyApp(
                 pretty = TRUE)
             
             leaflet() %>%
-                addProviderTiles(providers$CartoDB.Positron) %>%
+                addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
+                addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
+                addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+                addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo") %>%
+                addLayersControl(
+                    baseGroups = c("Light", "Dark", "Satellite", "Topo"), 
+                    options = layersControlOptions(collapsed = FALSE)) %>%
+                enableTileCaching() %>%
                 setView(
                     lat = 33.7995454, 
                     lng = -84.3729367, 
@@ -2664,9 +2673,6 @@ shinyApp(
         })
         
         data <- reactive({
-            
-            cat(file = stderr(), "table =", table(), ", class=", class(table()), "\n")
-            cat(file = stderr(), "value =", value(), ", class=", class(value()), "\n")
             
             format_ <- value_format(value())
             

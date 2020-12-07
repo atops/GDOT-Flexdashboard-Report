@@ -1,6 +1,7 @@
 
 # Database Functions
 library(RJDBC)
+library(yaml)
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
 
@@ -96,7 +97,7 @@ get_cel_connection <- get_maxview_eventlog_connection
 get_aurora_connection <- function(f = RMySQL::dbConnect) {
     
     f(drv = RMySQL::MySQL(),
-      host = Sys.getenv("RDS_HOST"),
+      host = cred$RDS_HOST,
       port = 3306,
       dbname = cred$RDS_DATABASE,
       username = cred$RDS_USERNAME,
