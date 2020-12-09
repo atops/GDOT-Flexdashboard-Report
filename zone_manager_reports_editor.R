@@ -196,8 +196,7 @@ shinyApp(
             column(width = 9,
                    hr(),
                    tinyMCE('editor1',
-                           #get_latest_comment(zmdf, initial_zone, last_month),
-                           verbatimTextOutput('zmdf_comment1'),
+                           "",
                            editor_opts)
             ),
             column(width = 3,
@@ -227,33 +226,28 @@ shinyApp(
         zmdf <- read_from_db(conn)
         
         # Populate last month with default comments if nothing entered for any zone in this month.
-        if (nrow(get_last_modified(zmdf, month_ = last_month)) == 0) {
-            for (zone in all_zones) {
+        for (zone in all_zones) {
+            if (nrow(get_last_modified(zmdf, zone_ = zone, month_ = last_month)) == 0) {
                 zmdf <- add_row_to_zmdf(
                     zmdf, 
                     month = last_month, 
                     zone = zone, 
                     comments = default_comment)
+                zmdf <- sync_db(conn, zmdf)
             }
         }
+
         zmdf <- sync_db(conn, zmdf)
         
         memory = reactiveValues(zone = initial_zone, month = last_month)
         
-        # Populate Editor on ZM Data, Zone and Month (first time only)
-        output$zmdf_comment1 <- renderPrint({
-            get_latest_comment(zmdf, initial_zone, last_month)
-        })
 
-        
         # Update Editor with ZM Data on user selection of new Zone or Group
         # only if editor text has changed
         observe({
-            print("UpdateTinyMCE observed")
-            
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-                print('--------Update Editor--------')
+                
                 if (!is.null(input$editor1) && input$editor1 != "" && input$editor1 != latest_comment) {
 
                     zmdf <<- add_row_to_zmdf(
@@ -261,8 +255,6 @@ shinyApp(
                         month = memory$month, 
                         zone = memory$zone, 
                         comments = input$editor1)
-
-                    print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
             
@@ -290,8 +282,6 @@ shinyApp(
         
         # On Undo, reload ZM Data from S3.
         observeEvent(input$confirmUndo, {
-            print(aws.s3::get_bucket_df("gdot-spm", "Zone_Manager_Report_Content.rds")$LastModified)
-            
             zmdf <<- read_from_db(conn)
 
             removeModal()
@@ -318,7 +308,6 @@ shinyApp(
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-                print('--------ConfirmSave--------')
                 if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <- add_row_to_zmdf(
                         zmdf,
@@ -326,8 +315,6 @@ shinyApp(
                         zone = memory$zone, 
                         comments = input$editor1)
                     zmdf <<- sync_db(conn, zmdf)
-
-                    print("UpdateTinyMCE observed and editor text changed. Save to ZM Data.")
                 }
             })
 
