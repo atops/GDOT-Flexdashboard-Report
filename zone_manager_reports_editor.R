@@ -53,7 +53,7 @@ get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL) {
 
 
 read_from_db <- function(conn) {
-    dbReadTable(conn, "progress_report_content_test") %>%
+    dbReadTable(conn, "progress_report_content") %>%
         group_by(Month, Zone) %>%
         top_n(10, LastModified) %>%
         ungroup() %>%
@@ -78,7 +78,7 @@ write_rows_to_db <- function(conn, rows) {
     if (nrow(rows) > 0) {
         dbWriteTable(
             conn, 
-            "progress_report_content_test", 
+            "progress_report_content", 
             rows, 
             append = TRUE, 
             row.names = FALSE)
