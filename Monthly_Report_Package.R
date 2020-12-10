@@ -281,7 +281,7 @@ tryCatch({
         mutate(
             SignalID = factor(SignalID),
             CallPhase = factor(CallPhase),
-            Detector = factor(Detector)) %>% 
+            Detector = factor(Detector))
         
     bad_det <- bad_det %>% 
         left_join(

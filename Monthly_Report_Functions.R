@@ -780,7 +780,7 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
                          signalid,
                          eventparam)
             
-            # Group by 15 minute interval using Athena/Presto SQL
+        # Group by 15 minute interval using Athena/Presto SQL
         } else if (units == "15min") {
             df <- df %>% 
                 mutate(timeperiod = date_trunc('minute', timestamp)) %>%
@@ -1784,7 +1784,7 @@ get_qs <- function(detection_events) {
         ungroup() %>%
         transmute(Date = date(date),
                   SignalID = factor(signalid), 
-                  CycleStart = cyclestart, 
+                  CycleStart = ymd_hms(cyclestart), 
                   CallPhase = factor(callphase),
                   Detector = factor(detector), 
                   occ)
