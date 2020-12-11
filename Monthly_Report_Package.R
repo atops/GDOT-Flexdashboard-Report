@@ -261,7 +261,7 @@ tryCatch({
                     select(SignalID, Detector) %>%
                     mutate(Date = date_)
             }, error = function(e) {
-                data.frame()  #(SignalID = col_character(), Detector = col_character())
+                data.frame()
             })
         }) %>% 
         bind_rows() %>% 

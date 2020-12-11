@@ -1871,7 +1871,7 @@ get_rsu_uptime <- function(report_start_date) {
     
     # rsu <- dbGetQuery(conn, sql(glue("select signalid, date, uptime, count from gdot_spm.rsu_uptime"))) %>%
     rsu <- tbl(conn, sql("select signalid, date, uptime, count from gdot_spm.rsu_uptime")) %>%
-        filter(date >= report_start_date) %>%  # date_parse(report_start_date, "%Y-%m-%d")) %>%
+        filter(date >= date_parse(report_start_date, "%Y-%m-%d")) %>% # report_start_date) %>%  # 
         collect() %>%
         filter(signalid %in% rsu_config$SignalID)
     
