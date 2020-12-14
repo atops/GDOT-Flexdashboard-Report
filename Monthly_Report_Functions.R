@@ -4054,7 +4054,7 @@ get_ped_delay <- function(date_, conf) {
         collect() %>%
         transmute(
             SignalID = as.integer(signalid),
-            Timestamp = force_tz(timestamp, "UTC"),
+            Timestamp = force_tz(ymd_hms(timestamp), "UTC"),
             EventCode = as.integer(eventcode),
             EventParam = as.integer(eventparam),
             CycleLength = ifelse(EventCode == 132, EventParam, NA)
@@ -4198,9 +4198,9 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
     conn <- get_athena_connection(conf_athena)
     table_name <- "signal_details"
     tryCatch({
-        response <- dbGetQuery(conn,
-                               sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
-                                              "ADD PARTITION (date='{plot_date}')"))))
+        dbSendUpdate(conn,
+                     sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
+                                    "ADD PARTITION (date='{plot_date}')"))))
         print(glue("Successfully created partition (date='{plot_date}') for {conf_athena$database}.{table_name}"))
     }, error = function(e) {
         message <- e

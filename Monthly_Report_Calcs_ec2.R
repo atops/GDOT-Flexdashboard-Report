@@ -10,10 +10,14 @@ source("Database_Functions.R")
 
 print(glue("{Sys.time()} Starting Calcs Script"))
 
-plan(multisession)
-
+if (interactive()) {
+    plan(multisession)
+} else {
+    plan(multicore)
+}    
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
+
 
 #aurora_pool <- get_aurora_connection_pool()
 #aurora <- get_aurora_connection()
