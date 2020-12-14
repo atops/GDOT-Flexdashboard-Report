@@ -108,10 +108,27 @@ metric.goals.sign <- c(rep(">", 4), ">", ">", rep("<", 4), "<")
 yes.color <- "green"
 no.color <- "red"
 
-# ###########################################################
+
+as_int <- function(x) {scales::comma_format()(as.integer(x))}
+as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
+as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
+as_currency <- function(x) {scales::dollar_format(accuracy = 1)(x)}
+
+goal <- list("tp" = NULL,
+             "aogd" = 0.80,
+             "prd" = 1.20,
+             "qsd" = NULL,
+             "sfd" = NULL,
+             "tti" = 1.20,
+             "pti" = 1.30,
+             "du" = 0.95,
+             "ped" = 0.95,
+             "cctv" = 0.95,
+             "cu" = 0.95,
+             "pau" = 0.95)
+
 
 conf <- read_yaml("Monthly_Report.yaml")
-
 
 conf$mode <- conf_mode
 
@@ -136,7 +153,8 @@ if (conf$mode == "production") {
     
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
-}    
+}
+
 endof_last_month <- last_month + months(1) - days(1)
 first_month <- last_month - months(12)
 report_months <- seq(last_month, first_month, by = "-1 month")
@@ -144,12 +162,18 @@ month_options <- report_months %>% format("%B %Y")
 
 zone_group_options <- conf$zone_groups
 
+poll_interval <- 1000*3600 # 3600 seconds = 1 hour
+
+
 
 s3checkFunc <- function(bucket, object) {
     function() {
         aws.s3::get_bucket(bucket = bucket, prefix = object)$Contents$LastModified
     }
 }
+
+
+
 s3valueFunc <- function(bucket, object, aws_conf) {
 
     read_function <- if (endsWith(object, ".qs")) {
@@ -167,13 +191,16 @@ s3valueFunc <- function(bucket, object, aws_conf) {
                         secret = aws_conf$AWS_SECRET_ACCESS_KEY))
     }
 }
+
+
+
 s3reactivePoll <- function(intervalMillis, bucket, object, aws_s3) {
     reactivePoll(intervalMillis, session = NULL,
                  checkFunc = s3checkFunc(bucket = bucket, object = object),
                  valueFunc = s3valueFunc(bucket = bucket, object = object, aws_s3))
 }
 
-poll_interval <- 1000*3600 # 3600 seconds = 1 hour
+
 
 if (conf$mode == "production") {
     
@@ -196,32 +223,15 @@ if (conf$mode == "production") {
 
 alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs", aws_conf) 
 
-as_int <- function(x) {scales::comma_format()(as.integer(x))}
-as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
-as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
-as_currency <- function(x) {scales::dollar_format(accuracy = 1)(x)}
-
-goal <- list("tp" = NULL,
-             "aogd" = 0.80,
-             "prd" = 1.20,
-             "qsd" = NULL,
-             "sfd" = NULL,
-             "tti" = 1.20,
-             "pti" = 1.30,
-             "du" = 0.95,
-             "ped" = 0.95,
-             "cctv" = 0.95,
-             "cu" = 0.95,
-             "pau" = 0.95)
-
-
-
 
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
 
+
+
+# Functions to get and filter data for plotting ---------------------------
 
 
 # Filter for zone_group and zone
@@ -250,11 +260,142 @@ filter_mr_data <- function(df, zone_group_) {
             filter(Zone_Group == zone_group_)
     }
 }
-#filter_mr_data <- memoise(filter_mr_data_, cache = fc)
+
+
+
+rds_vb_query <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
+    
+    table <- glue("{mr}_{per}_{tab}")
+    df <- tbl(conn, table)
+    if (!is.null(current_month)) {
+        df %>% 
+            filter(Month == current_month,
+                   Corridor == zone_group) %>%
+            collect() %>%
+            mutate(Month = date(Month))
+    } else { # current_quarter is not null
+        df %>% 
+            filter(Quarter == current_quarter,
+                   Corridor == zone_group) %>%
+            collect()
+    }
+}
+
+
+
+rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
+    
+    table <- glue("{mr}_{per}_{tab}")
+    df <- tbl(conn, table)
+    
+    if ("Month" %in% names(df)) {
+        df <- filter(df, Month >= first_month, Month <= current_month)
+    }
+    if ("Date" %in% names(df)) {
+        df <- filter(Date >= first_month, Date <= current_month)
+    }
+    if ("Hour" %in% names(df)) {
+        df <- filter(Hour >= first_month, Hour <= current_month)
+    }
+    
+    if (!is.null(zone_group)) {
+        df <- filter(df, Corridor == zone_group)
+    }
+    
+    df <- collect(df)
+    
+    if ("Month" %in% names(df)) {
+        df <- mutate(df, Month = date(Month))
+    }
+    if ("Date" %in% names(df)) {
+        df <- mutate(df, Date = date(Date))
+    }
+    if ("Hour" %in% names(df)) {
+        df <- mutate(df, Hour = ymd_hms(Hour))
+    }
+    
+    if ("Corridor" %in% names(df)) {
+        df <- mutate(df, Corridor = factor(Corridor))
+    }
+    if ("Zone_Group" %in% names(df)) {
+        df <- mutate(df, Zone_Group = factor(Zone_Group))
+    }
+    df
+}
+
+
+
+read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
+    DT <- dbGetQuery(
+        conn,
+        sql(glue(paste('select "{signalid}" as data, timeperiod from gdot_spm.signal_details',
+                       'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
+        as.data.table()
+    
+    DT <- DT[!is.na(data)]
+    if (nrow(DT)) {
+        dfs <- lapply(DT$data, function(x) jsonlite::fromJSON(x))
+        
+        dfs <- purrr::map2(dfs, DT$timeperiod, function(df, t) {df$Timeperiod <- t; df})
+        DT <- rbindlist(dfs)
+        
+        DT[, SignalID := factor(signalid)]
+        DT[, Timeperiod := ymd_hms(Timeperiod)]
+        DT[, Detector := factor(
+            Detector, levels = sort(as.integer(as.character(unique(DT$Detector)))))]
+        DT[, CallPhase := factor(
+            CallPhase, levels = sort(as.integer(as.character(unique(DT$CallPhase)))))]
+        DT[, vol_rc := as.numeric(as.character(vol_rc))]
+        DT[, vol_ac := as.numeric(as.character(vol_ac))]
+        DT[, bad_day := as.logical(bad_day)]
+        
+        setcolorder(DT, c( "SignalID", "Detector", "CallPhase", "vol_rc", "vol_ac", "bad_day", "Timeperiod"))
+        setorderv(DT, c("Detector", "Timeperiod"))
+        
+        return(as_tibble(DT))
+    } else {
+        return(data.frame())
+    }
+}
+
+
+
+get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
+    df <- zmdf_ %>%
+        dplyr::group_by(Month, Zone) %>%
+        dplyr::filter(LastModified == max(LastModified)) %>%
+        ungroup()
+    # Filter by zone if provided
+    if (!is.null(zone_)) {
+        df <- df %>% filter(Zone == zone_)
+    }
+    # Filter by month if provided
+    if (!is.null(month_)) {
+        df <- df %>% filter(Month == month_)
+    }
+    df
+}
+
+
+
+read_from_db <- function(conn) {
+    dbReadTable(conn, "progress_report_content") %>%
+        group_by(Month, Zone) %>%
+        top_n(10, LastModified) %>%
+        ungroup() %>%
+        mutate(Month = date(Month),
+               LastModified = lubridate::as_datetime(LastModified))
+}
+
+
+
+
+# Performance Metrics Plots -----------------------------------------------
+
 
 get_valuebox <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE, 
-                          zone, mo, qu = NULL) {
-
+                         zone, mo, qu = NULL) {
+    
     if (is.null(qu)) { # want monthly, not quarterly data
         vals <- cor_monthly_df %>%
             dplyr::filter(Corridor == zone & Month == mo) %>% as.list()
@@ -262,7 +403,7 @@ get_valuebox <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE,
         vals <- cor_monthly_df %>%
             dplyr::filter(Corridor == zone & Quarter == qu) %>% as.list()
     }
-
+    
     vals$delta <- if_else(is.na(vals$delta), 0, vals$delta)
     
     val <- var_fmt(vals[[var_]])
@@ -282,35 +423,10 @@ get_valuebox <- function(cor_monthly_df, var_, var_fmt, break_ = FALSE,
         )))
     }
 }
-#get_valuebox <- memoise(get_valuebox_, cache = fc)
 
 
 
-perf_plot_no_data <- function(name_) {
-    
-    ax <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
-    ay <- list(title = "", showticklabels = FALSE, showgrid = FALSE, zeroline = FALSE)
-    
-    plot_ly(type = "scatter", mode = "markers") %>%
-        layout(xaxis = ax, 
-               yaxis = ay,
-               annotations = list(x = -.02,
-                                  y = 0.4,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  xanchor = "right",
-                                  text = name_,
-                                  font = list(size = 12),
-                                  showarrow = FALSE),
-               showlegend = FALSE,
-               margin = list(l = 120,
-                             r = 40)) %>% 
-        plotly::config(displayModeBar = F)
-}
-#perf_plot_no_data <- memoise(perf_plot_no_data_, cache = fc)
-
-
-## ------------ With Goals and Fill Colors ---------------------------------------
+# With Goals and Fill Colors
 perf_plot_beta <- function(data_, value_, name_, color_, fill_color_,
                        format_func = function(x) {x},
                        hoverformat_ = ",.0f",
@@ -378,11 +494,9 @@ perf_plot_beta <- function(data_, value_, name_, color_, fill_color_,
                              b = 10)) %>%
         plotly::config(displayModeBar = F)
 }
-#perf_plot_beta <- memoise(perf_plot_beta_, cache = fc)
-
-## ------------ With Goals and Fill Colors ---------------------------------------
 
 
+# Without Goals and Fill Colors - not used for GDOT
 perf_plot <- function(data_, value_, name_, color_,
                       format_func = function(x) {x},
                       hoverformat_ = ",.0f",
@@ -445,76 +559,7 @@ perf_plot <- function(data_, value_, name_, color_,
                              r = 40)) %>%
         plotly::config(displayModeBar = F)
 }
-#perf_plot <- memoise(perf_plot_, cache = fc)
 
-
-get_perf_plot_updates <- function(data.set, var_, name_, color_, 
-                                  format_func = function(x) {x},
-                                  hoverformat_ = ",.0f",
-                                  zone_group_, month_) {
-    
-    refreshed.data.set <- filter(data.set, Corridor==zone_group_ & Month <= month_)
-    
-    if (nrow(refreshed.data.set) > 0) {
-
-        first <- refreshed.data.set[which.min(refreshed.data.set$Month), ]
-        last <- refreshed.data.set[which.max(refreshed.data.set$Month), ]
-        
-        traces <- list(list(x = refreshed.data.set$Month,
-                            y = refreshed.data.set[[var_]],
-                            mode = 'lines',
-                            name = name_,
-                            line = list(color = color_)))
-        
-        layouts <- list(yaxis = list(title = "", 
-                                     showticklabels = FALSE, 
-                                     showgrid = FALSE, 
-                                     zeroline = FALSE, 
-                                     hoverformat = hoverformat_),
-                        annotations = list(
-                            list(x = 0,
-                                 y = first[[var_]],
-                                 text = format_func(first[[var_]]),
-                                 showarrow = FALSE,
-                                 xanchor = "right",
-                                 xref = "paper",
-                                 width = 50,
-                                 align = "right",
-                                 borderpad = 5),
-                            
-                            list(x = 1,
-                                 y = last[[var_]],
-                                 text = format_func(last[[var_]]),
-                                 font = list(size = 16),
-                                 showarrow = FALSE,
-                                 xanchor = "left",
-                                 xref = "paper",
-                                 width = 60,
-                                 align = "left",
-                                 borderpad = 5)
-                        ),
-                        margin = list(l = 50, #120
-                                      r = 60,
-                                      t = 10,
-                                      b = 10),
-                        showlegend = FALSE)
-    } else {
-        traces <- list(list(x = NULL,  #unique(data.set$Month),
-                            y = NULL,
-                            mode = 'none',
-                            name = name_,
-                            line = list(color = color_)))
-        
-        layouts <- list(yaxis = list(title = "", 
-                                     showticklabels = FALSE, 
-                                     showgrid = FALSE, 
-                                     zeroline = FALSE, 
-                                     hoverformat = hoverformat_),
-                        annotations = NULL)
-    }
-    
-    list(traces = traces, layouts = layouts)
-}
 
 
 no_data_plot <- function(name_) {
@@ -546,11 +591,12 @@ no_data_plot <- function(name_) {
         plotly::config(displayModeBar = F)
     
 }
-#no_data_plot <- memoise(no_data_plot_, cache = fc)
+
 
 # Empty plot - space filler
 x0 <- list(zeroline = FALSE, ticks = "", showticklabels = FALSE, showgrid = FALSE)
 p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis = x0)
+
 
 
 get_bar_line_dashboard_plot <- function(cor_weekly, 
@@ -733,7 +779,8 @@ get_bar_line_dashboard_plot <- function(cor_weekly,
         no_data_plot("")
     )
 }
-#get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = fc)
+
+
 
 get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
                          cor_monthly_pti, cor_monthly_pti_by_hr, 
@@ -917,268 +964,9 @@ get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr,
         no_data_plot("")
     }
 }
-#get_tt_plot <- memoise(get_tt_plot_, cache = fc)
-
-get_pct_ch_plot <- function(cor_monthly_vpd,
-                             month_,
-                             zone_group_) {
-    pl <- function(df) { 
-        neg <- dplyr::filter(df, delta < 0)
-        pos <- dplyr::filter(df, delta > 0)
-        
-        title_ <- df$Corridor[1]
-        
-        plot_ly() %>% 
-            add_bars(data = neg,
-                     x = ~Month, 
-                     y = ~delta, 
-                     marker = list(color = "#e31a1c")) %>%
-            add_bars(data = pos,
-                     x = ~Month, 
-                     y = ~delta, 
-                     marker = list(color = "#33a02c")) %>%
-            layout(xaxis = list(title = "",
-                                nticks = nrow(df)),
-                   yaxis = list(title = "",
-                                tickformat = "%"),
-                   showlegend = FALSE,
-                   annotations = list(text = title_,
-                                      font = list(size = 12),
-                                      xref = "paper",
-                                      yref = "paper",
-                                      yanchor = "bottom",
-                                      xanchor = "center",
-                                      align = "center",
-                                      x = 0.5,
-                                      y = 0.95,
-                                      showarrow = FALSE))
-    }
-    
-    df <- filter_mr_data(cor_monthly_vpd, zone_group_)
-    
-    df <- filter(df, Month <= month_)
-    
-    if (nrow(df) > 0) {
-        
-        pcts <- split(df, df$Corridor)
-        plts <- lapply(pcts[lapply(pcts, nrow)>0], pl)
-        subplot(plts,
-                margin = 0.03, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE) %>%
-            layout(title = "Percent Change from Previous Month (vehicles/day)",
-                   margin = list(t = 60))
-    } else {
-        no_data_plot("")
-    }
-}
-#get_pct_ch_plot <- memoise(get_pct_ch_plot_, cache = fc)
-
-get_vph_peak_plot <- function(df, chart_title, bar_subtitle, 
-                               month_ = current_month(), zone_group_ = zone_group()) {
-    
-    df <- filter_mr_data(df, zone_group_)
-
-    if (nrow(df) > 0) {
-        
-        sdw <- SharedData$new(dplyr::filter(df, Month <= month_), ~Corridor, group = "grp")
-        sdm <- SharedData$new(dplyr::filter(df, Month == month_), ~Corridor, group = "grp")
-        
-        base <- plot_ly(sdw, color = I("gray")) %>%
-            group_by(Corridor)
-        base_m <- plot_ly(sdm, color = I("gray")) %>%
-            group_by(Corridor)
-        
-        p1 <- base_m %>%
-            summarise(vph = mean(vph)) %>% # This has to be just the current month's vph
-            arrange(vph) %>%
-            add_bars(x = ~vph, 
-                     y = ~factor(Corridor, levels = Corridor),
-                     text = ~scales::comma_format()(as.integer(vph)),
-                     textposition = "inside",
-                     textfont = list(color = "black"),
-                     hoverinfo = "none") %>%
-            layout(
-                barmode = "overlay",
-                xaxis = list(title = bar_subtitle, zeroline = FALSE),
-                yaxis = list(title = ""),
-                showlegend = FALSE,
-                font = list(size = 11),
-                margin = list(pad = 4)
-            )
-        p2 <- base %>%
-            add_lines(x = ~Month, y = ~vph, alpha = 0.6) %>%
-            layout(xaxis = list(title = "Date"),
-                   showlegend = FALSE,
-                   annotations = list(text = chart_title,
-                                      font = list(size = 12),
-                                      xref = "paper",
-                                      yref = "paper",
-                                      yanchor = "bottom",
-                                      xanchor = "center",
-                                      align = "center",
-                                      x = 0.5,
-                                      y = 1,
-                                      showarrow = FALSE)
-            )
-        
-        
-        subplot(p1, p2, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
-            layout(margin = list(l = 80, r = 40)) %>%
-            highlight(color = "#256194", opacityDim = 0.9, defaultValues = c(zone_group_),
-                      selected = attrs_selected(insidetextfont = list(color = "white"), textposition = "inside"))
-    } else {
-        no_data_plot("")
-    }
-}
-#get_vph_peak_plot <- memoise(get_vph_peak_plot_, cache = fc)
-
-get_minmax_hourly_plot <- function(cor_monthly_vph, 
-                                    month_ = current_month(), 
-                                    zone_group_ = zone_group()) {
-    
-    mm_pl <- function(mm, tm) {
-        
-        title_ <- mm$Corridor[1]
-        
-        p <- plot_ly() %>%
-            add_bars(data = mm,
-                     x = ~Hour,
-                     y = ~min_vph,
-                     opacity = 0) %>%
-            add_bars(data = mm,
-                     x = ~Hour,
-                     y = ~(max_vph-min_vph),
-                     marker = list(color = "#a6cee3"))
-        if (!is.null(tm)) {
-            p <- p %>% add_markers(data = tm,
-                                   x = ~Hour,
-                                   y = ~vph,
-                                   marker = list(color = "#ca0020"))
-                
-        }
-        p %>%
-            layout(barmode = "stack",
-                   showlegend = FALSE,
-                   xaxis = list(title = "",
-                                tickformat = "%H:%M"),
-                   yaxis = list(title = "",
-                                range = c(0, round(max(minmax$max_vph), -3) + 1000)),
-                   title = "Current Month (veh/hr) compared to range over previous months",
-                   annotations = list(text = title_,
-                                      font = list(size = 12),
-                                      xref = "paper",
-                                      yref = "paper",
-                                      yanchor = "bottom",
-                                      xanchor = "center",
-                                      align = "center",
-                                      x = 0.5,
-                                      y = 0.85,
-                                      showarrow = FALSE))
-    }
-    
-    df <- filter_mr_data(cor_monthly_vph, zone_group_)
-    
-    df <- filter(df, date(Hour) <= month_)
-    
-    
-    # Current Month Data
-    this_month <- df %>% 
-        filter(date(Hour) == month_) 
-    
-    if (nrow(df) > 0) {
-        
-        minmax <- df %>% 
-            mutate(Hour = (Hour + (date(max(Hour)) - date(Hour)))) %>%
-            group_by(Corridor, Hour) %>% 
-            summarize(min_vph = min(vph), max_vph = max(vph))
-        
-        mms <- split(minmax, minmax$Corridor)
-        tms <- split(this_month, this_month$Corridor)
-        mms_ <- mms[lapply(mms, nrow)>0]
-        tms_ <- tms[lapply(mms, nrow)>0]
-        
-        plts <- lapply(seq_along(mms_), function(i) mm_pl(mms_[[i]], tms_[[i]]))
-        subplot(plts, 
-                margin = 0.02, nrows = min(length(plts), 4), shareX = TRUE, shareY = TRUE) %>%
-            layout(title = "Current Month (veh/hr) compared to range over previous months",
-                   yaxis = list(title = "vph"),
-                   margin = list(t = 60))
-    } else {
-        no_data_plot("")
-    }
-}
-#get_minmax_hourly_plot <- memoise(get_minmax_hourly_plot_, cache = fc)
 
 
-det_uptime_bar_plot <- function(df, xtitle, month_) {
-    
-    data = df %>%
-        dplyr::filter(month(X)==month_) %>%
-        group_by(Corridor) %>%
-        summarize(Uptime = mean(Y)) %>%
-        arrange(Uptime)
-    
-    
-    plot_ly(data) %>%
-        add_bars(x = ~Uptime,
-                 y = ~factor(Corridor, levels = Corridor),
-                 color = I(BLUE),
-                 text = ~scales::percent(Uptime),
-                 textposition = "inside",
-                 textfont = list(color = "white"),
-                 customdata = ~glue(paste(
-                     "<b>{Description}</b>",
-                     "<br>{plot_title}: <b>{var_fmt(var)}</b>")),
-                 hovertemplate = "%{customdata}",
-                 hoverlabel = list(font = list(family = "Source Sans Pro")),
-                 showlegend = FALSE) %>%
-        layout(
-            barmode = "overlay",
-            xaxis = list(title = xtitle,
-                         zeroline = FALSE,
-                         tickformat = "%"),
-            yaxis = list(title = ""),
-            showlegend = FALSE,
-            font = list(size = 11),
-            margin = list(pad = 4),
-            paper_bgcolor = "#f0f0f0",
-            plot_bgcolor = "#f0f0f0"
-        )
-}
-#det_uptime_bar_plot <- memoise(det_uptime_bar_plot_, cache = fc)
 
-# Subplots
-det_uptime_line_plot <- function(df, corr, showlegend_) {
-    
-    plot_ly(data = df) %>%
-        add_lines(x = ~X,
-                  y = ~Y,
-                  color = ~C,
-                  colors = cols,
-                  legendgroup = ~C,
-                  customdata = ~glue(paste(
-                      "<b>{Description}</b>",
-                      "<br>{format(Date, '%B %e, %Y')}</b>",
-                      "<br><b>{as_pct(uptime)}</b>")),
-                  hovertemplate = "%{customdata}",
-                  hoverlabel = list(font = list(family = "Source Sans Pro")),
-                  showlegend = showlegend_) %>%
-        layout(yaxis = list(title = "",
-                            range = c(0, 1.1),
-                            tickformat = "%"),
-               xaxis = list(title = ""),
-               annotations = list(text = corr,
-                                  font = list(size = 14),
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "left",
-                                  align = "center",
-                                  x = 0.1,
-                                  y = 0.1,
-                                  showarrow = FALSE),
-               plot_bgcolor = "#ffffff")
-}
-#det_uptime_line_plot <- memoise(det_uptime_line_plot_, cache = fc)
 
 get_cor_det_uptime_plot <- function(avg_daily_uptime, 
                                      avg_monthly_uptime,
@@ -1289,7 +1077,8 @@ get_cor_det_uptime_plot <- function(avg_daily_uptime,
         no_data_plot("")
     }
 }
-#get_cor_det_uptime_plot <- memoise(get_cor_det_uptime_plot_, cache = fc)
+
+
 
 get_cor_comm_uptime_plot <- function(avg_daily_uptime,
                                       avg_monthly_uptime,
@@ -1394,208 +1183,6 @@ get_cor_comm_uptime_plot <- function(avg_daily_uptime,
         no_data_plot("")
     }
 }
-#get_cor_comm_uptime_plot <- memoise(get_cor_comm_uptime_plot_, cache = fc)
-
-# Reshape to show multiple on the same chart
-gather_outstanding_events <- function(cor_monthly_events) {
-    
-    cor_monthly_events %>% 
-        ungroup() %>% 
-        select(Zone_Group, Corridor, Month, Reported, Resolved, Outstanding) %>%
-        gather(Events, Status, -c(Month, Corridor, Zone_Group))
-}
-
-plot_teams_tasks <- function(tab, var_,
-                              title_ = "", textpos = "auto", height_ = 300) { #
-    
-    var_ <- as.name(var_)
-    
-    tab <- tab %>% 
-        mutate(var = fct_reorder(!!var_, Reported))
-    
-    p1 <- plot_ly(data = tab, height = height_) %>%
-        add_bars(x = ~Reported,  # ~Rep, 
-                 y = ~var,
-                 color = I(LIGHT_BLUE),
-                 name = "Reported",
-                 text = ~Reported, #  ~Rep,
-                 textposition = textpos,
-                 insidetextfont = list(size = 11, color = "black"),
-                 outsidetextfont = list(size = 11)) %>%
-        layout(margin = list(l = 180),
-               showlegend = FALSE,
-               yaxis = list(title = ""),
-               xaxis = list(title = "Reported",
-                            zeroline = FALSE),
-               margin = list(pad = 4))
-    p2 <- plot_ly(data = tab) %>%
-        add_bars(x = ~Resolved,  # ~Res, 
-                 y = ~var,
-                 color = I(BLUE),
-                 name = "Resolved",
-                 text = ~Resolved,  # ~Res,
-                 textposition = textpos,
-                 insidetextfont = list(size = 11, color = "white"),
-                 outsidetextfont = list(size = 11)) %>%
-        layout(margin = list(l = 180),
-               showlegend = FALSE,
-               yaxis = list(title = ""),
-               xaxis = list(title = "Resolved",
-                            zeroline = FALSE),
-               margin = list(pad = 4))
-    p3 <- plot_ly(data = tab) %>% 
-        add_bars(x = ~Outstanding,  # ~outstanding, 
-                 y = ~var, 
-                 color = I(ORANGE),
-                 name = "Outstanding",
-                 text = ~Outstanding, 
-                 textposition = textpos, 
-                 insidetextfont = list(size = 11, color = "white"),
-                 outsidetextfont = list(size = 11)) %>%
-        layout(margin = list(l = 180),
-               showlegend = FALSE,
-               yaxis = list(title = ""),
-               xaxis = list(title = "Cum. Outstanding",
-                            zeroline = FALSE),
-               margin = list(pad = 4))
-    subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
-        layout(title = list(text = title_, font = list(size = 12)))
-}
-#plot_teams_tasks <- memoise(plot_teams_tasks_, cache = fc)
-
-plot_tasks <- function(type_plot, source_plot, priority_plot, 
-                        month_name = input$month) {
-    
-    p1 <- subplot(type_plot, source_plot, priority_plot, 
-                  heights = c(0.42, 0.42, 0.16), nrows = 3, margin = 0.05) %>% 
-        layout(paper_bgcolor = "#f0f0f0", 
-               annotations = list(
-                   list(text = paste("Tasks by Type -", month_name), 
-                        font = list(size = 11), 
-                        xref = "paper", 
-                        yref = "paper", 
-                        yanchor = "bottom",
-                        xanchor = "center",
-                        x = 0.5, 
-                        y = 1.0,
-                        showarrow = FALSE,
-                        showlegend = FALSE), 
-                   list(text = paste("Tasks by Source -", month_name), 
-                        font = list(size = 11), 
-                        xref = "paper", 
-                        yref = "paper", 
-                        yanchor = "top",
-                        xanchor = "center",
-                        x = 0.5, 
-                        y = 0.58,
-                        showarrow = FALSE,
-                        showlegend = FALSE), 
-                   list(text = paste("Tasks by Priority -", month_name), 
-                        font = list(size = 11), 
-                        xref = "paper", 
-                        yref = "paper", 
-                        yanchor = "top",
-                        xanchor = "center",
-                        x = 0.5, 
-                        y = 0.16,
-                        showarrow = FALSE,
-                        showlegend = FALSE)))
-    
-    p2 <- subtype_plot %>% 
-        layout(annotations = list(text = paste("Tasks by Subtype -", month_name), 
-                                  font = list(size = 11), 
-                                  xref = "paper", 
-                                  yref = "paper", 
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  x = 0.5, 
-                                  y = 1.0,
-                                  showarrow = FALSE))
-    
-    subplot(p1, p2, nrows = 1, margin = 0.1)
-}
-#plot_tasks <- memoise(plot_tasks_, cache = fc)
-
-# Number reported and resolved in each month. Side-by-side.
-cum_events_plot <- function(df) {
-    plot_ly(height = 300) %>%
-        add_bars(data = filter(df, Events == "Reported"),
-                 x = ~Month,
-                 y = ~Status,
-                 name = "Reported",
-                 marker = list(color = LIGHT_BLUE)) %>%
-        add_bars(data = filter(df, Events == "Resolved"),
-                 x = ~Month,
-                 y = ~Status,
-                 name = "Resolved",
-                 marker = list(color = BLUE)) %>%
-        add_trace(data = filter(df, Events == "Outstanding"),
-                  x = ~Month,
-                  y = ~Status,
-                  type = 'scatter', mode = 'lines', name = 'Outstanding',
-                  line = list(color = ORANGE)) %>%
-        add_trace(data = filter(df, Events == "Outstanding"),
-                  x = ~Month,
-                  y = ~Status,
-                  type = 'scatter',
-                  mode = 'markers', 
-                  name = 'Outstanding',
-                  marker = list(color = ORANGE),
-                  showlegend = FALSE) %>%
-        layout(barmode = "group",
-               yaxis = list(title = "Events"),
-               xaxis = list(title = ""),
-               legend = list(x = 0.5, y = 0.9, orientation = "h"))
-}
-#cum_events_plot <- memoise(cum_events_plot_, cache = fc)
-
-
-
-plot_individual_cctvs <- function(daily_cctv_df, 
-                                   month_ = current_month(), 
-                                   zone_group_ = zone_group()) {
-    
-    spr <- daily_cctv_df %>%
-        filter(Date < month_ + months(1),
-               Zone_Group == zone_group_, 
-               as.character(Corridor) != as.character(Zone_Group)) %>% 
-        rename(CameraID = Corridor, 
-               Corridor = Zone_Group) %>%
-        dplyr::select(CameraID, Description, Date, up) %>%
-        distinct() %>% 
-        spread(Date, up, fill = 0) %>%
-        arrange(desc(CameraID))
-    
-    m <- as.matrix(spr %>% dplyr::select(-CameraID, -Description))
-    m <- round(m,0)
-    
-    row_names <- spr$CameraID
-    col_names <- colnames(m)
-    colnames(m) <- NULL
-    
-    status <- function(x) {
-        options <- c("Camera Down", "Working at encoder, but not 511", "Working on 511")
-        options[x+1]
-    }
-    bind_description <- function(camera_status) {
-        glue("<b>{as.character(spr$Description)}</b><br>{camera_status}")
-    }
-    
-    plot_ly(x = col_names, 
-            y = row_names, 
-            z = m, 
-            colors = c(LIGHT_GRAY_BAR, "#e48c5b", BROWN),
-            type = "heatmap",
-            ygap = 1,
-            showscale = FALSE,
-            customdata = apply(apply(apply(m, 2, status), 2, bind_description), 1, as.list),
-            hovertemplate="<br>%{customdata}<br>%{x}<extra></extra>",
-            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-        layout(yaxis = list(type = "category",
-                            title = ""),
-               margin = list(l = 150))
-}
-#plot_individual_cctvs <- memoise(plot_individual_cctvs_, cache = fc)
 
 
 
@@ -1657,16 +1244,16 @@ uptime_heatmap <- function(df_,
 
 
 get_uptime_plot <- function(daily_df,
-                             monthly_df,
-                             var_,
-                             num_format, # percent, integer, decimal
-                             month_, 
-                             zone_group_, 
-                             x_bar_title = "___",
-                             x_line1_title = "___",
-                             x_line2_title = "___",
-                             plot_title = "___ ",
-                             goal = NULL) {
+                            monthly_df,
+                            var_,
+                            num_format, # percent, integer, decimal
+                            month_, 
+                            zone_group_, 
+                            x_bar_title = "___",
+                            x_line1_title = "___",
+                            x_line2_title = "___",
+                            plot_title = "___ ",
+                            goal = NULL) {
     
     var <- as.name(var_)
     if (num_format == "percent") {
@@ -1706,7 +1293,7 @@ get_uptime_plot <- function(daily_df,
                                      "<br>Uptime: <b>{var_fmt(var)}</b>")),
                                  hovertemplate = "%{customdata}",
                                  hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-               
+                
                 layout(
                     barmode = "overlay",
                     xaxis = list(title = x_bar_title, 
@@ -1744,52 +1331,8 @@ get_uptime_plot <- function(daily_df,
         no_data_plot("")
     }
 }
-#get_uptime_plot <- memoise(get_uptime_plot_, cache = fc)
 
-# No longer used
-plot_cctvs <- function(df, month_) {
-    
-    start_date <- ymd("2018-02-01")
-    end_date <- month_ %m+% months(1) - days(1)
-    
-    df_ <- filter(df, Date >= start_date & Date <= end_date & Size > 0)
-    
-    if (nrow(df) > 0) {
-        
-        p <- ggplot() + 
-            
-            # tile plot
-            geom_tile(data = df, 
-                      aes(x = Date, 
-                          y = CameraID), 
-                      fill = "steelblue", 
-                      color = "white") + 
-            
-            # fonts, text size and labels and such
-            theme(panel.grid.major = element_blank(),
-                  panel.grid.minor = element_blank(),
-                  axis.ticks.x = element_line(color = "gray50"),
-                  axis.text.x = element_text(size = 11),
-                  axis.text.y = element_text(size = 11),
-                  axis.ticks.y = element_blank(),
-                  axis.title = element_text(size = 11)) +
-            scale_x_date(position = "top", limits = c(start_date, end_date)) +
-            labs(x = "", 
-                 y = "Camera") +
-            
-            # draw white gridlines between tick labels
-            geom_vline(xintercept = as.numeric(seq(start_date, end_date, by = "1 day")) - 0.5, 
-                       color = "white")
-        
-        if (length(unique(df$CameraID)) > 1) {
-            p <- p +
-                geom_hline(yintercept = seq(1.5, length(unique(df$CameraID)) - 0.5, by = 1), 
-                           color = "white")
-            
-        }
-        p
-    }
-}
+
 
 volplot_plotly <- function(df, title = "title", ymax = 1000) {
     
@@ -1834,6 +1377,7 @@ volplot_plotly <- function(df, title = "title", ymax = 1000) {
                                   y = 1,
                                   showarrow = FALSE))
 }
+
 
 
 volplot_plotly2 <- function(dbpool_, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
@@ -2014,7 +1558,161 @@ volplot_plotly2 <- function(dbpool_, signalid, plot_start_date, plot_end_date, t
     })
     
 }
-#volplot_plotly2 <- memoise(volplot_plotly2_, cache = fc)
+
+
+
+
+# TEAMS Plots -------------------------------------------------------------
+
+
+gather_outstanding_events <- function(cor_monthly_events) {
+    
+    cor_monthly_events %>% 
+        ungroup() %>% 
+        select(Zone_Group, Corridor, Month, Reported, Resolved, Outstanding) %>%
+        gather(Events, Status, -c(Month, Corridor, Zone_Group))
+}
+
+
+
+plot_teams_tasks <- function(tab, var_,
+                              title_ = "", textpos = "auto", height_ = 300) { #
+    
+    var_ <- as.name(var_)
+    
+    tab <- tab %>% 
+        mutate(var = fct_reorder(!!var_, Reported))
+    
+    p1 <- plot_ly(data = tab, height = height_) %>%
+        add_bars(x = ~Reported,  # ~Rep, 
+                 y = ~var,
+                 color = I(LIGHT_BLUE),
+                 name = "Reported",
+                 text = ~Reported, #  ~Rep,
+                 textposition = textpos,
+                 insidetextfont = list(size = 11, color = "black"),
+                 outsidetextfont = list(size = 11)) %>%
+        layout(margin = list(l = 180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Reported",
+                            zeroline = FALSE),
+               margin = list(pad = 4))
+    p2 <- plot_ly(data = tab) %>%
+        add_bars(x = ~Resolved,  # ~Res, 
+                 y = ~var,
+                 color = I(BLUE),
+                 name = "Resolved",
+                 text = ~Resolved,  # ~Res,
+                 textposition = textpos,
+                 insidetextfont = list(size = 11, color = "white"),
+                 outsidetextfont = list(size = 11)) %>%
+        layout(margin = list(l = 180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Resolved",
+                            zeroline = FALSE),
+               margin = list(pad = 4))
+    p3 <- plot_ly(data = tab) %>% 
+        add_bars(x = ~Outstanding,  # ~outstanding, 
+                 y = ~var, 
+                 color = I(ORANGE),
+                 name = "Outstanding",
+                 text = ~Outstanding, 
+                 textposition = textpos, 
+                 insidetextfont = list(size = 11, color = "white"),
+                 outsidetextfont = list(size = 11)) %>%
+        layout(margin = list(l = 180),
+               showlegend = FALSE,
+               yaxis = list(title = ""),
+               xaxis = list(title = "Cum. Outstanding",
+                            zeroline = FALSE),
+               margin = list(pad = 4))
+    subplot(p1, p2, p3, shareY = TRUE, shareX = TRUE) %>% 
+        layout(title = list(text = title_, font = list(size = 12)))
+}
+
+
+
+# Number reported and resolved in each month. Side-by-side.
+cum_events_plot <- function(df) {
+    plot_ly(height = 300) %>%
+        add_bars(data = filter(df, Events == "Reported"),
+                 x = ~Month,
+                 y = ~Status,
+                 name = "Reported",
+                 marker = list(color = LIGHT_BLUE)) %>%
+        add_bars(data = filter(df, Events == "Resolved"),
+                 x = ~Month,
+                 y = ~Status,
+                 name = "Resolved",
+                 marker = list(color = BLUE)) %>%
+        add_trace(data = filter(df, Events == "Outstanding"),
+                  x = ~Month,
+                  y = ~Status,
+                  type = 'scatter', mode = 'lines', name = 'Outstanding',
+                  line = list(color = ORANGE)) %>%
+        add_trace(data = filter(df, Events == "Outstanding"),
+                  x = ~Month,
+                  y = ~Status,
+                  type = 'scatter',
+                  mode = 'markers', 
+                  name = 'Outstanding',
+                  marker = list(color = ORANGE),
+                  showlegend = FALSE) %>%
+        layout(barmode = "group",
+               yaxis = list(title = "Events"),
+               xaxis = list(title = ""),
+               legend = list(x = 0.5, y = 0.9, orientation = "h"))
+}
+
+
+
+plot_individual_cctvs <- function(daily_cctv_df, 
+                                   month_ = current_month(), 
+                                   zone_group_ = zone_group()) {
+    
+    spr <- daily_cctv_df %>%
+        filter(Date < month_ + months(1),
+               Zone_Group == zone_group_, 
+               as.character(Corridor) != as.character(Zone_Group)) %>% 
+        rename(CameraID = Corridor, 
+               Corridor = Zone_Group) %>%
+        dplyr::select(CameraID, Description, Date, up) %>%
+        distinct() %>% 
+        spread(Date, up, fill = 0) %>%
+        arrange(desc(CameraID))
+    
+    m <- as.matrix(spr %>% dplyr::select(-CameraID, -Description))
+    m <- round(m,0)
+    
+    row_names <- spr$CameraID
+    col_names <- colnames(m)
+    colnames(m) <- NULL
+    
+    status <- function(x) {
+        options <- c("Camera Down", "Working at encoder, but not 511", "Working on 511")
+        options[x+1]
+    }
+    bind_description <- function(camera_status) {
+        glue("<b>{as.character(spr$Description)}</b><br>{camera_status}")
+    }
+    
+    plot_ly(x = col_names, 
+            y = row_names, 
+            z = m, 
+            colors = c(LIGHT_GRAY_BAR, "#e48c5b", BROWN),
+            type = "heatmap",
+            ygap = 1,
+            showscale = FALSE,
+            customdata = apply(apply(apply(m, 2, status), 2, bind_description), 1, as.list),
+            hovertemplate="<br>%{customdata}<br>%{x}<extra></extra>",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        layout(yaxis = list(type = "category",
+                            title = ""),
+               margin = list(l = 150))
+}
+
 
 
 udcplot_plotly <- function(hourly_udc) {
@@ -2123,479 +1821,8 @@ udcplot_plotly <- function(hourly_udc) {
 }
 
 
-perf_plotly <- function(df, per_, var_, range_max = 1.1, number_format = ",.0%", title = "title") {
-    
-    per_ <- as.name(per_)
-    var_ <- as.name(var_)
-    df <- rename(df, per = !!per_, var = !!var_)
-    
-    plot_ly(data = df) %>% 
-        add_ribbons(x = ~per, 
-                    ymin = 0,
-                    ymax = ~var, 
-                    color = I(DARK_GRAY),
-                    line = list(shape = "vh")) %>%
-        layout(yaxis = list(range = c(0, range_max),
-                            tickformat = number_format),
-               annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1.1,
-                                  showarrow = FALSE))
-}
 
-perf_plotly_by_phase <- function(df, per_, var_, range_max = 1.1, number_format = ".0%", title = "title") {
-    
-    # Works but colors and labeling are not fully complete.
-    pl <- function(dfi) {
-        plot_ly(data = dfi) %>% 
-            add_ribbons(x = ~per, 
-                        ymin = 0,
-                        ymax = ~var,
-                        color = ~CallPhase,
-                        colors = colrs,
-                        name = paste('Phase', dfi$CallPhase[1]),
-                        line = list(shape = "vh")) %>%
-            layout(yaxis = list(range = c(0, range_max),
-                                tickformat = number_format))
-    }
-    
-    per__ <- as.name(per_)
-    var__ <- as.name(var_)
-    df <- rename(df, per = !!per__, var = !!var__)
-    
-    dfs <- split(df, df$CallPhase)
-    
-    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
-    subplot(plts, nrows = length(plts), shareX = TRUE, margin = 0.03) %>%
-        layout(annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1,
-                                  showarrow = FALSE))
-}
-
-
-
-
-signal_dashboard_cached_plot <- function(sigid) {
-    if (sigid != "") {
-        fn <- glue("plot_{sigid}.rds")
-        aws.s3::save_object(object = glue("signal_dashboards/plots/plot_{sigid}.rds"), 
-                            bucket = "gdot-devices", 
-                            file = fn)
-        plt <- readRDS(fn)
-        file.remove(fn)
-        plt
-    } else {
-        no_data_plot()
-    }
-}
-
-cache_plots <- function(pth, upload_to_s3 = TRUE) {
-    fns <- list.files(pth, pattern = "*.rds")
-    sigids <- sub(pattern = "(\\d+)\\.rds", replacement = "\\1", fns)
-    
-    lapply(sigids, function(s) { 
-        print(s)
-        plt <- signal_dashboard(s, pth)
-        plot_fn <- file.path(pth, "cached_plots", glue("plot_{s}.rds"))
-        saveRDS(plt, plot_fn)
-        if (upload_to_s3 == TRUE) {
-            aws.s3::put_object(file = plot_fn, 
-                               object = glue("signal_dashboards/plots/plot_{s}.rds"), 
-                               bucket = "gdot-devices")
-        }
-    })
-}
-
-
-
-
-
-
-signal_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") {
-    
-    if (is.na(sigid) || sigid == "Select") {
-        no_data_plot("")
-    } else {
-        #------------------------
-        start_date <- ymd(start_date)
-        end_date <- start_date + months(1) - days(1)
-        
-        plan(multisession)
-        #------------------------
-        withProgress(message = "Loading chart", value = 0, {
-            
-            p_rc %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, vol",
-                    "from {conf$athena$database}.counts_1hr",
-                    "where signalid = '{sigid}'",
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(vol = ifelse(is.na(vol), 0, vol),
-                           SignalID = factor(signalid),
-                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                volplot_plotly(df, title = "Raw 1 hr Aggregated Counts") %>% 
-                    layout(showlegend = FALSE)
-            },
-            error = function(cond) {
-                print(cond)
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.01)
-            
-            p_fc %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, vol", 
-                    "from {conf$athena$database}.filtered_counts_1hr", 
-                    "where signalid = '{sigid}'",
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(vol = ifelse(is.na(vol), 0, vol),
-                           SignalID = factor(signalid),
-                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                volplot_plotly(df, title = "Filtered 1 hr Aggregated Counts") %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.01)
-            
-            p_vpd %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, callphase, date, vpd", 
-                    "from {conf$athena$database}.vehicles_pd", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    filter(!is.na(vpd)) %>%
-                    transmute(SignalID = factor(signalid),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Date = as_date(date),
-                           vpd)
-                df_ <- df %>% 
-                    group_by(SignalID, CallPhase) %>% 
-                    filter(Date == max(Date)) %>% 
-                    ungroup() %>% 
-                    mutate(Date = Date + days(1))
-                df <- df %>% bind_rows(df, df_)
-                dbDisconnect(conn)
-                
-                perf_plotly_by_phase(df, "Date", "vpd", 
-                                     range_max = max(df$vpd), 
-                                     number_format = ",.0",
-                                     title = "Daily Volume by Phase") %>% 
-                    layout(showlegend = TRUE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.01)
-            
-            p_ddu %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, good_day", 
-                    "from {conf$athena$database}.filtered_counts_1hr", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(vol = good_day,
-                           SignalID = factor(signalid),
-                           Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                volplot_plotly(df, title = "Daily Detector Uptime", ymax = 1.1) %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.01)
-            
-            p_com %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, callphase, date, date_hour, uptime", 
-                    "from {conf$athena$database}.comm_uptime", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(SignalID = factor(signalid),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Date_Hour = as_datetime(date_hour),
-                           Date = as_date(date),
-                           uptime)
-                dbDisconnect(conn)
-                
-                perf_plotly(df, 
-                            "Date", "uptime", 
-                            title = "Daily Communications Uptime") %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.015)
-            
-            p_aog %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, callphase, date, date_hour, aog", 
-                    "from {conf$athena$database}.arrivals_on_green", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(SignalID = factor(signalid),
-                           CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                           Date_Hour = as_datetime(date_hour),
-                           Date = as_date(date),
-                           aog) %>% 
-                    complete(nesting(SignalID, CallPhase), 
-                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                             fill = list("aog" = 0)) %>% 
-                    arrange(SignalID, CallPhase, Date_Hour)
-                dbDisconnect(conn)
-                perf_plotly_by_phase(df,
-                                     "Date_Hour", "aog", 
-                                     title = "Arrivals on Green") %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                print(paste("ERROR:", cond))
-            })
-            
-            incProgress(amount = 0.015)
-            
-            p_qs %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, callphase, date, date_hour, qs_freq", 
-                    "from {conf$athena$database}.queue_spillback", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(
-                        SignalID = factor(signalid),
-                        CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                        Date_Hour = as_datetime(date_hour),
-                        Date = as_date(date),
-                        qs_freq) %>% 
-                    complete(nesting(SignalID, CallPhase), 
-                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                             fill = list("qs_freq" = 0)) %>% 
-                    arrange(SignalID, CallPhase, Date_Hour)
-                dbDisconnect(conn)
-                perf_plotly_by_phase(df,
-                                     "Date_Hour", "qs_freq", 
-                                     title = "Queue Spillback Rate") %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.015)
-            
-            p_sf %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, callphase, date, date_hour, sf_freq", 
-                    "from {conf$athena$database}.split_failures", 
-                    "where signalid = '{sigid}'", 
-                    "and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(
-                        SignalID = factor(signalid),
-                        CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                        Date_Hour = as_datetime(date_hour),
-                        Date = as_date(date),
-                        sf_freq) %>%
-                    complete(nesting(SignalID, CallPhase),
-                             Date_Hour = seq(min(Date_Hour), max(Date_Hour), by = "1 hour"),
-                             fill = list("sf_freq" = 0)) %>%
-                    arrange(SignalID, CallPhase, Date_Hour)
-                dbDisconnect(conn)
-                
-                perf_plotly_by_phase(df,
-                                     "Date_Hour", "sf_freq",
-                                     range_max = 1.0,
-                                     title = "Split Failure Rate") %>%
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.015)
-            
-            sr1a %<-% subplot(list(p_rc, p_vpd), 
-                              nrows = 2, 
-                              margin = 0.04, 
-                              heights = c(0.6, 0.4), 
-                              shareX = TRUE)
-            
-            incProgress(amount = 0.3)
-            
-            sr1b %<-% subplot(list(p_fc, p_ddu), 
-                              nrows = 2, 
-                              margin = 0.04, 
-                              heights = c(0.6, 0.4), 
-                              shareX = TRUE)
-            
-            incProgress(amount = 0.3)
-            
-            sr2 %<-% subplot(list(p_com, p_aog, p_qs, p_sf), 
-                             nrows = 4, 
-                             margin = 0.04, 
-                             heights = c(0.1, 0.2, 0.2, 0.5), 
-                             shareX = TRUE)
-            
-            incProgress(amount = 0.3)
-            
-            subplot(sr1a, sr1b, sr2)
-        })
-    }    
-}
-
-
-detector_dashboard_athena <- function(sigid, start_date, conf_athena, pth = "s3") {
-    
-    if (is.na(sigid) || sigid == "Select") {
-        no_data_plot("")
-    } else {
-        #------------------------
-        start_date <- ymd(start_date)
-        end_date <- start_date + months(1) - days(1)
-        
-        plan(multisession)
-        #------------------------
-        withProgress(message = "Loading chart", value = 0, {
-        
-            p_rc %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, vol", 
-                    "from {conf$athena$database}.counts_1hr", 
-                    "where signalid = '{sigid}' and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(
-                        vol = ifelse(is.na(vol), 0, vol),
-                        SignalID = factor(signalid),
-                        Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                        CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                        Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                if (nrow(df) > 0) {
-                    volplot_plotly(df, ymax = NULL, title = "Raw 1 hr Aggregated Counts") %>% 
-                        layout(showlegend = FALSE)
-                } else {
-                    no_data_plot("")
-                }
-            },
-            error = function(cond) {
-                print(cond)
-                no_data_plot("")
-            })
-            
-            incProgress(amount = 0.3)
-            
-            p_fc %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, vol", 
-                    "from {conf$athena$database}.filtered_counts_1hr",
-                    "where signalid = '{sigid}' and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(
-                        vol = ifelse(is.na(vol), 0, vol),
-                        SignalID = factor(signalid),
-                        Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                        CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                        Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                volplot_plotly(df, ymax = NULL, title = "Filtered 1 hr Aggregated Counts") %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.3)
-            
-            p_ddu %<-% tryCatch({sigid; start_date; end_date;
-                conn <- get_athena_connection(conf_athena)
-                #------------------------
-                df <- tbl(conn, sql(glue(paste(
-                    "select signalid, detector, callphase, timeperiod, good_day", 
-                    "from {conf$athena$database}.filtered_counts_1hr", 
-                    "where signalid = '{sigid}' and date between '{start_date}' and '{end_date}'")))) %>%
-                    collect()
-                df <- df %>%
-                    transmute(
-                        vol = good_day,
-                        SignalID = factor(signalid),
-                        Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-                        CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-                        Timeperiod = as_datetime(timeperiod))
-                dbDisconnect(conn)
-                
-                volplot_plotly(df, title = "Daily Detector Uptime", ymax = 1.1) %>% 
-                    layout(showlegend = FALSE)
-            }, error = function(cond) {
-                no_data_plot_("")
-            })
-            
-            incProgress(amount = 0.3)
-            
-            subplot(p_rc, p_fc, p_ddu)
-        })
-    }
-}
-
+# Watchdog Alerts Plots ---------------------------------------------------
 
 
 filter_alerts_by_date <- function(alerts, dr) {
@@ -2608,7 +1835,7 @@ filter_alerts_by_date <- function(alerts, dr) {
 }
 
 
-#------------------------------------------------------------------------------    
+
 filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, phase_, id_filter_, active_streak)  {
     
     most_recent_date <- alerts_by_date %>% 
@@ -2751,9 +1978,6 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
 
 
 
-
-
-
 plot_alerts <- function(df, date_range) {
     
     if (nrow(df) > 0) {
@@ -2823,118 +2047,11 @@ plot_empty <- function(zone) {
               axis.title = element_blank())
 }    
 
-reconstitute <- function(df, col_name) { 
-    col_name <- as.name(col_name)
-    lapply(names(df), function(n) { mutate(df[[n]], !!col_name := n) }) %>% 
-        bind_rows() %>% 
-        mutate(!!col_name := factor(!!col_name))
-}
 
 
 
-rds_vb_query <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
-    
-    table <- glue("{mr}_{per}_{tab}")
-    df <- tbl(conn, table)
-    if (!is.null(current_month)) {
-        df %>% 
-            filter(Month == current_month,
-                   Corridor == zone_group) %>%
-            collect() %>%
-            mutate(Month = date(Month))
-    } else { # current_quarter is not null
-        df %>% 
-            filter(Quarter == current_quarter,
-                   Corridor == zone_group) %>%
-            collect()
-    }
-}
-#rds_vb_query <- memoise(rds_vb_query_)
+# Functions for Corridor Summary Table ------------------------------------
 
-rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
-    
-    table <- glue("{mr}_{per}_{tab}")
-    df <- tbl(conn, table)
-    
-    if ("Month" %in% names(df)) {
-        df <- filter(df, Month >= first_month, Month <= current_month)
-    }
-    if ("Date" %in% names(df)) {
-        df <- filter(Date >= first_month, Date <= current_month)
-    }
-    if ("Hour" %in% names(df)) {
-        df <- filter(Hour >= first_month, Hour <= current_month)
-    }
-    
-    if (!is.null(zone_group)) {
-        df <- filter(df, Corridor == zone_group)
-    }
-    
-    df <- collect(df)
-    
-    if ("Month" %in% names(df)) {
-        df <- mutate(df, Month = date(Month))
-    }
-    if ("Date" %in% names(df)) {
-        df <- mutate(df, Date = date(Date))
-    }
-    if ("Hour" %in% names(df)) {
-        df <- mutate(df, Hour = ymd_hms(Hour))
-    }
-    
-    if ("Corridor" %in% names(df)) {
-        df <- mutate(df, Corridor = factor(Corridor))
-    }
-    if ("Zone_Group" %in% names(df)) {
-        df <- mutate(df, Zone_Group = factor(Zone_Group))
-    }
-    df
-}
-#rds_pp_query <- memoise(rds_pp_query_)
-
-
-
-
-
-
-get_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3", table_name) {
-    #------------------------
-    start_date <- ymd(start_date)
-    end_date <- ymd(end_date)
-    
-    conn <- get_athena_connection(conf_athena)
-    #------------------------
-    df <- tbl(conn, sql(glue("select * from {conf_athena$database}.{table_name}"))) %>%
-        filter(signalid == sigid,
-               between(date, start_date, end_date)) %>%
-        select(signalid, detector, callphase, timeperiod, vol) %>%
-        collect()
-    dbDisconnect(conn)
-    #------------------------
-    
-    df <- df %>%
-        mutate(vol = ifelse(is.na(vol), 0, vol),
-               SignalID = factor(signalid),
-               Detector = factor(detector, levels = sort(as.integer(unique(df$detector)))),
-               CallPhase = factor(callphase, levels = sort(as.integer(unique(df$callphase)))),
-               Timeperiod = as_datetime(timeperiod))
-    volplot_plotly(df, title = "Counts") %>% 
-        layout(showlegend = TRUE)
-}
-
-get_raw_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "counts_1hr")
-}
-get_filtered_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "filtered_counts_1hr")
-}
-get_adjusted_counts_plot <- function(sigid, start_date, end_date, conf_athena, pth = "s3") {
-    get_counts_plot(sigid, start_date, end_date, conf_athena, pth = "s3", table_name = "adjusted_counts_1hr")
-}
-
-
-
-# Functions for Corridor Summary Table
 
 metric_formats <- function(x) { # workaround function to format the metrics differently
     sapply(x, function(x) {
@@ -2953,6 +2070,7 @@ metric_formats <- function(x) { # workaround function to format the metrics diff
 }
 
 
+
 getcolorder <- function(no.corridors) {
     getcolorder <- c(1, 2)
     for (i in 1:no.corridors) {
@@ -2963,7 +2081,6 @@ getcolorder <- function(no.corridors) {
     }
     getcolorder
 }
-
 
 
 
@@ -3124,90 +2241,11 @@ get_zone_group_text_table <- function(month, zone_group) {
     )
 }
 
-create_zm_prog_rep_content_df <- function(cor) {
-    
-    zones <- paste("Zone", seq_len(8))
-    months <- unique(cor$mo$vpd$Month)
-    content <- glue("<p>Click and start typing to enter content for {zones}</p>")
-    
-    df <- data.frame(Zone = zones, Report = as.character(content), stringsAsFactors = FALSE)
-    df = expand_grid(df, months) %>%
-        rename(Month = months)
-    df
-}
 
 
 
-# For TinyMCE Editor
+# Health Metrics UI Functions ---------------------------------------------
 
-get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
-    df <- zmdf_ %>%
-        dplyr::group_by(Month, Zone) %>%
-        dplyr::filter(LastModified == max(LastModified)) %>%
-        ungroup()
-    # Filter by zone if provided
-    if (!is.null(zone_)) {
-        df <- df %>% filter(Zone == zone_)
-    }
-    # Filter by month if provided
-    if (!is.null(month_)) {
-        df <- df %>% filter(Month == month_)
-    }
-    df
-}
-
-
-get_latest_comment <- function(zmdf_, zone_ = NULL, month_ = NULL, default_ = NULL) {
-    df <- get_last_modified(zmdf_, zone_, month_)
-    # If Last Modified is blank (no last modified enttry), return default if provided
-    if (nrow(df) == 0) {
-        if (!is.null(default_)) {
-            default_
-        } else {
-            ""
-        }
-    } else {
-        df$Comments[1]
-    }
-}
-
-
-read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
-    DT <- dbGetQuery(
-        conn,
-        sql(glue(paste('select "{signalid}" as data, timeperiod from gdot_spm.signal_details',
-                       'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
-        as.data.table()
-    
-    DT <- DT[!is.na(data)]
-    if (nrow(DT)) {
-        dfs <- lapply(DT$data, function(x) jsonlite::fromJSON(x))
-        
-        dfs <- purrr::map2(dfs, DT$timeperiod, function(df, t) {df$Timeperiod <- t; df})
-        DT <- rbindlist(dfs)
-        
-        DT[, SignalID := factor(signalid)]
-        DT[, Timeperiod := ymd_hms(Timeperiod)]
-        DT[, Detector := factor(
-            Detector, levels = sort(as.integer(as.character(unique(DT$Detector)))))]
-        DT[, CallPhase := factor(
-            CallPhase, levels = sort(as.integer(as.character(unique(DT$CallPhase)))))]
-        DT[, vol_rc := as.numeric(as.character(vol_rc))]
-        DT[, vol_ac := as.numeric(as.character(vol_ac))]
-        DT[, bad_day := as.logical(bad_day)]
-        
-        setcolorder(DT, c( "SignalID", "Detector", "CallPhase", "vol_rc", "vol_ac", "bad_day", "Timeperiod"))
-        setorderv(DT, c("Detector", "Timeperiod"))
-        
-        return(as_tibble(DT))
-    } else {
-        return(data.frame())
-    }
-}
-
-
-
-# Health Metrics UI Functions
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, corridor_) {
@@ -3257,6 +2295,8 @@ get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, cor
         formatStyle("Flash Events Score", borderRight = "2px solid #ddd") %>%
         formatStyle("Flash Events", borderRight = "2px solid #ddd")
 }
+
+
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_operations_health_table <- function(data_, month_, zone_group_, corridor_) {
@@ -3308,6 +2348,7 @@ get_monthly_operations_health_table <- function(data_, month_, zone_group_, corr
         formatStyle("Buffer Index Score", borderRight = "2px solid #ddd") %>%
         formatStyle("Buffer Index", borderRight = "2px solid #ddd")
 }
+
 
 
 # function to filter health data based on user inputs
