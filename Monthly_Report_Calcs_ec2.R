@@ -5,7 +5,6 @@ library(yaml)
 library(glue)
 
 source("Monthly_Report_Functions.R")
-source("Database_Functions.R")
 
 
 print(glue("{Sys.time()} Starting Calcs Script"))
