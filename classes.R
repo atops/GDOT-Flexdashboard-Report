@@ -9,6 +9,7 @@ library(yaml)
 metrics <- read_yaml("metrics.yaml")
 
 
+
 vpd <- structure(metrics[["daily_traffic_volume"]], class = "metric")
 throughput <- structure(metrics[["throughput"]], class = "metric")
 aog <- arrivals_on_green <- structure(metrics[["arrivals_on_green"]], class = "metric")
@@ -25,6 +26,7 @@ ped_button_uptime <- structure(metrics[["ped_button_uptime"]], class = "metric")
 cctv_uptime <- structure(metrics[["cctv_uptime"]], class = "metric")
 comm_uptime <- structure(metrics[["comm_uptime"]], class = "metric")
 rsu_uptime <- structure(metrics[["rsu_uptime"]], class = "metric")
+
 
 
 get_descriptionBlock <- function(x, zone_group, month, quarter = NULL) {
@@ -234,12 +236,11 @@ get_trend_multiplot <- function(x, zone_group, month) {
 
 get_valuebox_value <- function(x, zone_group, month, quarter = NULL, line_break = FALSE) {
     
+    
     if (is.null(quarter)) { # want monthly, not quarterly data
-        vals <- cor$mo[[x$table]] %>%
-            dplyr::filter(Corridor == zone_group & Month == month) %>% as.list()
+        vals <- get_metric(aurora, x, "cor", "mo", zone_group, month) %>% as.list()
     } else {
-        vals <- cor$qu[[x$table]] %>%
-            dplyr::filter(Corridor == zone_group & Quarter == quarter) %>% as.list()
+        vals <- get_metric(aurora, x, "cor", "mo", zone_group, quarter) %>% as.list()
     }
     
     vals$delta <- if_else(is.na(vals$delta), 0, vals$delta)
@@ -271,3 +272,44 @@ get_valuebox_value <- function(x, zone_group, month, quarter = NULL, line_break 
     }
 }
 
+
+
+get_metric <- function(aurora, x, agg, per, corridor = NULL, current_period = NULL) {
+    
+    # agg is one of: cor, sub, sig
+    # per is one of: qu, mo, wk, dy
+    # get_cor_metric(aurora, vpd, "cor", "mo", "All RTOP", ymd("2020-12-01"))
+    
+    table_name <- glue("{agg}_{per}_{x$table}")
+
+    period <- switch(
+        per,
+        "mo" = "Month",
+        "wk" = "Date",
+        "dy" = "Date",
+        "qu" = "Quarter")
+    
+    as_modifier <- switch (
+        period,
+        "Month" = as_date,
+        "Date" = as_date,
+        "Hour" = as_datetime,
+        "Quarter" = factor)
+    
+    
+    # TODO: Incorporate filter_mr_data here. 
+    # Or just simplify the data frame so we're not re-using and abusing zone_group
+    
+    
+    df <- tbl(aurora, table_name)
+    if (!is.null(corridor)) {
+        df <- df %>% filter(Corridor == corridor)
+    }
+    if (!is.null(current_period)) {
+        df <- df %>% filter(!!as.name(period) == current_period)
+    }
+    df %>% collect() %>%
+        mutate(Zone_Group = factor(Zone_Group),
+               Corridor = factor(Corridor),
+               !!as.name(period) := as_modifier(!!as.name(period)))
+}

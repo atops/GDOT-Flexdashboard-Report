@@ -197,20 +197,4 @@ for (table_name in table_names[startsWith(table_names, glue("{tab}_"))]) {
 }
 
 
-get_metric <- function(aurora, x, agg, per, zone_group, current_period) {
-    
-    # agg is one of: cor, sub, sig
-    # per is one of: qu, mo, wk, dy
-    # get_cor_metric(aurora, vpd, "cor", "mo", "All RTOP", ymd("2020-12-01"))
-    
-    table_name <- glue("{agg}_{per}_{x$table}")
-    
-    tbl(aurora, table_name) %>% 
-        filter(
-            Month == current_period,
-            Zone_Group == zone_group) %>%
-        collect() %>%
-        mutate(Zone_Group = factor(Zone_Group),
-               Corridor = factor(Corridor),
-               Month = as_date(Month))
-}
+

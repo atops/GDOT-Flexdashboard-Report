@@ -121,6 +121,27 @@ as_2dec <- function(x) {sprintf(x, fmt = "%.2f")}
 as_pct <- function(x) {sprintf(x * 100, fmt = "%.1f%%")}
 as_currency <- function(x) {scales::dollar_format(accuracy = 1)(x)}
 
+data_format <- function(data_type) {
+    switch(
+        data_type,
+        "integer" = as_int,
+        "decimal" = as_2dec,
+        "percent" = as_pct,
+        "currency" = as_currency)
+}
+
+tick_format <- function(data_type) {
+    switch(
+        data_type,
+        "integer" = ",.0",
+        "decimal" = ".2f",
+        "percent" = ".0%",
+        "currency" = "$,.2f")
+}
+
+
+
+
 goal <- list("tp" = NULL,
              "aogd" = 0.80,
              "prd" = 1.20,
