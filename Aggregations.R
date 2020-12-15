@@ -1067,11 +1067,13 @@ get_cor_monthly_vph_peak <- function(cor_monthly_vph) {
     
     am <- dplyr::filter(cor_monthly_vph, hour(Hour) %in% AM_PEAK_HOURS) %>% 
         mutate(Month = date(Hour)) %>%
-        weighted_mean_by_corridor_("Month", corridors, as.name("vph"))
+        weighted_mean_by_corridor_("Month", corridors, as.name("vph")) %>%
+        select(-Zone)
     
     pm <- dplyr::filter(cor_monthly_vph, hour(Hour) %in% PM_PEAK_HOURS) %>%
         mutate(Month = date(Hour)) %>%
-        weighted_mean_by_corridor_("Month", corridors, as.name("vph"))
+        weighted_mean_by_corridor_("Month", corridors, as.name("vph")) %>%
+        select(-Zone)
     
     list("am" = as_tibble(am), "pm" = as_tibble(pm))
 }

@@ -9,8 +9,11 @@ source("Monthly_Report_Functions.R")
 
 print(glue("{Sys.time()} Starting Calcs Script"))
 
-plan(multisession)
-
+if (interactive()) {
+    plan(multisession)
+} else {
+    plan(multicore)
+}    
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 

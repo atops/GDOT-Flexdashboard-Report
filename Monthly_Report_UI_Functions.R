@@ -35,7 +35,14 @@ suppressMessages({
 })
 
 
-plan(multisession)
+if (interactive()) {
+    plan(multisession)
+} else {
+    plan(multicore)
+}    
+usable_cores <- get_usable_cores()
+doParallel::registerDoParallel(cores = usable_cores)
+
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)

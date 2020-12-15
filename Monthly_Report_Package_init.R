@@ -5,7 +5,7 @@ library(yaml)
 library(glue)
 library(future)
 
-plan(multiprocess)
+
 
 print(glue("{Sys.time()} Starting Package Script"))
 
@@ -13,6 +13,17 @@ conf <- read_yaml("Monthly_Report.yaml")
 
 source("Monthly_Report_Functions.R")
 source("Database_Functions.R")
+
+
+if (interactive()) {
+    plan(multisession)
+} else {
+    plan(multicore)
+}    
+usable_cores <- get_usable_cores()
+doParallel::registerDoParallel(cores = usable_cores)
+
+
 
 corridors <- s3read_using(
     function(x) get_corridors(x, filter_signals = TRUE),
