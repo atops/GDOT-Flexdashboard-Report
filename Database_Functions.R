@@ -125,6 +125,13 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
       UseResultsetStreaming = 1)
 }
 
+get_athena_connection_odbc <- function(f = dbConnect) {
+    f(odbc::odbc(), dsn = "athena")
+}
+
+get_athena_connection_pool_odbc <- function() {
+    get_athena_connection_odbc(pool::dbPool)
+}
 
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, dbPool)

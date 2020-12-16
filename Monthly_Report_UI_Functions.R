@@ -126,6 +126,7 @@ conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 source("Database_Functions.R")
 
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
+# athena_connection_pool <- get_athena_connection_pool_odbc()
 
 
 if (conf$mode == "production") {
