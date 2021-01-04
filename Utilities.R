@@ -448,32 +448,34 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         ) %>%
         mutate(bad_day = if_else(Good_Day==0, TRUE, FALSE)) %>% 
         transmute(
-            SignalID = factor(SignalID), 
+            SignalID = as.integer(SignalID), 
             Timeperiod = Timeperiod, 
-            Detector = factor(as.integer(Detector)), 
-            CallPhase = factor(CallPhase),
+            Detector = as.integer(Detector),
+            CallPhase = as.integer(CallPhase),
             vol_rc = as.integer(vol_rc),
             vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
             bad_day) %>%
-        arrange(SignalID, Detector, Timeperiod)
+        arrange(
+            SignalID, 
+            Detector, 
+            Timeperiod)
     #----------------------------------------------------------------
     
-    df <- df %>% 
-        nest(data = -c(SignalID, Timeperiod))
-    df$data <- sapply(df$data, rjson::toJSON)
-    df <- df %>% 
-        spread(SignalID, data)
+    df <- df %>% mutate(
+        Hour = hour(Timeperiod)) %>% 
+        select(-Timeperiod) %>%
+        relocate(Hour) %>%
+        nest(data = -c(SignalID))
     
     s3write_using(
         df, 
         write_parquet, 
-        use_deprecated_int96_timestamps = TRUE,
         bucket = conf$bucket, 
-        object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
+        object = glue("mark/nest/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
     conn <- get_athena_connection(conf_athena)
-    table_name <- "signal_details"
+    table_name <- "signal_details_nest"
     tryCatch({
         response <- dbGetQuery(conn,
                                sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
@@ -484,3 +486,4 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
     })
     dbDisconnect(conn)
 }
+

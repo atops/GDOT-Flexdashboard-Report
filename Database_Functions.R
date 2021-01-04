@@ -120,6 +120,7 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
     
     f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
       s3_staging_dir = conf_athena$staging_dir,
+      Schema = "gdot_spm",
       UID = conf_athena$uid,
       PWD = conf_athena$pwd,
       UseResultsetStreaming = 1)

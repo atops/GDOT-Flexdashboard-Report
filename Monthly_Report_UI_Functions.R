@@ -39,7 +39,10 @@ if (interactive()) {
     plan(multisession)
 } else {
     plan(multicore)
-}    
+}
+
+source("Utilities.R")
+
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
@@ -354,6 +357,31 @@ rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = 
 
 
 read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
+    # Query for nested parquet data in Athena. The preferred way to do this.    
+
+    q <- glue(paste("select signalid, date, dat from signal_details_nest, unnest (data) t(dat)",
+                    "where signalid = {signalid}", 
+                    "and date >= '{plot_start_date}' and date <= '{plot_end_date}'"))
+    q <- glue(paste("select signalid, date, dat.hour, dat.detector, dat.callphase,",
+                    "dat.vol_rc, dat.vol_ac, dat.bad_day", 
+                    "from ({q}) order by dat.detector, date, dat.hour"))
+    
+    dbGetQuery(conn, sql(q)) %>%
+        replace_na(list(callphase = 0)) %>%
+        transmute(
+            Timeperiod = as_date(date) + hours(hour),
+            SignalID = factor(signalid),
+            Detector = factor(detector),
+            CallPhase = factor(callphase),
+            vol_rc,
+            vol_ac,
+            bad_day = as.logical(as.integer(bad_day))) %>% 
+        as_tibble()
+}
+
+
+
+read_signal_data_older <- function(conn, signalid, plot_start_date, plot_end_date) {
     DT <- dbGetQuery(
         conn,
         sql(glue(paste('select "{signalid}" as data, timeperiod from gdot_spm.signal_details',
@@ -1362,55 +1390,12 @@ get_uptime_plot <- function(daily_df,
 
 
 
-volplot_plotly <- function(df, title = "title", ymax = 1000) {
-    
-    if (is.null(ymax)) {
-        yax <- list(rangemode = "tozero", tickformat = ",.0")
-    } else {
-        yax <- list(range = c(0, ymax), tickformat = ",.0")
-    } 
-    
-    # Works but colors and labeling are not fully complete.
-    pl <- function(dfi) {
-        plot_ly(data = dfi) %>% 
-            add_ribbons(x = ~Timeperiod, 
-                        ymin = 0,
-                        ymax = ~vol,
-                        color = ~CallPhase,
-                        colors = colrs,
-                        name = paste('Phase', dfi$CallPhase[1])) %>%
-            layout(yaxis = yax,
-                   annotations = list(x = -.05,
-                                      y = 0.5,
-                                      xref = "paper",
-                                      yref = "paper",
-                                      xanchor = "right",
-                                      text = paste0("[", dfi$Detector[1], "]"),
-                                      font = list(size = 12),
-                                      showarrow = FALSE)
-            )
-    }
-    
-    dfs <- split(df, df$Detector)
-    
-    plts <- lapply(dfs[lapply(dfs, nrow)>0], pl)
-    subplot(plts, nrows = length(plts), shareX = TRUE) %>%
-        layout(annotations = list(text = title,
-                                  xref = "paper",
-                                  yref = "paper",
-                                  yanchor = "bottom",
-                                  xanchor = "center",
-                                  align = "center",
-                                  x = 0.5,
-                                  y = 1,
-                                  showarrow = FALSE))
-}
 
+volplot_plotly <- function(
+    dbpool_, 
+    signalid, plot_start_date, plot_end_date, 
+    title = "title", ymax = 1000) {
 
-
-volplot_plotly2 <- function(dbpool_, signalid, plot_start_date, plot_end_date, title = "title", ymax = 1000) {
-    # db is either conf$athena (list) or aurora (Pool)
-    
     if (is.null(ymax)) {
         yax <- list(rangemode = "tozero", tickformat = ",.0")
     } else {
@@ -1489,73 +1474,10 @@ volplot_plotly2 <- function(dbpool_, signalid, plot_start_date, plot_end_date, t
     withProgress(message = "Loading chart", value = 0, {
         incProgress(amount = 0.1)
         
-        if (TRUE) {
-            conn <- poolCheckout(dbpool_)
-            df <- read_signal_data(conn, signalid, plot_start_date, plot_end_date)
-            poolReturn(conn)      
-        } else if (class(db) == "Pool") {
-            # db = aurora connection pool
-            rc <- tbl(db, "counts_1hr") %>% 
-                filter(
-                    SignalID == signalid, 
-                    Timeperiod >= plot_start_date, 
-                    Timeperiod < plot_end_date)
-            fc <- tbl(aurora, "filtered_counts_1hr") %>% 
-                filter(
-                    SignalID == signalid, 
-                    Timeperiod >= plot_start_date, 
-                    Timeperiod < plot_end_date)
-            ac <- tbl(aurora, "adjusted_counts_1hr") %>%
-                filter(
-                    SignalID == signalid,
-                    Timeperiod >= plot_start_date,
-                    Timeperiod < plot_end_date)
-            
-            # Pool man's MySQL Full Join (MySQL does not support full joins, apparently)
-            lj <- left_join(
-                rename(rc, vol_rc = vol), 
-                rename(fc, vol_fc = vol), 
-                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
-            rj <- right_join(
-                rename(rc, vol_rc = vol), 
-                rename(fc, vol_fc = vol), 
-                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase"))
-            df <- bind_rows(collect(lj), collect(rj)) %>% distinct()
-            
-            # Poor man's MySQL Full Join (MySQL does not support full joins, apparently)
-            lj <- left_join(
-                df,
-                collect(rename(ac, vol_ac = vol)),
-                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-            )
-            rj <- right_join(
-                df,
-                collect(rename(ac, vol_ac = vol)),
-                by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-            )
-            df <- bind_rows(lj, rj) %>% distinct()
-            
-            df <- list(
-                rename(rc, vol_rc = vol),
-                rename(fc, vol_fc = vol),
-                rename(ac, vol_ac = vol)) %>%
-                reduce(full_join, by = c("signalid", "date", "timeperiod", "detector", "callphase")
-                ) %>%
-                arrange(signalid, as.integer(detector), timeperiod) %>%
-                mutate(bad_day = if_else(is.na(vol_fc), TRUE, FALSE),
-                       vol_ac = ifelse(is.na(vol_fc), as.integer(vol_ac), NA)) %>% 
-                select(-date, -vol_fc) %>% 
-                collect() %>%
-                transmute(
-                    SignalID = factor(signalid),
-                    Timeperiod = timeperiod,
-                    Detector = factor(as.integer(detector)),
-                    CallPhase = factor(callphase),
-                    vol_rc,
-                    vol_ac,
-                    bad_day
-                )
-        }
+        conn <- poolCheckout(dbpool_)
+        df <- read_signal_data(conn, signalid, plot_start_date, plot_end_date)
+        poolReturn(conn)      
+
         incProgress(amount = 0.5)
         
         if (nrow(df)) {

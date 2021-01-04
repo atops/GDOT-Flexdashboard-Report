@@ -270,7 +270,7 @@ Row
 
 ### Throughput [vph] {.value-box}
 
-```{r}
+```{r, eval = FALSE}
 output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({
     valueBox(
         value = get_valuebox_value(
@@ -2845,7 +2845,7 @@ fillCol(height = 700,
 
         renderPlotly({
             req(input$signal_details_button)
-            volplot_plotly2(
+            volplot_plotly(
                 athena_connection_pool, sid(), current_month(), endof_current_month(),
                 title = "Raw and Filtered Detector Data", ymax = NULL)
         })
