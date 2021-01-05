@@ -774,86 +774,90 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
 
 get_ped_delay <- function(date_, conf) {
     
-    conn <- get_athena_connection(conf$athena)
+    ped_delay_one_signal <- function(signalid, date_, conf) {
+        
+        s3bucket = conf$bucket
+        s3object = glue("atspm/date={date_}/atspm_{signalid}_{date_}.parquet")
+        
+        if (aws.s3::object_exists(s3object, s3bucket)) {
+            
+            # all 45/21/22/132 events
+            pe <- s3_read_parquet(bucket = s3bucket, object = s3object) %>%
+                filter(EventCode %in% (c(45, 21, 22, 132))) %>%
+                select(-c(Date, DeviceID)) %>%
+                mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+                arrange(Timestamp) %>%
+                tidyr::fill(CycleLength) %>%
+                rename(Phase = EventParam)
+            
+            coord.type <- group_by(pe, SignalID) %>%
+                summarise(CL = max(CycleLength, na.rm = T), .groups = "drop") %>%
+                mutate(Pattern = ifelse( (CL == 0 | !is.finite(CL)), "Free", "Coordinated"))
+            
+            pe <- inner_join(pe, coord.type, by = "SignalID") %>%
+                filter(
+                    EventCode != 132,
+                    !(Pattern == "Coordinated" & (is.na(CycleLength) | CycleLength == 0 )) #filter out times of day when coordinated signals run in free
+                ) %>%
+                select(
+                    SignalID, Phase, EventCode, Timestamp, Pattern, CycleLength
+                ) %>% 
+                arrange(SignalID, Phase, Timestamp) %>%
+                group_by(SignalID, Phase) %>%
+                mutate(
+                    Lead_EventCode = lead(EventCode),
+                    Lead_Timestamp = lead(Timestamp),
+                    Sequence = paste(as.character(EventCode), 
+                                     as.character(Lead_EventCode),
+                                     Pattern,
+                                     sep = "_")) %>%
+                filter(Sequence %in% c("45_21_Free", "22_21_Coordinated")) %>%
+                mutate(Delay = as.numeric(difftime(Lead_Timestamp, Timestamp), units="secs")) %>% #what to do about really long "delay" for 2/6?
+                ungroup() %>%
+                filter(!(Pattern == "Coordinated" & Delay > CycleLength)) %>% #filter out events where max ped delay/cycle > CL
+                filter(!(Pattern == "Free" & Delay > 300)) # filter out events where delay for uncoordinated signals is > 5 min (300 s)
+            
+            pe.free.summary <- filter(pe, Pattern == "Free") %>%
+                group_by(SignalID) %>%
+                summarise(
+                    Pattern = "Free",
+                    Avg.Max.Ped.Delay = sum(Delay) / n(),
+                    Events = n(),
+                    .groups = "drop"
+                )
+            
+            pe.coordinated.summary.byphase <- filter(pe, Pattern == "Coordinated") %>%
+                group_by(SignalID, Phase) %>%
+                summarise(
+                    Pattern = "Coordinated",
+                    Max.Ped.Delay.per.Cycle = sum(Delay) / n(),
+                    Events = n(),
+                    .groups = "drop"
+                )
+            
+            pe.coordinated.summary <- pe.coordinated.summary.byphase %>%
+                group_by(SignalID) %>%
+                summarise(
+                    Pattern = "Coordinated",
+                    Avg.Max.Ped.Delay = weighted.mean(Max.Ped.Delay.per.Cycle,Events),
+                    Events = sum(Events),
+                    .groups = "drop"
+                )
+            
+            pe.summary.overall <- bind_rows(pe.free.summary, pe.coordinated.summary) %>%
+                mutate(Date = date_)
+            
+            pe.summary.overall
+        } else {
+            print(glue("{s3object} doesn't exist."))
+            data.frame()
+        }
+    }
     
-    # all 45/21/22/132 events - takes approx 5+ min for a single day
-    pe <- tbl(conn, sql(glue(paste(
-        "SELECT DISTINCT timestamp, signalid, eventcode, eventparam, date FROM gdot_spm.atspm2",
-        "WHERE eventcode IN (45, 21, 22, 132) AND date = '{date_}'",
-        "ORDER BY signalid, timestamp")))) %>%
-        collect() %>%
-        transmute(
-            SignalID = as.integer(signalid),
-            Timestamp = force_tz(timestamp, "UTC"),
-            EventCode = as.integer(eventcode),
-            EventParam = as.integer(eventparam),
-            CycleLength = ifelse(EventCode == 132, EventParam, NA)
-        ) %>%
-        arrange(SignalID,Timestamp) %>%
-        group_by(SignalID) %>%
-        tidyr::fill(CycleLength) %>%
-        ungroup() %>%
-        rename(Phase = EventParam)
-    
-    coord.type <- group_by(pe, SignalID) %>%
-        summarise(CL = max(CycleLength, na.rm = T), .groups = "drop") %>%
-        mutate(Pattern = ifelse( (CL == 0 | !is.finite(CL)), "Free", "Coordinated"))
-    
-    pe <- inner_join(pe, coord.type, by = "SignalID") %>%
-        filter(
-            EventCode != 132,
-            !(Pattern == "Coordinated" & (is.na(CycleLength) | CycleLength == 0 )) #filter out times of day when coordinated signals run in free
-        ) %>%
-        select(
-            SignalID, Phase, EventCode, Timestamp, Pattern, CycleLength
-        ) %>% 
-        arrange(SignalID, Phase, Timestamp) %>%
-        group_by(SignalID, Phase) %>%
-        mutate(
-            Lead_EventCode = lead(EventCode),
-            Lead_Timestamp = lead(Timestamp),
-            Sequence = paste(as.character(EventCode), 
-                             as.character(Lead_EventCode),
-                             Pattern,
-                             sep = "_")) %>%
-        filter(Sequence %in% c("45_21_Free", "22_21_Coordinated")) %>%
-        mutate(Delay = as.numeric(difftime(Lead_Timestamp, Timestamp), units="secs")) %>% #what to do about really long "delay" for 2/6?
-        ungroup() %>%
-        filter(!(Pattern == "Coordinated" & Delay > CycleLength)) %>% #filter out events where max ped delay/cycle > CL
-        filter(!(Pattern == "Free" & Delay > 300)) # filter out events where delay for uncoordinated signals is > 5 min (300 s)
-    
-    pe.free.summary <- filter(pe, Pattern == "Free") %>%
-        group_by(SignalID) %>%
-        summarise(
-            Pattern = "Free",
-            Avg.Max.Ped.Delay = sum(Delay) / n(),
-            Events = n(),
-            .groups = "drop"
-        )
-    
-    pe.coordinated.summary.byphase <- filter(pe, Pattern == "Coordinated") %>%
-        group_by(SignalID, Phase) %>%
-        summarise(
-            Pattern = "Coordinated",
-            Max.Ped.Delay.per.Cycle = sum(Delay) / n(),
-            Events = n(),
-            .groups = "drop"
-        )
-    
-    pe.coordinated.summary <- pe.coordinated.summary.byphase %>%
-        group_by(SignalID) %>%
-        summarise(
-            Pattern = "Coordinated",
-            Avg.Max.Ped.Delay = weighted.mean(Max.Ped.Delay.per.Cycle,Events),
-            Events = sum(Events),
-            .groups = "drop"
-        )
-    
-    pe.summary.overall <- bind_rows(pe.free.summary, pe.coordinated.summary) %>%
-        mutate(Date = date_)
-    
-    return(pe.summary.overall)
-    
+    #signalid <- 7000
+    mclapply(unique(corridors$SignalID), function(signalid) {
+        ped_delay_one_signal(signalid, date_, conf)
+    }, mc.cores = usable_cores) %>% bind_rows()
 }
 
 
