@@ -436,7 +436,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -449,7 +449,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -1246,7 +1246,7 @@ fillCol(
     fillRow(
         div("AM Hourly Volume", style = styl),
         renderPlotly    ({
-            data.set <- filter(mr()$mo$vphp$am, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$vphpa, Corridor==zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE,
@@ -1257,7 +1257,7 @@ fillCol(
     fillRow(
         div("PM Hourly Volume", style = styl),
         renderPlotly    ({
-            data.set <- filter(mr()$mo$vphp$pm, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$vphpp, Corridor==zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE,
@@ -1605,7 +1605,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart"
   )
@@ -1617,7 +1617,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart"
   )
