@@ -359,7 +359,7 @@ rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = 
 read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
     # Query for nested parquet data in Athena. The preferred way to do this.    
 
-    q <- glue(paste("select signalid, date, dat from signal_details_nest, unnest (data) t(dat)",
+    q <- glue(paste("select signalid, date, dat from signal_details, unnest (data) t(dat)",
                     "where signalid = {signalid}", 
                     "and date >= '{plot_start_date}' and date <= '{plot_end_date}'"))
     q <- glue(paste("select signalid, date, dat.hour, dat.detector, dat.callphase,",

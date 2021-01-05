@@ -471,11 +471,11 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         df, 
         write_parquet, 
         bucket = conf$bucket, 
-        object = glue("mark/nest/date={plot_date}/sg_{plot_date}.parquet"),
+        object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
     conn <- get_athena_connection(conf_athena)
-    table_name <- "signal_details_nest"
+    table_name <- "signal_details"
     tryCatch({
         response <- dbGetQuery(conn,
                                sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",

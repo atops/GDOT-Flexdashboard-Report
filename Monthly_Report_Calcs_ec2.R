@@ -185,7 +185,7 @@ if (conf$run$counts == TRUE) {
     }
 }
 
-flashes <- get_flash_events(conf$athena, start_date, end_date)
+flashes <- get_flash_events(start_date, end_date)
 print("flash events...")
 print(flashes)
 if (nrow(flashes)) {
@@ -563,7 +563,6 @@ get_pd_date_range <- function(start_date, end_date) {
                 conf_athena = conf$athena)
         }
     })
-    registerDoSEQ()
     gc()
 }
 

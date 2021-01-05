@@ -2597,10 +2597,7 @@ shinyApp(
         output$MapPlot1 <- renderLeaflet({
             
             format_ <- value_format(value())
-
-            # cols6 <- RColorBrewer::brewer.pal(6, "YlGnBu")
-            # cols6 <- cols6[2:length(cols6)]
-
+                
             pal <- colorBin(
                 palette = "YlGnBu",
                 domain = data()[[value()]],
@@ -2720,10 +2717,7 @@ shinyApp(
             
             if (nrow(data())) {
                 format_ <- value_format(value())
-
-                # cols6 <- RColorBrewer::brewer.pal(6, "YlGnBu")
-                # cols6 <- cols6[2:length(cols6)]
-
+                
                 pal <- colorBin(
                     palette = "YlGnBu",
                     domain = data()[[value()]],
