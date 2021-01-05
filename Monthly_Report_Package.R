@@ -26,9 +26,6 @@ tryCatch({
             SignalID = factor(SignalID)
         )
     
-    plan(sequential)
-    plan(multiprocess)
-    
     cor_avg_daily_detector_uptime <- 
         get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
     sub_avg_daily_detector_uptime <- 
@@ -461,9 +458,6 @@ print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 23]"))
 
 tryCatch({
     
-    plan(sequential)
-    plan(multiprocess)
-    
     weekly_paph <- get_weekly_paph(paph)
     monthly_paph <- get_monthly_paph(paph)
     
@@ -585,9 +579,6 @@ tryCatch({
             Date = date(Date)
         )
     
-    plan(sequential)
-    plan(multiprocess)
-    
     daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
     cor_daily_comm_uptime <- 
         get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
@@ -660,9 +651,6 @@ tryCatch({
         )
     
     weekly_vpd <- get_weekly_vpd(vpd)
-    
-    plan(sequential)
-    plan(multiprocess)
     
     # Group into corridors --------------------------------------------------------
     cor_weekly_vpd %<-% get_cor_weekly_vpd(weekly_vpd, corridors)
@@ -806,9 +794,6 @@ tryCatch({
             CallPhase = factor(as.integer(CallPhase)),
             Date = date(Date)
         )
-    
-    plan(sequential)
-    plan(multiprocess)
     
     weekly_throughput %<-% get_weekly_thruput(throughput)
     monthly_throughput %<-% get_monthly_thruput(throughput)

@@ -483,9 +483,6 @@ get_adjusted_counts_split10 <- function(filtered_counts, callback = function(x) 
 # may be a template for other memory-intenstive functions.
 get_adjusted_counts_split <- function(filtered_counts) {
     
-    plan(multiprocess)
-    usable_cores <- get_usable_cores()
-    
     print("Getting detector config...")
     det_config <- lapply(unique(filtered_counts$Date), get_det_config_vol) %>% 
         bind_rows() %>%

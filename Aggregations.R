@@ -576,8 +576,6 @@ get_daily_detector_uptime <- function(filtered_counts) {
 
 get_avg_daily_detector_uptime <- function(ddu) {
     
-    #plan(multiprocess)
-    
     sb_daily_uptime <- get_daily_avg(filter(ddu, setback == "Setback"), 
                                      "uptime", "all", 
                                      peak_only = FALSE)
@@ -600,8 +598,6 @@ get_avg_daily_detector_uptime <- function(ddu) {
 
 
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
-    
-    plan(multiprocess)
     
     cor_daily_sb_uptime %<-% (avg_daily_detector_uptime %>% 
                                   filter(!is.na(uptime.sb)) %>%
@@ -791,8 +787,6 @@ get_cor_monthly_qs_by_day <- function(monthly_qs_by_day, corridors) {
 
 
 get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
-    
-    plan(multiprocess)
     
     cor_daily_sb_uptime %<-% (avg_daily_detector_uptime %>% 
                                   filter(!is.na(uptime.sb)) %>%
