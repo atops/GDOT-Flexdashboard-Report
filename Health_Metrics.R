@@ -384,32 +384,14 @@ if (TRUE) {
     csd <- get_summary_data(sub)
     ssd <- get_summary_data(sig)
     
-    corridor_mapping <- s3read_using(
+    corridor_groupings <- s3read_using(
         read_excel, 
         bucket = conf$bucket, 
         object = conf$corridors_filename_s3, 
-        sheet = "Contexts_Lookup", 
-        range = cell_cols("A:E")
+        sheet = "Contexts", 
+        range = cell_cols("A:F")
         ) %>%
         mutate(Context = as.integer(Context))
-    
-    # AJT: This seems like a hack to fill in some context info where we have none.
-    corridor_groupings <- corridors %>%
-        distinct(Zone_Group, Zone, Corridor, Subcorridor) %>%
-        full_join(corridor_mapping, by = c("Zone", "Corridor", "Subcorridor")) %>%
-        
-        # Hack to remove subcorridors that don't have a match in the Corridors file
-        filter(!is.na(Zone_Group)) %>%
-        
-        # workaround to fill in Context
-        group_by(Corridor) %>%
-        tidyr::fill(Context, .direction = "downup") %>%
-        group_by(Zone) %>%
-        tidyr::fill(Context, .direction = "downup") %>%
-        group_by(Zone_Group) %>%
-        tidyr::fill(Context, .direction = "downup") %>%
-        ungroup()
-    
     
     # # workaround to bring in flash events
     # flash_events <- read.csv("flash_events.csv")
