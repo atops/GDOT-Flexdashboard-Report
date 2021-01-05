@@ -858,23 +858,21 @@ get_ped_delay <- function(date_, conf) {
 
 
 
-get_flash_events <- function(conf_athena, start_date, end_date) {
+get_flash_events <- function(start_date, end_date) {
     
-    conn <- get_athena_connection(conf_athena)
-    x <- tbl(conn, sql(glue(paste(
-        "select date, timestamp, signalid, eventcode, eventparam", 
-        "from gdot_spm.atspm2 where eventcode = 173", 
-        "and date between '{start_date}' and '{end_date}'")))) %>% 
-        collect()
+    flash_events <- s3_read_parquet_parallel(
+        "flash_events", start_date, end_date, bucket = "gdot-spm", parallel = TRUE)
+
+    # conn <- get_athena_connection(conf_athena)
+    # x <- tbl(conn, sql(glue(paste(
+    #     "select date, timestamp, signalid, eventcode, eventparam", 
+    #     "from gdot_spm.atspm2 where eventcode = 173", 
+    #     "and date between '{start_date}' and '{end_date}'")))) %>% 
+    #     collect()
     
-    flashes <- if (nrow(x)) {
-        x %>%
-            transmute(
-                Timestamp = ymd_hms(timestamp),
-                SignalID = factor(signalid),
-                EventCode = as.integer(eventcode),
-                EventParam = as.integer(eventparam),
-                Date = ymd(date)) %>% 
+    flashes <- if (nrow(flash_events)) {
+        flash_events %>%
+            rename(Timestamp = TimeStamp) %>% 
             arrange(SignalID, Timestamp) %>% 
             group_by(SignalID) %>% 
             filter(EventParam - lag(EventParam) > 0) %>%

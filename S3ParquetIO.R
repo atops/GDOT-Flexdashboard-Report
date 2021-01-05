@@ -62,7 +62,7 @@ s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_at
                           table_name = table_name, 
                           conf_athena = conf_athena)
     } else { # loop through dates
-        if (parallel) {
+        if (parallel & Sys.info()["sysname"] != "Windows") {
             df %>% 
                 split(.$Date) %>% 
                 mclapply(mc.cores = max(usable_cores, detectCores()-1), FUN = function(x) {
@@ -128,7 +128,7 @@ s3_read_parquet_parallel <- function(table_name,
     }
     # When using mclapply, it fails. When using lapply, it works. 6/23/2020
     # Give to option to run in parallel, like when in interactive mode
-    if (parallel) {
+    if (parallel & Sys.info()["sysname"] != "Windows") {
         dfs <- mclapply(dates, mc.cores = max(usable_cores, detectCores()-1), FUN = func)
     } else {
         dfs <- lapply(dates, func)
