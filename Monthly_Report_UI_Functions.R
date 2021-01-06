@@ -1406,12 +1406,19 @@ volplot_plotly <- function(
     pl <- function(dfi, i) {
         
         dfi <- dfi %>% 
-            mutate(maxy = if_else(bad_day==1, as.integer(max(1, vol_rc, na.rm = TRUE)), as.integer(0)),
-                   colr = colrs[as.character(CallPhase)], 
-                   fill_colr = "")
+            mutate(
+                #CallPhase = last(dfi$CallPhase), # Plotly gets confused with multiple colors
+                maxy = if_else(bad_day==1, as.integer(max(1, vol_rc, na.rm = TRUE)), as.integer(0)),
+                colr = colrs[as.character(CallPhase)], 
+                fill_colr = "")
         
-        plot_ly(data = dfi) %>%
-            add_trace(
+        dfis <- split(dfi, dfi$CallPhase)
+        dfis <- dfis[unlist(purrr::map(dfis, function(x) nrow(x)>0))]
+        
+        p <- plot_ly()
+        for (df in dfis) {
+            p <- p %>% add_trace(
+                data = df,
                 x = ~Timeperiod, 
                 y = ~vol_rc, 
                 type = "scatter", 
@@ -1426,22 +1433,26 @@ volplot_plotly <- function(
                     "<br>Volume: <b>{as_int(vol_rc)}</b>")),
                 hovertemplate = "%{customdata}",
                 hoverlabel = list(font = list(family = "Source Sans Pro")),
-                showlegend = FALSE) %>%
+                showlegend = FALSE)
+        }
+        
+        p %>% add_trace(
+            data = dfi,
+            x = ~Timeperiod, 
+            y = ~vol_ac, 
+            type = "scatter", 
+            mode = "lines", 
+            line = list(color = DARK_GRAY),
+            name = "Adjusted Count",
+            customdata = ~glue(paste(
+                "<b>Detector: {Detector}</b>",
+                "<br>{format(ymd_hms(Timeperiod), '%a %d %B %I:%M %p')}",
+                "<br>Volume: <b>{as_int(vol_ac)}</b>")),
+            hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro")),
+            showlegend = (i==1)) %>%
             add_trace(
-                x = ~Timeperiod, 
-                y = ~vol_ac, 
-                type = "scatter", 
-                mode = "lines", 
-                line = list(color = DARK_GRAY),
-                name = "Adjusted Count",
-                customdata = ~glue(paste(
-                    "<b>Detector: {Detector}</b>",
-                    "<br>{format(ymd_hms(Timeperiod), '%a %d %B %I:%M %p')}",
-                    "<br>Volume: <b>{as_int(vol_ac)}</b>")),
-                hovertemplate = "%{customdata}",
-                hoverlabel = list(font = list(family = "Source Sans Pro")),
-                showlegend = (i==1)) %>%
-            add_trace(
+                data = dfi,
                 x = ~Timeperiod,
                 y = ~maxy,
                 type = "scatter",
