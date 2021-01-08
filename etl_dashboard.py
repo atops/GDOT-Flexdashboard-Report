@@ -18,7 +18,7 @@ import itertools
 from spm_events import etl_main
 import boto3
 import yaml
-import feather
+#import feather
 import io
 import re
 from parquet_lib import *
@@ -93,7 +93,7 @@ def etl2(s, date_, det_config):
                              allow_truncated_timestamps=True)
     
     
-                print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
+                #print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
             else:
                 print(f'{date_str} | {s} | No cycles')
         
@@ -122,7 +122,7 @@ def main(start_date, end_date):
     dates = pd.date_range(start_date, end_date, freq='1D')
 
     corridors_filename = re.sub('\..*', '.feather', conf['corridors_filename_s3'])
-    corridors = feather.read_dataframe(corridors_filename)
+    corridors = pd.read_feather(corridors_filename)
     corridors = corridors[~corridors.SignalID.isna()]
     
     signalids = list(corridors.SignalID.astype('int').values)
@@ -147,7 +147,7 @@ def main(start_date, end_date):
                 Key=f'atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather',
                 Fileobj=data)
 
-            det_config_raw = feather.read_dataframe(data)\
+            det_config_raw = pd.read_feather(data)\
                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                 .assign(Detector = lambda x: x.Detector.astype('int64'))\
                 .rename(columns={'CallPhase': 'Call Phase'})

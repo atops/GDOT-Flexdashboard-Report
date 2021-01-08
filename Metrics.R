@@ -221,79 +221,69 @@ get_daily_pr <- function(aog) {
 
 
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
-get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_of_red = 5) {
+get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5) {
     
-    print("Starting queries...")
+    print("Pulling data...")
     
-    de <- (get_detection_events(date_, date_, conf_athena, signals_list = signals_list) %>% 
-               select(signalid,
-                      phase,
-                      detector,
-                      cyclestart,
-                      dettimestamp,
-                      detduration,
-                      date) %>%
-               filter(phase %in% c(3, 4, 7, 8)) %>%
-               collect() %>% 
-               arrange(signalid, phase, cyclestart) %>%
-               transmute(signalid = factor(signalid),
-                         phase = factor(phase), 
-                         detector = factor(detector), 
-                         cyclestart = ymd_hms(cyclestart),
-                         deton = ymd_hms(dettimestamp),
-                         detoff = ymd_hms(dettimestamp) + seconds(detduration),
-                         date = ymd(date)))
+    de <- mclapply(signals_list, function(signalid) {
+        
+        s3bucket = "gdot-spm-detections"
+        s3object = glue("date={date_}/de_{signalid}_{date_}.parquet")
+        
+        if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
+            s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
+                filter(Phase %in% c(3, 4, 7, 8)) %>%
+                arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
+                transmute(SignalID = factor(SignalID),
+                          Phase = factor(Phase),
+                          Detector = factor(Detector), 
+                          CycleStart, PhaseStart, 
+                          DetOn = DetTimeStamp,
+                          DetOff = DetTimeStamp + seconds(DetDuration),
+                          Date = as_date(date_))
+        }
+    }, mc.cores = usable_cores) %>% bind_rows() %>% convert_to_utc()
     
-    cd <- (get_cycle_data(date_, date_, conf_athena, signals_list = signals_list) %>% 
-               select(signalid, 
-                      phase, 
-                      cyclestart, 
-                      phasestart, 
-                      phaseend,
-                      date,
-                      eventcode) %>% 
-               filter(phase %in% c(3, 4, 7, 8),
-                      eventcode %in% c(1,9)) %>%
-               collect() %>%
-               arrange(signalid, phase, cyclestart, phasestart))
+    cd <- mclapply(signals_list, function(signalid) {
+        
+        s3bucket = "gdot-spm-cycles"
+        s3object = glue("date={date_}/cd_{signalid}_{date_}.parquet")
+        
+        if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
+            s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
+                mutate(SignalID = factor(SignalID),
+                       Phase = factor(Phase),
+                       Date = as_date(date_)) %>%
+                filter(Phase %in% c(3, 4, 7, 8),
+                       EventCode %in% c(1, 9)) %>%
+                arrange(SignalID, Phase, CycleStart, PhaseStart)
+        }
+    }, mc.cores = usable_cores) %>% bind_rows() %>% convert_to_utc()
     
-    dates <- unique(de$date)
     
-    dc <- lapply(dates, get_det_config_sf) %>% 
-        bind_rows %>% 
+    dc <- get_det_config_sf(date_) %>%
         filter(SignalID %in% signals_list) %>%
-        rename(signalid = SignalID, detector = Detector, phase = CallPhase, date = Date)
+        rename(Phase = CallPhase)
     
     de <- de %>%
-        left_join(dc, by = c("signalid", "phase", "detector", "date")) %>% 
+        left_join(dc, by = c("SignalID", "Phase", "Detector", "Date")) %>% 
         filter(!is.na(TimeFromStopBar)) %>%
-        mutate(signalid = factor(signalid),
-               phase = factor(phase),
-               detector = factor(detector))
-    
-    print(head(de))
+        mutate(SignalID = factor(SignalID),
+               Phase = factor(Phase),
+               Detector = factor(Detector))
     
     grn_interval <- cd %>% 
-        filter(eventcode == 1) %>%
-        mutate(signalid = factor(signalid),
-               phase = factor(phase),
-               cyclestart = ymd_hms(cyclestart),
-               intervalstart = ymd_hms(phasestart),
-               intervalend = ymd_hms(phaseend),
-               date = ymd(date)) %>%
-        select(-eventcode)
+        filter(EventCode == 1) %>%
+        mutate(IntervalStart = PhaseStart,
+               IntervalEnd = PhaseEnd) %>%
+        select(-EventCode)
     
     sor_interval <- cd %>%
-        filter(eventcode == 9) %>%
-        mutate(signalid = factor(signalid),
-               phase = factor(phase),
-               cyclestart = ymd_hms(cyclestart),
-               intervalstart = ymd_hms(phasestart),
-               intervalend = ymd_hms(intervalstart) + seconds(first_seconds_of_red),
-               date = ymd(date)) %>%
-        select(-eventcode)
+        filter(EventCode == 9) %>%
+        mutate(IntervalStart = ymd_hms(PhaseStart),
+               IntervalEnd = ymd_hms(IntervalStart) + seconds(first_seconds_of_red)) %>%
+        select(-EventCode)
     
-    print(head(cd))
     rm(cd) 
     
     de_dt <- data.table(de)
@@ -304,48 +294,48 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
     gr_dt <- data.table(grn_interval)
     sr_dt <- data.table(sor_interval)
     
-    setkey(de_dt, signalid, phase, deton, detoff)
-    setkey(gr_dt, signalid, phase, intervalstart, intervalend)
-    setkey(sr_dt, signalid, phase, intervalstart, intervalend)
+    setkey(de_dt, SignalID, Phase, DetOn, DetOff)
+    setkey(gr_dt, SignalID, Phase, IntervalStart, IntervalEnd)
+    setkey(sr_dt, SignalID, Phase, IntervalStart, IntervalEnd)
     
     ## ---
     
     get_occupancy <- function(de_dt, int_dt, interval_) {
         occdf <- foverlaps(de_dt, int_dt, type = "any") %>% 
-            filter(!is.na(intervalstart)) %>% 
+            filter(!is.na(IntervalStart)) %>% 
             
             transmute(
-                signalid = factor(signalid),
-                phase,
-                detector = as.integer(as.character(detector)),
-                cyclestart,
-                intervalstart,
-                intervalend,
-                int_int = lubridate::interval(intervalstart, intervalend), 
-                occ_int = lubridate::interval(deton, detoff), 
+                SignalID = factor(SignalID),
+                Phase,
+                Detector = as.integer(as.character(Detector)),
+                CycleStart,
+                IntervalStart,
+                IntervalEnd,
+                int_int = lubridate::interval(IntervalStart, IntervalEnd), 
+                occ_int = lubridate::interval(DetOn, DetOff), 
                 occ_duration = as.duration(intersect(occ_int, int_int)),
                 int_duration = as.duration(int_int))
         
         occdf <- full_join(interval_, 
                            occdf, 
-                           by = c("signalid", "phase", 
-                                  "cyclestart", "intervalstart", "intervalend")) %>% 
+                           by = c("SignalID", "Phase", 
+                                  "CycleStart", "IntervalStart", "IntervalEnd")) %>% 
             tidyr::replace_na(
-                list(detector = 0, occ_duration = 0, int_duration = 1)) %>%
-            mutate(signalid = factor(signalid),
-                   detector = factor(detector),
+                list(Detector = 0, occ_duration = 0, int_duration = 1)) %>%
+            mutate(SignalID = factor(SignalID),
+                   Detector = factor(Detector),
                    occ_duration = as.numeric(occ_duration),
                    int_duration = as.numeric(int_duration)) %>%
             
-            group_by(signalid, phase, cyclestart, detector) %>%
+            group_by(SignalID, Phase, CycleStart, Detector) %>%
             summarize(occ = sum(occ_duration)/max(int_duration),
                       .groups = "drop_last") %>%
             
             summarize(occ = max(occ),
                       .groups = "drop") %>%
             
-            mutate(signalid = factor(signalid),
-                   phase = factor(phase))
+            mutate(SignalID = factor(SignalID),
+                   Phase = factor(Phase))
         
         occdf
     }
@@ -359,24 +349,24 @@ get_sf_utah <- function(date_, conf_athena, signals_list = NULL, first_seconds_o
     
     
     
-    df <- full_join(grn_occ, sor_occ, by = c("signalid", "phase", "cyclestart")) %>%
+    df <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
     
     # if a split failure on any phase
-    df0 <- df %>% group_by(signalid, phase = factor(0), cyclestart) %>% 
+    df0 <- df %>% group_by(SignalID, Phase = factor(0), CycleStart) %>% 
         summarize(sf = max(sf), .groups = "drop")
     
     sf <- bind_rows(df, df0) %>% 
-        mutate(phase = factor(phase)) %>%
+        mutate(Phase = factor(Phase)) %>%
         
-        group_by(signalid, phase, hour = floor_date(cyclestart, unit = "hour")) %>% 
+        group_by(SignalID, Phase, hour = floor_date(CycleStart, unit = "hour")) %>% 
         summarize(cycles = n(),
                   sf_freq = sum(sf, na.rm = TRUE)/cycles, 
                   sf = sum(sf, na.rm = TRUE),
                   .groups = "drop") %>%
         
-        transmute(SignalID = factor(signalid), 
-                  CallPhase = factor(phase), 
+        transmute(SignalID, 
+                  CallPhase = Phase, 
                   Date_Hour = ymd_hms(hour),
                   Date = date(Date_Hour),
                   DOW = wday(Date),

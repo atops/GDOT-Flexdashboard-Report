@@ -193,9 +193,9 @@ if __name__=='__main__':
         end_date = datetime.now(pytz.timezone('America/New_York')) - timedelta(days=1)
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
     
-    
+   
     tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
-                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']))
+                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']), engine='openpyxl')
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
     tmc_df = tmc_df[tmc_df.Corridor != 'None']
