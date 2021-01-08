@@ -2129,19 +2129,19 @@ qsave(sub, "sub.qs")
 
 aws.s3::put_object(
     file = "cor.qs",
-    object = "cor_ec2_db.qs",
+    object = "cor_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sig.qs",
-    object = "sig_ec2_db.qs",
+    object = "sig_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sub.qs",
-    object = "sub_ec2_db.qs",
+    object = "sub_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
