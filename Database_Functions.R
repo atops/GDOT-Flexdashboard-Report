@@ -112,43 +112,24 @@ get_aurora_connection_pool <- function() {
 
 # -- Previously from Monthly_Report_UI_Functions.R
 
-get_athena_connection <- function(conf_athena, f = dbConnect) {
-    
-    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-                classPath = conf_athena$jar_path,
-                identifier.quote = "'")
-    
-    f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-      s3_staging_dir = conf_athena$staging_dir,
-      Schema = "gdot_spm",
-      UID = conf_athena$uid,
-      PWD = conf_athena$pwd,
-      UseResultsetStreaming = 1)
-}
+#get_athena_connection <- function(conf_athena, f = dbConnect) {
+#    
+#    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
+#                classPath = conf_athena$jar_path,
+#                identifier.quote = "'")
+#    
+#    f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
+#      s3_staging_dir = conf_athena$staging_dir,
+#      Schema = "gdot_spm",
+#      UID = conf_athena$uid,
+#      PWD = conf_athena$pwd,
+#      UseResultsetStreaming = 1)
+#}
 
+get_athena_connection <- function(conf_athena, f = dbConnect) {
+    f(odbc::odbc(), dsn = "athena")
+}
 
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, dbPool)
 }
-
-
-# get_athena_connection_needs_boto3 <- function(conf_athena) {
-#     dbConnect(
-#         RAthena::athena(),
-#         aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
-#         aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-#         s3_staging_dir = conf_athena$staging_dir,
-#         region_name = 'us-east-1')
-# }
-
-
-# get_aurora_connection <- function(aws_conf, f = dbConnect) {
-#     f(
-#         drv = RMySQL::MySQL(),
-#         host = aws_conf$RDS_HOST,
-#         dbname = aws_conf$RDS_DATABASE,
-#         username = aws_conf$RDS_USERNAME,
-#         password = aws_conf$RDS_PASSWORD
-#     )
-# }
-#aurora_connection_pool <- get_aurora_connection(aws_conf, f = dbPool)
