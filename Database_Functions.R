@@ -57,42 +57,6 @@ get_maxview_eventlog_connection <- function() {
 get_cel_connection <- get_maxview_eventlog_connection
 
 
-# get_athena_connection_gives_errors <- function(conf_athena) {
-#     
-#     drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-#                 classPath = conf_athena$jar_path,
-#                 identifier.quote = "'")
-#     
-#     if (Sys.info()["nodename"] == "GOTO3213490") { # The SAM
-#         
-#         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-#                   s3_staging_dir = conf_athena$staging_dir,
-#                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-#                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-#                   ProxyHost = "gdot-enterprise",
-#                   ProxyPort = "8080",
-#                   ProxyUID = Sys.getenv("GDOT_USERNAME"),
-#                   ProxyPWD = Sys.getenv("GDOT_PASSWORD"))
-#     } else {
-#         
-#         dbConnect(drv, "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-#                   s3_staging_dir = conf_athena$staging_dir,
-#                   user = Sys.getenv("AWS_ACCESS_KEY_ID"),
-#                   password = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-#                   UseResultsetStreaming = 1)
-#     }
-# }
-
-
-# get_athena_connection <- function(conf_athena) {
-#     dbConnect(
-#         RAthena::athena(),
-#         aws_access_key_id = Sys.getenv("AWS_ACCESS_KEY_ID"),
-#         aws_secret_access_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-#         s3_staging_dir = conf_athena$staging_dir,
-#         region_name = Sys.getenv("AWS_DEFAULT_REGION"))
-# }
-
 
 get_aurora_connection <- function(f = RMySQL::dbConnect) {
     
@@ -132,4 +96,16 @@ get_athena_connection <- function(conf_athena, f = dbConnect) {
 
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, dbPool)
+}
+
+
+add_partition <- function(conn, conf_athena, table_name, date_) {
+    tryCatch({
+        dbExecute(conn,
+                  sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
+                                 "ADD PARTITION (date='{date_}')"))))
+        print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
+    }, error = function(e) {
+        print(stringr::str_extract(as.character(e), "Error Message.*"))
+    })
 }
