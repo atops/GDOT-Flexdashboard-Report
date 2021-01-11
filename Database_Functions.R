@@ -152,3 +152,15 @@ get_athena_connection_pool <- function(conf_athena) {
 #     )
 # }
 #aurora_connection_pool <- get_aurora_connection(aws_conf, f = dbPool)
+
+
+add_partition <- function(conn, conf_athena, table_name, date_) {
+    tryCatch({
+        dbExecute(conn,
+                  sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
+                                 "ADD PARTITION (date='{date_}')"))))
+        print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
+    }, error = function(e) {
+        print(stringr::str_extract(as.character(e), "Error Message.*"))
+    })
+}
