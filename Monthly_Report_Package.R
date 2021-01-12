@@ -26,9 +26,6 @@ tryCatch({
             SignalID = factor(SignalID)
         )
     
-    plan(sequential)
-    plan(multiprocess)
-    
     cor_avg_daily_detector_uptime <- 
         get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
     sub_avg_daily_detector_uptime <- 
@@ -461,9 +458,6 @@ print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 23]"))
 
 tryCatch({
     
-    plan(sequential)
-    plan(multiprocess)
-    
     weekly_paph <- get_weekly_paph(paph)
     monthly_paph <- get_monthly_paph(paph)
     
@@ -585,9 +579,6 @@ tryCatch({
             Date = date(Date)
         )
     
-    plan(sequential)
-    plan(multiprocess)
-    
     daily_comm_uptime <- get_daily_avg(cu, "uptime", peak_only = FALSE)
     cor_daily_comm_uptime <- 
         get_cor_weekly_avg_by_day(daily_comm_uptime, corridors, "uptime")
@@ -660,9 +651,6 @@ tryCatch({
         )
     
     weekly_vpd <- get_weekly_vpd(vpd)
-    
-    plan(sequential)
-    plan(multiprocess)
     
     # Group into corridors --------------------------------------------------------
     cor_weekly_vpd %<-% get_cor_weekly_vpd(weekly_vpd, corridors)
@@ -806,9 +794,6 @@ tryCatch({
             CallPhase = factor(as.integer(CallPhase)),
             Date = date(Date)
         )
-    
-    plan(sequential)
-    plan(multiprocess)
     
     weekly_throughput %<-% get_weekly_thruput(throughput)
     monthly_throughput %<-% get_monthly_thruput(throughput)
@@ -1653,7 +1638,12 @@ tryCatch({
 })
 
 
-map_data <- list(signals_sp = get_signals_sp(corridors))
+map_data <- list(
+    signals_sp = get_signals_sp(corridors) %>% 
+        select(SignalID, Latitude, Longitude, 
+               PrimaryName, SecondaryName, Corridor, Subcorridor, Name.x, 
+               color, fill_color, stroke_color)
+    )
 
 qsave(map_data, "map_data.qs")
 
@@ -1731,14 +1721,15 @@ tryCatch({
     cor$wk <- list(
         "vpd" = readRDS("cor_weekly_vpd.rds"),
         #"vph" = readRDS("cor_weekly_vph.rds"),
-        "vphp" = readRDS("cor_weekly_vph_peak.rds"),
+        "vphpa" = readRDS("cor_weekly_vph_peak.rds")$am,
+        "vphpp" = readRDS("cor_weekly_vph_peak.rds")$pm,
         "papd" = readRDS("cor_weekly_papd.rds"),
         #"paph" = readRDS("cor_weekly_paph.rds"),
         "pd" = readRDS("cor_weekly_pd_by_day.rds"),
         "tp" = readRDS("cor_weekly_throughput.rds"),
-        "aog" = readRDS("cor_weekly_aog_by_day.rds"),
+        "aogd" = readRDS("cor_weekly_aog_by_day.rds"),
         "pr" = readRDS("cor_weekly_pr_by_day.rds"),
-        "qs" = readRDS("cor_wqs.rds"),
+        "qsd" = readRDS("cor_wqs.rds"),
         "sf" = readRDS("cor_wsf.rds"),
         "sfo" = readRDS("cor_wsfo.rds"),
         "du" = readRDS("cor_weekly_detector_uptime.rds"),
@@ -1750,7 +1741,8 @@ tryCatch({
     cor$mo <- list(
         "vpd" = readRDS("cor_monthly_vpd.rds"),
         #"vph" = readRDS("cor_monthly_vph.rds"),
-        "vphp" = readRDS("cor_monthly_vph_peak.rds"),
+        "vphpa" = readRDS("cor_monthly_vph_peak.rds")$am,
+        "vphpp" = readRDS("cor_monthly_vph_peak.rds")$pm,
         "papd" = readRDS("cor_monthly_papd.rds"),
         #"paph" = readRDS("cor_monthly_paph.rds"),
         "pd" = readRDS("cor_monthly_pd_by_day.rds"),
@@ -1798,8 +1790,8 @@ tryCatch({
     cor$qu <- list(
         "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
         #"vph" = data.frame(), # get_quarterly(cor$mo$vph, "vph"),
-        "vphpa" = get_quarterly(cor$mo$vphp$am, "vph"),
-        "vphpp" = get_quarterly(cor$mo$vphp$pm, "vph"),
+        "vphpa" = get_quarterly(cor$mo$vphpa, "vph"),
+        "vphpp" = get_quarterly(cor$mo$vphpp, "vph"),
         "papd" = get_quarterly(cor$mo$papd, "papd"),
         "pd" = get_quarterly(cor$mo$pd, "pd"),
         "tp" = get_quarterly(cor$mo$tp, "vph"),
@@ -1854,9 +1846,10 @@ tryCatch({
     sub$wk <- list(
         "vpd" = readRDS("sub_weekly_vpd.rds") %>%
             select(Zone_Group, Corridor, Date, vpd),
-        #"vph" = readRDS("sub_weekly_vph.rds"),
-        "vphp" = readRDS("sub_weekly_vph_peak.rds") %>%
-            map(~select(., Zone_Group, Corridor, Date, vph)),
+        "vphpa" = readRDS("sub_weekly_vph_peak.rds")$am %>%
+            select(Zone_Group, Corridor, Date, vph),
+        "vphpp" = readRDS("sub_weekly_vph_peak.rds")$pm %>%
+            select(Zone_Group, Corridor, Date, vph),
         "papd" = readRDS("sub_weekly_papd.rds") %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = readRDS("sub_weekly_paph.rds"),
@@ -1888,7 +1881,8 @@ tryCatch({
     sub$mo <- list(
         "vpd" = readRDS("sub_monthly_vpd.rds"),
         #"vph" = readRDS("sub_monthly_vph.rds"),
-        "vphp" = readRDS("sub_monthly_vph_peak.rds"),
+        "vphpa" = readRDS("sub_monthly_vph_peak.rds")$am,
+        "vphpp" = readRDS("sub_monthly_vph_peak.rds")$pm,
         "papd" = readRDS("sub_monthly_papd.rds"),
         #"paph" = readRDS("sub_monthly_paph.rds"),
         "pd" = readRDS("sub_monthly_pd_by_day.rds"),
@@ -1922,8 +1916,8 @@ tryCatch({
     sub$qu <- list(
         "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
         #"vph" = get_quarterly(sub$mo$vph, "vph"),
-        "vphpa" = get_quarterly(sub$mo$vphp$am, "vph"),
-        "vphpp" = get_quarterly(sub$mo$vphp$pm, "vph"),
+        "vphpa" = get_quarterly(sub$mo$vphpa, "vph"),
+        "vphpp" = get_quarterly(sub$mo$vphpp, "vph"),
         "tp" = get_quarterly(sub$mo$tp, "vph"),
         "aogd" = get_quarterly(sub$mo$aogd, "aog", "vol"),
         "prd" = get_quarterly(sub$mo$prd, "pr", "vol"),
@@ -1966,14 +1960,10 @@ tryCatch({
     sig$wk <- list(
         "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
             select(Zone_Group, Corridor, Date, vpd),
-        #"vph" = sigify(readRDS("weekly_vph.rds"), cor$wk$vph, corridors),
-        "vphp" = purrr::map2(
-            readRDS("weekly_vph_peak.rds"), cor$wk$vphp,
-            function(x, y) {
-                sigify(x, y, corridors) %>%
-                    select(Zone_Group, Corridor, Date, vph)
-            }
-        ),
+        "vphpa" = sigify(readRDS("weekly_vph_peak.rds")$am, cor$wk$vphpa, corridors) %>%
+            select(Zone_Group, Corridor, Date, vph),
+        "vphpp" = sigify(readRDS("weekly_vph_peak.rds")$pm, cor$wk$vphpp, corridors) %>%
+            select(Zone_Group, Corridor, Date, vph),
         "papd" = sigify(readRDS("weekly_papd.rds"), cor$wk$papd, corridors) %>%
             select(Zone_Group, Corridor, Date, papd),
         #"paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
@@ -1981,11 +1971,11 @@ tryCatch({
             select(Zone_Group, Corridor, Date, pd),
         "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
             select(Zone_Group, Corridor, Date, vph),
-        "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aog, corridors) %>%
+        "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aogd, corridors) %>%
             select(Zone_Group, Corridor, Date, aog),
         "pr" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$pr, corridors) %>%
             select(Zone_Group, Corridor, Date, pr),
-        "qs" = sigify(readRDS("wqs.rds"), cor$wk$qs, corridors) %>%
+        "qs" = sigify(readRDS("wqs.rds"), cor$wk$qsd, corridors) %>%
             select(Zone_Group, Corridor, Date, qs_freq),
         "sf" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors) %>%
             select(Zone_Group, Corridor, Date, sf_freq),
@@ -2004,15 +1994,10 @@ tryCatch({
     sig$mo <- list(
         "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
             select(-c(Name, ones)),
-        #"vph" = sigify(readRDS("monthly_vph.rds"), cor$mo$vph, corridors) %>%
-        #    select(-c(Name, ones)),
-        "vphp" = purrr::map2(
-            readRDS("monthly_vph_peak.rds"), cor$mo$vphp,
-            function(x, y) {
-                sigify(x, y, corridors) %>%
-                    select(-c(Name, ones, Zone))
-            }
-        ),
+        "vphpa" = sigify(readRDS("monthly_vph_peak.rds")$am, cor$mo$vphpa, corridors) %>%
+            select(-c(Name, ones)),
+        "vphpp" = sigify(readRDS("monthly_vph_peak.rds")$pm, cor$mo$vphpp, corridors) %>%
+            select(-c(Name, ones)),
         "papd" = sigify(readRDS("monthly_papd.rds"), cor$mo$papd, corridors) %>%
             select(-c(Name, ones)),
         #"paph" = sigify(readRDS("monthly_paph.rds"), cor$mo$paph, corridors) %>%
@@ -2160,4 +2145,7 @@ aws.s3::put_object(
     bucket = conf$bucket,
     multipart = TRUE
 )
+
+
+source("write_sigops_to_db.R")
 

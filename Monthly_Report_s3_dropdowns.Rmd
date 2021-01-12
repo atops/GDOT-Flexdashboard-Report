@@ -30,26 +30,15 @@ runtime: shiny
 
 conf_mode <- "production"
 
-source("Monthly_Report_UI_Functions.R", local = TRUE)
-source("Database_Functions.R", local = TRUE)
+source("Monthly_Report_UI_Functions.R")
 
 FIG_WIDTH = 14
 FIG_HEIGHT = 7
 
 AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
 
-#.corridor_summary_table th:nth-child(2) {
-#    width:"1000px";
-#}
-
-
 styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 
-#```
-#
-# Combine these two chunks into the global chunk. Should be shared between sessions.
-#
-#```{r data, cache=FALSE, cache.lazy=FALSE}
 
 corridors <- qs::qread(sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3)))
 cor <- qs::qread("cor.qs")
@@ -290,6 +279,19 @@ Row
 
 ### Throughput [vph] {.value-box}
 
+```{r, eval = FALSE}
+output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({
+    valueBox(
+        value = get_valuebox_value(
+            throughput, zone_group = zone_group(), month = current_month(), line_break = TRUE),
+        icon = "fa-bar-chart",
+        color = BLUE)
+})
+
+valueBoxOutput("tp_valuebox1")
+```
+
+
 ```{r}
 tp_valuebox <- reactive({
     valueBox(
@@ -301,22 +303,26 @@ tp_valuebox <- reactive({
         icon = "fa-bar-chart",
         color = BLUE)
 })
-renderValueBox({tp_valuebox()})
+
+output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({tp_valuebox()})
+valueBoxOutput("tp_valuebox1")
 ```
 
 ### Arrivals on Green {.value-box}
 
 ```{r}
 aog_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(
-          mr()$mo$aogd, "aog", as_pct,
-          zone = zone_group(), mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-car",
-    color = BLUE)
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$aogd, "aog", as_pct,
+            zone = zone_group(), mo = current_month(),
+            break_ = TRUE),
+        icon = "fa-car",
+        color = BLUE)
 })
-renderValueBox({aog_valuebox()})
+
+output$aog_valuebox1 <- output$aog_valuebox2 <- renderValueBox({aog_valuebox()})
+valueBoxOutput("aog_valuebox1")
 ```
 
 ### Progression Ratio {.value-box}
@@ -439,7 +445,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -452,7 +458,7 @@ renderValueBox({
 ```{r}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
@@ -1249,7 +1255,7 @@ fillCol(
     fillRow(
         div("AM Hourly Volume", style = styl),
         renderPlotly    ({
-            data.set <- filter(mr()$mo$vphp$am, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$vphpa, Corridor==zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE,
@@ -1260,7 +1266,7 @@ fillCol(
     fillRow(
         div("PM Hourly Volume", style = styl),
         renderPlotly    ({
-            data.set <- filter(mr()$mo$vphp$pm, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$vphpp, Corridor==zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE,
@@ -1362,26 +1368,13 @@ Row
 ### Throughput [vph] {.value-box}
 
 ```{r, warning = FALSE}
-#renderValueBox({tp_valuebox()})
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$tp, "vph", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-bar-chart"
-  )
-})
+valueBoxOutput("tp_valuebox2")
 ```
 
 ### Arrivals on Green {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$aogd, "aog", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car"
-  )
-})
+valueBoxOutput("aog_valuebox2")
 ```
 
 ### Progression Ratio {.value-box}
@@ -1621,7 +1614,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$am, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart"
   )
@@ -1633,7 +1626,7 @@ renderValueBox({
 ```{r, warning = FALSE}
 renderValueBox({
   valueBox(
-      value = get_valuebox(mr()$mo$vphp$pm, "vph", as_int,
+      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart"
   )
@@ -2193,21 +2186,15 @@ fillRow(
 
 [Click here to edit progress reports](https://sigopsmetrics.com/editor)
 
+```{r echo=FALSE, eval=FALSE)
+print("Checkout connection from pool...")
+conn <- pool::poolCheckout(aurora_connection_pool)
+print("Checked out.")
 
+zmdf <- read_from_db(conn) %>% 
+    get_last_modified()
 
-```{r echo=FALSE, eval=FALSE}
-# This is the Production Version. Fixed reports. Just show html.
-
-# When deploying production site, save down the latest. Uncomment the below:
-# aws.s3::save_object(
-#     object = "Zone_Manager_Report_Content.rds",
-#     bucket = "gdot-spm",
-#     file = "~/Code/GDOT/GDOT-Flexdashboard-Report/PRODUCTION/Zone_Manager_Report_Content.rds")
-
-zmdf <- readRDS("Zone_Manager_Report_Content.rds") %>%
-            group_by(Month, Zone) %>%
-            top_n(10, LastModified) %>%
-            ungroup()
+pool::poolReturn(conn)
 
 renderUI({
     div(
@@ -2215,7 +2202,6 @@ renderUI({
         HTML(get_latest_comment(zmdf, zone_group(), current_month())))
 })
 ```
-
 
 
 ### User Delay Costs
@@ -2863,7 +2849,7 @@ fillCol(height = 700,
 
         renderPlotly({
             req(input$signal_details_button)
-            volplot_plotly2(
+            volplot_plotly(
                 athena_connection_pool, sid(), current_month(), endof_current_month(),
                 title = "Raw and Filtered Detector Data", ymax = NULL)
         })

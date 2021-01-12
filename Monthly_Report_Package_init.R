@@ -19,9 +19,9 @@ if (interactive()) {
 } else {
     plan(multicore)
 }
+
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
-
 
 
 corridors <- s3read_using(
@@ -56,19 +56,6 @@ cam_config <- get_cam_config(
     bucket = conf$bucket,
     corridors = all_corridors)
 
-# cam_config <- aws.s3::get_object(conf$cctv_config_filename, bucket = conf$bucket) %>%
-#     rawToChar() %>%
-#     read_csv() %>%
-#     separate(col = CamID, into = c("CameraID", "Location"), sep = ": ")
-# 
-# if (class(cam_config$As_of_Date) != "character") {
-#     cam_config <- cam_config %>%
-#         mutate(As_of_Date = if_else(grepl("\\d{4}-\\d{2}-\\d{2}", As_of_Date),
-#                                     ymd(As_of_Date),
-#                                     mdy(As_of_Date)
-#         ))
-# }
-
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -88,7 +75,6 @@ if (conf$report_end_date == "yesterday") {
     report_end_date <- conf$report_end_date
 }
 
-#calcs_start_date <- conf$calcs_start_date
 if (conf$calcs_start_date == "auto") {
     if (day(Sys.Date()) < 15) {
         calcs_start_date <- Sys.Date() - months(1)

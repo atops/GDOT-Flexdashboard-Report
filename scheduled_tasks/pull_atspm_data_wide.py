@@ -190,7 +190,7 @@ def widen(s, date_, det_config=None):
     
     print('{} | {} started.'.format(date_str, s))
 
-    if not det_config is None:
+    if det_config is None:
         det_config = get_det_config(config_bucket, date_str)
     
     dc = det_config[['SignalID', 'Detector', 'CallPhase','TimeFromStopBar']]

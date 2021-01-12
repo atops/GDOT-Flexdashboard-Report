@@ -5,7 +5,6 @@ library(yaml)
 library(glue)
 
 source("Monthly_Report_Functions.R")
-source("Database_Functions.R")
 
 
 print(glue("{Sys.time()} Starting Calcs Script"))
@@ -187,7 +186,7 @@ if (conf$run$counts == TRUE) {
     }
 }
 
-flashes <- get_flash_events(conf$athena, start_date, end_date)
+flashes <- get_flash_events(start_date, end_date)
 print("flash events...")
 print(flashes)
 if (nrow(flashes)) {
@@ -491,24 +490,6 @@ if (conf$run$etl == TRUE) {
 # --- ----------------------------- -----------
 
 # # GET ARRIVALS ON GREEN #####################################################
-get_aog_date_range <- function(start_date, end_date) {
-    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-    
-    lapply(date_range, function(date_) {
-        print(date_)
-        
-        cycle_data <- get_cycle_data(date_, date_, conf$athena, signals_list)
-        if (nrow(collect(head(cycle_data))) > 0) {
-            aog <- get_aog(cycle_data)
-            s3_upload_parquet_date_split(
-                aog,  
-                bucket = conf$bucket, 
-                prefix = "aog",
-                table_name = "arrivals_on_green",
-                conf_athena = conf$athena)
-        }
-    })
-}
 print(glue("{Sys.time()} aog [8 of 10]"))
 
 if (conf$run$arrivals_on_green == TRUE) {
@@ -565,7 +546,6 @@ get_pd_date_range <- function(start_date, end_date) {
                 conf_athena = conf$athena)
         }
     })
-    registerDoSEQ()
     gc()
 }
 
