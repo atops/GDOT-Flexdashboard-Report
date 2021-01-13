@@ -42,6 +42,7 @@ if (interactive()) {
 }
 
 source("Utilities.R")
+source("classes.R")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -174,8 +175,7 @@ conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 source("Database_Functions.R")
 
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
-# athena_connection_pool <- get_athena_connection_pool_odbc()
-
+#aurora_connection_pool <- get_aurora_connection()
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
@@ -2211,6 +2211,7 @@ get_zone_group_text_table <- function(month, zone_group) {
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, corridor_) {
+    
     single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
         filter(Month == month_) %>%
         ungroup() %>%
@@ -2262,6 +2263,7 @@ get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, cor
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_operations_health_table <- function(data_, month_, zone_group_, corridor_) {
+
     single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
         filter(Month == month_) %>%
         ungroup() %>%

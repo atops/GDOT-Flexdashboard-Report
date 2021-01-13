@@ -47,7 +47,7 @@ arrivals_on_green:
 progression_ratio:
     label: Progression Ratio
     table: prd
-    variable: pr, 
+    variable: pr
     weight: vol
     highligh_color: RED2
     goal: NULL

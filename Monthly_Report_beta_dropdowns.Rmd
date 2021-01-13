@@ -328,7 +328,8 @@ pr_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({pr_valuebox()})
+output$pr_valuebox1 <- output$pr_valuebox2 <- renderValueBox({pr_valuebox()})
+valueBoxOutput("pr_valuebox1")
 ```
 
 ### Spillback Rate {.value-box}
@@ -343,7 +344,8 @@ qs_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({qs_valuebox()})
+output$qs_valuebox1 <- output$qs_valuebox2 <- renderValueBox({qs_valuebox()})
+valueBoxOutput("qs_valuebox1")
 ```
 
 ### Peak Period Split Failures {.value-box}
@@ -358,7 +360,8 @@ sf_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({sf_valuebox()})
+output$sf_valuebox1 <- output$sf_valuebox2 <- renderValueBox({sf_valuebox()})
+valueBoxOutput("sf_valuebox1")
 ```
 
 ### Off-Peak Split Failures {.value-box}
@@ -373,7 +376,8 @@ sfo_valuebox <- reactive({
         icon = "fa-car",
     color = BLUE)
 })
-renderValueBox({sfo_valuebox()})
+output$sfo_valuebox1 <- output$sfo_valuebox2 <- renderValueBox({sfo_valuebox()})
+valueBoxOutput("sfo_valuebox1")
 ```
 
 ### Travel Time Index {.value-box}
@@ -388,7 +392,8 @@ tti_valuebox <- reactive({
       icon = "fa-dashboard",
       color = BLUE)
 })
-renderValueBox({tti_valuebox()})
+output$tti_valuebox1 <- output$tti_valuebox2 <- renderValueBox({tti_valuebox()})
+valueBoxOutput("tti_valuebox1")
 ```
 
 ### Planning Time Index {.value-box}
@@ -403,9 +408,9 @@ pti_valuebox <- reactive({
         icon = "fa-dashboard",
         color = BLUE)
 })
-renderValueBox({pti_valuebox()})
+output$pti_valuebox1 <- output$pti_valuebox2 <- renderValueBox({pti_valuebox()})
+valueBoxOutput("pti_valuebox1")
 ```
-
 
 Row {data-height = 50}
 -------------------------------------
@@ -2879,25 +2884,20 @@ maintenance_cols <- list(
     "scores" = c(7:12), 
     "metrics" = c(13:18))
 
-observe({
-    
-     # adding these makes sure the hideCols function is run upon change to lhs filters
-    current_month(); input$zone_group; input$corridor_x
-    
+
+maint_hide_cols <- reactive({
+
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
         maintenance_cols$default, 
         maintenance_cols[input$maintenance_cols_checked]
         ) %>% 
         unlist() %>% unname()
-    
-    # columns to hide = inverse (setdiff) of all columns and columns to show
-    maint_hide_cols <- setdiff(maintenance_cols$all, maintenance_cols_to_show)
-    
-    dataTableProxy("maintenance_table") %>% 
-        hideCols(maint_hide_cols, reset = TRUE)
-})
 
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    setdiff(maintenance_cols$all, maintenance_cols_to_show)
+})
+    
 
 output$maintenance_table <- renderDT({
     if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
@@ -2905,10 +2905,14 @@ output$maintenance_table <- renderDT({
     } else {
         df <- sigdata()$mo$maint
     }
-    print(df)
     get_monthly_maintenance_health_table(
         df, current_month(), zone_group(), corridor()) 
-        # input$zone_group, input$corridor_x)  # zone_group(), corridor()
+})
+
+
+observe({
+    dataTableProxy("maintenance_table") %>% 
+        hideCols(maint_hide_cols(), reset = TRUE)
 })
 
 
@@ -2922,15 +2926,30 @@ fillRow(
 
 ```{r Maintenance Trend, warning = FALSE}
 
-selectInput("maintenance_var", 
-            label = "Maintenance Health Metric:",
-            #choices = names(maintenance_sub)[7:19],
-            choices = c("Percent Health", "Missing Data", "Detection Uptime Score", 
-                        "Ped Actuation Uptime Score", "Comm Uptime Score", 
-                        "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score", 
-                        "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime", 
-                        "CCTV Uptime", "RSU Uptime"),
-            selected = "Percent Health")
+selectInput(
+     inputId = "maintenance_var", 
+     label = "Maintenance Health Metric:",
+     choices = c("Percent Health"),
+     selected = "Percent Health")
+
+
+observe({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
+        
+        if (input$corridor_x == "All Corridors") {
+            choices_ <- c("Percent Health")
+        } else {
+            choices_ <- c("Percent Health", "Missing Data", "Detection Uptime Score",
+                          "Ped Actuation Uptime Score", "Comm Uptime Score",
+                          "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score",
+                          "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime",
+                          "CCTV Uptime", "RSU Uptime")
+        }
+
+        updateSelectInput(session,
+            inputId = "maintenance_var", choices = choices_)
+    } 
+})
 
 
 hr()
@@ -2977,25 +2996,20 @@ operations_cols <- list(
     "scores" = c(7:11), 
     "metrics" = c(12:16))
 
-observe({
 
-     # adding these makes sure the hideCols function is run upon change to lhs filters
-    current_month(); input$zone_group; input$corridor_x
-    
+operations_hide_cols <- reactive({
+
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
         operations_cols$default, 
         operations_cols[input$operations_cols_checked]
         ) %>% 
         unlist() %>% unname()
-    
-    # columns to hide = inverse (setdiff) of all columns and columns to show
-    operations_hide_cols <- setdiff(operations_cols$all, operations_cols_to_show)
-    
-    dataTableProxy("operations_table") %>% 
-        hideCols(operations_hide_cols, reset = TRUE)
-})
 
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    setdiff(operations_cols$all, operations_cols_to_show)
+})
+    
 
 output$operations_table <- renderDT({
     if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
@@ -3006,6 +3020,12 @@ output$operations_table <- renderDT({
 
     get_monthly_operations_health_table(
         df, current_month(), zone_group(), corridor())
+})
+
+
+observe({
+    dataTableProxy("operations_table") %>% 
+        hideCols(operations_hide_cols, reset = TRUE)
 })
 
 

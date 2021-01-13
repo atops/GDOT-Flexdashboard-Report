@@ -1,4 +1,15 @@
 
+
+get_cor <- function() {
+    s3read_using(qs::qread, bucket = "gdot-spm", object = "cor_ec2.qs")
+}
+get_sub <- function() {
+    s3read_using(qs::qread, bucket = "gdot-spm", object = "sub_ec2.qs")
+}
+get_sig <- function() {
+    s3read_using(qs::qread, bucket = "gdot-spm", object = "sig_ec2.qs")
+}
+
 sizeof <- function(x) {
     format(object.size(x), units = "Mb")
 }
