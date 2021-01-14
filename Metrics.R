@@ -225,42 +225,52 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     
     print("Pulling data...")
     
-    de <- mclapply(signals_list, function(signalid) {
-        
-        s3bucket = "gdot-spm-detections"
-        s3object = glue("date={date_}/de_{signalid}_{date_}.parquet")
-        
-        if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
-            s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
-                filter(Phase %in% c(3, 4, 7, 8)) %>%
-                arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
-                transmute(SignalID = factor(SignalID),
-                          Phase = factor(Phase),
-                          Detector = factor(Detector), 
-                          CycleStart, PhaseStart, 
-                          DetOn = DetTimeStamp,
-                          DetOff = DetTimeStamp + seconds(DetDuration),
-                          Date = as_date(date_))
-        }
-    }, mc.cores = usable_cores) %>% bind_rows() %>% convert_to_utc()
+    de <- mclapply(signals_list, mc.cores = usable_cores, FUN = function(signalid) {
+       
+        tryCatch({ 
+            s3bucket = "gdot-spm-detections"
+            s3object = glue("date={date_}/de_{signalid}_{date_}.parquet")
+            
+            if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
+                cat('.')
+                s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
+                    filter(Phase %in% c(3, 4, 7, 8)) %>%
+                    arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
+                    transmute(SignalID = factor(SignalID),
+                              Phase = factor(Phase),
+                              Detector = factor(Detector), 
+                              CycleStart, PhaseStart, 
+                              DetOn = DetTimeStamp,
+                              DetOff = DetTimeStamp + seconds(DetDuration),
+                              Date = as_date(date_))
+            }
+        }, error = function(e) {
+            print(e)
+        })
+    }) %>% bind_rows() %>% convert_to_utc()
     
-    cd <- mclapply(signals_list, function(signalid) {
+    cd <- mclapply(signals_list, mc.cores = usable_cores, FUN = function(signalid) {
         
         s3bucket = "gdot-spm-cycles"
         s3object = glue("date={date_}/cd_{signalid}_{date_}.parquet")
         
-        if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
-            s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
-                mutate(SignalID = factor(SignalID),
-                       Phase = factor(Phase),
-                       Date = as_date(date_)) %>%
-                filter(Phase %in% c(3, 4, 7, 8),
-                       EventCode %in% c(1, 9)) %>%
-                arrange(SignalID, Phase, CycleStart, PhaseStart)
-        }
-    }, mc.cores = usable_cores) %>% bind_rows() %>% convert_to_utc()
+        tryCatch({ 
+            if (aws.s3::object_exists(bucket = s3bucket, object = s3object)) {
+                cat('.')
+                s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
+                    mutate(SignalID = factor(SignalID),
+                           Phase = factor(Phase),
+                           Date = as_date(date_)) %>%
+                    filter(Phase %in% c(3, 4, 7, 8),
+                           EventCode %in% c(1, 9)) %>%
+                    arrange(SignalID, Phase, CycleStart, PhaseStart)
+            }
+        }, error = function(e) {
+            print(e)
+        })
+    }) %>% bind_rows() %>% convert_to_utc()
     
-    
+   
     dc <- get_det_config_sf(date_) %>%
         filter(SignalID %in% signals_list) %>%
         rename(Phase = CallPhase)
@@ -845,9 +855,13 @@ get_ped_delay <- function(date_, conf) {
     }
     
     #signalid <- 7000
-    mclapply(unique(corridors$SignalID), function(signalid) {
-        ped_delay_one_signal(signalid, date_, conf)
-    }, mc.cores = usable_cores) %>% bind_rows()
+    mclapply(unique(corridors$SignalID), mc.cores = usable_cores, FUN = function(signalid) {
+        tryCatch({
+            ped_delay_one_signal(signalid, date_, conf)
+        }, error = function(e) {
+            print(e)
+        })
+    }) %>% bind_rows()
 }
 
 
@@ -857,13 +871,6 @@ get_flash_events <- function(start_date, end_date) {
     flash_events <- s3_read_parquet_parallel(
         "flash_events", start_date, end_date, bucket = "gdot-spm", parallel = TRUE)
 
-    # conn <- get_athena_connection(conf_athena)
-    # x <- tbl(conn, sql(glue(paste(
-    #     "select date, timestamp, signalid, eventcode, eventparam", 
-    #     "from gdot_spm.atspm2 where eventcode = 173", 
-    #     "and date between '{start_date}' and '{end_date}'")))) %>% 
-    #     collect()
-    
     flashes <- if (nrow(flash_events)) {
         flash_events %>%
             rename(Timestamp = TimeStamp) %>% 
