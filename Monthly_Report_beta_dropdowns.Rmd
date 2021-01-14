@@ -2813,8 +2813,8 @@ output$maintenance_table <- renderDT({
 
 observe({
     dataTableProxy("maintenance_table") %>% 
-        replaceData(maint_health_data()) %>% 
-        hideCols(maint_hide_cols(), reset = TRUE)
+        replaceData(maint_health_data()) #%>% 
+        #hideCols(maint_hide_cols(), reset = TRUE)
 })
 
 observe({
@@ -2948,8 +2948,8 @@ output$operations_table <- renderDT({
 
 observe({
     dataTableProxy("operations_table") %>% 
-        replaceData(ops_health_data()) %>% 
-        hideCols(ops_hide_cols(), reset = TRUE)
+        replaceData(ops_health_data()) #%>% 
+        #hideCols(ops_hide_cols(), reset = TRUE)
 })
 
 observe({

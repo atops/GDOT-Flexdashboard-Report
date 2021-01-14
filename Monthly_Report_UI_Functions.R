@@ -47,6 +47,9 @@ source("classes.R")
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
+# Store in "R-myapp" directory inside of user-level cache directory
+#disk_cache <- cachem::cache_disk(rappdirs::user_cache_dir("R-myapp"))
+
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
@@ -382,41 +385,6 @@ read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
 
 
 
-read_signal_data_older <- function(conn, signalid, plot_start_date, plot_end_date) {
-    DT <- dbGetQuery(
-        conn,
-        sql(glue(paste('select "{signalid}" as data, timeperiod from gdot_spm.signal_details',
-                       'where date between \'{plot_start_date}\' and \'{plot_end_date}\'')))) %>%
-        as.data.table()
-    
-    DT <- DT[!is.na(data)]
-    if (nrow(DT)) {
-        dfs <- lapply(DT$data, function(x) jsonlite::fromJSON(x))
-        
-        dfs <- purrr::map2(dfs, DT$timeperiod, function(df, t) {df$Timeperiod <- t; df})
-        DT <- rbindlist(dfs)
-        
-        DT[, SignalID := factor(signalid)]
-        DT[, Timeperiod := ymd_hms(Timeperiod)]
-        DT[, Detector := factor(
-            Detector, levels = sort(as.integer(as.character(unique(DT$Detector)))))]
-        DT[, CallPhase := factor(
-            CallPhase, levels = sort(as.integer(as.character(unique(DT$CallPhase)))))]
-        DT[, vol_rc := as.numeric(as.character(vol_rc))]
-        DT[, vol_ac := as.numeric(as.character(vol_ac))]
-        DT[, bad_day := as.logical(bad_day)]
-        
-        setcolorder(DT, c( "SignalID", "Detector", "CallPhase", "vol_rc", "vol_ac", "bad_day", "Timeperiod"))
-        setorderv(DT, c("Detector", "Timeperiod"))
-        
-        return(as_tibble(DT))
-    } else {
-        return(data.frame())
-    }
-}
-
-
-
 get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
     df <- zmdf_ %>%
         dplyr::group_by(Month, Zone) %>%
@@ -568,7 +536,7 @@ perf_plot <- function(data_, value_, name_, color_,
     first <- data_[which.min(data_$Month), ]
     last <- data_[which.max(data_$Month), ]
 
-    p <- plot_ly(type = "scatter", mode = "markers") %>%
+    p <- plot_ly(type = "scatter", mode = "markers")
 
     if (!is.null(goal_)) {
         p <- p %>%
