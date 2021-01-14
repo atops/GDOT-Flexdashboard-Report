@@ -2759,7 +2759,7 @@ checkboxGroupInput(
     label = NULL,
     c("Show Scores" = "scores",
       "Show Metrics" = "metrics"),
-    selected = NULL,  # c("scores", "metrics"),
+    selected = c("scores", "metrics"),
     inline = TRUE
 )
 
@@ -2771,7 +2771,6 @@ maintenance_cols <- list(
 
 
 maint_hide_cols <- reactive({
-
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
         maintenance_cols$default, 
@@ -2782,18 +2781,41 @@ maint_hide_cols <- reactive({
     # columns to hide = inverse (setdiff) of all columns and columns to show
     setdiff(maintenance_cols$all, maintenance_cols_to_show)
 })
-    
 
-output$maintenance_table <- renderDT({
-    if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
-        df <- subdata()$mo$maint
+
+maint_health_data <- reactive({
+
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            subdata()$mo$maint
+        } else {
+            sigdata()$mo$maint
+        }
+        
+        get_health_data_filtered(data_, zone_group(), corridor()) %>%
+            filter(Month == current_month()) %>%
+            ungroup() %>%
+            select(-Month, -Zone_Group) %>%
+            mutate(
+                Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
+                Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
+            )
     } else {
-        df <- sigdata()$mo$maint
+        data.frame()
     }
-    get_monthly_maintenance_health_table(
-        df, current_month(), zone_group(), corridor()) 
 })
 
+
+output$maintenance_table <- renderDT({
+    get_monthly_maintenance_health_table(maint_health_data())
+})
+
+
+observe({
+    dataTableProxy("maintenance_table") %>% 
+        replaceData(maint_health_data()) %>% 
+        hideCols(maint_hide_cols(), reset = TRUE)
+})
 
 observe({
     dataTableProxy("maintenance_table") %>% 
@@ -2871,7 +2893,7 @@ checkboxGroupInput(
     label = NULL,
     c("Show Scores" = "scores",
       "Show Metrics" = "metrics"),
-    selected = NULL,
+    selected = c("scores", "metrics"),
     inline = TRUE
 )
 
@@ -2882,7 +2904,7 @@ operations_cols <- list(
     "metrics" = c(12:16))
 
 
-operations_hide_cols <- reactive({
+ops_hide_cols <- reactive({
 
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
@@ -2894,23 +2916,45 @@ operations_hide_cols <- reactive({
     # columns to hide = inverse (setdiff) of all columns and columns to show
     setdiff(operations_cols$all, operations_cols_to_show)
 })
-    
+
+
+ops_health_data <- reactive({
+
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            subdata()$mo$ops
+        } else {
+            sigdata()$mo$ops
+        }
+        
+        get_health_data_filtered(data_, zone_group(), corridor()) %>%
+            filter(Month == current_month()) %>%
+            ungroup() %>%
+            select(-Month, -Zone_Group) %>%
+            mutate(
+                Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
+                Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
+            )
+    } else {
+        data.frame()
+    }
+})
+
 
 output$operations_table <- renderDT({
-    if( corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor" ){
-        df <- subdata()$mo$ops # operations_sub
-    } else {
-        df <- sigdata()$mo$ops # operations_sig
-    }
-
-    get_monthly_operations_health_table(
-        df, current_month(), zone_group(), corridor())
+    get_monthly_operations_health_table(ops_health_data())
 })
 
 
 observe({
     dataTableProxy("operations_table") %>% 
-        hideCols(operations_hide_cols, reset = TRUE)
+        replaceData(ops_health_data()) %>% 
+        hideCols(ops_hide_cols(), reset = TRUE)
+})
+
+observe({
+    dataTableProxy("operations_table") %>% 
+        hideCols(ops_hide_cols(), reset = TRUE)
 })
 
 

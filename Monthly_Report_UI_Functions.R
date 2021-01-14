@@ -2210,18 +2210,9 @@ get_zone_group_text_table <- function(month, zone_group) {
 
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
-get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, corridor_) {
+get_monthly_maintenance_health_table <- function(data_) {
     
-    single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
-        filter(Month == month_) %>%
-        ungroup() %>%
-        select(-Month, -Zone_Group) %>%
-        mutate(
-            Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-            Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-        )
-    
-    datatable(single_month_table,
+    datatable(data_,
               filter = "top",
               rownames = FALSE,
               extensions = "Scroller",
@@ -2262,18 +2253,9 @@ get_monthly_maintenance_health_table <- function(data_, month_, zone_group_, cor
 
 
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
-get_monthly_operations_health_table <- function(data_, month_, zone_group_, corridor_) {
+get_monthly_operations_health_table <- function(data_) {
 
-    single_month_table <- get_health_data_filtered(data_, zone_group_, corridor_) %>%
-        filter(Month == month_) %>%
-        ungroup() %>%
-        select(-Month, -Zone_Group) %>%
-        mutate(
-            Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-            Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-        )
-    
-    datatable(single_month_table,
+    datatable(data_,
               filter = "top",
               rownames = FALSE,
               extensions = "Scroller",
@@ -2318,12 +2300,12 @@ get_monthly_operations_health_table <- function(data_, month_, zone_group_, corr
 # function to filter health data based on user inputs
 get_health_data_filtered <- function(data_, zone_group_, corridor_) {
     
-    health_data <- filter_mr_data(mutate(data_, Zone_Group = Zone), zone_group_)
-    
-    # filter by corridor - do we want this in the barplots?
-    if (corridor_ != "All Corridors") {
-        health_data <- filter(health_data, Corridor == corridor_)
+    data_ <- mutate(data_, Zone_Group = Zone)
+
+    health_data <- if (corridor_ == "All Corridors") {
+        # filter based on Zone with accommodations for All RTOP/RTOP1/RTOP2
+        filter_mr_data(data_, zone_group_)
+    } else {
+        filter(data_, Corridor == corridor_)
     }
-    
-    health_data
 }
