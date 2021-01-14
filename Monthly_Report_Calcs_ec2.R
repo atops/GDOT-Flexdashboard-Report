@@ -184,19 +184,19 @@ if (conf$run$counts == TRUE) {
                 counts = TRUE)
         }
     }
+    flashes <- get_flash_events(start_date, end_date)
+    print("flash events...")
+    print(flashes)
+    if (nrow(flashes)) {
+        s3_upload_parquet_date_split(
+            flashes,
+            bucket = conf$bucket, 
+            prefix = "flashes",
+            table_name = "flash_events",
+            conf_athena = conf$athena, parallel = FALSE)
+    }
 }
 
-flashes <- get_flash_events(start_date, end_date)
-print("flash events...")
-print(flashes)
-if (nrow(flashes)) {
-    s3_upload_parquet_date_split(
-        flashes,
-        bucket = conf$bucket, 
-        prefix = "flashes",
-        table_name = "flash_events",
-        conf_athena = conf$athena)
-}
     
 print("\n---------------------- Finished counts ---------------------------\n")
 
