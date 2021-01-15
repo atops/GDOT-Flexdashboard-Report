@@ -258,7 +258,7 @@ get_counts_based_measures <- function(month_abbrs) {
             bucket = conf$bucket, 
             prefix = "adjusted_counts_1hr",
             table_name = "adjusted_counts_1hr",
-            conf_athena = conf$athena
+            conf_athena = conf$athena, parallel = FALSE
         )
         rm(adjusted_counts_1hr)
         gc()
@@ -536,7 +536,7 @@ get_pd_date_range <- function(start_date, end_date) {
     
     lapply(date_range, function(date_) {
         print(date_)
-        pd <- get_ped_delay(date_, conf)
+        pd <- get_ped_delay(date_, conf, signals_list)
         if (nrow(pd) > 0) {
             s3_upload_parquet_date_split(
                 pd, 

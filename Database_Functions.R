@@ -74,38 +74,25 @@ get_aurora_connection_pool <- function() {
 }
 
 
-# -- Previously from Monthly_Report_UI_Functions.R
-
-#get_athena_connection <- function(conf_athena, f = dbConnect) {
-#    
-#    drv <- JDBC(driverClass = "com.simba.athena.jdbc.Driver",
-#                classPath = conf_athena$jar_path,
-#                identifier.quote = "'")
-#    
-#    f(drv, url = "jdbc:awsathena://athena.us-east-1.amazonaws.com:443/",
-#      s3_staging_dir = conf_athena$staging_dir,
-#      Schema = "gdot_spm",
-#      UID = conf_athena$uid,
-#      PWD = conf_athena$pwd,
-#      UseResultsetStreaming = 1)
-#}
-
 get_athena_connection <- function(conf_athena, f = dbConnect) {
     f(odbc::odbc(), dsn = "athena")
 }
 
 get_athena_connection_pool <- function(conf_athena) {
-    get_athena_connection(conf_athena, dbPool)
+    get_athena_connection(conf_athena, pool::dbPool)
 }
 
 
-add_partition <- function(conn, conf_athena, table_name, date_) {
+add_partition <- function(conf_athena, table_name, date_) {
     tryCatch({
-        dbExecute(conn,
+        conn_ <- get_athena_connection(conf_athena)
+        dbExecute(conn_,
                   sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
                                  "ADD PARTITION (date='{date_}')"))))
         print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
     }, error = function(e) {
-        print(stringr::str_extract(as.character(e), "Error Message.*"))
+        print(stringr::str_extract(as.character(e), "message:.*?\\."))
+    }, finally = {
+        dbDisconnect(conn_)
     })
 }

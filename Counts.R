@@ -46,7 +46,12 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
 
 get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE) {
     
-    conn <- get_athena_connection(conf_athena)
+    atspm_query <- sql(glue(paste(
+        "select distinct timestamp, signalid, eventcode, eventparam", 
+        "from {conf_athena$database}.{conf_athena$atspm_table}", 
+        "where date = '{start_date}'")))
+    
+    #conn <- get_athena_connection(conf_athena)
     
     start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
@@ -63,11 +68,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                       CallPhase = factor(CallPhase))
     }
     
-    df <- tbl(conn, sql(glue(paste(
-        "select distinct timestamp, signalid, eventcode, eventparam", 
-        "from {conf_athena$database}.{conf_athena$atspm_table}", 
-        "where date = '{start_date}'"))))
-    
+
     print(paste("-- Get Counts for:", start_date, "-----------"))
     
     if (uptime == TRUE) {
@@ -83,8 +84,10 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         # When we start pulling from the ATSPM database for events, we'll have
         # to pull these codes separately since they only appear in MaxView's EventLog
         #
+        conn <- get_athena_connection(conf_athena)
+        
         print(glue("Communications uptime {date_}"))
-        df %>% 
+        comm_uptime <- tbl(conn, atspm_query) %>% 
             filter(eventcode %in% c(502,503)) %>%
             collect() %>% 
             group_by(signalid) %>% 
@@ -100,17 +103,19 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                    Date = date(start_date),
                    DOW = wday(start_date), 
                    Week = week(start_date)) %>%
-            dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime, response_ms) %>%
+            dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime, response_ms)
             
-            s3_upload_parquet(date_, 
-                              fn = glue("cu_{date_}"), 
-                              bucket = bucket,
-                              table_name = "comm_uptime",
-                              conf_athena = conf_athena)
+        dbDisconnect(conn)
+        
+        s3_upload_parquet(comm_uptime, date_, 
+                          fn = glue("cu_{date_}"), 
+                          bucket = bucket,
+                          table_name = "comm_uptime",
+                          conf_athena = conf_athena)
     }
     
     if (counts == TRUE) {
-        
+
         counts_1hr_fn <- glue("counts_1hr_{date_}")
         counts_ped_1hr_fn <- glue("counts_ped_1hr_{date_}")
         counts_15min_fn <- glue("counts_15min_TWR_{date_}")
@@ -118,10 +123,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         filtered_counts_1hr_fn <- glue("filtered_counts_1hr_{date_}")
         filtered_counts_15min_fn <- glue("filtered_counts_15min_{date_}")
         
+        conn <- get_athena_connection(conf_athena)
+        
         # get 1hr counts
         print("1-hour counts")
         counts_1hr <- get_counts(
-            df, 
+            tbl(conn, atspm_query), 
             det_config, 
             "hours", 
             date_, 
@@ -129,12 +136,16 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             TWR_only = FALSE
         ) %>% 
             arrange(SignalID, Detector, Timeperiod)
+
+        dbDisconnect(conn)
         
         s3_upload_parquet(counts_1hr, date_, 
                           fn = counts_1hr_fn, 
                           bucket = bucket,
                           table_name = "counts_1hr", 
                           conf_athena = conf_athena)
+
+        conn <- get_athena_connection(conf_athena)
         
         print("1-hr filtered counts")
         if (nrow(counts_1hr) > 0) {
@@ -155,10 +166,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         
         
         
+        conn <- get_athena_connection(conf_athena)
+        
         # get 1hr ped counts
         print("1-hour pedestrian counts")
         counts_ped_1hr <- get_counts(
-            df, 
+            tbl(conn, atspm_query), 
             ped_config, 
             "hours", 
             date_, 
@@ -167,6 +180,8 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         ) %>% 
             arrange(SignalID, Detector, Timeperiod)
         
+        dbDisconnect(conn)
+
         s3_upload_parquet(counts_ped_1hr, date_, 
                           fn = counts_ped_1hr_fn, 
                           bucket = bucket,
@@ -175,10 +190,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         rm(counts_ped_1hr)
         
         
+        conn <- get_athena_connection(conf_athena)
+        
         # get 15min counts
         print("15-minute counts")
         counts_15min <- get_counts(
-            df, 
+            tbl(conn, atspm_query), 
             det_config, 
             "15min", 
             date_,
@@ -186,6 +203,8 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             TWR_only = FALSE
         ) %>% 
             arrange(SignalID, Detector, Timeperiod)
+        
+        dbDisconnect(conn)
         
         s3_upload_parquet(counts_15min, date_, 
                           fn = counts_15min_fn, 
@@ -206,7 +225,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                                   conf_athena = conf_athena)
         }
     }
-    dbDisconnect(conn)
+    #dbDisconnect(conn)
 }
 
 

@@ -29,16 +29,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
         opts = list(multipart = TRUE, body_as_string = TRUE)
     )
     
-    conn <- get_athena_connection(conf_athena)
-    tryCatch({
-        response <- dbGetQuery(conn,
-                               sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
-                                              "ADD PARTITION (date='{date_}')"))))
-        print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
-    }, error = function(e) {
-        message <- e
-    })
-    dbDisconnect(conn)
+    add_partition(conf_athena, table_name, date_)
 }
 
 
