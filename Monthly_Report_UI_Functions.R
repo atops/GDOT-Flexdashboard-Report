@@ -624,7 +624,7 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_bar_line_dashboard_plot <- function(cor_weekly, 
+get_bar_line_dashboard_plot_ <- function(cor_weekly, 
                                          cor_monthly, 
                                          cor_hourly = NULL, 
                                          var_,
@@ -804,7 +804,9 @@ get_bar_line_dashboard_plot <- function(cor_weekly,
         no_data_plot("")
     )
 }
-
+get_bar_line_dashboard_plot <- memoise(
+    get_bar_line_dashboard_plot_, 
+    cache = cache_filesystem("cache"))
 
 
 get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
