@@ -11,6 +11,8 @@ metrics <- read_yaml("metrics.yaml")
 
 
 vpd <- structure(metrics[["daily_traffic_volume"]], class = "metric")
+am_peak_vph <- structure(metrics[["am_peak_hour_volume"]], class = "metric")
+pm_peak_vph <- structure(metrics[["pm_peak_hour_volume"]], class = "metric")
 throughput <- structure(metrics[["throughput"]], class = "metric")
 aog <- arrivals_on_green <- structure(metrics[["arrivals_on_green"]], class = "metric")
 progression_ratio <- structure(metrics[["progression_ratio"]], class = "metric")
@@ -26,6 +28,11 @@ ped_button_uptime <- structure(metrics[["ped_button_uptime"]], class = "metric")
 cctv_uptime <- structure(metrics[["cctv_uptime"]], class = "metric")
 comm_uptime <- structure(metrics[["comm_uptime"]], class = "metric")
 rsu_uptime <- structure(metrics[["rsu_uptime"]], class = "metric")
+tasks_reported <- structure(metrics[["tasks_reported"]], class = "metric")
+tasks_resolved <- structure(metrics[["tasks_resolved"]], class = "metric")
+tasks_outstanding <- structure(metrics[["tasks_outstanding"]], class = "metric")
+tasks_over45 <- structure(metrics[["tasks_over45"]], class = "metric")
+tasks_mttr <- structure(metrics[["tasks_mttr"]], class = "metric")
 
 
 

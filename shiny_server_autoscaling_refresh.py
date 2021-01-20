@@ -9,17 +9,41 @@ import boto3
 from datetime import datetime
 import time
 
+
+
+
 # -- Functions --
 
 def create_ami(ec2, today):
+
+    root_volume = {
+        'DeviceName': '/dev/sda1',
+        'Ebs': {
+            'VolumeSize': 8,
+        },
+    }
+    
+    cache_volume = {
+        'DeviceName': '/dev/sdb',
+        'VirtualName': 'Shiny-Server Production Cache',
+        'Ebs': {
+            'Iops': 4000,
+            'VolumeSize': 12,
+            'VolumeType': 'gp3',
+            'Throughput': 1000
+        },
+    }
+
     response = ec2_client.create_image(
         BlockDeviceMappings=[
-            {
-                'DeviceName': '/dev/sda1',
-                'Ebs': {
-                    'VolumeSize': 8,
-                },
-            },
+            root_volume,
+            # {
+            #     'DeviceName': '/dev/sda1',
+            #     'Ebs': {
+            #         'VolumeSize': 8,
+            #     },
+            # },
+            cache_volume,
         ],
         Description='',
         InstanceId=EC2_INSTANCE_ID,
@@ -120,7 +144,7 @@ if __name__=='__main__':
     today = datetime.today().strftime("%F")
     
     EC2_INSTANCE_ID = 'i-00a90d0152470f49b'
-    EC2_INSTANCE_TYPE = 'c5.large'
+    EC2_INSTANCE_TYPE = 'm5.large'
     AUTOSCALING_GROUP_NAME = 'Shiny-Server-Auto-Scaling-Group-2020-09-18'
     LAUNCH_TEMPLATE_ID = 'lt-0f0fa90ee94062747'
     
@@ -147,3 +171,6 @@ if __name__=='__main__':
     
     # Step 4: Refresh Instance
     autoscaling_instance_refresh_response = refresh_autoscaling()
+
+
+
