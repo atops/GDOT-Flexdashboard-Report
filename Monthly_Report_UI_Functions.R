@@ -48,7 +48,7 @@ usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
 # Store in "R-myapp" directory inside of user-level cache directory
-#disk_cache <- cachem::cache_disk(rappdirs::user_cache_dir("R-myapp"))
+disk_cache <- cachem::cache_disk("/data/main", max_size = 5 * 1024^3, evict = "lru")
 
 
 #options(warn = 2)
@@ -178,7 +178,7 @@ conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 source("Database_Functions.R")
 
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
-#aurora_connection_pool <- get_aurora_connection()
+aurora_connection_pool <- get_aurora_connection_pool()
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
@@ -624,7 +624,7 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_bar_line_dashboard_plot <- function(cor_weekly, 
+get_bar_line_dashboard_plot_ <- function(cor_weekly, 
                                          cor_monthly, 
                                          cor_hourly = NULL, 
                                          var_,
@@ -804,7 +804,7 @@ get_bar_line_dashboard_plot <- function(cor_weekly,
         no_data_plot("")
     )
 }
-
+get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = disk_cache)
 
 
 get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 

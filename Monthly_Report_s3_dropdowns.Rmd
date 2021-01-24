@@ -2184,17 +2184,14 @@ fillRow(
 
 ### Zone Activity Reports
 
-[Click here to edit progress reports](https://sigopsmetrics.com/editor)
+[Click here to edit progress reports](http://sigopsmetrics.com/editor)
 
-```{r echo=FALSE, eval=FALSE)
-print("Checkout connection from pool...")
-conn <- pool::poolCheckout(aurora_connection_pool)
-print("Checked out.")
-
-zmdf <- read_from_db(conn) %>% 
+zmdf_conn <- pool::poolCheckout(aurora_connection_pool)
+        
+zmdf <- read_from_db(zmdf_conn) %>% 
     get_last_modified()
 
-pool::poolReturn(conn)
+pool::poolReturn(zmdf_conn)
 
 renderUI({
     div(

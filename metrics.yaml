@@ -17,9 +17,33 @@ daily_traffic_volume:
 
 
 am_peak_hour_volume:
-
+    label: AM Peak Volume [veh/hr]
+    table: vphpa
+    variable: vph
+    weight: ones
+    data_type: integer
+    highlight_color: "#045594"
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: True
+    
+    
 pm_peak_hour_volume:
-
+    label: PM Peak Volume [veh/hr]
+    table: vphpp
+    variable:  vph
+    weight: ones
+    data_type: integer
+    highlight_color: "#045594"
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: True
+    
+    
 throughput:
     label: Throughput [veh/hr]
     table: tp
@@ -169,7 +193,7 @@ ped_button_uptime:
 
 
 cctv_uptime:
-    label: Detector Uptime [%]
+    label: CCTV Uptime [%]
     table: cctv
     variable: uptime
     weight: num
@@ -208,6 +232,79 @@ rsu_uptime:
     daily_table: ru
     daily_variable: uptime
     has_weekly: True
+
+
+tasks_reported:
+    label: TEAMS Tasks Reported This Quarter
+    table: reported  # mo$tasks
+    variable: Reported
+    weight: ones
+    data_type: integer
+    Highlight_color: BLUE
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_resolved:
+    label: TEAMS Tasks Resolved This Quarter
+    table: resolved  # mo$tasks
+    variable: Resolved
+    weight: ones
+    data_type: integer
+    Highlight_color: BLUE
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_outstanding:
+    label: TEAMS Tasks Outstanding [Unresolved]
+    table: outstanding  # mo$tasks
+    variable: Outstanding
+    weight: ones
+    data_type: integer
+    Highlight_color: BLUE
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_over45:
+    label: TEAMS Tasks Over 45 Days [Unresolved]
+    table: over45
+    variable: over45
+    weight: ones
+    data_type: integer integer
+    Highlight_color: BLUE 
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_mttr:
+    label: TEAMS Tasks Mean Time to Resolve [Days]
+    table: mttr
+    variable: mttr
+    weight: ones
+    data_type: integer
+    Highlight_color: BLUE
+    goal: NULL
+    hourly_table: NULL
+    daily_table: NULL
+    daily_variable: NULL
+    has_weekly: False
+
+
+
 
 
     

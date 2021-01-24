@@ -335,15 +335,24 @@ get_Tuesdays <- function(df) {
 
 
 
-get_names_in_nested_list <- function(df, indent=0) {
+get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0) {
+
+    cat(paste(strrep(" ", indent)))
+    print(name)
     if (!is.null(names(df))) {
-        #cat(paste(strrep(" ", indent)))
-        #print(names(df))
+        if (is.null(names(df[[1]]))) {
+            print(head(df, 3))
+            
+            if (startsWith(name, "sub") & "Zone_Group" %in% names(df)) {
+                dfp <- df %>% rename(Subcorridor = Corridor, Corridor = Zone_Group)
+            } else {
+                dfp <- df
+            }
+            readr::write_csv(dfp, paste0(name, ".csv"))
+        }
         for (n in names(df)) {
-            cat(paste(strrep(" ", indent)))
-            print(n)
             if (!is.null(names(df[[n]]))) {
-                get_names(df[[n]], indent = indent+10)
+                get_names_in_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
             }
         }
     } else {

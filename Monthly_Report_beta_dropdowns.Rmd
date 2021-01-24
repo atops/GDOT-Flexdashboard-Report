@@ -2817,8 +2817,8 @@ output$maintenance_table <- renderDT({
 
 observe({
     dataTableProxy("maintenance_table") %>% 
-        replaceData(maint_health_data()) #%>% 
-        #hideCols(maint_hide_cols(), reset = TRUE)
+        replaceData(maint_health_data()) %>% 
+        hideCols(isolate(maint_hide_cols()), reset = TRUE)
 })
 
 observe({
@@ -2909,7 +2909,6 @@ operations_cols <- list(
 
 
 ops_hide_cols <- reactive({
-
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
         operations_cols$default, 
@@ -2952,9 +2951,10 @@ output$operations_table <- renderDT({
 
 observe({
     dataTableProxy("operations_table") %>% 
-        replaceData(ops_health_data()) #%>% 
-        #hideCols(ops_hide_cols(), reset = TRUE)
+        replaceData(ops_health_data()) %>% 
+        hideCols(isolate(ops_hide_cols()), reset = TRUE)
 })
+
 
 observe({
     dataTableProxy("operations_table") %>% 
@@ -2965,21 +2965,38 @@ observe({
 fillRow(
     DTOutput('operations_table')
 )
+
 ```
 
 ### Operations Trend
 
 ```{r Operations Trend, warning = FALSE}
 
-selectInput("operations_var", 
-            "Operations Health Metric:",
-            #choices = names(operations_sub)[7:17],
-            choices = c("Percent Health", "Missing Data", "Platoon Ratio Score", 
+selectInput(
+    inputId = "operations_var", 
+    label = "Operations Health Metric:",
+    choices = c("Percent Health"),
+    selected = "Percent Health")
+
+
+observe({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
+        
+        if (input$corridor_x == "All Corridors") {
+            choices_ <- c("Percent Health")
+        } else {
+            choices_ <- c("Percent Health", "Missing Data", "Platoon Ratio Score", 
                         "Ped Delay Score", "Split Failures Score", 
                         "Travel Time Index Score", "Buffer Index Score", 
                         "Platoon Ratio", "Ped Delay", "Split Failures", 
-                        "Travel Time Index", "Buffer Index"),
-            selected = "Percent Health")
+                        "Travel Time Index", "Buffer Index")
+        }
+
+        updateSelectInput(session,
+            inputId = "maintenance_var", choices = choices_)
+    } 
+})
+
 
 hr()
 
