@@ -7,7 +7,6 @@ Created on Fri May  8 12:01:42 2020
 
 import sys
 import pandas as pd
-#import feather
 import datetime
 
 from nightly_config import *
@@ -46,8 +45,9 @@ if __name__=='__main__':
         date_string = date_.strftime('%Y-%m-%d')
         print(date_string)
         
-        ad = get_atspm_detectors(date_string)
-        mvdp = pd.read_csv('s3://gdot-devices/maxtime_det_plans/date={}/MaxTime_Det_Plans.csv'.format(date_string))
+        # ad = get_atspm_detectors(date_string)
+        ad = pd.read_csv(f's3://gdot-devices/atspm_det_plans/date={date_string}/ATSPM_Det_Plans.csv')
+        mvdp = pd.read_csv(f's3://gdot-devices/maxtime_det_plans/date={date_string}/MaxTime_Det_Plans.csv')
         
         print('{} Getting ATSPM Detector Config (Good): Merge of MaxTime and ATSPM...'.format(
             datetime.now().strftime('%x %X')))
