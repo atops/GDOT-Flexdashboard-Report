@@ -199,7 +199,7 @@ ntraces <- reactive({
 })
 
 filtered_signalids <- reactive({
-    x <- filtered_corridors() %>%
+    x <- corridors() %>%  # filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
