@@ -37,12 +37,6 @@ def create_ami(ec2, today):
     response = ec2_client.create_image(
         BlockDeviceMappings=[
             root_volume,
-            # {
-            #     'DeviceName': '/dev/sda1',
-            #     'Ebs': {
-            #         'VolumeSize': 8,
-            #     },
-            # },
             cache_volume,
         ],
         Description='',
