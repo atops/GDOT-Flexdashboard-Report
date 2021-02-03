@@ -1371,7 +1371,11 @@ tryCatch({
             .groups = "drop"
         ) %>%
         filter(suptime < 0.2)
-    
+
+    # Filter out bad days, i.e., those with systemic issues
+    daily_cctv_uptime <- daily_cctv_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+
     weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
 
     monthly_cctv_uptime <- daily_cctv_uptime %>%
@@ -1437,6 +1441,18 @@ tryCatch({
 tryCatch({
     
     daily_rsu_uptime <- get_rsu_uptime(report_start_date)
+    
+    # Find the days where uptime across the board is very low (close to 0)
+    #  This is symptomatic of a problem with the acquisition rather than the rsus themselves
+    bad_days <- daily_rsu_uptime %>% 
+        group_by(Date) %>% 
+        summarize(suptime = weighted.mean(uptime, total, na.rm = TRUE), .groups = "drop") %>%
+        filter(suptime < 0.2)
+    
+    # Filter out bad days, i.e., those with systemic issues
+    daily_rsu_uptime <- daily_rsu_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+
     cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
         daily_rsu_uptime, corridors, "uptime")
     sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
