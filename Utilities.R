@@ -339,6 +339,7 @@ get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0)
 
     cat(paste(strrep(" ", indent)))
     print(name)
+
     if (!is.null(names(df))) {
         if (is.null(names(df[[1]]))) {
             print(head(df, 3))
@@ -348,8 +349,11 @@ get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0)
             } else {
                 dfp <- df
             }
-            readr::write_csv(dfp, paste0(name, ".csv"))
-        }
+            
+	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("main/{name}.qs"))
+	    #readr::write_csv(dfp, paste0(name, ".csv"))
+        
+	}
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
                 get_names_in_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
