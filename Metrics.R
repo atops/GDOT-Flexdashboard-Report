@@ -173,7 +173,7 @@ get_thruput <- function(counts) {
                   .groups = "drop_last") %>%
         
         #summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4,
-        summarize(vph = tdigest::tquantile(td(vph), probs=c(0.95)) * 4,
+        summarize(vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
                   .groups = "drop") %>%
         
         arrange(SignalID, Date) %>%

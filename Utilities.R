@@ -111,8 +111,7 @@ split_wrapper <- function(FUN) {
         cat('.', sep='\n')
         
         lapply(file_names, FUN = file.remove)
-        #file.remove(temp_dir)
-        
+
         df
     }
 }
