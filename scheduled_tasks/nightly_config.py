@@ -10,8 +10,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import boto3
-#import feather
-#import asyncio
 
 #from get_maxtime_config_asyncio_polling import (
 from get_maxtime_config_asyncio import (

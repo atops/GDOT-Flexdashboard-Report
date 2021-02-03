@@ -578,8 +578,7 @@ get_adjusted_counts_split <- function(filtered_counts) {
         mo_hrly_vols <- fc_phc %>%
             group_by(SignalID, CallPhase, Detector, DOW, Month_Hour) %>% 
             summarize(Hourly_Volume = median(vol, na.rm = TRUE), .groups = "drop")
-        # SignalID | Call.Phase | Detector | Month_Hour | Volume(median)
-        
+
         # fill in missing detectors by hour and day of week volume in the month
         left_join(fc_phc, 
                   mo_hrly_vols, 
@@ -594,7 +593,6 @@ get_adjusted_counts_split <- function(filtered_counts) {
     cat('.', sep='\n')
     
     mclapply(file_names, mc.cores = usable_cores, FUN = file.remove)
-    file.remove(temp_dir)
-    
+
     df
 }

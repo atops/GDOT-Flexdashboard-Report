@@ -173,7 +173,7 @@ get_thruput <- function(counts) {
                   .groups = "drop_last") %>%
         
         #summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4,
-        summarize(vph = tdigest::tquantile(td(vph), probs=c(0.95)) * 4,
+        summarize(vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
                   .groups = "drop") %>%
         
         arrange(SignalID, Date) %>%
@@ -495,29 +495,28 @@ get_qs <- function(detection_events) {
 }
 
 
-get_daily_cctv_uptime <- function(table, cam_config, report_start_date) {
-    dbGetQuery(conn, sql(glue(paste(
-        "select cameraid, date  from gdot_spm.{table}",
-        "where size > 0")))) %>% 
+get_daily_cctv_uptime <- function(table, cam_config, start_date) {
+    tbl(conn, sql(glue(paste(
+            "select cameraid, date  from gdot_spm.{table}",
+            "where size > 0")))) %>%
+        filter(date >= date_parse(start_date, "%Y-%m-%d")) %>% # start_date) %>%  # 
+        collect() %>%
         transmute(CameraID = factor(cameraid),
                   Date = date(date)) %>%
-        as_tibble() %>%
-        
-        # CCTV image size variance by CameraID and Date
-        #  -> reduce to 1 for Size > 0, 0 otherwise
-        
+
         # Expanded out to include all available cameras on all days
         #  up/uptime is 0 if no data
-        filter(Date >= report_start_date) %>%
         mutate(up = 1, num = 1) %>%
         distinct() %>%
+
+        right_join(cam_config, by="CameraID") %>% 
+        replace_na(list(Date = start_date, up = 0, num = 1)) %>%
         
         # Expanded out to include all available cameras on all days
         complete(CameraID, Date = full_seq(Date, 1), fill = list(up = 0, num = 1)) %>%
         
-        mutate(uptime = up/num) %>%
+        mutate(uptime = up/num) %>% relocate(uptime, .after = num) %>%
         
-        right_join(cam_config, by="CameraID") %>% 
         filter(Date >= As_of_Date) %>%
         select(-Location, -As_of_Date) %>%
         mutate(CameraID = factor(CameraID),
@@ -526,7 +525,7 @@ get_daily_cctv_uptime <- function(table, cam_config, report_start_date) {
 }
 
 
-get_rsu_uptime <- function(report_start_date) {
+get_rsu_uptime <- function(start_date) {
     
     rsu_config <- s3read_using(
         read_excel, 
@@ -535,9 +534,8 @@ get_rsu_uptime <- function(report_start_date) {
     ) %>% 
         filter(`Powered ON` == "X")
     
-    # rsu <- dbGetQuery(conn, sql(glue("select signalid, date, uptime, count from gdot_spm.rsu_uptime"))) %>%
     rsu <- tbl(conn, sql("select signalid, date, uptime, count from gdot_spm.rsu_uptime")) %>%
-        filter(date >= date_parse(report_start_date, "%Y-%m-%d")) %>% # report_start_date) %>%  # 
+        filter(date >= date_parse(start_date, "%Y-%m-%d")) %>% # start_date) %>%  # 
         collect() %>%
         filter(signalid %in% rsu_config$SignalID)
     

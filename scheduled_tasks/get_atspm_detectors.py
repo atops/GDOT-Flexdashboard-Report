@@ -108,24 +108,33 @@ def get_atspm_detectors(date=None):
     approaches = approaches[approaches.VersionID==approaches.maxVersionID]\
         .drop(columns=['maxVersionID'])
 
-    # Big merge
+    # Big merge #1
     df = (detectors.merge(movementtypes, on=['MovementTypeID'])
           .merge(detectionhardwares, on=['DetectionHardwareID'])
           .merge(lanetypes, on=['LaneTypeID'])
           .merge(detectiontypes2, on=['ID'])
           .merge(approaches, on=['ApproachID'], how='inner')
-          .merge(directiontypes, on=['DirectionTypeID'])
-          .merge(signals, on=['SignalID'])
-          .drop(columns=['MovementTypeID',
-                         'LaneTypeID',
-                         'DetectionHardwareID',
-                         'ApproachID',
-                         'DirectionTypeID',
-                         'DisplayOrder_x',
-                         'DisplayOrder_y',
-                         'VersionID_x',
-                         'VersionID_y',
-                         'VersionActionId']))
+          .merge(directiontypes, on=['DirectionTypeID']))
+    
+    # SignalID derived from DetectorID as [{SignalID}{2-digit Detector}]
+    df['SignalID_detid'] = [d[:-2] for d in df.DetectorID]
+    df_detid = df[df.SignalID != df.SignalID_detid]
+    df.SignalID = df.SignalID_detid
+    df = df.drop(columns=['SignalID_detid'])
+    df = pd.concat([df, df_detid])
+    
+    # Big merge #2
+    df = (df.merge(signals, on=['SignalID'])
+            .drop(columns=['MovementTypeID',
+                           'LaneTypeID',
+                           'DetectionHardwareID',
+                           'ApproachID',
+                           'DirectionTypeID',
+                           'DisplayOrder_x',
+                           'DisplayOrder_y',
+                           'VersionID_x',
+                           'VersionID_y',
+                           'VersionActionId']))
 
     # DetectorID is not unique for detectors
     # Drop all but last SignalID|DetChannel combination

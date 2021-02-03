@@ -1334,8 +1334,10 @@ print(glue("{Sys.time()} CCTV Uptimes [20 of 23]"))
 
 tryCatch({
     
-    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime", cam_config, report_start_date)
-    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders", cam_config, report_start_date)
+    daily_cctv_uptime_511 <- get_daily_cctv_uptime(
+        "cctv_uptime", cam_config, wk_calcs_start_date)
+    daily_cctv_uptime_encoders <- get_daily_cctv_uptime(
+        "cctv_uptime_encoders", cam_config, wk_calcs_start_date)
     
     # up:
     #   2-on 511 (dark brown)
@@ -1372,8 +1374,12 @@ tryCatch({
         ) %>%
         filter(suptime < 0.2)
     
+    # Filter out bad days, i.e., those with systemic issues
+    daily_cctv_uptime <- daily_cctv_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+    
     weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
-
+    
     monthly_cctv_uptime <- daily_cctv_uptime %>%
         group_by(
             Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, 
@@ -1385,10 +1391,10 @@ tryCatch({
     
     cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
         daily_cctv_uptime, all_corridors, "uptime", "num")
-
+    
     cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(
         weekly_cctv_uptime, all_corridors, "uptime", "num")
-
+    
     cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(
         monthly_cctv_uptime, all_corridors, "uptime", "num")
     
@@ -1414,18 +1420,17 @@ tryCatch({
                Corridor = Subcorridor) %>%
         get_cor_monthly_avg_by_day(subcorridors, "uptime", "num")
     
+    addtoRDS(daily_cctv_uptime, "daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
-    saveRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds")
-    saveRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds")
+    addtoRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
-    saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
-    saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
-    
-    saveRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds")
-    saveRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds")
-    saveRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds")
+    addtoRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1436,7 +1441,19 @@ tryCatch({
 
 tryCatch({
     
-    daily_rsu_uptime <- get_rsu_uptime(report_start_date)
+    daily_rsu_uptime <- get_rsu_uptime(wk_calcs_start_date)
+    
+    # Find the days where uptime across the board is very low (close to 0)
+    #  This is symptomatic of a problem with the acquisition rather than the rsus themselves
+    bad_days <- daily_rsu_uptime %>% 
+        group_by(Date) %>% 
+        summarize(suptime = weighted.mean(uptime, total, na.rm = TRUE), .groups = "drop") %>%
+        filter(suptime < 0.2)
+    
+    # Filter out bad days, i.e., those with systemic issues
+    daily_rsu_uptime <- daily_rsu_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+
     cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
         daily_rsu_uptime, corridors, "uptime")
     sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
@@ -1457,17 +1474,17 @@ tryCatch({
         monthly_rsu_uptime, subcorridors, "uptime")
     
     
-    saveRDS(daily_rsu_uptime, "daily_rsu_uptime.rds")
-    saveRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds")
-    saveRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds")
+    addtoRDS(daily_rsu_uptime, "daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds")
-    saveRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds")
-    saveRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds")
+    addtoRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds")
-    saveRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds")
-    saveRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds")
+    addtoRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
     
 }, error = function(e) {

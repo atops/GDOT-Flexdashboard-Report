@@ -96,3 +96,76 @@ add_partition <- function(conf_athena, table_name, date_) {
         dbDisconnect(conn_)
     })
 }
+
+
+
+# -- This is a Work in Progress -- 2021-01-18
+
+query_data <- function(
+    metric, 
+    level = "corridor", 
+    resolution = "monthly", 
+    hourly = FALSE, 
+    zone_group, 
+    month = NULL, 
+    quarter = NULL, 
+    upto = TRUE) {
+    
+    # metric is one of {vpd, tti, aog, ...}
+    # level is one of {corridor, subcorridor, signal}
+    # resolution is one of {quarterly, monthly, weekly, daily}
+    
+    per <- switch(
+        resolution,
+        "quarterly" = "qu",
+        "monthly" = "mo",
+        "weekly" = "wk",
+        "daily" = "dy")
+    
+    mr_ <- switch(
+        level,
+        "corridor" = "cor",
+        "subcorridor" = "sub",
+        "signal" = "sig")
+    
+    tab <- if (hourly & !is.null(metric$hourly_table)) {
+        metric$hourly_table
+    } else {
+        metric$table
+    }
+    
+    table <- glue("{mr_}_{per}_{tab}")
+    q <- glue(paste(
+        "SELECT * FROM {table}",
+        "WHERE Corridor = '{zone_group}'"))
+    
+    aurora <- pool::poolCheckout(aurora_connection_pool)
+    
+    comparison <- ifelse(upto, "<=", "=")
+    
+    if (typeof(month) == "character") {
+        month <- as_date(month)
+    }
+    
+    q <- if (hourly & !is.null(metric$hourly_table)) {
+        paste(q, glue("AND Hour {comparison} '{month + months(1) - hours(1)}'"))
+    } else if (resolution == "monthly") {
+        paste(q, glue("AND Month {comparison} '{month}'"))
+    } else if (resolution == "quarterly") { # current_quarter is not null
+        paste(q, glue("AND Quarter {comparison} {quarter}"))
+        
+    } else if (resolution == "weekly" | resolution == "daily") {
+        paste(q, glue("AND Date {comparison} '{month + months(1) - days(1)}'"))
+        
+    } else {
+        "oops"
+    }
+    
+    df <- dbGetQuery(aurora, q)
+    pool::poolReturn(aurora)
+    
+    date_string <- intersect(c("Month", "Date"), names(df))
+    df[[date_string]] = as_date(df[[date_string]])
+    
+    df
+}

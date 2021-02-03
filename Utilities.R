@@ -111,8 +111,7 @@ split_wrapper <- function(FUN) {
         cat('.', sep='\n')
         
         lapply(file_names, FUN = file.remove)
-        #file.remove(temp_dir)
-        
+
         df
     }
 }
@@ -498,6 +497,6 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
-    add_partition(conf_athena, table_name, date_)
+    add_partition(conf_athena, table_name, plot_date)
 }
 
