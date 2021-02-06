@@ -350,8 +350,8 @@ get_percent_health_subtotals <- function(df) {
         ) %>%
         arrange(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
         mutate(
-            Corridor = ifelse(!is.na(Zone) & is.na(Corridor), Zone, Corridor),
-            Subcorridor = ifelse(!is.na(Zone) & !is.na(Corridor) & is.na(Subcorridor), Corridor, Subcorridor),
+            Corridor = factor(coalesce(Corridor, Zone)),
+            Subcorridor = factor(coalesce(Subcorridor, Corridor)),
             Missing_Data = Missing_Data / 100
         )
     df_all
