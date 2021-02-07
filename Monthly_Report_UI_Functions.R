@@ -1325,7 +1325,6 @@ get_uptime_plot <- function(daily_df,
                                      "<br>Uptime: <b>{var_fmt(var)}</b>")),
                                  hovertemplate = "%{customdata}",
                                  hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-                
                 layout(
                     barmode = "overlay",
                     xaxis = list(title = x_bar_title, 
@@ -1336,15 +1335,19 @@ get_uptime_plot <- function(daily_df,
                     font = list(size = 11),
                     margin = list(pad = 4,
                                   l = 100,
-                                  r = 50),
-                    shapes=list(type = 'line', 
-                                x0 = goal/0.2, 
-                                x1 = goal/0.2, 
-                                y0 = min(levels(monthly_df_$Corridor)), 
-                                y1 = max(levels(monthly_df_$Corridor)), 
-                                line = list(dash = 'dot', width = 1, color = RED))
-                )
-            
+                                  r = 50)
+                    )
+            if (!is.null(goal)) {
+                bar_chart <- bar_chart %>% 
+                    add_lines(x = goal,
+                              y = ~Corridor,
+                              mode = "lines",
+                              marker = NULL,
+                              line = list(color = LIGHT_RED),
+                              name = "Goal (95%)",
+                              showlegend = FALSE)
+                }
+
             # Daily Heatmap
             daily_heatmap <- uptime_heatmap(daily_df, 
                                             var,
