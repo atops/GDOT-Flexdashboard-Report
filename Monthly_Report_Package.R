@@ -1343,14 +1343,21 @@ tryCatch({
     #   2-on 511 (dark brown)
     #   1-working at encoder but not on 511 (light brown)
     #   0-not working on either (gray)
-    daily_cctv_uptime <- full_join(daily_cctv_uptime_511,
-                                   daily_cctv_uptime_encoders,
-                                   by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", "CameraID", "Description", "Date"),
-                                   suffix = c("_511", "_enc")
+    daily_cctv_uptime <- full_join(
+        daily_cctv_uptime_511,
+        daily_cctv_uptime_encoders,
+        by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", 
+               "CameraID", "Description", "Date"),
+        suffix = c("_511", "_enc")
+        ) %>%
+        complete(
+            nesting(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description), Date,
         ) %>%
         replace_na(list(up_enc = 0, num_enc = 0, uptime_enc = 0,
                         up_511 = 0, num_511 = 0, uptime_511 = 0)) %>%
-        select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, Date, up_511, up_enc) %>%
+        select(
+            Zone_Group, Zone, Corridor, Subcorridor, 
+            CameraID, Description, Date, up_511, up_enc) %>% 
         mutate(uptime = up_511, 
                num = 1,
                up = pmax(up_511 * 2, up_enc),
