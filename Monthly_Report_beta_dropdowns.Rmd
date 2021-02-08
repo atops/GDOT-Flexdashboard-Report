@@ -1675,7 +1675,7 @@ valueBoxOutput("du_valuebox2")
 valueBoxOutput("cctv_valuebox2")
 ```
 
-### Pedestrian Pushbotton Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r, warning = FALSE}
 valueBoxOutput("pau_valuebox2")
