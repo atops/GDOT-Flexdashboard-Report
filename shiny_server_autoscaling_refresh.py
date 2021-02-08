@@ -8,13 +8,23 @@ Created on Wed Dec  9 14:16:38 2020
 import boto3
 from datetime import datetime
 import time
-
+import string
 
 
 
 # -- Functions --
 
-def create_ami(ec2, today):
+def image_exists(image_name):
+    
+    response = ec2_client.describe_images(
+        Filters=[
+            {'Name': 'name', 
+             'Values': [image_name,]}
+        ]
+    )
+    return len(response['Images']) > 0
+
+def create_ami(today):
 
     root_volume = {
         'DeviceName': '/dev/sda1',
@@ -28,11 +38,17 @@ def create_ami(ec2, today):
         'VirtualName': 'Shiny-Server Production Cache',
         'Ebs': {
             'Iops': 4000,
-            'VolumeSize': 12,
+            'VolumeSize': 20,
             'VolumeType': 'gp3',
-            'Throughput': 1000
+            'Throughput': 250
         },
     }
+    
+    image_name = f'Shiny-Server-{today}'
+    extensions = list(string.ascii_lowercase)[1:]
+    
+    while image_exists(image_name):
+        image_name = f'Shiny-Server-{today}' + extensions.pop(0)
 
     response = ec2_client.create_image(
         BlockDeviceMappings=[
@@ -41,7 +57,7 @@ def create_ami(ec2, today):
         ],
         Description='',
         InstanceId=EC2_INSTANCE_ID,
-        Name=f'Shiny-Server-{today}',
+        Name=image_name,
         NoReboot=False,
         DryRun=False,
     )
@@ -117,8 +133,7 @@ def delete_old_versions(ec2_client, keep=10):
         )
 
 
-def refresh_autoscaling():
-    autoscaling_client = boto3.client('autoscaling')
+def refresh_autoscaling(autoscaling_client):
     response = autoscaling_client.start_instance_refresh(
         AutoScalingGroupName=AUTOSCALING_GROUP_NAME,
         Strategy='Rolling',
@@ -135,6 +150,8 @@ if __name__=='__main__':
     # -- Constants and Globals --
     
     ec2_client = boto3.client('ec2')
+    autoscaling_client = boto3.client('autoscaling')
+
     today = datetime.today().strftime("%F")
     
     EC2_INSTANCE_ID = 'i-00a90d0152470f49b'
@@ -145,7 +162,7 @@ if __name__=='__main__':
     # -- Run --
     
     # Step 1: Create Image from AMI Instance and wait for it to be available
-    create_image_response = create_ami(ec2_client, today)
+    create_image_response = create_ami(today)
     
     while not ami_is_available(create_image_response['ImageId']):
         print('.', end='')
@@ -167,4 +184,9 @@ if __name__=='__main__':
     autoscaling_instance_refresh_response = refresh_autoscaling()
 
 
+    autoscaling_description_response = autoscaling_client.describe_auto_scaling_groups(
+        AutoScalingGroupNames=[AUTOSCALING_GROUP_NAME]
+    )
+
+    autoscaling_description_response['AutoScalingGroups'][0]['Instances']
 
