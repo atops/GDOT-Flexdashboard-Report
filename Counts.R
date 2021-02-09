@@ -161,6 +161,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             
         }
         
+        dbDisconnect(conn)
         
         
         conn <- get_athena_connection(conf_athena)

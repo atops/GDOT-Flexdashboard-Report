@@ -354,7 +354,7 @@ tryCatch({
     # -- Alerts: CCTV downtime --
     
     bad_cam <- lapply(
-        seq(floor_date(today() - months(9), "month"), today() - days(1), by = "1 month"),
+        seq(floor_date(today() - months(6), "month"), today() - days(1), by = "1 month"),
         function(date_) {
             key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
             #print(key)
