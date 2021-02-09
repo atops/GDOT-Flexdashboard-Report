@@ -334,7 +334,7 @@ get_Tuesdays <- function(df) {
 
 
 
-get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0) {
+get_names_in_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
 
     cat(paste(strrep(" ", indent)))
     print(name)
@@ -349,7 +349,7 @@ get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0)
                 dfp <- df
             }
             
-	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("main/{name}.qs"))
+	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
 	    #readr::write_csv(dfp, paste0(name, ".csv"))
         
 	}

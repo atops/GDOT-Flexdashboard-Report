@@ -574,9 +574,9 @@ output$cu_valuebox1 <- output$cu_valuebox2 <- renderValueBox({cu_valuebox()})
 valueBoxOutput("cu_valuebox1")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 ru_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
@@ -594,6 +594,18 @@ output$ru_valuebox1 <- output$ru_valuebox2 <- renderValueBox({ru_valuebox()})
 valueBoxOutput("ru_valuebox1")
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1006,9 +1018,9 @@ renderValueBox({
 })
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 renderValueBox({
     valueBox(
         value = get_valuebox(
@@ -1025,6 +1037,18 @@ renderValueBox({
 })
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1360,20 +1384,20 @@ fillCol(
         }),
         flex = c(2, 10)
     ),
-    fillRow(
-        div("RSU Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cu)
-        }),
-        flex = c(2, 10)
-    ),
+    # fillRow(
+    #     div("RSU Uptime", style = styl),
+    #     renderPlotly    ({
+    #         data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
+    #         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+    #         perf_plot_beta(
+    #             data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
+    #             format_func = as_pct,
+    #             hoverformat = ".1%",
+    #             fill_color_ = LIGHT_ORANGE,
+    #             goal_ = goal$cu)
+    #     }),
+    #     flex = c(2, 10)
+    # ),
     height = 800
 )
 ```
@@ -1687,10 +1711,20 @@ valueBoxOutput("pau_valuebox2")
 valueBoxOutput("cu_valuebox2")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r, warning = FALSE}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 valueBoxOutput("ru_valuebox2")
+```
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
 ```
 
 Row {data-height=40}
@@ -1700,7 +1734,7 @@ Row {data-height=40}
 
 selectInput("equipment_metric", label = NULL,
             choices = c("Detector Uptime",  "Pedestrian Pushbutton Uptime",
-                        "CCTV Uptime", "Communications Uptime", "RSU Uptime"),
+                        "CCTV Uptime", "Communications Uptime"),
             selected = "Detector Uptime")
 ```
 
