@@ -299,7 +299,7 @@ filter_mr_data <- function(df, zone_group_) {
         
     } else {
         df %>% 
-            filter(Zone_Group == zone_group_)
+            filter(as.character(Zone_Group) == zone_group_)
     }
 }
 
@@ -2190,6 +2190,10 @@ get_zone_group_text_table <- function(month, zone_group) {
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_maintenance_health_table <- function(data_) {
     
+    all_cols <- names(data_)
+    rounded_cols <- c(all_cols[endsWith(all_cols, "Score")], "Flash Events")
+    percent_cols <- c("Percent Health", "Missing Data", all_cols[endsWith(all_cols, "Uptime")])
+    
     datatable(data_,
               filter = "top",
               rownames = FALSE,
@@ -2198,18 +2202,12 @@ get_monthly_maintenance_health_table <- function(data_) {
                   scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
-                  columnDefs = list(
-                      list(
-                          className = "dt-left",
-                          targets = c(0, 1, 2, 3, 4)
-                      )
-                  ),
                   dom = "t",
                   selection = "none"
               )
     ) %>%
-        formatPercentage(c(6:7, 14:18)) %>%
-        formatRound(8:13, 19, digits = 0) %>%
+        formatPercentage(percent_cols) %>%
+        formatRound(rounded_cols, digits = 0) %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2233,6 +2231,12 @@ get_monthly_maintenance_health_table <- function(data_) {
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_operations_health_table <- function(data_) {
 
+    all_cols <- names(data_)
+    rounded0_cols <- all_cols[endsWith(all_cols, "Score")]
+    rounded1_cols <- "Ped Delay"
+    rounded2_cols <- c("Platoon Ratio", "Travel Time Index", "Buffer Index")
+    percent_cols <- c("Percent Health", "Missing Data", "Split Failures")
+    
     datatable(data_,
               filter = "top",
               rownames = FALSE,
@@ -2241,20 +2245,13 @@ get_monthly_operations_health_table <- function(data_) {
                   scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
-                  columnDefs = list(
-                      list(
-                          className = "dt-left",
-                          targets = c(0, 1, 2, 3, 4)
-                      )
-                  ),
-                  dom = "t",
                   selection = "none"
               )
     ) %>%
-        formatPercentage(c(6:7, 15)) %>%
-        formatRound(8:12, digits = 0) %>%
-        formatRound(14, digits = 1) %>%
-        formatRound(c(13, 16, 17), digits = 2) %>%
+        formatPercentage(percent_cols) %>%
+        formatRound(rounded0_cols, digits = 0) %>%
+        formatRound(rounded1_cols, digits = 1) %>%
+        formatRound(rounded2_cols, digits = 2) %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2280,7 +2277,7 @@ get_health_data_filtered <- function(data_, zone_group_, corridor_) {
     
     data_ <- mutate(data_, Zone_Group = Zone)
 
-    health_data <- if (corridor_ == "All Corridors") {
+    if (corridor_ == "All Corridors") {
         # filter based on Zone with accommodations for All RTOP/RTOP1/RTOP2
         filter_mr_data(data_, zone_group_)
     } else {

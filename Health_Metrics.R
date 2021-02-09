@@ -139,7 +139,7 @@ get_summary_data <- function(df, current_month = NULL) {
 
 # function to compute scores/weights at sub/sig level
 get_health_all <- function(df) {
-    df %>%
+    df <- df %>%
         select(
             Zone_Group,
             Zone,
@@ -247,8 +247,12 @@ get_health_maintenance <- function(df) {
     
     
     # filter out scores and weights and make sure they're both in the same sort order
-    scores <- health %>% select(ends_with("Score")) %>% select(sort(tidyselect::peek_vars()))
-    weights <- health %>% select(ends_with("Weight")) %>% select(sort(tidyselect::peek_vars()))
+    scores <- health %>% 
+        select(ends_with("Score")) %>% 
+        select(sort(tidyselect::peek_vars()))
+    weights <- health %>% 
+        select(ends_with("Weight")) %>% 
+        select(sort(tidyselect::peek_vars()))
 
     health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)
     health$Missing_Data <- 100 - rowSums(weights, na.rm = T)
@@ -362,7 +366,8 @@ get_percent_health_subtotals <- function(df) {
     bind_rows(df, corridor_subtotals, zone_subtotals) %>%
         filter(!is.na(Subcorridor)) %>%
         mutate(
-            Zone_Group = factor(Zone_Group)
+            Zone_Group = factor(Zone_Group),
+            Zone = factor(Zone)
         ) %>%
         arrange(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
         mutate(
@@ -473,13 +478,17 @@ if (TRUE) {
     maintenance_sub <- get_health_maintenance(health_all_sub)
     maintenance_sig <- get_health_maintenance(health_all_sig)
     
-    maintenance_cor <- maintenance_sub %>% filter(Corridor == Subcorridor) %>% select(-Subcorridor)
+    maintenance_cor <- maintenance_sub %>% 
+        filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
+        select(-Subcorridor)
     
     # compile operations % health
     operations_sub <- get_health_operations(health_all_sub)
     operations_sig <- get_health_operations(health_all_sig)
     
-    operations_cor <- operations_sub %>% filter(Corridor == Subcorridor) %>% select(-Subcorridor)
+    operations_cor <- operations_sub %>% 
+        filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
+        select(-Subcorridor)
     
     ## compile safety % health
     # safety_sub <- get_health_safety(health_all_sub)
@@ -550,3 +559,19 @@ sig$mo$maint <- maintenance_sig
 cor$mo$ops <- operations_cor
 sub$mo$ops <- operations_sub
 sig$mo$ops <- operations_sig
+
+
+add_subcorridor <- function(df)  {
+    df %>% 
+        rename(SignalID = Subcorridor) %>% 
+        left_join(
+            select(corridors, Zone, Corridor, Subcorridor, SignalID), 
+            by = c("Zone", "Corridor", "SignalID")) %>% 
+        relocate(Subcorridor, .after = Corridor) %>% 
+        filter(!is.na(Subcorridor))
+}
+
+sig$mo$maint
+sig$mo$maint <- add_subcorridor(sig$mo$maint)
+sig$mo$ops <- add_subcorridor(sig$mo$ops)
+
