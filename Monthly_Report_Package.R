@@ -6,7 +6,7 @@ source("Monthly_Report_Package_init.R")
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 23]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 25]"))
 
 tryCatch({
     cb <- function(x) {
@@ -97,7 +97,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 23]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 25]"))
 
 tryCatch({
 
@@ -244,7 +244,7 @@ tryCatch({
 
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [3 of 23]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 25]"))
 
 tryCatch({
     # -- Alerts: detector downtime --
@@ -405,7 +405,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 23]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 25]"))
 
 tryCatch({
     
@@ -454,7 +454,7 @@ tryCatch({
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 23]"))
+print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 25]"))
 
 tryCatch({
     
@@ -494,7 +494,7 @@ tryCatch({
 
 # GET PEDESTRIAN DELAY ###################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 23]"))
+print(glue("{Sys.time()} Pedestrian Delay [6 of 25]"))
 
 tryCatch({
 
@@ -563,7 +563,7 @@ tryCatch({
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [7 of 23]"))
+print(glue("{Sys.time()} Communication Uptime [7 of 25]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
@@ -633,7 +633,7 @@ tryCatch({
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [8 of 23]"))
+print(glue("{Sys.time()} Daily Volumes [8 of 25]"))
 
 tryCatch({
     
@@ -694,7 +694,7 @@ tryCatch({
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [9 of 23]"))
+print(glue("{Sys.time()} Hourly Volumes [9 of 25]"))
 
 tryCatch({
     
@@ -777,7 +777,7 @@ tryCatch({
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [10 of 23]"))
+print(glue("{Sys.time()} Daily Throughput [10 of 25]"))
 
 tryCatch({
     # throughput <- f("tp_", month_abbrs)
@@ -833,7 +833,7 @@ tryCatch({
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [11 of 23]"))
+print(glue("{Sys.time()} Daily AOG [11 of 25]"))
 
 tryCatch({
     aog <- s3_read_parquet_parallel(
@@ -887,7 +887,7 @@ tryCatch({
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [12 of 23]"))
+print(glue("{Sys.time()} Hourly AOG [12 of 25]"))
 
 tryCatch({
     aog_by_hr <- get_aog_by_hr(aog)
@@ -920,7 +920,7 @@ tryCatch({
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [13 of 23]"))
+print(glue("{Sys.time()} Daily Progression Ratio [13 of 25]"))
 
 tryCatch({
     #daily_pr <- get_daily_pr(aog)
@@ -959,7 +959,7 @@ tryCatch({
 
 # HOURLY PROGESSION RATIO ####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [14 of 23]"))
+print(glue("{Sys.time()} Hourly Progression Ratio [14 of 25]"))
 
 tryCatch({
     pr_by_hr <- get_pr_by_hr(aog)
@@ -994,7 +994,7 @@ tryCatch({
 # DAILY SPLIT FAILURES #####################################################
 
 tryCatch({
-    print(glue("{Sys.time()} Daily Split Failures [15 of 23]"))
+    print(glue("{Sys.time()} Daily Split Failures [15 of 25]"))
     
     sf <- s3_read_parquet_parallel(
         bucket = conf$bucket,
@@ -1081,7 +1081,7 @@ tryCatch({
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [16 of 23]"))
+print(glue("{Sys.time()} Hourly Split Failures [16 of 25]"))
 
 tryCatch({
     sfh <- get_sf_by_hr(sf)
@@ -1112,7 +1112,7 @@ tryCatch({
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [17 of 23]"))
+print(glue("{Sys.time()} Daily Queue Spillback [17 of 25]"))
 
 tryCatch({
     
@@ -1163,7 +1163,7 @@ tryCatch({
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [18 of 23]"))
+print(glue("{Sys.time()} Hourly Queue Spillback [18 of 25]"))
 
 tryCatch({
     qsh <- get_qs_by_hr(qs)
@@ -1193,7 +1193,7 @@ tryCatch({
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [19 of 23]"))
+print(glue("{Sys.time()} Travel Time Indexes [19 of 25]"))
 
 tryCatch({
     
@@ -1330,7 +1330,7 @@ tryCatch({
 
 # CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} CCTV Uptimes [20 of 23]"))
+print(glue("{Sys.time()} CCTV Uptimes [20 of 25]"))
 
 tryCatch({
     
@@ -1509,7 +1509,7 @@ tryCatch({
 
 # ACTIVITIES ##############################
 
-print(glue("{Sys.time()} TEAMS [21 of 23]"))
+print(glue("{Sys.time()} TEAMS [21 of 25]"))
 
 tryCatch({
     
@@ -1572,7 +1572,7 @@ tryCatch({
 
 # USER DELAY COSTS   ##############################
 
-print(glue("{Sys.time()} User Delay Costs [21.1 of 23]"))
+print(glue("{Sys.time()} User Delay Costs [22 of 25]"))
 
 tryCatch({
     
@@ -1680,7 +1680,7 @@ aws.s3::put_object(
 
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [22 of 23]"))
+print(glue("{Sys.time()} Package for Monthly Report [23 of 25]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
@@ -2143,7 +2143,7 @@ for (tab in c("du", "cu", "ru", "pau")) {
 
 
 
-print(glue("{Sys.time()} Upload to AWS [23 of 23]"))
+print(glue("{Sys.time()} Upload to AWS [24 of 25]"))
 
 
 
@@ -2170,6 +2170,8 @@ aws.s3::put_object(
     multipart = TRUE
 )
 
+
+print(glue("{Sys.time()} Write to Database [25 of 25]"))
 
 source("write_sigops_to_db.R")
 
