@@ -2245,6 +2245,7 @@ get_monthly_operations_health_table <- function(data_) {
                   scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
+                  dom = "t",
                   selection = "none"
               )
     ) %>%
