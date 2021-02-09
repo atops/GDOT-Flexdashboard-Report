@@ -254,8 +254,8 @@ get_health_maintenance <- function(df) {
         select(ends_with("Weight")) %>% 
         select(sort(tidyselect::peek_vars()))
 
-    health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)
-    health$Missing_Data <- 100 - rowSums(weights, na.rm = T)
+    health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
+    health$Missing_Data <- 1 - rowSums(weights, na.rm = T)/100
 
     health <- health %>% 
         group_by(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
@@ -306,8 +306,8 @@ get_health_operations <- function(df) {
         select(ends_with("Weight")) %>% 
         select(sort(tidyselect::peek_vars()))
 
-    health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)
-    health$Missing_Data <- 100 - rowSums(weights, na.rm = T)
+    health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
+    health$Missing_Data <- 1 - rowSums(weights, na.rm = T)/100
 
     health <- health %>%
         group_by(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
@@ -372,8 +372,7 @@ get_percent_health_subtotals <- function(df) {
         arrange(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
         mutate(
             Corridor = factor(coalesce(Corridor, Zone)),
-            Subcorridor = factor(coalesce(Subcorridor, Corridor)),
-            Missing_Data = Missing_Data / 100
+            Subcorridor = factor(coalesce(Subcorridor, Corridor))
         )
 }
 
