@@ -2767,23 +2767,35 @@ checkboxGroupInput(
     inline = TRUE
 )
 
-maintenance_cols <- list(
-    "all" = c(0:18),
-    "default" = c(0:6), 
-    "scores" = c(7:12), 
-    "metrics" = c(13:18))
+maintenance_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:18),
+                "default" = c(0:6), 
+                "scores" = c(7:12), 
+                "metrics" = c(13:18))
+        } else {
+            list(
+                "all" = c(0:19),
+                "default" = c(0:7), 
+                "scores" = c(8:13), 
+                "metrics" = c(14:19))
+        }
+    }
+})
 
 
 maint_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
-        maintenance_cols$default, 
-        maintenance_cols[input$maintenance_cols_checked]
+        maintenance_cols()$default, 
+        maintenance_cols()[input$maintenance_cols_checked]
         ) %>% 
         unlist() %>% unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
-    setdiff(maintenance_cols$all, maintenance_cols_to_show)
+    setdiff(maintenance_cols()$all, maintenance_cols_to_show)
 })
 
 
@@ -2907,23 +2919,35 @@ checkboxGroupInput(
     inline = TRUE
 )
 
-operations_cols <- list(
-    "all" = c(0:16),
-    "default" = c(0:6), 
-    "scores" = c(7:11), 
-    "metrics" = c(12:16))
+operations_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6), 
+                "scores" = c(7:11), 
+                "metrics" = c(12:16))
+        } else {
+            list(
+                "all" = c(0:17),
+                "default" = c(0:7), 
+                "scores" = c(8:12), 
+                "metrics" = c(13:17))
+        }
+    }
+})
 
 
 ops_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
-        operations_cols$default, 
-        operations_cols[input$operations_cols_checked]
+        operations_cols()$default, 
+        operations_cols()[input$operations_cols_checked]
         ) %>% 
         unlist() %>% unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
-    setdiff(operations_cols$all, operations_cols_to_show)
+    setdiff(operations_cols()$all, operations_cols_to_show)
 })
 
 
