@@ -49,27 +49,24 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     atspm_query <- sql(glue(paste(
         "select distinct timestamp, signalid, eventcode, eventparam", 
         "from {conf_athena$database}.{conf_athena$atspm_table}", 
-        "where date = '{start_date}'")))
+        "where date = '{date_}'")))
     
-    #conn <- get_athena_connection(conf_athena)
-    
-    start_date <- date_
     end_time <- format(date(date_) + days(1) - seconds(0.1), "%Y-%m-%d %H:%M:%S.9")
     
     if (counts == TRUE) {
-        det_config <- get_det_config(start_date) %>%
+        det_config <- get_det_config(date_) %>%
             transmute(SignalID = factor(SignalID), 
                       Detector = factor(Detector), 
                       CallPhase = factor(CallPhase))
         
-        ped_config <- get_ped_config(start_date) %>%
+        ped_config <- get_ped_config(date_) %>%
             transmute(SignalID = factor(SignalID), 
                       Detector = factor(Detector), 
                       CallPhase = factor(CallPhase))
     }
     
 
-    print(paste("-- Get Counts for:", start_date, "-----------"))
+    print(paste("-- Get Counts for:", date_, "-----------"))
     
     if (uptime == TRUE) {
         
@@ -99,10 +96,10 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             mutate(SignalID = factor(signalid),
                    CallPhase = factor(0),
                    uptime = success_rate/denom,
-                   Date_Hour = ymd_hms(paste(start_date, "00:00:00")),
-                   Date = date(start_date),
-                   DOW = wday(start_date), 
-                   Week = week(start_date)) %>%
+                   Date_Hour = ymd_hms(paste(date_, "00:00:00")),
+                   Date = date(date_),
+                   DOW = wday(date_), 
+                   Week = week(date_)) %>%
             dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime, response_ms)
             
         dbDisconnect(conn)
