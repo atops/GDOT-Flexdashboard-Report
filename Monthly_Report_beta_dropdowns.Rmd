@@ -2940,10 +2940,16 @@ ops_health_data <- reactive({
             filter(Month == current_month()) %>%
             ungroup() %>%
             select(-Month, -Zone_Group) %>%
+            
             mutate(
-                Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-                Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-            )
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor), 
+                    "ALL", 
+                    as.character(Subcorridor)),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone), 
+                    "ALL", 
+                    as.character(Corridor)))
     } else {
         data.frame()
     }
