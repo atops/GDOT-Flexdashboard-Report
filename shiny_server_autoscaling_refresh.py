@@ -181,8 +181,7 @@ if __name__=='__main__':
     delete_old_versions(ec2_client, keep=10)
     
     # Step 4: Refresh Instance
-    autoscaling_instance_refresh_response = refresh_autoscaling()
-
+    autoscaling_instance_refresh_response = refresh_autoscaling(autoscaling_client)
 
     autoscaling_description_response = autoscaling_client.describe_auto_scaling_groups(
         AutoScalingGroupNames=[AUTOSCALING_GROUP_NAME]
