@@ -399,7 +399,7 @@ if (FALSE) { # TRUE
 
 if (TRUE) {
  
-    # cmd <- get_summary_data(cor)
+    cmd <- get_summary_data(cor)
     csd <- get_summary_data(sub)
     ssd <- get_summary_data(sig)
     
@@ -431,9 +431,9 @@ if (TRUE) {
     
     
     # ajt - input data frame for corridor health metrics
-    # cor_health_data <- cmd %>%
-    #     inner_join(corridor_groupings) %>%
-    #     mutate(Flash_Events = NA)
+    cor_health_data <- cmd %>%
+        inner_join(corridor_groupings) %>%
+        mutate(Flash_Events = NA)
     
     # input data frame for subcorridor health metrics
     sub_health_data <- csd %>%
@@ -459,7 +459,7 @@ if (TRUE) {
     
     ## all data for all 3 health metrics - think this should be run in the background and cached?
     # compile all data needed for health metrics calcs - does not calculate % health yet
-    #health_all_cor <- get_health_all(cor_health_data)
+    health_all_cor <- get_health_all(cor_health_data)
     health_all_sub <- get_health_all(sub_health_data) #%>% 
         # This is a hack due to missing Zone_Group for several Districts ("Zones")
         #mutate(Zone_Group = if_else(is.na(Zone_Group), Zone, as.character(Zone_Group))) %>% 
@@ -477,17 +477,19 @@ if (TRUE) {
     maintenance_sub <- get_health_maintenance(health_all_sub)
     maintenance_sig <- get_health_maintenance(health_all_sig)
     
-    maintenance_cor <- maintenance_sub %>% 
-        filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
-        select(-Subcorridor)
+    maintenance_cor <- get_health_maintenance(health_all_cor)
+    # maintenance_cor <- maintenance_sub %>% 
+    #     filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
+    #     select(-Subcorridor)
     
     # compile operations % health
     operations_sub <- get_health_operations(health_all_sub)
     operations_sig <- get_health_operations(health_all_sig)
     
-    operations_cor <- operations_sub %>% 
-        filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
-        select(-Subcorridor)
+    operations_cor <- get_health_operations(health_all_cor)
+    # operations_cor <- operations_sub %>% 
+    #     filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
+    #     select(-Subcorridor)
     
     ## compile safety % health
     # safety_sub <- get_health_safety(health_all_sub)
@@ -543,9 +545,11 @@ get_cor_health_metrics_plot_df <- function(df) {
         arrange(Zone_Group, Corridor, Month)
 }
 
-cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor)
-sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub)
-sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig)
+# TODO: I've added SignalID to cam_config. For health metrics, need to join cctv to signalid
+# for signal-level health metrics
+cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor) %>% filter(!grepl("CAM", Corridor))
+sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub) %>% filter(!grepl("CAM", Corridor))
+sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig) %>% filter(!grepl("CAM", Corridor))
 
 cor$mo$ops_plot <- get_cor_health_metrics_plot_df(operations_cor)
 sub$mo$ops_plot <- get_health_metrics_plot_df(operations_sub)
