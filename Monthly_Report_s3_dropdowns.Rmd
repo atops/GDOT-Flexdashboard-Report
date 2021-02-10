@@ -204,7 +204,7 @@ ntraces <- reactive({
 })
 
 filtered_signalids <- reactive({
-    x <- filtered_corridors() %>%
+    x <- corridors %>%  # filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
@@ -337,7 +337,8 @@ pr_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({pr_valuebox()})
+output$pr_valuebox1 <- output$pr_valuebox2 <- renderValueBox({pr_valuebox()})
+valueBoxOutput("pr_valuebox1")
 ```
 
 ### Spillback Rate {.value-box}
@@ -352,7 +353,8 @@ qs_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({qs_valuebox()})
+output$qs_valuebox1 <- output$qs_valuebox2 <- renderValueBox({qs_valuebox()})
+valueBoxOutput("qs_valuebox1")
 ```
 
 ### Peak Period Split Failures {.value-box}
@@ -367,7 +369,8 @@ sf_valuebox <- reactive({
       icon = "fa-car",
       color = BLUE)
 })
-renderValueBox({sf_valuebox()})
+output$sf_valuebox1 <- output$sf_valuebox2 <- renderValueBox({sf_valuebox()})
+valueBoxOutput("sf_valuebox1")
 ```
 
 ### Off-Peak Split Failures {.value-box}
@@ -382,7 +385,8 @@ sfo_valuebox <- reactive({
         icon = "fa-car",
     color = BLUE)
 })
-renderValueBox({sfo_valuebox()})
+output$sfo_valuebox1 <- output$sfo_valuebox2 <- renderValueBox({sfo_valuebox()})
+valueBoxOutput("sfo_valuebox1")
 ```
 
 ### Travel Time Index {.value-box}
@@ -397,7 +401,8 @@ tti_valuebox <- reactive({
       icon = "fa-dashboard",
       color = BLUE)
 })
-renderValueBox({tti_valuebox()})
+output$tti_valuebox1 <- output$tti_valuebox2 <- renderValueBox({tti_valuebox()})
+valueBoxOutput("tti_valuebox1")
 ```
 
 ### Planning Time Index {.value-box}
@@ -412,9 +417,9 @@ pti_valuebox <- reactive({
         icon = "fa-dashboard",
         color = BLUE)
 })
-renderValueBox({pti_valuebox()})
+output$pti_valuebox1 <- output$pti_valuebox2 <- renderValueBox({pti_valuebox()})
+valueBoxOutput("pti_valuebox1")
 ```
-
 
 Row {data-height = 50}
 -------------------------------------
@@ -430,7 +435,7 @@ Row
 ### Traffic Volume [veh/day] {.value-box}
 
 ```{r}
-renderValueBox({
+vpd_valuebox <- reactive({
   valueBox(
     value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
@@ -438,12 +443,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$vpd_valuebox1 <- output$vpd_valuebox2 <- renderValueBox({vpd_valuebox()})
+valueBoxOutput("vpd_valuebox1")
 ```
 
 ### AM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
-renderValueBox({
+vphpa_valuebox <- reactive({
   valueBox(
       value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
@@ -451,26 +458,30 @@ renderValueBox({
     color = BLUE
   )
 })
+output$vphpa_valuebox1 <- output$vphpa_valuebox2 <- renderValueBox({vphpa_valuebox()})
+valueBoxOutput("vphpa_valuebox1")
 ```
 
 ### PM Peak Volume [veh/hr] {.value-box}
 
 ```{r}
-renderValueBox({
-  valueBox(
+vphpp_valuebox <- reactive({
+    valueBox(
       value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
       icon = "fa-area-chart",
     color = BLUE
   )
 })
+output$vphpp_valuebox1 <- output$vphpp_valuebox2 <- renderValueBox({vphpp_valuebox()})
+valueBoxOutput("vphpp_valuebox1")
 ```
 
 
 ### Pedestrian Activations [pa/day] {.value-box}
 
 ```{r}
-renderValueBox({
+papd_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
             mr()$mo$papd,
@@ -482,6 +493,8 @@ renderValueBox({
       color = BLUE
   )
 })
+output$papd_valuebox1 <- output$papd_valuebox2 <- renderValueBox({papd_valuebox()})
+valueBoxOutput("papd_valuebox1")
 ```
 
 ### {.value-box}
@@ -509,8 +522,7 @@ Row
 ### Vehicle Detector Availability {.value-box}
 
 ```{r}
-#cor$mo$veh
-renderValueBox({
+du_valuebox <- reactive({
   valueBox(
       value = get_valuebox(mr()$mo$du, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
@@ -518,12 +530,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$du_valuebox1 <- output$du_valuebox2 <- renderValueBox({du_valuebox()})
+valueBoxOutput("du_valuebox1")
 ```
 
 ### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r}
-renderValueBox({
+pau_valuebox <- reactive({
   valueBox(
       value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
@@ -531,12 +545,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$pau_valuebox1 <- output$pau_valuebox2 <- renderValueBox({pau_valuebox()})
+valueBoxOutput("pau_valuebox1")
 ```
 
 ### CCTV Availability {.value-box}
 
 ```{r}
-renderValueBox({
+cctv_valuebox <- reactive({
   valueBox(
     value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
@@ -544,12 +560,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$cctv_valuebox1 <- output$cctv_valuebox2 <- renderValueBox({cctv_valuebox()})
+valueBoxOutput("cctv_valuebox1")
 ```
 
 ### Communications Uptime {.value-box}
 
 ```{r}
-renderValueBox({
+cu_valuebox <- reactive({
   valueBox(
       value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
                            zone = zone_group(), mo = current_month(), break_ = TRUE),
@@ -557,12 +575,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$cu_valuebox1 <- output$cu_valuebox2 <- renderValueBox({cu_valuebox()})
+valueBoxOutput("cu_valuebox1")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
-renderValueBox({
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
+ru_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
             mr()$mo$ru,
@@ -575,8 +595,22 @@ renderValueBox({
     color = BLUE
     )
 })
+output$ru_valuebox1 <- output$ru_valuebox2 <- renderValueBox({ru_valuebox()})
+valueBoxOutput("ru_valuebox1")
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -591,7 +625,7 @@ Row
 ### TEAMS Tasks Reported This Month {.value-box}
 
 ```{r}
-renderValueBox({
+tasks_valuebox <- reactive({
   valueBox(
     value = get_valuebox(rename(cor$mo$tasks, delta = delta.rep), "Reported", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
@@ -599,12 +633,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$tasks_valuebox1 <- output$tasks_valuebox2 <- renderValueBox({tasks_valuebox()})
+valueBoxOutput("tasks_valuebox1")
 ```
 
 ### TEAMS Tasks Resolved This Month {.value-box}
 
 ```{r}
-renderValueBox({
+res_valuebox <- reactive({
   valueBox(
     value = get_valuebox(rename(cor$mo$tasks, delta = delta.res), "Resolved", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
@@ -612,12 +648,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$res_valuebox1 <- output$res_valuebox2 <- renderValueBox({res_valuebox()})
+valueBoxOutput("res_valuebox1")
 ```
 
 ### TEAMS Tasks Outstanding [Unresolved] {.value-box}
 
 ```{r}
-renderValueBox({
+unres_valuebox <- reactive({
   valueBox(
     value = get_valuebox(rename(cor$mo$tasks, delta = delta.out), "Outstanding", as_int,
                            zone = zone_group(), mo = current_month(), break_ = FALSE),
@@ -625,12 +663,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$unres_valuebox1 <- output$unres_valuebox2 <- renderValueBox({unres_valuebox()})
+valueBoxOutput("unres_valuebox1")
 ```
 
 ### TEAMS Tasks Over 45 Days [Unresolved] {.value-box}
 
 ```{r}
-renderValueBox({
+over45_valuebox <- reactive({
   valueBox(
     value = get_valuebox(
         mr()$mo$over45,
@@ -642,12 +682,14 @@ renderValueBox({
     color = BLUE
   )
 })
+output$over45_valuebox1 <- output$over45_valuebox2 <- renderValueBox({over45_valuebox()})
+valueBoxOutput("over45_valuebox1")
 ```
 
 ### TEAMS Tasks Mean Time to Resolve [Days] {.value-box}
 
 ```{r}
-renderValueBox({
+mttr_valuebox <- reactive({
   valueBox(
     value = get_valuebox(
         mr()$mo$mttr,
@@ -659,6 +701,8 @@ renderValueBox({
     color = BLUE
   )
 })
+output$mttr_valuebox1 <- output$mttr_valuebox2 <- renderValueBox({mttr_valuebox()})
+valueBoxOutput("mttr_valuebox1")
 ```
 
 
@@ -895,9 +939,9 @@ renderValueBox({
 ```
 
 
-
-```{r, eval = FALSE}
 ### {.value-box}
+
+```{r, eval = TRUE}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -920,7 +964,6 @@ Row
 ### Vehicle Detector Availability {.value-box}
 
 ```{r}
-#cor$qu$veh
 renderValueBox({
   valueBox(
       value = get_valuebox(cor$qu$du, "uptime", as_pct,
@@ -979,9 +1022,9 @@ renderValueBox({
 })
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 renderValueBox({
     valueBox(
         value = get_valuebox(
@@ -998,6 +1041,18 @@ renderValueBox({
 })
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1333,20 +1388,20 @@ fillCol(
         }),
         flex = c(2, 10)
     ),
-    fillRow(
-        div("RSU Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cu)
-        }),
-        flex = c(2, 10)
-    ),
+    # fillRow(
+    #     div("RSU Uptime", style = styl),
+    #     renderPlotly    ({
+    #         data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
+    #         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+    #         perf_plot_beta(
+    #             data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
+    #             format_func = as_pct,
+    #             hoverformat = ".1%",
+    #             fill_color_ = LIGHT_ORANGE,
+    #             goal_ = goal$cu)
+    #     }),
+    #     flex = c(2, 10)
+    # ),
     height = 800
 )
 ```
@@ -1380,82 +1435,37 @@ valueBoxOutput("aog_valuebox2")
 ### Progression Ratio {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$prd, "pr", as_2dec,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car", color = BLUE
-  )
-})
+valueBoxOutput("pr_valuebox2")
 ```
 
 ### Spillback Rate {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$qsd, "qs_freq", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car", color = BLUE
-  )
-})
+valueBoxOutput("qs_valuebox2")
 ```
 
 ### Peak Period Split Failures {.value-box}
 
 ```{r}
-renderValueBox({
-    valueBox(
-        value = get_valuebox(
-            mr()$mo$sfd,
-            "sf_freq",
-            as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            break_ = TRUE),
-      icon = "fa-car", color = BLUE
-  )
-})
+valueBoxOutput("sf_valuebox2")
 ```
 
 ### Off-Peak Split Failures {.value-box}
 
 ```{r}
-renderValueBox({
-    valueBox(
-        value = get_valuebox(
-            mr()$mo$sfo,
-            "sf_freq",
-            as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            break_ = TRUE),
-      icon = "fa-car", color = BLUE)
-})
+valueBoxOutput("sfo_valuebox2")
 ```
 
 ### Travel Time Index {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$tti, "tti", as_2dec,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-dashboard", color = BLUE
-  )
-})
+valueBoxOutput("tti_valuebox2")
 ```
 
 ### Planning Time Index {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(cor$mo$pti, "pti", as_2dec,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-dashboard", color = BLUE
-  )
-})
+valueBoxOutput("pti_valuebox2")
 ```
 
 Row {data-height=40}
@@ -1465,11 +1475,11 @@ Row {data-height=40}
 
 #div(style = "height: 50px",
 
-    selectInput("performance_metric", label = NULL,
-                choices = c("Throughput",  "Arrivals on Green", "Progression Ratio",
-                            "Queue Spillback Rate", "Peak Period Split Failures", "Off-Peak Split Failures",
-                            "Travel Time Metrics"),
-                selected = "Throughput")
+selectInput("performance_metric", label = NULL,
+            choices = c("Throughput",  "Arrivals on Green", "Progression Ratio",
+                        "Queue Spillback Rate", "Peak Period Split Failures", "Off-Peak Split Failures",
+                        "Travel Time Metrics"),
+            selected = "Throughput")
 #)
 ```
 
@@ -1600,37 +1610,19 @@ Row
 ### Traffic Volume [veh/day] {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-    value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("vpd_valuebox2")
 ```
 
 ### AM Peak Volume [veh/hr] {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("vphpa_valuebox2")
 ```
 
 ### PM Peak Volume [veh/hr] {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("vphpp_valuebox2")
 ```
 
 Row {data-height=40}
@@ -1702,71 +1694,40 @@ Row
 ### Vehicle Detector Availability {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$du %>%
-                          group_by(Corridor) %>%
-                          mutate(delta = uptime - lag(uptime)),
-                      "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car"
-  )
-})
+valueBoxOutput("du_valuebox2")
 ```
 
 ### CCTV Availability {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-    value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-    icon = "glyphicon-facetime-video"
-  )
-})
+valueBoxOutput("cctv_valuebox2")
 ```
 
 ### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-walking"
-  )
-})
+valueBoxOutput("pau_valuebox2")
 ```
-
-
-
 
 ### Communications Uptime {.value-box}
 
 ```{r, warning = FALSE}
-renderValueBox({
-  valueBox(
-      value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-broadcast-tower",
-  )
-})
+valueBoxOutput("cu_valuebox2")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r, warning = FALSE}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
+valueBoxOutput("ru_valuebox2")
+```
+
+```{r, eval = TRUE}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(
-          mr()$mo$ru,
-          "uptime",
-          as_pct,
-          zone = zone_group(),
-          mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-wifi"
-    )
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
 })
 ```
 
@@ -1777,7 +1738,7 @@ Row {data-height=40}
 
 selectInput("equipment_metric", label = NULL,
             choices = c("Detector Uptime",  "Pedestrian Pushbutton Uptime",
-                        "CCTV Uptime", "Communications Uptime", "RSU Uptime"),
+                        "CCTV Uptime", "Communications Uptime"),
             selected = "Detector Uptime")
 ```
 
@@ -2004,69 +1965,31 @@ Row
 ### TEAMS Tasks Reported This Month {.value-box}
 
 ```{r, eval = TRUE, warning = TRUE}
-renderValueBox({
-  valueBox(
-    value = get_valuebox(rename(cor$mo$tasks, delta = delta.rep), "Reported", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("tasks_valuebox2")
 ```
 
 ### TEAMS Tasks Resolved This Month {.value-box}
 
 ```{r, eval = TRUE, warning = TRUE}
-renderValueBox({
-  valueBox(
-    value = get_valuebox(rename(cor$mo$tasks, delta = delta.res), "Resolved", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("res_valuebox2")
 ```
 
 ### TEAMS Tasks Outstanding (Unresolved) {.value-box}
 
 ```{r, eval = TRUE, warning = TRUE}
-renderValueBox({
-  valueBox(
-    value = get_valuebox(rename(cor$mo$tasks, delta = delta.out), "Outstanding", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart"
-  )
-})
+valueBoxOutput("unres_valuebox2")
 ```
 
 ### TEAMS Tasks Over 45 Days [Unresolved] {.value-box}
 
 ```{r}
-renderValueBox({
-    valueBox(
-        value = get_valuebox(
-            mr()$mo$over45,
-            "over45", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            break_ = FALSE),
-        icon = "fa-area-chart"
-    )
-})
+valueBoxOutput("over45_valuebox2")
 ```
 
 ### TEAMS Tasks Mean Time to Resolve [Days] {.value-box}
 
 ```{r}
-renderValueBox({
-    valueBox(
-        value = get_valuebox(
-            mr()$mo$mttr,
-            "mttr", as_2dec,
-            zone = zone_group(),
-            mo = current_month(),
-            break_ = FALSE),
-        icon = "fa-area-chart"
-    )
-})
+valueBoxOutput("mttr_valuebox2")
 ```
 
 Row {.tabset .tabset-fade data-height=800}
