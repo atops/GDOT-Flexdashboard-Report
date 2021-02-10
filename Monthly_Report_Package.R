@@ -2123,7 +2123,7 @@ tryCatch({
         "mttr" = readRDS("sig_tasks_by_date.rds") %>%
             transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
         "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
-            select(-c(Name, ones)),            
+            select(-c(Name, ones))
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
