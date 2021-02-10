@@ -401,8 +401,17 @@ if (TRUE) {
  
     cmd <- get_summary_data(cor)
     csd <- get_summary_data(sub)
-    ssd <- get_summary_data(sig)
+    ssd <- get_summary_data(sig) %>%
+        left_join(
+            select(cam_config, SignalID, CameraID), 
+            by = c("Corridor" = "CameraID")) %>% 
+        mutate(Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
+        select(-SignalID) %>% 
+        group_by(Corridor, Zone_Group, Month) %>% 
+        summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
     
+    ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
+
     corridor_groupings <- s3read_using(
         read_excel, 
         bucket = conf$bucket, 
@@ -545,8 +554,6 @@ get_cor_health_metrics_plot_df <- function(df) {
         arrange(Zone_Group, Corridor, Month)
 }
 
-# TODO: I've added SignalID to cam_config. For health metrics, need to join cctv to signalid
-# for signal-level health metrics
 cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor) %>% filter(!grepl("CAM", Corridor))
 sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub) %>% filter(!grepl("CAM", Corridor))
 sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig) %>% filter(!grepl("CAM", Corridor))
