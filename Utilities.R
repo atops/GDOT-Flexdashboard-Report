@@ -111,8 +111,7 @@ split_wrapper <- function(FUN) {
         cat('.', sep='\n')
         
         lapply(file_names, FUN = file.remove)
-        #file.remove(temp_dir)
-        
+
         df
     }
 }
@@ -335,10 +334,11 @@ get_Tuesdays <- function(df) {
 
 
 
-get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0) {
+get_names_in_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
 
     cat(paste(strrep(" ", indent)))
     print(name)
+
     if (!is.null(names(df))) {
         if (is.null(names(df[[1]]))) {
             print(head(df, 3))
@@ -348,8 +348,11 @@ get_names_in_nested_list <- function(df, name=deparse(substitute(df)), indent=0)
             } else {
                 dfp <- df
             }
-            readr::write_csv(dfp, paste0(name, ".csv"))
-        }
+            
+	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
+	    #readr::write_csv(dfp, paste0(name, ".csv"))
+        
+	}
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
                 get_names_in_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
@@ -494,6 +497,6 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
-    add_partition(conf_athena, table_name, date_)
+    add_partition(conf_athena, table_name, plot_date)
 }
 

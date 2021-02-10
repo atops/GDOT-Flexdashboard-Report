@@ -6,7 +6,7 @@ source("Monthly_Report_Package_init.R")
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 24]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 26]"))
 
 tryCatch({
     cb <- function(x) {
@@ -97,7 +97,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 24]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 26]"))
 
 tryCatch({
 
@@ -244,7 +244,7 @@ tryCatch({
 
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [3 of 24]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 26]"))
 
 tryCatch({
     # -- Alerts: detector downtime --
@@ -354,7 +354,7 @@ tryCatch({
     # -- Alerts: CCTV downtime --
     
     bad_cam <- lapply(
-        seq(floor_date(today() - months(9), "month"), today() - days(1), by = "1 month"),
+        seq(floor_date(today() - months(6), "month"), today() - days(1), by = "1 month"),
         function(date_) {
             key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
             #print(key)
@@ -405,7 +405,7 @@ tryCatch({
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 24]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 26]"))
 
 tryCatch({
     
@@ -454,7 +454,7 @@ tryCatch({
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 24]"))
+print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 26]"))
 
 tryCatch({
     
@@ -494,7 +494,7 @@ tryCatch({
 
 # GET PEDESTRIAN DELAY ###################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 24]"))
+print(glue("{Sys.time()} Pedestrian Delay [6 of 26]"))
 
 tryCatch({
 
@@ -563,7 +563,7 @@ tryCatch({
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [7 of 24]"))
+print(glue("{Sys.time()} Communication Uptime [7 of 26]"))
 
 tryCatch({
     cu <- s3_read_parquet_parallel(
@@ -633,7 +633,7 @@ tryCatch({
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [8 of 24]"))
+print(glue("{Sys.time()} Daily Volumes [8 of 26]"))
 
 tryCatch({
     
@@ -694,7 +694,7 @@ tryCatch({
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [9 of 24]"))
+print(glue("{Sys.time()} Hourly Volumes [9 of 26]"))
 
 tryCatch({
     
@@ -777,7 +777,7 @@ tryCatch({
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [10 of 24]"))
+print(glue("{Sys.time()} Daily Throughput [10 of 26]"))
 
 tryCatch({
     # throughput <- f("tp_", month_abbrs)
@@ -833,7 +833,7 @@ tryCatch({
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [11 of 24]"))
+print(glue("{Sys.time()} Daily AOG [11 of 26]"))
 
 tryCatch({
     aog <- s3_read_parquet_parallel(
@@ -887,7 +887,7 @@ tryCatch({
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [12 of 24]"))
+print(glue("{Sys.time()} Hourly AOG [12 of 26]"))
 
 tryCatch({
     aog_by_hr <- get_aog_by_hr(aog)
@@ -920,7 +920,7 @@ tryCatch({
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [13 of 24]"))
+print(glue("{Sys.time()} Daily Progression Ratio [13 of 26]"))
 
 tryCatch({
     #daily_pr <- get_daily_pr(aog)
@@ -959,7 +959,7 @@ tryCatch({
 
 # HOURLY PROGESSION RATIO ####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [14 of 24]"))
+print(glue("{Sys.time()} Hourly Progression Ratio [14 of 26]"))
 
 tryCatch({
     pr_by_hr <- get_pr_by_hr(aog)
@@ -994,7 +994,7 @@ tryCatch({
 # DAILY SPLIT FAILURES #####################################################
 
 tryCatch({
-    print(glue("{Sys.time()} Daily Split Failures [15 of 24]"))
+    print(glue("{Sys.time()} Daily Split Failures [15 of 26]"))
     
     sf <- s3_read_parquet_parallel(
         bucket = conf$bucket,
@@ -1081,7 +1081,7 @@ tryCatch({
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [16 of 24]"))
+print(glue("{Sys.time()} Hourly Split Failures [16 of 26]"))
 
 tryCatch({
     sfh <- get_sf_by_hr(sf)
@@ -1112,7 +1112,7 @@ tryCatch({
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [17 of 24]"))
+print(glue("{Sys.time()} Daily Queue Spillback [17 of 26]"))
 
 tryCatch({
     
@@ -1163,7 +1163,7 @@ tryCatch({
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [18 of 24]"))
+print(glue("{Sys.time()} Hourly Queue Spillback [18 of 26]"))
 
 tryCatch({
     qsh <- get_qs_by_hr(qs)
@@ -1193,7 +1193,7 @@ tryCatch({
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [19 of 24]"))
+print(glue("{Sys.time()} Travel Time Indexes [19 of 26]"))
 
 tryCatch({
     
@@ -1330,25 +1330,34 @@ tryCatch({
 
 # CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} CCTV Uptimes [20 of 24]"))
+print(glue("{Sys.time()} CCTV Uptimes [20 of 26]"))
 
 tryCatch({
     
-    daily_cctv_uptime_511 <- get_daily_cctv_uptime("cctv_uptime", cam_config, report_start_date)
-    daily_cctv_uptime_encoders <- get_daily_cctv_uptime("cctv_uptime_encoders", cam_config, report_start_date)
+    daily_cctv_uptime_511 <- get_daily_cctv_uptime(
+        "cctv_uptime", cam_config, wk_calcs_start_date)
+    daily_cctv_uptime_encoders <- get_daily_cctv_uptime(
+        "cctv_uptime_encoders", cam_config, wk_calcs_start_date)
     
     # up:
     #   2-on 511 (dark brown)
     #   1-working at encoder but not on 511 (light brown)
     #   0-not working on either (gray)
-    daily_cctv_uptime <- full_join(daily_cctv_uptime_511,
-                                   daily_cctv_uptime_encoders,
-                                   by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", "CameraID", "Description", "Date"),
-                                   suffix = c("_511", "_enc")
+    daily_cctv_uptime <- full_join(
+        daily_cctv_uptime_511,
+        daily_cctv_uptime_encoders,
+        by = c("Zone_Group", "Zone", "Corridor", "Subcorridor", 
+               "CameraID", "Description", "Date"),
+        suffix = c("_511", "_enc")
+        ) %>%
+        complete(
+            nesting(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description), Date,
         ) %>%
         replace_na(list(up_enc = 0, num_enc = 0, uptime_enc = 0,
                         up_511 = 0, num_511 = 0, uptime_511 = 0)) %>%
-        select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, Date, up_511, up_enc) %>%
+        select(
+            Zone_Group, Zone, Corridor, Subcorridor, 
+            CameraID, Description, Date, up_511, up_enc) %>% 
         mutate(uptime = up_511, 
                num = 1,
                up = pmax(up_511 * 2, up_enc),
@@ -1372,8 +1381,12 @@ tryCatch({
         ) %>%
         filter(suptime < 0.2)
     
+    # Filter out bad days, i.e., those with systemic issues
+    daily_cctv_uptime <- daily_cctv_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+    
     weekly_cctv_uptime <- get_weekly_avg_by_day_cctv(daily_cctv_uptime)
-
+    
     monthly_cctv_uptime <- daily_cctv_uptime %>%
         group_by(
             Zone_Group, Zone, Corridor, Subcorridor, CameraID, Description, 
@@ -1385,10 +1398,10 @@ tryCatch({
     
     cor_daily_cctv_uptime <- get_cor_weekly_avg_by_day(
         daily_cctv_uptime, all_corridors, "uptime", "num")
-
+    
     cor_weekly_cctv_uptime <- get_cor_weekly_avg_by_day(
         weekly_cctv_uptime, all_corridors, "uptime", "num")
-
+    
     cor_monthly_cctv_uptime <- get_cor_monthly_avg_by_day(
         monthly_cctv_uptime, all_corridors, "uptime", "num")
     
@@ -1414,18 +1427,17 @@ tryCatch({
                Corridor = Subcorridor) %>%
         get_cor_monthly_avg_by_day(subcorridors, "uptime", "num")
     
+    addtoRDS(daily_cctv_uptime, "daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(daily_cctv_uptime, "daily_cctv_uptime.rds")
-    saveRDS(weekly_cctv_uptime, "weekly_cctv_uptime.rds")
-    saveRDS(monthly_cctv_uptime, "monthly_cctv_uptime.rds")
+    addtoRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(cor_daily_cctv_uptime, "cor_daily_cctv_uptime.rds")
-    saveRDS(cor_weekly_cctv_uptime, "cor_weekly_cctv_uptime.rds")
-    saveRDS(cor_monthly_cctv_uptime, "cor_monthly_cctv_uptime.rds")
-    
-    saveRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds")
-    saveRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds")
-    saveRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds")
+    addtoRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -1436,7 +1448,19 @@ tryCatch({
 
 tryCatch({
     
-    daily_rsu_uptime <- get_rsu_uptime(report_start_date)
+    daily_rsu_uptime <- get_rsu_uptime(wk_calcs_start_date)
+    
+    # Find the days where uptime across the board is very low (close to 0)
+    #  This is symptomatic of a problem with the acquisition rather than the rsus themselves
+    bad_days <- daily_rsu_uptime %>% 
+        group_by(Date) %>% 
+        summarize(suptime = weighted.mean(uptime, total, na.rm = TRUE), .groups = "drop") %>%
+        filter(suptime < 0.2)
+    
+    # Filter out bad days, i.e., those with systemic issues
+    daily_rsu_uptime <- daily_rsu_uptime %>% 
+        filter(!Date %in% bad_days$Date)
+
     cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
         daily_rsu_uptime, corridors, "uptime")
     sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
@@ -1457,17 +1481,17 @@ tryCatch({
         monthly_rsu_uptime, subcorridors, "uptime")
     
     
-    saveRDS(daily_rsu_uptime, "daily_rsu_uptime.rds")
-    saveRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds")
-    saveRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds")
+    addtoRDS(daily_rsu_uptime, "daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds")
-    saveRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds")
-    saveRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds")
+    addtoRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
-    saveRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds")
-    saveRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds")
-    saveRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds")
+    addtoRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
     
     
 }, error = function(e) {
@@ -1485,7 +1509,7 @@ tryCatch({
 
 # ACTIVITIES ##############################
 
-print(glue("{Sys.time()} TEAMS [21 of 24]"))
+print(glue("{Sys.time()} TEAMS [21 of 26]"))
 
 tryCatch({
     
@@ -1548,7 +1572,9 @@ tryCatch({
 
 # USER DELAY COSTS   ##############################
 
-print(glue("{Sys.time()} User Delay Costs [21.1 of 24]"))
+
+print(glue("{Sys.time()} User Delay Costs [22 of 26]"))
+
 
 tryCatch({
     
@@ -1654,9 +1680,55 @@ aws.s3::put_object(
     multipart = TRUE
 )
 
+# Flash Events ###############################################################
+
+print(glue("{Sys.time()} Flash Events [23 of 26]"))
+
+tryCatch({
+    
+    fe <- s3_read_parquet_parallel(
+        bucket = conf$bucket, 
+        table_name = "flash_events",  # s3://gdot-spm/mark/flash_events/date=yyyy-mm-dd/filename.parquet
+        start_date = wk_calcs_start_date, 
+        end_date = report_end_date, 
+        signals_list = signals_list
+    ) %>%
+        mutate(
+            SignalID = factor(SignalID),
+            Date = date(Date)
+        )    
+    
+    # No need for Weekly
+    
+    # Monthly flash events for bar charts and % change ---------------------------------
+    monthly_flash <- get_monthly_flashevent(fe)
+    
+    # Group into corridors
+    cor_monthly_flash %<-% get_cor_monthly_flash(monthly_flash, corridors)
+    # Subcorridors
+    sub_monthly_flash %<-% 
+        (get_cor_monthly_flash(monthly_flash, subcorridors) %>%
+             filter(!is.na(Corridor)))
+    
+    # Monthly % change from previous month by corridor ----------------------------
+    
+    addtoRDS(monthly_flash, "monthly_flash.rds", "flash", report_start_date, calcs_start_date)
+    addtoRDS(cor_monthly_flash, "cor_monthly_flash.rds", "flash", report_start_date, calcs_start_date)
+    addtoRDS(sub_monthly_flash, "sub_monthly_flash.rds", "flash", report_start_date, calcs_start_date)
+    
+    rm(fe)
+    rm(monthly_flash)
+    rm(cor_monthly_flash)
+    rm(sub_monthly_flash)
+    # gc()
+}, error = function(e) {
+    print("ENCOUNTERED AN ERROR:")
+    print(e)
+})
+
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [22 of 24]"))
+print(glue("{Sys.time()} Package for Monthly Report [24 of 26]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
@@ -1701,52 +1773,6 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
         br %>% arrange(Zone_Group, Corridor, Date)
     }
 }
-
-# Flash Events ###############################################################
-
-print(glue("{Sys.time()} Flash Events [23 of 24]"))
-
-tryCatch({
-    
-    fe <- s3_read_parquet_parallel(
-        bucket = conf$bucket, 
-        table_name = "flash_events",  # s3://gdot-spm/mark/flash_events/date=yyyy-mm-dd/filename.parquet
-        start_date = wk_calcs_start_date, 
-        end_date = report_end_date, 
-        signals_list = signals_list
-    ) %>%
-        mutate(
-            SignalID = factor(SignalID),
-            Date = date(Date)
-        )    
-    
-    # No need for Weekly
-    
-    # Monthly flash events for bar charts and % change ---------------------------------
-    monthly_flash <- get_monthly_flashevent(fe)
-    
-    # Group into corridors
-    cor_monthly_flash %<-% get_cor_monthly_flash(monthly_flash, corridors)
-    # Subcorridors
-    sub_monthly_flash %<-% 
-        (get_cor_monthly_flash(monthly_flash, subcorridors) %>%
-             filter(!is.na(Corridor)))
-    
-    # Monthly % change from previous month by corridor ----------------------------
-    
-    addtoRDS(monthly_flash, "monthly_flash.rds", "flash", report_start_date, calcs_start_date)
-    addtoRDS(cor_monthly_flash, "cor_monthly_flash.rds", "flash", report_start_date, calcs_start_date)
-    addtoRDS(sub_monthly_flash, "sub_monthly_flash.rds", "flash", report_start_date, calcs_start_date)
-    
-    rm(fe)
-    rm(monthly_flash)
-    rm(cor_monthly_flash)
-    rm(sub_monthly_flash)
-    # gc()
-}, error = function(e) {
-    print("ENCOUNTERED AN ERROR:")
-    print(e)
-})
 
 
 tryCatch({
@@ -1830,7 +1856,8 @@ tryCatch({
         "mttr" = readRDS("cor_tasks_by_date.rds") %>%
             transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
         "hourly_udc" = readRDS("hourly_udc.rds"),
-        "udc_trend_table" = readRDS("udc_trend_table_list.rds")
+        "udc_trend_table" = readRDS("udc_trend_table_list.rds"),
+        "flash" = readRDS("cor_monthly_flash.rds")
     )
     cor$qu <- list(
         "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
@@ -1956,7 +1983,8 @@ tryCatch({
         "ru" = readRDS("sub_monthly_rsu_uptime.rds") %>% 
             complete(
                 nesting(Corridor, Zone_Group), 
-                Month = dates)
+                Month = dates),
+        "flash" = readRDS("sub_monthly_flash.rds")
     )
     sub$qu <- list(
         "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
@@ -2093,7 +2121,9 @@ tryCatch({
         "over45" = readRDS("sig_tasks_by_date.rds") %>%
             transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
         "mttr" = readRDS("sig_tasks_by_date.rds") %>%
-            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr)
+            transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
+        "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
+            select(-c(Name, ones)),            
     )
 }, error = function(e) {
     print("ENCOUNTERED AN ERROR:")
@@ -2164,7 +2194,7 @@ for (tab in c("du", "cu", "ru", "pau")) {
 
 
 
-print(glue("{Sys.time()} Upload to AWS [24 of 24]"))
+print(glue("{Sys.time()} Upload to AWS [25 of 26]"))
 
 
 
@@ -2191,6 +2221,8 @@ aws.s3::put_object(
     multipart = TRUE
 )
 
+
+print(glue("{Sys.time()} Write to Database [26 of 26]"))
 
 source("write_sigops_to_db.R")
 

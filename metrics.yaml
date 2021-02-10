@@ -88,7 +88,7 @@ queue_spillback_rate:
     data_type: percent
     highligh_color: RED2
     goal: cycles
-    hourly_table: mqsh
+    hourly_table: qsh
     has_weekly: True
 
 

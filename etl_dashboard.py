@@ -21,13 +21,13 @@ import yaml
 #import feather
 import io
 import re
+import psutil
 from parquet_lib import *
 
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
-
 
 '''
     df:
@@ -175,12 +175,13 @@ def main(start_date, end_date):
             det_config = pd.DataFrame()
         
         if len(det_config) > 0:    
-            ncores = os.cpu_count()
+            #ncores = os.cpu_count()
+            nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=ncores * 4) as pool: #24
+            with Pool(processes=nthreads) as pool:
                 result = pool.starmap_async(
-                    etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(ncores-1)*4)
+                    etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(nthreads-1)*4)
                 pool.close()
                 pool.join()
             #-----------------------------------------------------------------------------------------

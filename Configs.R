@@ -86,6 +86,7 @@ get_cam_config <- function(object, bucket, corridors) {
     cams1 <- cams %>% filter(is.na(Zone.y)) %>% 
         transmute(
             CameraID,
+            SignalID,
             Location,
             Zone_Group = Zone_Group.x,
             Zone = Zone.x,
@@ -96,6 +97,7 @@ get_cam_config <- function(object, bucket, corridors) {
     cams2 <- cams %>% filter(!is.na(Zone.y)) %>% 
         transmute(
             CameraID,
+            SignalID,
             Location,
             Zone_Group = Zone_Group.y,
             Zone = Zone.y,
@@ -107,6 +109,7 @@ get_cam_config <- function(object, bucket, corridors) {
         mutate(
             Description = paste(CameraID, Location, sep = ": "),
             CameraID = factor(CameraID),
+            SignalID = factor(SignalID),
             Zone_Group = factor(Zone_Group),
             Zone = factor(Zone),
             Corridor = factor(Corridor),

@@ -48,8 +48,12 @@ usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
 # Store in "R-myapp" directory inside of user-level cache directory
-disk_cache <- cachem::cache_disk("/data/main", max_size = 5 * 1024^3, evict = "lru")
 
+if (Sys.info()["sysname"] == "Windows") {
+    disk_cache <- cache_filesystem('cache')
+} else if (Sys.info()["sysname"] == "Linux") {
+    disk_cache <- cachem::cache_disk("/data/main", max_size = 5 * 1024^3, evict = "lru")
+}
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
@@ -178,7 +182,10 @@ conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 source("Database_Functions.R")
 
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
-aurora_connection_pool <- get_aurora_connection_pool()
+
+if (Sys.info()["sysname"] == "Linux") {
+    aurora_connection_pool <- get_aurora_connection_pool()
+}
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
@@ -292,7 +299,7 @@ filter_mr_data <- function(df, zone_group_) {
         
     } else {
         df %>% 
-            filter(Zone_Group == zone_group_)
+            filter(as.character(Zone_Group) == zone_group_)
     }
 }
 
@@ -1318,7 +1325,6 @@ get_uptime_plot <- function(daily_df,
                                      "<br>Uptime: <b>{var_fmt(var)}</b>")),
                                  hovertemplate = "%{customdata}",
                                  hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-                
                 layout(
                     barmode = "overlay",
                     xaxis = list(title = x_bar_title, 
@@ -1329,15 +1335,19 @@ get_uptime_plot <- function(daily_df,
                     font = list(size = 11),
                     margin = list(pad = 4,
                                   l = 100,
-                                  r = 50),
-                    shapes=list(type = 'line', 
-                                x0 = goal/0.2, 
-                                x1 = goal/0.2, 
-                                y0 = min(levels(monthly_df_$Corridor)), 
-                                y1 = max(levels(monthly_df_$Corridor)), 
-                                line = list(dash = 'dot', width = 1, color = RED))
-                )
-            
+                                  r = 50)
+                    )
+            if (!is.null(goal)) {
+                bar_chart <- bar_chart %>% 
+                    add_lines(x = goal,
+                              y = ~Corridor,
+                              mode = "lines",
+                              marker = NULL,
+                              line = list(color = LIGHT_RED),
+                              name = "Goal (95%)",
+                              showlegend = FALSE)
+                }
+
             # Daily Heatmap
             daily_heatmap <- uptime_heatmap(daily_df, 
                                             var,
@@ -2180,6 +2190,10 @@ get_zone_group_text_table <- function(month, zone_group) {
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_maintenance_health_table <- function(data_) {
     
+    all_cols <- names(data_)
+    rounded_cols <- c(all_cols[endsWith(all_cols, "Score")], "Flash Events")
+    percent_cols <- c("Percent Health", "Missing Data", all_cols[endsWith(all_cols, "Uptime")])
+    
     datatable(data_,
               filter = "top",
               rownames = FALSE,
@@ -2188,18 +2202,12 @@ get_monthly_maintenance_health_table <- function(data_) {
                   scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
-                  columnDefs = list(
-                      list(
-                          className = "dt-left",
-                          targets = c(0, 1, 2, 3, 4)
-                      )
-                  ),
                   dom = "t",
                   selection = "none"
               )
     ) %>%
-        formatPercentage(c(6:7, 14:18)) %>%
-        formatRound(8:13, 19, digits = 0) %>%
+        formatPercentage(percent_cols) %>%
+        formatRound(rounded_cols, digits = 0) %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2223,6 +2231,12 @@ get_monthly_maintenance_health_table <- function(data_) {
 # separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
 get_monthly_operations_health_table <- function(data_) {
 
+    all_cols <- names(data_)
+    rounded0_cols <- all_cols[endsWith(all_cols, "Score")]
+    rounded1_cols <- "Ped Delay"
+    rounded2_cols <- c("Platoon Ratio", "Travel Time Index", "Buffer Index")
+    percent_cols <- c("Percent Health", "Missing Data", "Split Failures")
+    
     datatable(data_,
               filter = "top",
               rownames = FALSE,
@@ -2231,20 +2245,14 @@ get_monthly_operations_health_table <- function(data_) {
                   scrollY = 550,
                   scrollX = TRUE,
                   pageLength = 1000,
-                  columnDefs = list(
-                      list(
-                          className = "dt-left",
-                          targets = c(0, 1, 2, 3, 4)
-                      )
-                  ),
                   dom = "t",
                   selection = "none"
               )
     ) %>%
-        formatPercentage(c(6:7, 15)) %>%
-        formatRound(8:12, digits = 0) %>%
-        formatRound(14, digits = 1) %>%
-        formatRound(c(13, 16, 17), digits = 2) %>%
+        formatPercentage(percent_cols) %>%
+        formatRound(rounded0_cols, digits = 0) %>%
+        formatRound(rounded1_cols, digits = 1) %>%
+        formatRound(rounded2_cols, digits = 2) %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2270,7 +2278,7 @@ get_health_data_filtered <- function(data_, zone_group_, corridor_) {
     
     data_ <- mutate(data_, Zone_Group = Zone)
 
-    health_data <- if (corridor_ == "All Corridors") {
+    if (corridor_ == "All Corridors") {
         # filter based on Zone with accommodations for All RTOP/RTOP1/RTOP2
         filter_mr_data(data_, zone_group_)
     } else {

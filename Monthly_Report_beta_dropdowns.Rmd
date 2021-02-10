@@ -92,10 +92,14 @@ observe({
             c("All Corridors",
               as.character(unique(filter(
                   corridors(), Zone_Group == input$zone_group)$Corridor)))
+              # The following is faster
+              # as.character(unique(corridors()[corridors()$Zone_Group == input$zone_group,]$Corridor))
         } else {
             c("All Corridors",
               as.character(unique(filter(
                   corridors(), Zone == input$zone_group)$Corridor)))
+              # The following is faster
+              # as.character(unique(corridors()[corridors()$Zone == input$zone_group,]$Corridor))
         }
     }
     #print(choices_)
@@ -195,7 +199,7 @@ ntraces <- reactive({
 })
 
 filtered_signalids <- reactive({
-    x <- filtered_corridors() %>%
+    x <- corridors() %>%  # filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
@@ -570,9 +574,9 @@ output$cu_valuebox1 <- output$cu_valuebox2 <- renderValueBox({cu_valuebox()})
 valueBoxOutput("cu_valuebox1")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 ru_valuebox <- reactive({
     valueBox(
         value = get_valuebox(
@@ -590,6 +594,18 @@ output$ru_valuebox1 <- output$ru_valuebox2 <- renderValueBox({ru_valuebox()})
 valueBoxOutput("ru_valuebox1")
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1002,9 +1018,9 @@ renderValueBox({
 })
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 renderValueBox({
     valueBox(
         value = get_valuebox(
@@ -1021,6 +1037,18 @@ renderValueBox({
 })
 ```
 
+
+### {.value-box}
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
+```
 
 Row {data-height = 50}
 -------------------------------------
@@ -1356,20 +1384,20 @@ fillCol(
         }),
         flex = c(2, 10)
     ),
-    fillRow(
-        div("RSU Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cu)
-        }),
-        flex = c(2, 10)
-    ),
+    # fillRow(
+    #     div("RSU Uptime", style = styl),
+    #     renderPlotly    ({
+    #         data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
+    #         shiny::validate(need(nrow(data.set) > 0, "No Data"))
+    #         perf_plot_beta(
+    #             data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
+    #             format_func = as_pct,
+    #             hoverformat = ".1%",
+    #             fill_color_ = LIGHT_ORANGE,
+    #             goal_ = goal$cu)
+    #     }),
+    #     flex = c(2, 10)
+    # ),
     height = 800
 )
 ```
@@ -1671,7 +1699,7 @@ valueBoxOutput("du_valuebox2")
 valueBoxOutput("cctv_valuebox2")
 ```
 
-### Pedestrian Pushbotton Availability {.value-box}
+### Pedestrian Pushbutton Availability {.value-box}
 
 ```{r, warning = FALSE}
 valueBoxOutput("pau_valuebox2")
@@ -1683,10 +1711,20 @@ valueBoxOutput("pau_valuebox2")
 valueBoxOutput("cu_valuebox2")
 ```
 
-### Roadside Unit (RSU) Uptime {.value-box}
 
-```{r, warning = FALSE}
+```{r, eval = FALSE}
+### Roadside Unit (RSU) Uptime {.value-box}
 valueBoxOutput("ru_valuebox2")
+```
+
+```{r, eval = TRUE}
+renderValueBox({
+  valueBox(
+    value = NULL,
+    icon = NULL,
+    color = "gray80"
+  )
+})
 ```
 
 Row {data-height=40}
@@ -1696,7 +1734,7 @@ Row {data-height=40}
 
 selectInput("equipment_metric", label = NULL,
             choices = c("Detector Uptime",  "Pedestrian Pushbutton Uptime",
-                        "CCTV Uptime", "Communications Uptime", "RSU Uptime"),
+                        "CCTV Uptime", "Communications Uptime"),
             selected = "Detector Uptime")
 ```
 
@@ -2763,23 +2801,35 @@ checkboxGroupInput(
     inline = TRUE
 )
 
-maintenance_cols <- list(
-    "all" = c(0:18),
-    "default" = c(0:6), 
-    "scores" = c(7:12), 
-    "metrics" = c(13:18))
+maintenance_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:18),
+                "default" = c(0:6), 
+                "scores" = c(7:12), 
+                "metrics" = c(13:18))
+        } else {
+            list(
+                "all" = c(0:19),
+                "default" = c(0:7), 
+                "scores" = c(8:13), 
+                "metrics" = c(14:19))
+        }
+    }
+})
 
 
 maint_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
-        maintenance_cols$default, 
-        maintenance_cols[input$maintenance_cols_checked]
+        maintenance_cols()$default, 
+        maintenance_cols()[input$maintenance_cols_checked]
         ) %>% 
         unlist() %>% unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
-    setdiff(maintenance_cols$all, maintenance_cols_to_show)
+    setdiff(maintenance_cols()$all, maintenance_cols_to_show)
 })
 
 
@@ -2796,10 +2846,16 @@ maint_health_data <- reactive({
             filter(Month == current_month()) %>%
             ungroup() %>%
             select(-Month, -Zone_Group) %>%
+            
             mutate(
-                Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-                Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-            )
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor), 
+                    "ALL", 
+                    as.character(Subcorridor)),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone), 
+                    "ALL", 
+                    as.character(Corridor)))
     } else {
         data.frame()
     }
@@ -2897,23 +2953,35 @@ checkboxGroupInput(
     inline = TRUE
 )
 
-operations_cols <- list(
-    "all" = c(0:16),
-    "default" = c(0:6), 
-    "scores" = c(7:11), 
-    "metrics" = c(12:16))
+operations_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6), 
+                "scores" = c(7:11), 
+                "metrics" = c(12:16))
+        } else {
+            list(
+                "all" = c(0:17),
+                "default" = c(0:7), 
+                "scores" = c(8:12), 
+                "metrics" = c(13:17))
+        }
+    }
+})
 
 
 ops_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
-        operations_cols$default, 
-        operations_cols[input$operations_cols_checked]
+        operations_cols()$default, 
+        operations_cols()[input$operations_cols_checked]
         ) %>% 
         unlist() %>% unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
-    setdiff(operations_cols$all, operations_cols_to_show)
+    setdiff(operations_cols()$all, operations_cols_to_show)
 })
 
 
@@ -2930,10 +2998,16 @@ ops_health_data <- reactive({
             filter(Month == current_month()) %>%
             ungroup() %>%
             select(-Month, -Zone_Group) %>%
+            
             mutate(
-                Subcorridor = ifelse(Subcorridor == Corridor, "ALL", Subcorridor),
-                Corridor = ifelse(Corridor == Zone, "ALL", Corridor)
-            )
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor), 
+                    "ALL", 
+                    as.character(Subcorridor)),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone), 
+                    "ALL", 
+                    as.character(Corridor)))
     } else {
         data.frame()
     }
