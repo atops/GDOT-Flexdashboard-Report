@@ -141,12 +141,7 @@ get_summary_data <- function(df, current_month = NULL) {
 get_health_all <- function(df) {
     df <- df %>%
         select(
-            Zone_Group,
-            Zone,
-            Corridor,
-            Subcorridor,
-            Month,
-            Context,
+            Zone_Group, Zone, Corridor, Subcorridor, Month, Context,
             
             # maintenance
             Detection_Uptime = du,
@@ -402,6 +397,7 @@ if (TRUE) {
     cmd <- get_summary_data(cor)
     csd <- get_summary_data(sub)
     ssd <- get_summary_data(sig) %>%
+        # Give each CameraID its associated SignalID and combine with other metrics on SignalID
         left_join(
             select(cam_config, SignalID, CameraID), 
             by = c("Corridor" = "CameraID")) %>% 
@@ -486,19 +482,21 @@ if (TRUE) {
     maintenance_sub <- get_health_maintenance(health_all_sub)
     maintenance_sig <- get_health_maintenance(health_all_sig)
     
-    maintenance_cor <- get_health_maintenance(health_all_cor)
-    # maintenance_cor <- maintenance_sub %>% 
-    #     filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
-    #     select(-Subcorridor)
+    # maintenance_cor <- get_health_maintenance(health_all_cor)
+    maintenance_cor <- maintenance_sub %>% 
+        select(-c(Subcorridor, Context)) %>% 
+        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
     
     # compile operations % health
     operations_sub <- get_health_operations(health_all_sub)
     operations_sig <- get_health_operations(health_all_sig)
     
-    operations_cor <- get_health_operations(health_all_cor)
-    # operations_cor <- operations_sub %>% 
-    #     filter(as.character(Corridor) == as.character(Subcorridor)) %>% 
-    #     select(-Subcorridor)
+    # operations_cor <- get_health_operations(health_all_cor)
+    operations_cor <- operations_sub %>% 
+        select(-c(Subcorridor, Context)) %>% 
+        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
     
     ## compile safety % health
     # safety_sub <- get_health_safety(health_all_sub)
@@ -554,9 +552,9 @@ get_cor_health_metrics_plot_df <- function(df) {
         arrange(Zone_Group, Corridor, Month)
 }
 
-cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor) %>% filter(!grepl("CAM", Corridor))
-sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub) %>% filter(!grepl("CAM", Corridor))
-sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig) %>% filter(!grepl("CAM", Corridor))
+cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor)
+sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub)
+sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig)
 
 cor$mo$ops_plot <- get_cor_health_metrics_plot_df(operations_cor)
 sub$mo$ops_plot <- get_health_metrics_plot_df(operations_sub)
