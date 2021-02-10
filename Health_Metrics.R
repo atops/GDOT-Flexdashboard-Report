@@ -89,6 +89,7 @@ get_summary_data <- function(df, current_month = NULL) {
         rename(df$mo$qsd, qs.delta = delta),
         rename(df$mo$sfd, sf.delta = delta),
         rename(df$mo$pd, pd.delta = delta) %>% relocate(pd.delta, .after = pd),
+        rename(df$mo$flash, flash_events = flash, flash.delta = delta),
         if (nrow(df$mo$tti) > 0) {
             rename(df$mo$tti, tti.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
@@ -394,7 +395,6 @@ if (FALSE) { # TRUE
 
 if (TRUE) {
  
-    # cmd <- get_summary_data(cor)
     csd <- get_summary_data(sub)
     ssd <- get_summary_data(sig) %>%
         # Give each CameraID its associated SignalID and combine with other metrics on SignalID
@@ -417,29 +417,6 @@ if (TRUE) {
         range = cell_cols("A:F")
         ) %>%
         mutate(Context = as.integer(Context))
-    
-    # # workaround to bring in flash events
-    # flash_events <- read.csv("flash_events.csv")
-    # # aggregate flash events by signal and month
-    # flash_events <- flash_events %>%
-    #     mutate(
-    #         SignalID = as.factor(SignalID),
-    #         TimeStamp = parse_date_time(TimeStamp, "YmdHMS"),
-    #         Month = as.Date(format(TimeStamp, '%Y-%m-01'))
-    #         ) %>%
-    #     group_by(SignalID, Month) %>%
-    #     summarise(Flash_Events = n())
-    # # aggregate flash events by subcorridor and month
-    # flash_events_sub <- flash_events %>%
-    #     inner_join(corridors) %>%
-    #     group_by(Subcorridor, Month) %>%
-    #     summarise(Flash_Events = n())
-    
-    
-    # ajt - input data frame for corridor health metrics
-    # cor_health_data <- cmd %>%
-    #     inner_join(corridor_groupings) %>%
-    #     mutate(Flash_Events = NA)
     
     # input data frame for subcorridor health metrics
     sub_health_data <- csd %>%
@@ -464,7 +441,6 @@ if (TRUE) {
     
     ## all data for all 3 health metrics - think this should be run in the background and cached?
     # compile all data needed for health metrics calcs - does not calculate % health yet
-    # health_all_cor <- get_health_all(cor_health_data)
     health_all_sub <- get_health_all(sub_health_data)
     health_all_sig <- get_health_all(sig_health_data)
     
