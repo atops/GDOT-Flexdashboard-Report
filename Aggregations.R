@@ -711,6 +711,28 @@ get_monthly_vpd <- function(vpd) {
     get_monthly_avg_by_day(vpd, "vpd", peak_only = FALSE)
 }
 
+get_monthly_flashevent <- function(flash) {
+    #flash <- filter(flash, DOW %in% c(TUE,WED,THU)) 
+    
+    #ignore EventParam, FlashDuration, Endparam, FlashMode etc. for now
+    # select
+    # filter
+    # arrange
+    # mutate
+    flash <- flash %>%
+        select(SignalID, Date)
+
+    day(flash$Date) <- 1
+    
+    flash <- flash %>%
+        group_by(SignalID, Date) %>%
+        summarize(flash = n(), .groups = "drop")
+        # summarise (flash = n()) %>%
+        # ungroup
+    
+    flash$CallPhase = 0 # set the dummy, 'CallPhase' is used in get_monthly_avg_by_day() function
+    get_monthly_avg_by_day(flash, "flash", peak_only = FALSE)
+}
 
 get_monthly_papd <- function(papd) {
     papd <- filter(papd, DOW %in% c(TUE,WED,THU)) 
@@ -753,6 +775,10 @@ get_monthly_detector_uptime <- function(avg_daily_detector_uptime) {
 
 get_cor_monthly_vpd <- function(monthly_vpd, corridors) {
     get_cor_monthly_avg_by_day(monthly_vpd, corridors, "vpd")
+}
+
+get_cor_monthly_flash <- function(monthly_flash, corridors) {
+    get_cor_monthly_avg_by_day(monthly_flash, corridors, "flash")
 }
 
 
