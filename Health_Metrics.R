@@ -394,7 +394,7 @@ if (FALSE) { # TRUE
 
 if (TRUE) {
  
-    cmd <- get_summary_data(cor)
+    # cmd <- get_summary_data(cor)
     csd <- get_summary_data(sub)
     ssd <- get_summary_data(sig) %>%
         # Give each CameraID its associated SignalID and combine with other metrics on SignalID
@@ -403,6 +403,7 @@ if (TRUE) {
             by = c("Corridor" = "CameraID")) %>% 
         mutate(Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
         select(-SignalID) %>% 
+        filter(!grepl("CAM", Corridor)) %>% 
         group_by(Corridor, Zone_Group, Month) %>% 
         summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
     
@@ -436,16 +437,15 @@ if (TRUE) {
     
     
     # ajt - input data frame for corridor health metrics
-    cor_health_data <- cmd %>%
-        inner_join(corridor_groupings) %>%
-        mutate(Flash_Events = NA)
+    # cor_health_data <- cmd %>%
+    #     inner_join(corridor_groupings) %>%
+    #     mutate(Flash_Events = NA)
     
     # input data frame for subcorridor health metrics
     sub_health_data <- csd %>%
         inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
         mutate(Flash_Events = NA)
-    # %>% left_join(flash_events_sub)
-    
+
     # input data frame for signal health metrics
     sig_health_data <- ssd %>%
         rename(
@@ -464,19 +464,16 @@ if (TRUE) {
     
     ## all data for all 3 health metrics - think this should be run in the background and cached?
     # compile all data needed for health metrics calcs - does not calculate % health yet
-    health_all_cor <- get_health_all(cor_health_data)
-    health_all_sub <- get_health_all(sub_health_data) #%>% 
-        # This is a hack due to missing Zone_Group for several Districts ("Zones")
-        #mutate(Zone_Group = if_else(is.na(Zone_Group), Zone, as.character(Zone_Group))) %>% 
-        #mutate(Zone_Group = as.factor(Zone_Group))
+    # health_all_cor <- get_health_all(cor_health_data)
+    health_all_sub <- get_health_all(sub_health_data)
     health_all_sig <- get_health_all(sig_health_data)
     
     # factor levels for tables
-    zone_group_levels <- levels(health_all_sub$Zone_Group)
-    rtop <- zone_group_levels[grepl("RTOP", zone_group_levels)]
-    districts <- zone_group_levels[grepl("District", zone_group_levels)]
-    other <- zone_group_levels[!grepl("District", zone_group_levels) & !grepl("RTOP", zone_group_levels)]
-    zone_group_levels <- factor(c(rtop, districts, other), levels = c(rtop, districts, other))
+    # zone_group_levels <- levels(health_all_sub$Zone_Group)
+    # rtop <- zone_group_levels[grepl("RTOP", zone_group_levels)]
+    # districts <- zone_group_levels[grepl("District", zone_group_levels)]
+    # other <- zone_group_levels[!grepl("District", zone_group_levels) & !grepl("RTOP", zone_group_levels)]
+    # zone_group_levels <- factor(c(rtop, districts, other), levels = c(rtop, districts, other))
     
     # compile maintenance % health
     maintenance_sub <- get_health_maintenance(health_all_sub)
