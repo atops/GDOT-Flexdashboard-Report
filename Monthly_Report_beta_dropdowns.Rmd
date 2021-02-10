@@ -934,9 +934,9 @@ renderValueBox({
 ```
 
 
-
-```{r, eval = FALSE}
 ### {.value-box}
+
+```{r, eval = TRUE}
 renderValueBox({
   valueBox(
     value = NULL,
@@ -2933,7 +2933,8 @@ output$health_maint_plot <- renderPlotly({
             zone_group_ = zone_group(),
             x_bar_title = input$maintenance_var,
             x_line1_title = glue("{input$maintenance_var} trend"),
-            plot_title = input$maintenance_var)
+            plot_title = input$maintenance_var,
+            accent_average = FALSE)
 })
 ```
 
@@ -3075,7 +3076,7 @@ fillRow(
 )
 
 output$health_ops_plot <- renderPlotly({
-        get_bar_line_dashboard_plot(
+    get_bar_line_dashboard_plot(
         cor_weekly = rename(mr()$mo$ops_plot, Date = Month), 
         cor_monthly = mr()$mo$ops_plot, 
         cor_hourly = NULL, 
@@ -3086,7 +3087,8 @@ output$health_ops_plot <- renderPlotly({
         zone_group_ = zone_group(),
         x_bar_title = input$operations_var,
         x_line1_title = glue("{input$operations_var} trend"),
-        plot_title = input$operations_var)
+        plot_title = input$operations_var,
+        accent_average = FALSE)
 })
 ```
 

@@ -643,7 +643,8 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          x_line1_title = "___",
                                          x_line2_title = "___",
                                          plot_title = "___ ",
-                                         goal = NULL) {
+                                         goal = NULL,
+                                         accent_average = TRUE) {
     
     var_ <- as.name(var_)
     if (num_format == "percent") {
@@ -671,8 +672,14 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         mdf <- mdf %>%
             arrange(!!var_) %>%
             mutate(var = !!var_,
-                   col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
+        if (accent_average) {
+            mdf <- mdf %>% 
+                mutate(col = factor(ifelse(Corridor==zone_group_, DARK_GRAY_BAR, LIGHT_GRAY_BAR)))
+        } else {
+            mdf <- mdf %>%
+                mutate(col = factor(LIGHT_GRAY_BAR, levels = c(DARK_GRAY_BAR, LIGHT_GRAY_BAR)))
+        }
         
         sdm <- SharedData$new(mdf, ~Corridor, group = "grp")
         
@@ -715,8 +722,15 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         
         # Weekly Data - historical trend
         wdf <- wdf %>%
-            mutate(var = !!var_,
-                   col = factor(ifelse(Corridor == zone_group_, 0, 1))) %>%
+            mutate(var = !!var_)
+        if (accent_average) {
+            wdf <- wdf %>%
+                mutate(col = factor(ifelse(Corridor == zone_group_, 0, 1)))
+        } else {
+            wdf <- wdf %>%
+                mutate(col = factor(1, levels = c(0, 1)))
+        }
+        wdf <- wdf %>%
             group_by(Corridor)
         
         sdw <- SharedData$new(wdf, ~Corridor, group = "grp")
@@ -743,7 +757,7 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                    showlegend = FALSE,
                    margin = list(t = 50)
             )
-
+        
         if (!is.null(cor_hourly)) {
             
             hdf <- filter_mr_data(cor_hourly, zone_group_)
