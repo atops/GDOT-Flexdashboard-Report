@@ -553,7 +553,6 @@ add_subcorridor <- function(df)  {
         filter(!is.na(Subcorridor))
 }
 
-sig$mo$maint
 sig$mo$maint <- add_subcorridor(sig$mo$maint)
 sig$mo$ops <- add_subcorridor(sig$mo$ops)
 
