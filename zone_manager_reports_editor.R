@@ -86,21 +86,6 @@ write_rows_to_db <- function(conn, rows) {
 }
 
 
-# This is a hacky function to fix content where html tag <img gets rendered as &lt;img
-fix_imgs <- function(conn) {
-    ltimg <- read_from_db(conn) %>% 
-        get_last_modified() %>% 
-        filter(grepl("&lt;img", Comments)) %>% 
-        mutate(Comments = gsub("&lt;img", "<img", Comments)) %>% 
-        mutate(LastModified = now())
-
-    if (nrow(ltimg) > 0) {
-        ltimg$uuid <- uuid::UUIDgenerate(n = nrow(ltimg))
-        write_rows_to_db(conn, ltimg)
-    }
-}
-
-
 sync_db <- function(conn, zmdf) {
     # This function will only add rows, not delete
     zmdb <- read_from_db(conn)
