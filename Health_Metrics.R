@@ -150,7 +150,7 @@ get_health_all <- function(df) {
             Comm_Uptime = cu,
             CCTV_Uptime = cctv,
             RSU_Uptime = rsu,
-            Flash_Events,
+            Flash_Events = flash_events,
             
             # operations
             Platoon_Ratio = pr,
@@ -360,7 +360,11 @@ get_percent_health_subtotals <- function(df) {
         summarise(Percent_Health = mean(Percent_Health, na.rm = TRUE), .groups = "drop")
 
     bind_rows(df, corridor_subtotals, zone_subtotals) %>%
-        filter(!is.na(Subcorridor)) %>%
+        group_by(Zone, Month) %>%
+        tidyr::fill(Zone_Group) %>%
+        group_by(Corridor) %>%
+        tidyr::fill(Context_Category) %>%
+        ungroup() %>%
         mutate(
             Zone_Group = factor(Zone_Group),
             Zone = factor(Zone)
@@ -420,8 +424,7 @@ if (TRUE) {
     
     # input data frame for subcorridor health metrics
     sub_health_data <- csd %>%
-        inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
-        mutate(Flash_Events = NA)
+        inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
 
     # input data frame for signal health metrics
     sig_health_data <- ssd %>%
@@ -431,7 +434,6 @@ if (TRUE) {
         ) %>%
         left_join(select(corridors, Corridor, SignalID, Subcorridor), by = c("Corridor", "SignalID")) %>%
         inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
-        mutate(Flash_Events = NA) %>%
         select(-Subcorridor) %>% # workaround - drop subcorridor column and replace with signalID
         rename(Subcorridor = SignalID)
     
@@ -455,7 +457,6 @@ if (TRUE) {
     maintenance_sub <- get_health_maintenance(health_all_sub)
     maintenance_sig <- get_health_maintenance(health_all_sig)
     
-    # maintenance_cor <- get_health_maintenance(health_all_cor)
     maintenance_cor <- maintenance_sub %>% 
         select(-c(Subcorridor, Context)) %>% 
         group_by(`Zone Group`, Zone, Corridor, Month) %>% 
