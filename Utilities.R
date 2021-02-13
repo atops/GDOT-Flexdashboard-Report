@@ -497,6 +497,6 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
-    add_partition(conf_athena, table_name, plot_date)
+    add_partition(conf_athena, "signal_details", plot_date)
 }
 
