@@ -2782,6 +2782,331 @@ fillCol(height = 700,
 
 
 
+Health Metrics
+=====================================
+
+Row {.tabset .tabset-fade data-height=850}
+------------------------------------------
+
+### Maintenance
+
+#### Maintenance Health Summary
+
+```{r Maintenance, warning = FALSE}
+
+checkboxGroupInput(
+    "maintenance_cols_checked",
+    label = NULL,
+    c("Show Scores" = "scores",
+      "Show Metrics" = "metrics"),
+    selected = c("scores", "metrics"),
+    inline = TRUE
+)
+
+maintenance_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:18),
+                "default" = c(0:6), 
+                "scores" = c(7:12), 
+                "metrics" = c(13:18))
+        } else {
+            list(
+                "all" = c(0:19),
+                "default" = c(0:7), 
+                "scores" = c(8:13), 
+                "metrics" = c(14:19))
+        }
+    }
+})
+
+
+maint_hide_cols <- reactive({
+    # columns to show = default (label columns) + columns selected in checkbox
+    maintenance_cols_to_show <- c(
+        maintenance_cols()$default, 
+        maintenance_cols()[input$maintenance_cols_checked]
+        ) %>% 
+        unlist() %>% unname()
+
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    setdiff(maintenance_cols()$all, maintenance_cols_to_show)
+})
+
+
+maint_health_data <- reactive({
+
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            sub$mo$maint
+        } else {
+            sig$mo$maint
+        }
+        
+        get_health_data_filtered(data_, zone_group(), corridor()) %>%
+            filter(Month == current_month()) %>%
+            ungroup() %>%
+            select(-Month, -Zone_Group) %>%
+            
+            mutate(
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor), 
+                    "ALL", 
+                    as.character(Subcorridor)),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone), 
+                    "ALL", 
+                    as.character(Corridor)))
+    } else {
+        data.frame()
+    }
+})
+
+
+output$maintenance_table <- renderDT({
+    get_monthly_maintenance_health_table(maint_health_data())
+})
+
+
+observe({
+    dataTableProxy("maintenance_table") %>% 
+        replaceData(maint_health_data()) %>% 
+        hideCols(isolate(maint_hide_cols()), reset = TRUE)
+})
+
+observe({
+    dataTableProxy("maintenance_table") %>% 
+        hideCols(maint_hide_cols(), reset = TRUE)
+})
+
+
+fillRow(
+    DTOutput('maintenance_table')
+)
+
+```
+
+### Maintenance Trend
+
+```{r Maintenance Trend, warning = FALSE}
+
+selectInput(
+     inputId = "maintenance_var", 
+     label = "Maintenance Health Metric:",
+     choices = c("Percent Health"),
+     selected = "Percent Health")
+
+
+observe({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
+        
+        if (input$corridor_x == "All Corridors") {
+            choices_ <- c("Percent Health")
+        } else {
+            choices_ <- c("Percent Health", "Missing Data", "Detection Uptime Score",
+                          "Ped Actuation Uptime Score", "Comm Uptime Score",
+                          "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score",
+                          "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime",
+                          "CCTV Uptime", "RSU Uptime")
+        }
+
+        updateSelectInput(session,
+            inputId = "maintenance_var", choices = choices_)
+    } 
+})
+
+
+hr()
+
+fillRow(
+    plotlyOutput("health_maint_plot"), height = "85%"
+)
+
+output$health_maint_plot <- renderPlotly({
+        get_bar_line_dashboard_plot(
+            cor_weekly = rename(mr()$mo$maint_plot, Date = Month),  # maint$sub
+            cor_monthly = mr()$mo$maint_plot, 
+            cor_hourly = NULL, 
+            var_ = input$maintenance_var,  #  "Percent Health", 
+            num_format = "percent",
+            highlight_color = GDOT_BLUE, 
+            month_ = current_month(), 
+            zone_group_ = zone_group(),
+            x_bar_title = input$maintenance_var,
+            x_line1_title = glue("{input$maintenance_var} trend"),
+            plot_title = input$maintenance_var,
+            accent_average = FALSE)
+})
+```
+
+
+### Operations
+
+#### Operations Health Summary
+
+```{r Operations, warning = FALSE}
+
+checkboxGroupInput(
+    "operations_cols_checked",
+    label = NULL,
+    c("Show Scores" = "scores",
+      "Show Metrics" = "metrics"),
+    selected = c("scores", "metrics"),
+    inline = TRUE
+)
+
+operations_cols <- reactive({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6), 
+                "scores" = c(7:11), 
+                "metrics" = c(12:16))
+        } else {
+            list(
+                "all" = c(0:17),
+                "default" = c(0:7), 
+                "scores" = c(8:12), 
+                "metrics" = c(13:17))
+        }
+    }
+})
+
+
+ops_hide_cols <- reactive({
+    # columns to show = default (label columns) + columns selected in checkbox
+    operations_cols_to_show <- c(
+        operations_cols()$default, 
+        operations_cols()[input$operations_cols_checked]
+        ) %>% 
+        unlist() %>% unname()
+
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    setdiff(operations_cols()$all, operations_cols_to_show)
+})
+
+
+ops_health_data <- reactive({
+
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            sub$mo$ops
+        } else {
+            sig$mo$ops
+        }
+        
+        get_health_data_filtered(data_, zone_group(), corridor()) %>%
+            filter(Month == current_month()) %>%
+            ungroup() %>%
+            select(-Month, -Zone_Group) %>%
+            
+            mutate(
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor), 
+                    "ALL", 
+                    as.character(Subcorridor)),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone), 
+                    "ALL", 
+                    as.character(Corridor)))
+    } else {
+        data.frame()
+    }
+})
+
+
+output$operations_table <- renderDT({
+    get_monthly_operations_health_table(ops_health_data())
+})
+
+
+observe({
+    dataTableProxy("operations_table") %>% 
+        replaceData(ops_health_data()) %>% 
+        hideCols(isolate(ops_hide_cols()), reset = TRUE)
+})
+
+
+observe({
+    dataTableProxy("operations_table") %>% 
+        hideCols(ops_hide_cols(), reset = TRUE)
+})
+
+
+fillRow(
+    DTOutput('operations_table')
+)
+
+```
+
+### Operations Trend
+
+```{r Operations Trend, warning = FALSE}
+
+selectInput(
+    inputId = "operations_var", 
+    label = "Operations Health Metric:",
+    choices = c("Percent Health"),
+    selected = "Percent Health")
+
+
+observe({
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
+        
+        if (input$corridor_x == "All Corridors") {
+            choices_ <- c("Percent Health")
+        } else {
+            choices_ <- c("Percent Health", "Missing Data", "Platoon Ratio Score", 
+                        "Ped Delay Score", "Split Failures Score", 
+                        "Travel Time Index Score", "Buffer Index Score", 
+                        "Platoon Ratio", "Ped Delay", "Split Failures", 
+                        "Travel Time Index", "Buffer Index")
+        }
+
+        updateSelectInput(session,
+            inputId = "maintenance_var", choices = choices_)
+    } 
+})
+
+
+hr()
+
+fillRow(
+    plotlyOutput("health_ops_plot"), height = "85%"
+)
+
+output$health_ops_plot <- renderPlotly({
+    get_bar_line_dashboard_plot(
+        cor_weekly = rename(mr()$mo$ops_plot, Date = Month), 
+        cor_monthly = mr()$mo$ops_plot, 
+        cor_hourly = NULL, 
+        var_ = input$operations_var,  #  "Percent Health", 
+        num_format = "percent",
+        highlight_color = GDOT_BLUE, 
+        month_ = current_month(), 
+        zone_group_ = zone_group(),
+        x_bar_title = input$operations_var,
+        x_line1_title = glue("{input$operations_var} trend"),
+        plot_title = input$operations_var,
+        accent_average = FALSE)
+})
+```
+
+### Safety
+```{r Safety, warning = FALSE}
+
+
+
+```
+
+### Safety Trend
+```{r Safety Trend, warning = FALSE}
+
+
+
+```
 
 
 
