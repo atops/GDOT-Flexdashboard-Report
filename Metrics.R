@@ -227,7 +227,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     print("Pulling data...")
 
     ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-         usable_cores
+         usable_cores * 6
     } else {
         1
     }
@@ -445,9 +445,8 @@ get_qs <- function(detection_events) {
                  cyclestart,
                  callphase = phase,
                  detector) %>%
-        summarize(occ = approx_percentile(detduration, 0.95)) %>%
+        summarize(occ = approx_percentile(detduration, 0.95), .groups = "drop") %>%
         collect() %>%
-        ungroup() %>%
         transmute(Date = date(date),
                   SignalID = factor(signalid), 
                   CycleStart = ymd_hms(cyclestart), 
@@ -809,7 +808,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
     
     
     ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-        usable_cores
+        usable_cores * 3
     } else {
         1
     }
