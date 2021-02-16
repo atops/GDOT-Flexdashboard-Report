@@ -16,7 +16,7 @@ sizeof <- function(x) {
 
 
 get_most_recent_monday <- function(date_) {
-    date_ + days(1 - lubridate::wday(date_, week_start  = 1))
+    date_ + days(1 - lubridate::wday(date_, week_start = 1))
 }
 
 
@@ -334,7 +334,7 @@ get_Tuesdays <- function(df) {
 
 
 
-get_names_in_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
+walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
 
     cat(paste(strrep(" ", indent)))
     print(name)
@@ -348,14 +348,31 @@ get_names_in_nested_list <- function(df, src, name=deparse(substitute(df)), inde
             } else {
                 dfp <- df
             }
-            
-	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
-	    #readr::write_csv(dfp, paste0(name, ".csv"))
+
+            if (src %in% c("main", "staging")) {
+                date_column <- intersect(names(dfp), c("Quarter", "Month", "Date", "Hour"))
+                if (date_column == "Quarter") {
+                    dfp <- filter(dfp, Quarter <= lubridate::quarter(conf$production_report_end_date, with_year = TRUE))
+                    print(max(dfp$Quarter))
+                } else if (date_column == "Month") {
+                    dfp <- filter(dfp, Month <= conf$production_report_end_date)
+                    print(max(dfp$Month))
+                } else if (date_column == "Date") {
+                    dfp <- filter(dfp, Date < ymd(conf$production_report_end_date) + months(1))
+                    print(max(dfp$Date))
+                } else if (date_column == "Hour") {
+                    dfp <- filter(dfp, Hour < ymd(conf$production_report_end_date) + months(1))
+                    print(max(dfp$Hour))
+                }
+            }
         
-	}
+    	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
+    	    #readr::write_csv(dfp, paste0(name, ".csv"))
+        
+    	}
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
-                get_names_in_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
+                walk_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
             }
         }
     } else {

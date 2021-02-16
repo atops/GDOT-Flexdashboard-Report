@@ -187,5 +187,8 @@ if __name__=='__main__':
         AutoScalingGroupNames=[AUTOSCALING_GROUP_NAME]
     )
 
-    autoscaling_description_response['AutoScalingGroups'][0]['Instances']
+    instances = autoscaling_description_response['AutoScalingGroups'][0]['Instances']
+    
+    for instance in instances:
+        print(f"Version {instance['LaunchTemplate']['Version']}: {instance['LifecycleState']}")
 
