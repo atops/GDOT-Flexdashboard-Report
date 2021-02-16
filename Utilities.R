@@ -372,7 +372,7 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
     	}
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
-                walk_nested_list(df[[n]], name = paste(name, n, sep="-"), indent = indent+10)
+                walk_nested_list(df[[n]], src, name = paste(name, n, sep="-"), indent = indent+10)
             }
         }
     } else {
