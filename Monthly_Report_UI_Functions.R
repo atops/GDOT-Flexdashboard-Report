@@ -47,12 +47,13 @@ source("classes.R")
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-# Store in "R-myapp" directory inside of user-level cache directory
+
+cache_path <- "/data/beta/"
 
 if (Sys.info()["sysname"] == "Windows") {
     disk_cache <- cache_filesystem('cache')
 } else if (Sys.info()["sysname"] == "Linux") {
-    disk_cache <- cachem::cache_disk("/data/main", max_size = 5 * 1024^3, evict = "lru")
+    disk_cache <- cachem::cache_disk(cache_path, max_size = 5 * 1024^3, evict = "lru", prune_rate = 5)
 }
 
 #options(warn = 2)
@@ -646,6 +647,8 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          goal = NULL,
                                          accent_average = TRUE) {
     
+    disk_cache$prune()
+	
     var_ <- as.name(var_)
     if (num_format == "percent") {
         var_fmt <- as_pct
