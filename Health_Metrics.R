@@ -81,7 +81,7 @@ get_summary_data <- function(df, current_month = NULL) {
         # rename(df$mo$pdc, pdc = Avg.Max.Ped.Delay, pdc.delta = delta),
         # rename(df$mo$pdf, pdf = Avg.Max.Ped.Delay, pdf.delta = delta),
         rename(df$mo$cctv, cctv = uptime, cctv.delta = delta),
-        rename(df$mo$ru, rsu = uptime, rsu.delta = delta),
+        #rename(df$mo$ru, rsu = uptime, rsu.delta = delta),
         rename(df$mo$cu, cu = uptime, cu.delta = delta),
         rename(df$mo$tp, tp.delta = delta),
         rename(df$mo$aogd, aog.delta = delta),
@@ -149,7 +149,7 @@ get_health_all <- function(df) {
             Ped_Act_Uptime = pau,
             Comm_Uptime = cu,
             CCTV_Uptime = cctv,
-            RSU_Uptime = rsu,
+            #RSU_Uptime = rsu,
             Flash_Events = flash_events,
             
             # operations
@@ -181,8 +181,8 @@ get_health_all <- function(df) {
                 scoring_lookup, "comm", "score", Comm_Uptime, "backward"),
             CCTV_Uptime_Score = get_lookup_value(
                 scoring_lookup, "cctv", "score", CCTV_Uptime, "backward"),
-            RSU_Uptime_Score = get_lookup_value(
-                scoring_lookup, "rsu", "score", RSU_Uptime, "backward"),
+            #RSU_Uptime_Score = get_lookup_value(
+            #    scoring_lookup, "rsu", "score", RSU_Uptime, "backward"),
             Flash_Events_Score = get_lookup_value(
                 scoring_lookup, "flash_events", "score", Flash_Events),
             
@@ -215,7 +215,7 @@ get_health_all <- function(df) {
     df$Ped_Act_Uptime_Weight[is.na(df$Ped_Act_Uptime_Score)] <- NA
     df$Comm_Uptime_Weight[is.na(df$Comm_Uptime_Score)] <- NA
     df$CCTV_Uptime_Weight[is.na(df$CCTV_Uptime_Score)] <- NA
-    df$RSU_Uptime_Weight[is.na(df$RSU_Uptime_Score)] <- NA
+    #df$RSU_Uptime_Weight[is.na(df$RSU_Uptime_Score)] <- NA
     df$Flash_Events_Weight[is.na(df$Flash_Events_Score)] <- NA
 
     # Operations
@@ -239,7 +239,8 @@ get_health_maintenance <- function(df) {
     health <- df %>%
         select(
             Zone_Group, Zone, Corridor, Subcorridor, Month, Context, Context_Category,
-            starts_with(c("Detection", "Ped_Act", "Comm", "CCTV", "RSU", "Flash_Events")))
+            #starts_with(c("Detection", "Ped_Act", "Comm", "CCTV", "RSU", "Flash_Events")))
+            starts_with(c("Detection", "Ped_Act", "Comm", "CCTV", "Flash_Events")))
     
     
     # filter out scores and weights and make sure they're both in the same sort order
@@ -275,13 +276,13 @@ get_health_maintenance <- function(df) {
             `Ped Actuation Uptime Score` = Ped_Act_Uptime_Score,
             `Comm Uptime Score` = Comm_Uptime_Score,
             `CCTV Uptime Score` = CCTV_Uptime_Score,
-            `RSU Uptime Score` = RSU_Uptime_Score,
+            #`RSU Uptime Score` = RSU_Uptime_Score,
             `Flash Events Score` = Flash_Events_Score,
             `Detection Uptime` = Detection_Uptime,
             `Ped Actuation Uptime` = Ped_Act_Uptime,
             `Comm Uptime` = Comm_Uptime,
             `CCTV Uptime` = CCTV_Uptime,
-            `RSU Uptime` = RSU_Uptime,
+            #`RSU Uptime` = RSU_Uptime,
             `Flash Events` = Flash_Events
         )
 }
@@ -434,8 +435,14 @@ if (TRUE) {
         ) %>%
         left_join(select(corridors, Corridor, SignalID, Subcorridor), by = c("Corridor", "SignalID")) %>%
         inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
-        select(-Subcorridor) %>% # workaround - drop subcorridor column and replace with signalID
-        rename(Subcorridor = SignalID)
+        #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
+        left_join(select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), by = c("Corridor", "Subcorridor", "Month")) %>%
+        mutate(
+            tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
+            pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
+        ) %>%
+        select(-Subcorridor, -tti.y, -pti.y) %>% # workaround - drop subcorridor column and replace with signalID
+        rename(Subcorridor = SignalID, tti = tti.x, pti = pti.x)
     
     ############################################################################
     ### GENERATE COMPILED TABLES FOR WEBPAGE
