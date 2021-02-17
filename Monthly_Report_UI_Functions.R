@@ -1891,7 +1891,7 @@ filter_alerts <- function(alerts_by_date, alert_type_, zone_group_, corridor_, p
             
             plot_df <- df %>% 
                 arrange(
-                    as.integer(as.character(SignalID)), Name) %>%
+                    as.character(SignalID), Name) %>%
                 mutate(
                     signal_phase = paste0(as.character(SignalID), ": ", Name)) %>%
                 select(-Name)
