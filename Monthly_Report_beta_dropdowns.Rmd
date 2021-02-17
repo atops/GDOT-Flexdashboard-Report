@@ -30,13 +30,12 @@ conf_mode <- "beta"
 
 source("Monthly_Report_UI_Functions.R")
 
-FIG_WIDTH = 14
-FIG_HEIGHT = 7
+FIG_WIDTH <- 14
+FIG_HEIGHT <- 7
 
-AWS_BUCKET = "https://s3.amazonaws.com/gdot-spm"
+AWS_BUCKET <- "https://s3.amazonaws.com/gdot-spm"
 
 styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
-
 ```
 
 
@@ -66,21 +65,26 @@ Statewide Traffic Signal Concept of Operations can be found
 
 
 selectInput("month", "Month:",
-                       choices = month_options,
-                       selected = month_options[1]) # Default to current month
+    choices = month_options,
+    selected = month_options[1]
+) # Default to current month
 
 selectInput("zone_group", "Signal Group:",
-                       choices = zone_group_options,
-                       selected = "All RTOP")
+    choices = zone_group_options,
+    selected = "All RTOP"
+)
 
 
 
 # Corridor Selection Drop Down based on Zone/Zone Group ---
 
-conditionalPanel("input.zone_group != 'All RTOP'",
-                 selectInput("corridor_x", "Corridor:",
-                             choices = c("All Corridors"),
-                             selected = "All Corridors"))
+conditionalPanel(
+    "input.zone_group != 'All RTOP'",
+    selectInput("corridor_x", "Corridor:",
+        choices = c("All Corridors"),
+        selected = "All Corridors"
+    )
+)
 
 observe({
     choices_ <- if (is.null(input$zone_group)) {
@@ -89,20 +93,26 @@ observe({
         if (input$zone_group == "All RTOP") {
             c("All Corridors")
         } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
-            c("All Corridors",
-              as.character(unique(filter(
-                  corridors(), Zone_Group == input$zone_group)$Corridor)))
-              # The following is faster
-              # as.character(unique(corridors()[corridors()$Zone_Group == input$zone_group,]$Corridor))
+            c(
+                "All Corridors",
+                as.character(unique(filter(
+                    corridors(), Zone_Group == input$zone_group
+                )$Corridor))
+            )
+            # The following is faster
+            # as.character(unique(corridors()[corridors()$Zone_Group == input$zone_group,]$Corridor))
         } else {
-            c("All Corridors",
-              as.character(unique(filter(
-                  corridors(), Zone == input$zone_group)$Corridor)))
-              # The following is faster
-              # as.character(unique(corridors()[corridors()$Zone == input$zone_group,]$Corridor))
+            c(
+                "All Corridors",
+                as.character(unique(filter(
+                    corridors(), Zone == input$zone_group
+                )$Corridor))
+            )
+            # The following is faster
+            # as.character(unique(corridors()[corridors()$Zone == input$zone_group,]$Corridor))
         }
     }
-    #print(choices_)
+    # print(choices_)
 
     updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
@@ -120,7 +130,8 @@ conditionalPanel(
         inline = FALSE,
         width = NULL,
         choiceNames = NULL,
-        choiceValues = NULL)
+        choiceValues = NULL
+    )
 )
 
 
@@ -168,16 +179,15 @@ filtered_corridors <- reactive({
         corr <- corridors() %>%
             filter(Zone_Group %in% c("RTOP1", "RTOP2"))
 
-    # Zone 7 is the union of Zone 7m, 7d
+        # Zone 7 is the union of Zone 7m, 7d
     } else if (input$zone_group == "Zone 7") {
         corr <- corridors() %>%
             filter(grepl("^Zone 7", Zone))
 
-    # Zones filter by Zone rather than Zone_Group
+        # Zones filter by Zone rather than Zone_Group
     } else if (startsWith(input$zone_group, "Zone")) {
         corr <- corridors() %>%
             filter(Zone %in% input$zone_group)
-
     } else {
         corr <- corridors() %>%
             filter(Zone_Group %in% input$zone_group)
@@ -193,13 +203,13 @@ filtered_corridors <- reactive({
 })
 
 ntraces <- reactive({
-    filtered_corridors() %>% 
-        distinct(Corridor) %>% 
+    filtered_corridors() %>%
+        distinct(Corridor) %>%
         nrow()
 })
 
 filtered_signalids <- reactive({
-    x <- corridors() %>%  # filtered_corridors() %>%
+    x <- corridors() %>% # filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
     paste0(x$SignalID, ": ", x$Name)
@@ -247,7 +257,6 @@ mr_str <- reactive(
 #
 # renderText({"conf"})
 # renderPrint({aws_conf$AWS_ACCESS_KEY_ID})
-
 ```
 
 
@@ -278,9 +287,12 @@ Row
 output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({
     valueBox(
         value = get_valuebox_value(
-            throughput, zone_group = zone_group(), month = current_month(), line_break = TRUE),
+            throughput,
+            zone_group = zone_group(), month = current_month(), line_break = TRUE
+        ),
         icon = "fa-bar-chart",
-        color = BLUE)
+        color = BLUE
+    )
 })
 
 valueBoxOutput("tp_valuebox1")
@@ -296,10 +308,13 @@ tp_valuebox <- reactive({
             break_ = TRUE
         ),
         icon = "fa-bar-chart",
-        color = BLUE)
+        color = BLUE
+    )
 })
 
-output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({tp_valuebox()})
+output$tp_valuebox1 <- output$tp_valuebox2 <- renderValueBox({
+    tp_valuebox()
+})
 valueBoxOutput("tp_valuebox1")
 ```
 
@@ -311,12 +326,16 @@ aog_valuebox <- reactive({
         value = get_valuebox(
             mr()$mo$aogd, "aog", as_pct,
             zone = zone_group(), mo = current_month(),
-            break_ = TRUE),
+            break_ = TRUE
+        ),
         icon = "fa-car",
-        color = BLUE)
+        color = BLUE
+    )
 })
 
-output$aog_valuebox1 <- output$aog_valuebox2 <- renderValueBox({aog_valuebox()})
+output$aog_valuebox1 <- output$aog_valuebox2 <- renderValueBox({
+    aog_valuebox()
+})
 valueBoxOutput("aog_valuebox1")
 ```
 
@@ -324,15 +343,19 @@ valueBoxOutput("aog_valuebox1")
 
 ```{r}
 pr_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(
-          mr()$mo$prd, "pr", as_2dec,
-          zone = zone_group(), mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-car",
-      color = BLUE)
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$prd, "pr", as_2dec,
+            zone = zone_group(), mo = current_month(),
+            break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = BLUE
+    )
 })
-output$pr_valuebox1 <- output$pr_valuebox2 <- renderValueBox({pr_valuebox()})
+output$pr_valuebox1 <- output$pr_valuebox2 <- renderValueBox({
+    pr_valuebox()
+})
 valueBoxOutput("pr_valuebox1")
 ```
 
@@ -340,15 +363,19 @@ valueBoxOutput("pr_valuebox1")
 
 ```{r}
 qs_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(
-          mr()$mo$qsd, "qs_freq", as_pct,
-          zone = zone_group(), mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-car",
-      color = BLUE)
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$qsd, "qs_freq", as_pct,
+            zone = zone_group(), mo = current_month(),
+            break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = BLUE
+    )
 })
-output$qs_valuebox1 <- output$qs_valuebox2 <- renderValueBox({qs_valuebox()})
+output$qs_valuebox1 <- output$qs_valuebox2 <- renderValueBox({
+    qs_valuebox()
+})
 valueBoxOutput("qs_valuebox1")
 ```
 
@@ -356,15 +383,19 @@ valueBoxOutput("qs_valuebox1")
 
 ```{r}
 sf_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(
-          mr()$mo$sfd, "sf_freq", as_pct,
-          zone = zone_group(), mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-car",
-      color = BLUE)
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$sfd, "sf_freq", as_pct,
+            zone = zone_group(), mo = current_month(),
+            break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = BLUE
+    )
 })
-output$sf_valuebox1 <- output$sf_valuebox2 <- renderValueBox({sf_valuebox()})
+output$sf_valuebox1 <- output$sf_valuebox2 <- renderValueBox({
+    sf_valuebox()
+})
 valueBoxOutput("sf_valuebox1")
 ```
 
@@ -376,11 +407,15 @@ sfo_valuebox <- reactive({
         value = get_valuebox(
             mr()$mo$sfo, "sf_freq", as_pct,
             zone = zone_group(), mo = current_month(),
-            break_ = TRUE),
+            break_ = TRUE
+        ),
         icon = "fa-car",
-    color = BLUE)
+        color = BLUE
+    )
 })
-output$sfo_valuebox1 <- output$sfo_valuebox2 <- renderValueBox({sfo_valuebox()})
+output$sfo_valuebox1 <- output$sfo_valuebox2 <- renderValueBox({
+    sfo_valuebox()
+})
 valueBoxOutput("sfo_valuebox1")
 ```
 
@@ -388,15 +423,19 @@ valueBoxOutput("sfo_valuebox1")
 
 ```{r}
 tti_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(
-          cordata()$mo$tti, "tti", as_2dec,
-          zone = zone_group(), mo = current_month(),
-          break_ = TRUE),
-      icon = "fa-dashboard",
-      color = BLUE)
+    valueBox(
+        value = get_valuebox(
+            cordata()$mo$tti, "tti", as_2dec,
+            zone = zone_group(), mo = current_month(),
+            break_ = TRUE
+        ),
+        icon = "fa-dashboard",
+        color = BLUE
+    )
 })
-output$tti_valuebox1 <- output$tti_valuebox2 <- renderValueBox({tti_valuebox()})
+output$tti_valuebox1 <- output$tti_valuebox2 <- renderValueBox({
+    tti_valuebox()
+})
 valueBoxOutput("tti_valuebox1")
 ```
 
@@ -408,11 +447,15 @@ pti_valuebox <- reactive({
         value = get_valuebox(
             cordata()$mo$pti, "pti", as_2dec,
             zone = zone_group(), mo = current_month(),
-            break_ = TRUE),
+            break_ = TRUE
+        ),
         icon = "fa-dashboard",
-        color = BLUE)
+        color = BLUE
+    )
 })
-output$pti_valuebox1 <- output$pti_valuebox2 <- renderValueBox({pti_valuebox()})
+output$pti_valuebox1 <- output$pti_valuebox2 <- renderValueBox({
+    pti_valuebox()
+})
 valueBoxOutput("pti_valuebox1")
 ```
 
@@ -431,14 +474,17 @@ Row
 
 ```{r}
 vpd_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$vpd, "vpd", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$vpd_valuebox1 <- output$vpd_valuebox2 <- renderValueBox({vpd_valuebox()})
+output$vpd_valuebox1 <- output$vpd_valuebox2 <- renderValueBox({
+    vpd_valuebox()
+})
 valueBoxOutput("vpd_valuebox1")
 ```
 
@@ -446,14 +492,17 @@ valueBoxOutput("vpd_valuebox1")
 
 ```{r}
 vphpa_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$vphpa, "vph", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$vphpa_valuebox1 <- output$vphpa_valuebox2 <- renderValueBox({vphpa_valuebox()})
+output$vphpa_valuebox1 <- output$vphpa_valuebox2 <- renderValueBox({
+    vphpa_valuebox()
+})
 valueBoxOutput("vphpa_valuebox1")
 ```
 
@@ -462,13 +511,16 @@ valueBoxOutput("vphpa_valuebox1")
 ```{r}
 vphpp_valuebox <- reactive({
     valueBox(
-      value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-      icon = "fa-area-chart",
-    color = BLUE
-  )
+        value = get_valuebox(mr()$mo$vphpp, "vph", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$vphpp_valuebox1 <- output$vphpp_valuebox2 <- renderValueBox({vphpp_valuebox()})
+output$vphpp_valuebox1 <- output$vphpp_valuebox2 <- renderValueBox({
+    vphpp_valuebox()
+})
 valueBoxOutput("vphpp_valuebox1")
 ```
 
@@ -483,12 +535,15 @@ papd_valuebox <- reactive({
             "papd", as_int,
             zone = zone_group(),
             mo = current_month(),
-            break_ = FALSE),
-      icon = "fa-area-chart",
-      color = BLUE
-  )
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$papd_valuebox1 <- output$papd_valuebox2 <- renderValueBox({papd_valuebox()})
+output$papd_valuebox1 <- output$papd_valuebox2 <- renderValueBox({
+    papd_valuebox()
+})
 valueBoxOutput("papd_valuebox1")
 ```
 
@@ -496,11 +551,11 @@ valueBoxOutput("papd_valuebox1")
 
 ```{r, eval = TRUE}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -518,14 +573,17 @@ Row
 
 ```{r}
 du_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(mr()$mo$du, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-car",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$du, "uptime", as_pct,
+            zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = BLUE
+    )
 })
-output$du_valuebox1 <- output$du_valuebox2 <- renderValueBox({du_valuebox()})
+output$du_valuebox1 <- output$du_valuebox2 <- renderValueBox({
+    du_valuebox()
+})
 valueBoxOutput("du_valuebox1")
 ```
 
@@ -533,14 +591,17 @@ valueBoxOutput("du_valuebox1")
 
 ```{r}
 pau_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-walking",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
+            zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "fa-walking",
+        color = BLUE
+    )
 })
-output$pau_valuebox1 <- output$pau_valuebox2 <- renderValueBox({pau_valuebox()})
+output$pau_valuebox1 <- output$pau_valuebox2 <- renderValueBox({
+    pau_valuebox()
+})
 valueBoxOutput("pau_valuebox1")
 ```
 
@@ -548,14 +609,17 @@ valueBoxOutput("pau_valuebox1")
 
 ```{r}
 cctv_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-    icon = "glyphicon-facetime-video",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
+            zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "glyphicon-facetime-video",
+        color = BLUE
+    )
 })
-output$cctv_valuebox1 <- output$cctv_valuebox2 <- renderValueBox({cctv_valuebox()})
+output$cctv_valuebox1 <- output$cctv_valuebox2 <- renderValueBox({
+    cctv_valuebox()
+})
 valueBoxOutput("cctv_valuebox1")
 ```
 
@@ -563,14 +627,17 @@ valueBoxOutput("cctv_valuebox1")
 
 ```{r}
 cu_valuebox <- reactive({
-  valueBox(
-      value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
-                           zone = zone_group(), mo = current_month(), break_ = TRUE),
-      icon = "fa-broadcast-tower",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
+            zone = zone_group(), mo = current_month(), break_ = TRUE
+        ),
+        icon = "fa-broadcast-tower",
+        color = BLUE
+    )
 })
-output$cu_valuebox1 <- output$cu_valuebox2 <- renderValueBox({cu_valuebox()})
+output$cu_valuebox1 <- output$cu_valuebox2 <- renderValueBox({
+    cu_valuebox()
+})
 valueBoxOutput("cu_valuebox1")
 ```
 
@@ -585,12 +652,15 @@ ru_valuebox <- reactive({
             as_pct,
             zone = zone_group(),
             mo = current_month(),
-            break_ = TRUE),
-        icon = "fa-wifi",  #"fa-user" #
-    color = BLUE
+            break_ = TRUE
+        ),
+        icon = "fa-wifi", # "fa-user" #
+        color = BLUE
     )
 })
-output$ru_valuebox1 <- output$ru_valuebox2 <- renderValueBox({ru_valuebox()})
+output$ru_valuebox1 <- output$ru_valuebox2 <- renderValueBox({
+    ru_valuebox()
+})
 valueBoxOutput("ru_valuebox1")
 ```
 
@@ -599,11 +669,11 @@ valueBoxOutput("ru_valuebox1")
 
 ```{r, eval = TRUE}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -621,14 +691,17 @@ Row
 
 ```{r}
 tasks_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.rep), "Reported", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.rep), "Reported", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$tasks_valuebox1 <- output$tasks_valuebox2 <- renderValueBox({tasks_valuebox()})
+output$tasks_valuebox1 <- output$tasks_valuebox2 <- renderValueBox({
+    tasks_valuebox()
+})
 valueBoxOutput("tasks_valuebox1")
 ```
 
@@ -636,14 +709,17 @@ valueBoxOutput("tasks_valuebox1")
 
 ```{r}
 res_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.res), "Resolved", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.res), "Resolved", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$res_valuebox1 <- output$res_valuebox2 <- renderValueBox({res_valuebox()})
+output$res_valuebox1 <- output$res_valuebox2 <- renderValueBox({
+    res_valuebox()
+})
 valueBoxOutput("res_valuebox1")
 ```
 
@@ -651,14 +727,17 @@ valueBoxOutput("res_valuebox1")
 
 ```{r}
 unres_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.out), "Outstanding", as_int,
-                           zone = zone_group(), mo = current_month(), break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(rename(cordata()$mo$tasks, delta = delta.out), "Outstanding", as_int,
+            zone = zone_group(), mo = current_month(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$unres_valuebox1 <- output$unres_valuebox2 <- renderValueBox({unres_valuebox()})
+output$unres_valuebox1 <- output$unres_valuebox2 <- renderValueBox({
+    unres_valuebox()
+})
 valueBoxOutput("unres_valuebox1")
 ```
 
@@ -666,18 +745,21 @@ valueBoxOutput("unres_valuebox1")
 
 ```{r}
 over45_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(
-        mr()$mo$over45,
-        "over45", as_int,
-        zone = zone_group(),
-        mo = current_month(),
-        break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$over45,
+            "over45", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$over45_valuebox1 <- output$over45_valuebox2 <- renderValueBox({over45_valuebox()})
+output$over45_valuebox1 <- output$over45_valuebox2 <- renderValueBox({
+    over45_valuebox()
+})
 valueBoxOutput("over45_valuebox1")
 ```
 
@@ -685,18 +767,21 @@ valueBoxOutput("over45_valuebox1")
 
 ```{r}
 mttr_valuebox <- reactive({
-  valueBox(
-    value = get_valuebox(
-        mr()$mo$mttr,
-        "mttr", as_2dec,
-        zone = zone_group(),
-        mo = current_month(),
-        break_ = FALSE),
-    icon = "fa-area-chart",
-    color = BLUE
-  )
+    valueBox(
+        value = get_valuebox(
+            mr()$mo$mttr,
+            "mttr", as_2dec,
+            zone = zone_group(),
+            mo = current_month(),
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = BLUE
+    )
 })
-output$mttr_valuebox1 <- output$mttr_valuebox2 <- renderValueBox({mttr_valuebox()})
+output$mttr_valuebox1 <- output$mttr_valuebox2 <- renderValueBox({
+    mttr_valuebox()
+})
 valueBoxOutput("mttr_valuebox1")
 ```
 
@@ -705,11 +790,11 @@ valueBoxOutput("mttr_valuebox1")
 ```{r, eval = FALSE}
 ### {.value-box}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -738,14 +823,15 @@ Row
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$tp, "vph", as_int,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-bar-chart",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$tp, "vph", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-bar-chart",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -753,14 +839,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$aogd, "aog", as_pct,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$aogd, "aog", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -768,14 +855,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$prd, "pr", as_2dec,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$prd, "pr", as_2dec,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -783,14 +871,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$qsd, "qs_freq", as_pct,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$qsd, "qs_freq", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -798,14 +887,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$sfd, "sf_freq", as_pct,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$sfd, "sf_freq", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -821,9 +911,11 @@ renderValueBox({
             zone = zone_group(),
             mo = current_month(),
             qu = current_quarter(),
-            break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE_RGB)
+            break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -831,14 +923,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$tti, "tti", as_2dec,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-dashboard",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$tti, "tti", as_2dec,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-dashboard",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -846,14 +939,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$pti, "pti", as_2dec,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = TRUE),
-      icon = "fa-dashboard",
-      color = GDOT_BLUE_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$pti, "pti", as_2dec,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-dashboard",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -873,14 +967,15 @@ Row
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(cordata()$qu$vpd, "vpd", as_int,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = FALSE),
-    icon = "fa-area-chart",
-      color = GDOT_YELLOW_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$vpd, "vpd", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW_RGB
+    )
 })
 ```
 
@@ -888,14 +983,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$vphpa, "vph", as_int,
-                           zone = zone_group(),
-                           mo = current_month(),
-                           qu = current_quarter(), break_ = FALSE),
-      icon = "fa-area-chart",
-      color = GDOT_YELLOW
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$vphpa, "vph", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW
+    )
 })
 ```
 
@@ -903,14 +999,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$vphpp, "vph", as_int,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = FALSE),
-      icon = "fa-area-chart",
-      color = GDOT_YELLOW_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$vphpp, "vph", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW_RGB
+    )
 })
 ```
 
@@ -926,10 +1023,11 @@ renderValueBox({
             zone = zone_group(),
             mo = current_month(),
             qu = current_quarter(),
-            break_ = FALSE),
-      icon = "fa-area-chart",
-      color = GDOT_YELLOW
-  )
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW
+    )
 })
 ```
 
@@ -938,11 +1036,11 @@ renderValueBox({
 
 ```{r, eval = TRUE}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -959,16 +1057,17 @@ Row
 ### Vehicle Detector Availability {.value-box}
 
 ```{r}
-#cordata()$qu$veh
+# cordata()$qu$veh
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$du, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-      icon = "fa-car",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$du, "uptime", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-car",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -977,14 +1076,15 @@ renderValueBox({
 ```{r}
 
 renderValueBox({
-  valueBox(
-    value = get_valuebox(cordata()$qu$pau, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "fa-walking",
-      color = GDOT_BLUE_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$pau, "uptime", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-walking",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -992,14 +1092,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(cordata()$qu$cctv, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-    icon = "glyphicon-facetime-video",
-      color = GDOT_BLUE
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$cctv, "uptime", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "glyphicon-facetime-video",
+        color = GDOT_BLUE
+    )
 })
 ```
 
@@ -1007,14 +1108,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$cu, "uptime", as_pct,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = TRUE),
-      icon = "fa-broadcast-tower",
-      color = GDOT_BLUE_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$cu, "uptime", as_pct,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = TRUE
+        ),
+        icon = "fa-broadcast-tower",
+        color = GDOT_BLUE_RGB
+    )
 })
 ```
 
@@ -1030,7 +1132,8 @@ renderValueBox({
             zone = zone_group(),
             mo = current_month(),
             qu = current_quarter(),
-            break_ = TRUE),
+            break_ = TRUE
+        ),
         icon = "fa-wifi",
         color = GDOT_BLUE
     )
@@ -1042,11 +1145,11 @@ renderValueBox({
 
 ```{r, eval = TRUE}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -1064,14 +1167,15 @@ Row
 
 ```{r}
 renderValueBox({
-  valueBox(
-      value = get_valuebox(cordata()$qu$reported, "Reported", as_int,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = FALSE),
-      icon = "fa-area-chart",
-      color = GDOT_YELLOW
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$reported, "Reported", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW
+    )
 })
 ```
 
@@ -1079,14 +1183,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(cordata()$qu$resolved, "Resolved", as_int,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = FALSE),
-    icon = "fa-area-chart",
-      color = GDOT_YELLOW_RGB
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$resolved, "Resolved", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW_RGB
+    )
 })
 ```
 
@@ -1094,14 +1199,15 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(cordata()$qu$outstanding, "Outstanding", as_int,
-                         zone = zone_group(),
-                         mo = current_month(),
-                         qu = current_quarter(), break_ = FALSE),
-    icon = "fa-area-chart",
-      color = GDOT_YELLOW
-  )
+    valueBox(
+        value = get_valuebox(cordata()$qu$outstanding, "Outstanding", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(), break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW
+    )
 })
 ```
 
@@ -1109,17 +1215,18 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(
-        cordata()$qu$over45,
-        "over45", as_int,
-        zone = zone_group(),
-        mo = current_month(),
-        qu = current_quarter(),
-        break_ = FALSE),
-    icon = "fa-area-chart",
-    color = GDOT_YELLOW_RGB
-  )
+    valueBox(
+        value = get_valuebox(
+            cordata()$qu$over45,
+            "over45", as_int,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(),
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW_RGB
+    )
 })
 ```
 
@@ -1127,17 +1234,18 @@ renderValueBox({
 
 ```{r}
 renderValueBox({
-  valueBox(
-    value = get_valuebox(
-        cordata()$qu$mttr,
-        "mttr", as_2dec,
-        zone = zone_group(),
-        mo = current_month(),
-        qu = current_quarter(),
-        break_ = FALSE),
-    icon = "fa-area-chart",
-    color = GDOT_YELLOW
-  )
+    valueBox(
+        value = get_valuebox(
+            cordata()$qu$mttr,
+            "mttr", as_2dec,
+            zone = zone_group(),
+            mo = current_month(),
+            qu = current_quarter(),
+            break_ = FALSE
+        ),
+        icon = "fa-area-chart",
+        color = GDOT_YELLOW
+    )
 })
 ```
 
@@ -1145,11 +1253,11 @@ renderValueBox({
 ```{r, eval = FALSE}
 ### {.value-box}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -1176,109 +1284,117 @@ fillCol(
     fillRow(
         div("Throughput", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$tp, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$tp, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "Throughput", RED2,
-                format_func = as_int)
+                format_func = as_int
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Arrivals on Green", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$aogd, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$aogd, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$aogd)
+                goal_ = goal$aogd
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Progression Ratio", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$prd, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$prd, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "pr", "Progression Ratio\nGoal: 1.2", RED2,
                 format_func = as_2dec,
                 hoverformat = ".2f",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$prd)
+                goal_ = goal$prd
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Queue Spillback", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$qsd, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$qsd, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "qs_freq", "Queue\nSpillback", RED2,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$qsd)
+                goal_ = goal$qsd
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Peak Period Split Failure", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$sfd, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$sfd, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "sf_freq", "Peak\nSplit Failure", RED2,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$sfd)
+                goal_ = goal$sfd
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Off-Peak Split Failure", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$sfo, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(mr()$mo$sfo, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "sf_freq", "Off-Peak\nSplit Failure", RED2,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$sfd)
+                goal_ = goal$sfd
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Travel Time Index", style = styl),
         renderPlotly({
-            data.set <- filter(cordata()$mo$tti, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(cordata()$mo$tti, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "tti", "Travel Time\nIndex", RED2,
                 format_func = as_2dec,
                 hoverformat = ".2f",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$tti)
+                goal_ = goal$tti
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Planning Time Index", style = styl),
         renderPlotly({
-            data.set <- filter(cordata()$mo$pti, Corridor==zone_group() & Month <= current_month())
+            data.set <- filter(cordata()$mo$pti, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "pti", "Planning Time\nIndex", RED2,
                 format_func = as_2dec,
                 hoverformat = ".2f",
                 fill_color_ = LIGHT_RED,
-                goal_ = goal$pti)
+                goal_ = goal$pti
+            )
         }),
         flex = c(2, 10)
     ),
@@ -1293,94 +1409,105 @@ fillCol(
 fillCol(
     fillRow(
         div("Daily Volume", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$vpd, Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(mr()$mo$vpd, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vpd", "Daily\nVolume", GDOT_BLUE,
-                format_func = as_int)
+                format_func = as_int
+            )
         }),
         flex = c(2, 10)
     ),
 
     fillRow(
         div("AM Hourly Volume", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$vphpa, Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(mr()$mo$vphpa, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE,
-                format_func = as_int)
+                format_func = as_int
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("PM Hourly Volume", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$vphpp, Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(mr()$mo$vphpp, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE,
-                format_func = as_int)
+                format_func = as_int
+            )
         }),
         flex = c(2, 10)
     ),
 
     fillRow(
         div("Detector Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$du, Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(mr()$mo$du, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "uptime", "Detector\nUptime\nGoal: 95%", ORANGE,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$du)
+                goal_ = goal$du
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Ped Pushbutton Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(cordata()$mo$pau,
-                          Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(
+                cordata()$mo$pau,
+                Corridor == zone_group() & Month <= current_month()
+            )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "uptime", "Ped Pushbutton\nUptime\nGoal: 95%", ORANGE,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$pau)
+                goal_ = goal$pau
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("CCTV Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$cctv,
-                          Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(
+                mr()$mo$cctv,
+                Corridor == zone_group() & Month <= current_month()
+            )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cctv)
+                goal_ = goal$cctv
+            )
         }),
         flex = c(2, 10)
     ),
     fillRow(
         div("Comm Uptime", style = styl),
-        renderPlotly    ({
-            data.set <- filter(mr()$mo$cu, Corridor==zone_group() & Month <= current_month())
+        renderPlotly({
+            data.set <- filter(mr()$mo$cu, Corridor == zone_group() & Month <= current_month())
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             perf_plot_beta(
                 data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE,
                 format_func = as_pct,
                 hoverformat = ".1%",
                 fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cu)
+                goal_ = goal$cu
+            )
         }),
         flex = c(2, 10)
     ),
@@ -1469,14 +1596,18 @@ Row {data-height=40}
 
 ```{r metric select, eval = TRUE}
 
-#div(style = "height: 50px",
+# div(style = "height: 50px",
 
-selectInput("performance_metric", label = NULL,
-            choices = c("Throughput",  "Arrivals on Green", "Progression Ratio",
-                        "Queue Spillback Rate", "Peak Period Split Failures", "Off-Peak Split Failures",
-                        "Travel Time Metrics"),
-            selected = "Throughput")
-#)
+selectInput("performance_metric",
+    label = NULL,
+    choices = c(
+        "Throughput", "Arrivals on Green", "Progression Ratio",
+        "Queue Spillback Rate", "Peak Period Split Failures", "Off-Peak Split Failures",
+        "Travel Time Metrics"
+    ),
+    selected = "Throughput"
+)
+# )
 ```
 
 Row {data-height=700}
@@ -1487,12 +1618,10 @@ Row {data-height=700}
 plotlyOutput("performance", height = "100%", width = "100%")
 
 output$performance <- renderPlotly({
-
     if (input$performance_metric == "Throughput") {
-
         get_bar_line_dashboard_plot(
             mr()$wk$tp,
-            mr()$mo$tp ,
+            mr()$mo$tp,
             NULL,
             "vph",
             "integer",
@@ -1501,10 +1630,9 @@ output$performance <- renderPlotly({
             zone_group_ = zone_group(),
             x_bar_title = paste(input$month, "Throughput (vph)"),
             x_line1_title = "Vehicles per Hour Trend",
-            plot_title = "Throughput (peak veh/hr)")
-
+            plot_title = "Throughput (peak veh/hr)"
+        )
     } else if (input$performance_metric == "Arrivals on Green") {
-
         get_bar_line_dashboard_plot(
             mr()$wk$aog,
             mr()$mo$aogd,
@@ -1517,26 +1645,25 @@ output$performance <- renderPlotly({
             x_bar_title = paste(input$month, "AOG"),
             x_line1_title = "AOG Trend",
             x_line2_title = paste(input$month, "AOG by TOD"),
-            plot_title = "Percent Arrivals on Green")
-
+            plot_title = "Percent Arrivals on Green"
+        )
     } else if (input$performance_metric == "Progression Ratio") {
-
         get_bar_line_dashboard_plot(
-            mr()$wk$pr,
+            mr()$wk$prd,
             mr()$mo$prd,
             mr()$mo$prh,
-            "pr", "decimal", highlight_color = RED2,
+            "pr", "decimal",
+            highlight_color = RED2,
             month_ = current_month(),
             zone_group_ = zone_group(),
             x_bar_title = paste(input$month, "AOG"),
             x_line1_title = "Progression Ratio Trend",
             x_line2_title = paste(input$month, "Progression Ratio by TOD"),
-            plot_title = "Progression Ratio")
-
+            plot_title = "Progression Ratio"
+        )
     } else if (input$performance_metric == "Queue Spillback Rate") {
-
         get_bar_line_dashboard_plot(
-            mr()$wk$qs,
+            mr()$wk$qsd,
             mr()$mo$qsd,
             mr()$mo$mqsh,
             "qs_freq",
@@ -1547,12 +1674,11 @@ output$performance <- renderPlotly({
             x_bar_title = paste(input$month, "Queue Spillback Rate"),
             x_line1_title = "Queue Spillback Trend",
             x_line2_title = paste(input$month, "Queue Spillback by TOD"),
-            plot_title = "Queue Spillback Rate")
-
+            plot_title = "Queue Spillback Rate"
+        )
     } else if (input$performance_metric == "Peak Period Split Failures") {
-
         get_bar_line_dashboard_plot(
-            mr()$wk$sf,
+            mr()$wk$sfd,
             mr()$mo$sfd,
             mr()$mo$sfh,
             "sf_freq",
@@ -1563,10 +1689,9 @@ output$performance <- renderPlotly({
             x_bar_title = paste(input$month, "Split Failures Rate"),
             x_line1_title = "Peak Period Split Failures Trend",
             x_line2_title = paste(input$month, "Split Failures by TOD"),
-            plot_title = "Peak Period Split Failures Rate")
-
+            plot_title = "Peak Period Split Failures Rate"
+        )
     } else if (input$performance_metric == "Off-Peak Split Failures") {
-
         get_bar_line_dashboard_plot(
             mr()$wk$sfo,
             mr()$mo$sfo,
@@ -1579,22 +1704,22 @@ output$performance <- renderPlotly({
             x_bar_title = paste(input$month, "Off_Peak Split Failures Rate"),
             x_line1_title = "Off-Peak Split Failures Trend",
             x_line2_title = paste(input$month, "Split Failures by TOD"),
-            plot_title = "Off-Peak Split Failures Rate")
+            plot_title = "Off-Peak Split Failures Rate"
+        )
     } else if (input$performance_metric == "Travel Time Metrics") {
-
         get_tt_plot(
-          cordata()$mo$tti,
-          cordata()$mo$ttih,
-          cordata()$mo$pti,
-          cordata()$mo$ptih,
-          month_ = current_month(),
-          zone_group_ = zone_group(),
-          x_bar_title = paste(input$month, "TTI & PTI"),
-          x_line1_title = paste(input$month, "TTI by hr"),
-          x_line2_title = paste(input$month, "PTI by hr"))
+            cordata()$mo$tti,
+            cordata()$mo$ttih,
+            cordata()$mo$pti,
+            cordata()$mo$ptih,
+            month_ = current_month(),
+            zone_group_ = zone_group(),
+            x_bar_title = paste(input$month, "TTI & PTI"),
+            x_line1_title = paste(input$month, "TTI by hr"),
+            x_line2_title = paste(input$month, "PTI by hr")
+        )
     }
 })
-
 ```
 
 Volumes
@@ -1626,10 +1751,11 @@ Row {data-height=40}
 
 ```{r volumes select, eval = TRUE}
 
-selectInput("volume_metric", label = NULL,
-            choices = c("Daily Traffic Volumes",  "Daily Pedestrian Pushbutton Activity"),
-            selected = "Daily Traffic Volumes")
-
+selectInput("volume_metric",
+    label = NULL,
+    choices = c("Daily Traffic Volumes", "Daily Pedestrian Pushbutton Activity"),
+    selected = "Daily Traffic Volumes"
+)
 ```
 
 Row {data-height=700}
@@ -1640,9 +1766,7 @@ Row {data-height=700}
 plotlyOutput("volume", height = "100%", width = "100%")
 
 output$volume <- renderPlotly({
-
     if (input$volume_metric == "Daily Traffic Volumes") {
-
         get_bar_line_dashboard_plot(
             mr()$wk$vpd,
             mr()$mo$vpd,
@@ -1654,10 +1778,9 @@ output$volume <- renderPlotly({
             zone_group_ = zone_group(),
             x_bar_title = paste(input$month, "Daily Volume (vpd)"),
             x_line1_title = "Vehicles per Day Trend",
-            plot_title = "Daily Volume (veh/day)")
-
+            plot_title = "Daily Volume (veh/day)"
+        )
     } else if (input$volume_metric == "Daily Pedestrian Pushbutton Activity") {
-
         get_bar_line_dashboard_plot(
             mr()$wk$papd,
             mr()$mo$papd,
@@ -1669,7 +1792,8 @@ output$volume <- renderPlotly({
             zone_group_ = zone_group(),
             x_bar_title = paste(input$month, "Ped Activations (papd)"),
             x_line1_title = "Ped Activations per Day Trend",
-            plot_title = "Pedestrian Activations per Day (pa/day)")
+            plot_title = "Pedestrian Activations per Day (pa/day)"
+        )
     }
 })
 ```
@@ -1719,11 +1843,11 @@ valueBoxOutput("ru_valuebox2")
 
 ```{r, eval = TRUE}
 renderValueBox({
-  valueBox(
-    value = NULL,
-    icon = NULL,
-    color = "gray80"
-  )
+    valueBox(
+        value = NULL,
+        icon = NULL,
+        color = "gray80"
+    )
 })
 ```
 
@@ -1732,10 +1856,14 @@ Row {data-height=40}
 
 ```{r equipment select, eval = TRUE}
 
-selectInput("equipment_metric", label = NULL,
-            choices = c("Detector Uptime",  "Pedestrian Pushbutton Uptime",
-                        "CCTV Uptime", "Communications Uptime"),
-            selected = "Detector Uptime")
+selectInput("equipment_metric",
+    label = NULL,
+    choices = c(
+        "Detector Uptime", "Pedestrian Pushbutton Uptime",
+        "CCTV Uptime", "Communications Uptime"
+    ),
+    selected = "Detector Uptime"
+)
 ```
 
 Row {data-height=700}
@@ -1746,15 +1874,13 @@ Row {data-height=700}
 plotlyOutput("equipment", height = "100%", width = "100%")
 
 output$equipment <- renderPlotly({
-
     if (input$equipment_metric == "Detector Uptime") {
-
         mr_dy_du <- mr()$dy$du
         mr_mo_du <- mr()$mo$du
         zone_group_ <- zone_group()
         current_month_ <- current_month()
         input_month <- input$month
-        
+
         if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_bar_line_dashboard_plot(
                 cordata()$wk$du,
@@ -1766,19 +1892,17 @@ output$equipment <- renderPlotly({
                 zone_group_ = zone_group_,
                 x_bar_title = paste(input_month, "Detector Uptime (%)"),
                 x_line1_title = "Detector Uptime Trend",
-                plot_title = "Detector Uptime")
-
+                plot_title = "Detector Uptime"
+            )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-
             get_cor_det_uptime_plot(
                 mr_dy_du,
                 mr_mo_du,
                 month_name = input_month,
                 month_ = current_month_,
-                zone_group_ = zone_group_)
-
+                zone_group_ = zone_group_
+            )
         } else {
-
             get_uptime_plot(
                 sigdata()$dy$du,
                 sigdata()$mo$du,
@@ -1789,11 +1913,10 @@ output$equipment <- renderPlotly({
                 x_bar_title = "Current Month Uptime",
                 x_line1_title = "Daily Uptime",
                 plot_title = "",
-                goal = NULL)
+                goal = NULL
+            )
         }
-
     } else if (input$equipment_metric == "Pedestrian Pushbutton Uptime") {
-
         mr_dy_pau <- mr()$dy$pau
         mr_mo_pau <- mr()$mo$pau
         zone_group_ <- zone_group()
@@ -1801,7 +1924,6 @@ output$equipment <- renderPlotly({
         input_month <- input$month
 
         if (zone_group() == "All RTOP" || ntraces() > 24) {
-
             get_bar_line_dashboard_plot(
                 cordata()$wk$pau,
                 cordata()$mo$pau,
@@ -1812,62 +1934,56 @@ output$equipment <- renderPlotly({
                 zone_group_ = zone_group_,
                 x_bar_title = paste(input_month, "Ped Pushbutton Uptime (%)"),
                 x_line1_title = "Ped Pushbutton Uptime Trend",
-                plot_title = "Ped Pushbutton Uptime")
-
+                plot_title = "Ped Pushbutton Uptime"
+            )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-
             get_cor_comm_uptime_plot(
                 mr_dy_pau,
                 mr_mo_pau,
                 month_name = input_month,
                 month_ = current_month_,
-                zone_group_ = zone_group_)
-
+                zone_group_ = zone_group_
+            )
         } else {
-
             get_uptime_plot(
-                  sigdata()$dy$pau,
-                  sigdata()$mo$pau,
-                  var_ = "uptime",
-                  num_format = "percent",
-                  month_ = current_month_,
-                  zone_group_ = zone_group_,
-                  x_bar_title = "Current Month Uptime",
-                  x_line1_title = "Daily Uptime",
-                  plot_title = "",
-                  goal = NULL)
+                sigdata()$dy$pau,
+                sigdata()$mo$pau,
+                var_ = "uptime",
+                num_format = "percent",
+                month_ = current_month_,
+                zone_group_ = zone_group_,
+                x_bar_title = "Current Month Uptime",
+                x_line1_title = "Daily Uptime",
+                plot_title = "",
+                goal = NULL
+            )
         }
-
     } else if (input$equipment_metric == "CCTV Uptime") {
-
         zone_group_ <- zone_group()
         current_month_ <- current_month()
         input_month <- input$month
 
         if (corridor() == "All Corridors") {
             get_bar_line_dashboard_plot(
-              cordata()$wk$cctv,
-              cordata()$mo$cctv,
-              var_ = "uptime",
-              num_format = "percent",
-              highlight_color = BROWN,
-              month_ = current_month_,
-              zone_group_ = zone_group_,
-              x_bar_title = paste(input_month, "CCTV Uptime"),
-              x_line1_title = "CCTV Uptime Trend",
-              plot_title = "CCTV Uptime")
-
+                cordata()$wk$cctv,
+                cordata()$mo$cctv,
+                var_ = "uptime",
+                num_format = "percent",
+                highlight_color = BROWN,
+                month_ = current_month_,
+                zone_group_ = zone_group_,
+                x_bar_title = paste(input_month, "CCTV Uptime"),
+                x_line1_title = "CCTV Uptime Trend",
+                plot_title = "CCTV Uptime"
+            )
         } else {
-
             plot_individual_cctvs(
                 sigdata()$dy$cctv,
                 month_ = current_month_,
-                zone_group_ = zone_group_)
-
+                zone_group_ = zone_group_
+            )
         }
-
     } else if (input$equipment_metric == "Communications Uptime") {
-
         mr_dy_cu <- mr()$dy$cu
         mr_mo_cu <- mr()$mo$cu
         mr()$mo$cu
@@ -1876,7 +1992,6 @@ output$equipment <- renderPlotly({
         input_month <- input$month
 
         if (zone_group() == "All RTOP" || ntraces() > 24) {
-
             get_bar_line_dashboard_plot(
                 cordata()$wk$cu,
                 cordata()$mo$cu,
@@ -1887,33 +2002,30 @@ output$equipment <- renderPlotly({
                 zone_group_ = zone_group_,
                 x_bar_title = paste(input_month, "Comm Uptime (%)"),
                 x_line1_title = "Comm Uptime Trend",
-                plot_title = "Comm Uptime")
-
+                plot_title = "Comm Uptime"
+            )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-
             get_cor_comm_uptime_plot(mr_dy_cu,
-                                     mr_mo_cu,
-                                     month_name = input_month,
-                                     month_ = current_month_,
-                                     zone_group_ = zone_group_)
+                mr_mo_cu,
+                month_name = input_month,
+                month_ = current_month_,
+                zone_group_ = zone_group_
+            )
         } else {
-
             get_uptime_plot(sigdata()$dy$cu,
-                            sigdata()$mo$cu,
-                            var_ = "uptime",
-                            num_format = "percent",
-                            month_ = current_month_,
-                            zone_group_ = zone_group_,
-                            x_bar_title = "Current Month Uptime",
-                            x_line1_title = "Daily Uptime",
-                            plot_title = "",
-                            goal = NULL)
+                sigdata()$mo$cu,
+                var_ = "uptime",
+                num_format = "percent",
+                month_ = current_month_,
+                zone_group_ = zone_group_,
+                x_bar_title = "Current Month Uptime",
+                x_line1_title = "Daily Uptime",
+                plot_title = "",
+                goal = NULL
+            )
         }
-
     } else if (input$equipment_metric == "RSU Uptime") {
-
         if (zone_group() == "All RTOP" || ntraces() > 24) {
-
             get_bar_line_dashboard_plot(
                 cordata()$wk$ru,
                 cordata()$mo$ru,
@@ -1924,18 +2036,17 @@ output$equipment <- renderPlotly({
                 zone_group_ = zone_group(),
                 x_bar_title = paste(input$month, "RSU Uptime (%)"),
                 x_line1_title = "RSU Uptime Trend",
-                plot_title = "RSU Uptime")
-
+                plot_title = "RSU Uptime"
+            )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-
             get_cor_comm_uptime_plot(
                 mr()$dy$ru,
                 mr()$mo$ru,
                 month_name = input$month,
                 month_ = current_month(),
-                zone_group_ = zone_group())
+                zone_group_ = zone_group()
+            )
         } else {
-
             get_uptime_plot(
                 sigdata()$dy$ru %>% filter(Date <= endof_last_month),
                 sigdata()$mo$ru,
@@ -1946,7 +2057,8 @@ output$equipment <- renderPlotly({
                 x_bar_title = "Current Month Uptime",
                 x_line1_title = "Daily Uptime",
                 plot_title = "",
-                goal = NULL)
+                goal = NULL
+            )
         }
     }
 })
@@ -1999,54 +2111,68 @@ fillRow(
     fillCol(
         renderPlotly({
             data.set <- gather_outstanding_events(
-                filter(mr()$mo$tasks,
-                       Zone_Group == zone_group(),
-                       Corridor == zone_group(),
-                       Month <= current_month())
+                filter(
+                    mr()$mo$tasks,
+                    Zone_Group == zone_group(),
+                    Corridor == zone_group(),
+                    Month <= current_month()
+                )
             )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             cum_events_plot(data.set)
         }),
         renderPlotly({
-            data.set <- filter(mr()$mo$ttyp,
-                               Zone_Group == zone_group(),
-                               Corridor == zone_group(),
-                               Month == current_month(),
-                               Reported > 0 | Resolved > 0 | Outstanding > 0)
+            data.set <- filter(
+                mr()$mo$ttyp,
+                Zone_Group == zone_group(),
+                Corridor == zone_group(),
+                Month == current_month(),
+                Reported > 0 | Resolved > 0 | Outstanding > 0
+            )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
-                             var_ = "Task_Type",
-                             title_ = "Incidents This Month by Type (top), Source (bottom)",
-                             height_ = 250)
+                var_ = "Task_Type",
+                title_ = "Incidents This Month by Type (top), Source (bottom)",
+                height_ = 250
+            )
         }),
         renderPlotly({
-            data.set <- filter(mr()$mo$tsou,
-                               Zone_Group == zone_group(),
-                               Corridor == zone_group(),
-                               Month == current_month(),
-                               Reported > 0 | Resolved > 0 | Outstanding > 0)
+            data.set <- filter(
+                mr()$mo$tsou,
+                Zone_Group == zone_group(),
+                Corridor == zone_group(),
+                Month == current_month(),
+                Reported > 0 | Resolved > 0 | Outstanding > 0
+            )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
-                             var_ = "Task_Source",
-                             height_ = 150)
+                var_ = "Task_Source",
+                height_ = 150
+            )
         }),
-        height = 800, flex = c(NA, NA, 1)),
+        height = 800, flex = c(NA, NA, 1)
+    ),
 
     fillCol(
         renderPlotly({
-            data.set <- filter(mr()$mo$tsub,
-                               Zone_Group == zone_group(),
-                               Corridor == zone_group(),
-                               Month == current_month(),
-                               Reported > 0 | Resolved > 0 | Outstanding > 0)
+            data.set <- filter(
+                mr()$mo$tsub,
+                Zone_Group == zone_group(),
+                Corridor == zone_group(),
+                Month == current_month(),
+                Reported > 0 | Resolved > 0 | Outstanding > 0
+            )
             shiny::validate(need(nrow(data.set) > 0, "No Data"))
             plot_teams_tasks(data.set,
-                             var_ = "Task_Subtype",
-                             title = "Incidents This Month by Subtype",
-                             textpos = "outside",
-                             height_ = 700)
+                var_ = "Task_Subtype",
+                title = "Incidents This Month by Subtype",
+                textpos = "outside",
+                height_ = 700
+            )
         }),
-        height = 800))
+        height = 800
+    )
+)
 ```
 
 
@@ -2067,13 +2193,17 @@ corridor_summary_table <- reactive({
     }
 })
 
-   #corridor_summary_table(),
-tags$div(class = "corridor_summary_table",
+# corridor_summary_table(),
+tags$div(
+    class = "corridor_summary_table",
     fillRow(
         renderFormattable({
             shiny::validate(
-                need(startsWith(input$zone_group, "Zone"),
-                     "Select a Zone for the Metrics Summary Table"))
+                need(
+                    startsWith(input$zone_group, "Zone"),
+                    "Select a Zone for the Metrics Summary Table"
+                )
+            )
             corridor_summary_table()
         })
     )
@@ -2083,18 +2213,23 @@ fillRow(
         req(corridor_summary_table())
         tags$div(
             p(strong("Legend:")),
-            p("Green text indicates a metric meeting the monthly goal; ",
-              "red text indicates not meeting goal."),
+            p(
+                "Green text indicates a metric meeting the monthly goal; ",
+                "red text indicates not meeting goal."
+            ),
 
-            p(span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
-              span(class = "glyphicon glyphicon-arrow-down", style = "color: green"),
-              "A green arrow indicates an improvement from the previous month ",
-              "(The arrow's direction indicates an increase or decrease in value); ",
-              tags$br(),
-              span(class = "glyphicon glyphicon-arrow-up", style = "color: red"),
-              span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
-              "A red up arrow indicates a deterioration from the previous month ",
-              "(The arrow's direction indicates an increase or decrease in value); "))
+            p(
+                span(class = "glyphicon glyphicon-arrow-up", style = "color: green"),
+                span(class = "glyphicon glyphicon-arrow-down", style = "color: green"),
+                "A green arrow indicates an improvement from the previous month ",
+                "(The arrow's direction indicates an increase or decrease in value); ",
+                tags$br(),
+                span(class = "glyphicon glyphicon-arrow-up", style = "color: red"),
+                span(class = "glyphicon glyphicon-arrow-down", style = "color: red"),
+                "A red up arrow indicates a deterioration from the previous month ",
+                "(The arrow's direction indicates an increase or decrease in value); "
+            )
+        )
     })
 )
 ```
@@ -2109,15 +2244,16 @@ print("Checkout connection from pool...")
 conn <- pool::poolCheckout(aurora_connection_pool)
 print("Checked out.")
 
-        
-zmdf <- read_from_db(conn) %>% 
+
+zmdf <- read_from_db(conn) %>%
     get_last_modified()
 
 
 renderUI({
     div(
         style = "overflow-y:scroll; max-height: 700px",
-        HTML(get_latest_comment(zmdf, zone_group(), current_month())))
+        HTML(get_latest_comment(zmdf, zone_group(), current_month()))
+    )
 })
 ```
 
@@ -2131,9 +2267,9 @@ udc_plot_height <- reactive({
         filter(grepl("^Zone", Zone)) %>%
         distinct(Zone, Corridor) %>%
         group_by(Zone) %>%
-        summarize(n=ceiling(n()/2)) %>%
+        summarize(n = ceiling(n() / 2)) %>%
         mutate(Zone = as.character(Zone))
-    n <- ncorrs[ncorrs$Zone=="Zone 1",]$n
+    n <- ncorrs[ncorrs$Zone == "Zone 1", ]$n
     # n <- 3
     css_px <- as.character(200 * n)
     paste0(css_px, "px")
@@ -2141,63 +2277,78 @@ udc_plot_height <- reactive({
 
 output$udc_plot <- renderPlotly({
     udcplot_plotly(
-        cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month()))
+        cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month())
+    )
 })
 
 output$udc_table <- renderFormattable({
-      shiny::validate(
-          need(startsWith(zone_group(), "Zone"), ""))
+    shiny::validate(
+        need(startsWith(zone_group(), "Zone"), "")
+    )
 
-      month_str <- format(current_month(), "%F")
-      data <- cordata()$mo$udc_trend_table
+    month_str <- format(current_month(), "%F")
+    data <- cordata()$mo$udc_trend_table
 
-      shiny::validate(
-          need(month_str %in% names(data), "No data"))
+    shiny::validate(
+        need(month_str %in% names(data), "No data")
+    )
 
-      data <- data[[month_str]] %>%
-          filter(Zone == zone_group()) %>%
-          select(-Month) %>%
-          rename(`Month Change` = `Month-over-Month`,
-                 `Year Change` = `Year-over-Year`)
+    data <- data[[month_str]] %>%
+        filter(Zone == zone_group()) %>%
+        select(-Month) %>%
+        rename(
+            `Month Change` = `Month-over-Month`,
+            `Year Change` = `Year-over-Year`
+        )
 
-      shiny::validate(
-          need(nrow(data)>0, "No data"))
+    shiny::validate(
+        need(nrow(data) > 0, "No data")
+    )
 
-      column_formats <- list(
-          formatter("span"),
-          formatter("span"),
-          formatter("span", x ~ as_currency(x)),
-          formatter("span",
-                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
-                    x ~ as_pct(x)),
-          formatter("span", x ~ as_currency(x)),
-          formatter("span",
-                    style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
-                    x ~ as_pct(x)),
-          formatter("span", x ~ as_currency(x)))
-      names(column_formats) <- names(data)
+    column_formats <- list(
+        formatter("span"),
+        formatter("span"),
+        formatter("span", x ~ as_currency(x)),
+        formatter("span",
+            style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+            x ~ as_pct(x)
+        ),
+        formatter("span", x ~ as_currency(x)),
+        formatter("span",
+            style = x ~ formattable::style(color = ifelse(x < 0, "red", "black")),
+            x ~ as_pct(x)
+        ),
+        formatter("span", x ~ as_currency(x))
+    )
+    names(column_formats) <- names(data)
 
-      formattable(
-          data,
-          align = c(rep("l", 2), rep("r", length(data)-2)),
-          column_formats)
+    formattable(
+        data,
+        align = c(rep("l", 2), rep("r", length(data) - 2)),
+        column_formats
+    )
 })
 
 fillCol(
     fillRow(
         renderUI({
             shiny::validate(
-                need(startsWith(zone_group(), "Zone"),
-                     "Select a Zone for User Delay Costs by Corridor"))
-            plotlyOutput("udc_plot")#,
-                       #height = udc_plot_height())
+                need(
+                    startsWith(zone_group(), "Zone"),
+                    "Select a Zone for User Delay Costs by Corridor"
+                )
+            )
+            plotlyOutput("udc_plot") # ,
+            # height = udc_plot_height())
         })
     ),
     fillRow(
-        div(style = "width: 80%",
+        div(
+            style = "width: 80%",
             formattableOutput("udc_table")
         )
-    ), height = 1200
+    ),
+    height = 1200
 )
 ```
 
@@ -2216,45 +2367,42 @@ Row {data-height = 92}
 ```{r watchdog, fig.height = 0.92}
 
 plot_height <- reactive({
-
     n <- filtered_alerts()$intersections
     css_px <- as.character(50 + n * 14)
     paste0(css_px, "px")
 })
 
 filtered_alerts <- reactive({
-
     alerts_by_date <- filter_alerts_by_date(alerts(), input$date_range)
 
-    phase_ <- if(input$phase.eight != "All") {
+    phase_ <- if (input$phase.eight != "All") {
         input$phase.eight
     } else {
         "All"
     }
 
-    filter_alerts(alerts_by_date,
-                  input$alert_type,
-                  zone_group(),
-                  corridor(),
-                  phase_,
-                  input$id_filter,
-                  input$active_streak)
+    filter_alerts(
+        alerts_by_date,
+        input$alert_type,
+        zone_group(),
+        corridor(),
+        phase_,
+        input$id_filter,
+        input$active_streak
+    )
 })
 
 
 
 output$alerts_plot <- renderPlot({
-
     plot_df <- filtered_alerts()$plot
 
     if (nrow(plot_df) > 0) {
-
         if (nrow(plot_df) > 0) {
             plot_alerts(plot_df, input$date_range)
         } else {
             plot_empty(zone_group)
         }
-
     } else {
         plot_empty(zone_group)
     }
@@ -2267,49 +2415,58 @@ div(
              grid-column-gap: 10px;",
 
     dateRangeInput(
-            "date_range", "Date Range:",
-            start = today() - days(14),
-            end = today(),
-            min = today() - days(365),
-            max = today(),
-            format = "mm/dd/yy",
-            startview = "month",
-            weekstart = 0,
-            separator = " - "),
+        "date_range", "Date Range:",
+        start = today() - days(14),
+        end = today(),
+        min = today() - days(365),
+        max = today(),
+        format = "mm/dd/yy",
+        startview = "month",
+        weekstart = 0,
+        separator = " - "
+    ),
 
     selectInput(
-            "alert_type", "Alert:",
-            choices = c("No Camera Image",
-                        "Bad Vehicle Detection",
-                        "Bad Ped Pushbuttons",
-                        "Pedestrian Activations",
-                        "Force Offs",
-                        "Max Outs",
-                        "Count",
-                        "Missing Records"),
-            selected = "No Camera Image"),
+        "alert_type", "Alert:",
+        choices = c(
+            "No Camera Image",
+            "Bad Vehicle Detection",
+            "Bad Ped Pushbuttons",
+            "Pedestrian Activations",
+            "Force Offs",
+            "Max Outs",
+            "Count",
+            "Missing Records"
+        ),
+        selected = "No Camera Image"
+    ),
 
     conditionalPanel(
-            "(input.alert_type == 'Missing Records') ||
+        "(input.alert_type == 'Missing Records') ||
              (input.alert_type == 'No Camera Image')",
-            selectInput("phase.all", "Phase:",
-                        choices = "All",
-                        selected = "All")),
+        selectInput("phase.all", "Phase:",
+            choices = "All",
+            selected = "All"
+        )
+    ),
     conditionalPanel(
-            "(input.alert_type == 'Pedestrian Activations') ||
+        "(input.alert_type == 'Pedestrian Activations') ||
             (input.alert_type == 'Force Offs') ||
             (input.alert_type == 'Max Outs') ||
             (input.alert_type == 'Count') ||
             (input.alert_type == 'Bad Vehicle Detection') ||
             (input.alert_type == 'Bad Ped Pushbuttons')",
-            selectInput("phase.eight", "Phase:",
-                        choices = c("All", seq_len(8)),
-                        selected = "All")),
+        selectInput("phase.eight", "Phase:",
+            choices = c("All", seq_len(8)),
+            selected = "All"
+        )
+    ),
 
     textInput("id_filter", "Intersection Filter:"),
     selectInput("active_streak", "Streak:",
-                        choices = c("All", "Active", "Active 3-days"),
-                        selected = "All")
+        choices = c("All", "Active", "Active 3-days"),
+        selected = "All"
+    )
 )
 ```
 
@@ -2323,37 +2480,48 @@ fillRow(
         tabPanel(
             "Plot",
             helpText(
-                div(class = "heatmap-explanation",
+                div(
+                    class = "heatmap-explanation",
                     paste("Darker colors mean more consecutive days", "
-                          in which the alert condition is active.")),
-                paste("Use the 'Intersection Filter' box to reduce the size of the list.",
-                      "Filter on the intersection name or ID number.")
+                          in which the alert condition is active.")
+                ),
+                paste(
+                    "Use the 'Intersection Filter' box to reduce the size of the list.",
+                    "Filter on the intersection name or ID number."
+                )
             ),
             renderUI({
-
                 shiny::validate(
-                    need(filtered_alerts()$intersections < 2000,
-                         paste("\n\n\nTOO MUCH DATA TO PLOT.",
-                               "Select a Zone, Corridor of Phase",
-                               "to reduce the number of records.")))
+                    need(
+                        filtered_alerts()$intersections < 2000,
+                        paste(
+                            "\n\n\nTOO MUCH DATA TO PLOT.",
+                            "Select a Zone, Corridor of Phase",
+                            "to reduce the number of records."
+                        )
+                    )
+                )
 
                 plotOutput("alerts_plot",
-                           height = plot_height())
+                    height = plot_height()
+                )
             })
         ),
         tabPanel(
             "Table",
             renderDataTable({
                 datatable(filtered_alerts()$table,
-                          escape = FALSE,
-                          extensions = 'Scroller',
-                          options = list(
-                              deferRender = TRUE,
-                              scrollY = 500,
-                              scroller = TRUE,
-                              searching = FALSE))
+                    escape = FALSE,
+                    extensions = "Scroller",
+                    options = list(
+                        deferRender = TRUE,
+                        scrollY = 500,
+                        scroller = TRUE,
+                        searching = FALSE
+                    )
+                )
             }),
-            downloadHandler('watchdog_alerts.csv', content = function(file) {
+            downloadHandler("watchdog_alerts.csv", content = function(file) {
                 write_csv(filtered_alerts()$table, file)
             })
         )
@@ -2375,15 +2543,15 @@ Row {data-height = 800}
 
 ```{r}
 renderDataTable({
-
     datatable(filter(filtered_corridors(), as.integer(as.character(SignalID)) > 0),
-              escape = FALSE,
-              extensions = 'Scroller',
-              options = list(
-                  deferRender = TRUE,
-                  scrollY = 800,
-                  scroller = TRUE,
-                  searching = TRUE)
+        escape = FALSE,
+        extensions = "Scroller",
+        options = list(
+            deferRender = TRUE,
+            scrollY = 800,
+            scroller = TRUE,
+            searching = TRUE
+        )
     )
 })
 ```
@@ -2417,8 +2585,8 @@ metrics_df <- read_csv(
 )
 
 rms_corridors <- reactive({
-    x <- corridors() %>% 
-        filter(Zone_Group == "Ramp Meters") %>% 
+    x <- corridors() %>%
+        filter(Zone_Group == "Ramp Meters") %>%
         distinct(Corridor)
     as.character(x$Corridor)
 })
@@ -2447,70 +2615,89 @@ map_week_options <- reactive({
 met_trash <- c("tsub", "ttyp", "tpri", "tsou", "tasks", "over45", "mttr", "tti", "pti", "bi", "vphp", "sfo")
 
 line_popups <- function(num, name, corr, subc, tmc) {
-    paste(sep = "<br/>", 
-          glue("<b>Corridor: {corr}</b>"), 
-          glue("<b>Subcorridor: {subc}</b>"), 
-          glue("<b>Route Number:</b> {num}"),
-          glue("<b>Road Name:</b> {name}"),
-          glue("<b>TMC Code:</b> {tmc}"))
+    paste(
+        sep = "<br/>",
+        glue("<b>Corridor: {corr}</b>"),
+        glue("<b>Subcorridor: {subc}</b>"),
+        glue("<b>Route Number:</b> {num}"),
+        glue("<b>Road Name:</b> {name}"),
+        glue("<b>TMC Code:</b> {tmc}")
+    )
 }
 
 point_popups <- function(signalid, name, corridor) {
-    paste(sep = "<br/>", 
-          glue("<b>Signal: {signalid}</b> | {name}"), 
-          glue("<b>Corridor:</b> {corridor}"))
+    paste(
+        sep = "<br/>",
+        glue("<b>Signal: {signalid}</b> | {name}"),
+        glue("<b>Corridor:</b> {corridor}")
+    )
 }
 
 line_labels <- function(corridor, subcorridor) {
-    paste(sep = " | ", 
-          glue("Corridor: {corridor}"),
-          glue("Subcorridor: {subcorridor}"))
+    paste(
+        sep = " | ",
+        glue("Corridor: {corridor}"),
+        glue("Subcorridor: {subcorridor}")
+    )
 }
 
 shinyApp(
     ui = fluidPage(
-        
         tags$head(
             tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
         ),
-        
+
         leafletOutput("MapPlot1", height = "800px"),
-        
+
         # left = 150 | 310(150+150+10) | 620(310+300+10)
         # absolutePanel(top = 10, left = 100,
-        #               selectInput(inputId = "time_frame", 
-        #                           label = "Time Frame", 
+        #               selectInput(inputId = "time_frame",
+        #                           label = "Time Frame",
         #                           choices = c("Monthly"),  # "Weekly"),
         #                           selected = 1,
         #                           width = "150px")),
-        absolutePanel(top = 10, left = 100,  # 260,
-                      div(selectInput(inputId = "metric_input", 
-                                  label = "Select Metric", 
-                                  choices = metrics_df$description, 
-                                  width = "300px"),
-            style = "font-family: Source Sans Pro;")),
+        absolutePanel(
+            top = 10, left = 100, # 260,
+            div(selectInput(
+                inputId = "metric_input",
+                label = "Select Metric",
+                choices = metrics_df$description,
+                width = "300px"
+            ),
+            style = "font-family: Source Sans Pro;"
+            )
+        ),
         # absolutePanel(top = 10, left = 570,
-        #               selectInput(inputId = "period_input", 
-        #                           label = "Select Period", 
+        #               selectInput(inputId = "period_input",
+        #                           label = "Select Period",
         #                           choices = format(today(), "%B %Y"),
         #                           selected = 1,
         #                           width = "150px")),
-        absolutePanel(top = 10, left = 430,
-                      div(radioButtons("filter_input", label = "Filter by",
-                      choices = list(
-                          "View all signals" = 1, 
-                          "Filter by signal group in sidebar" = 2), 
-                      selected = 1),
-            style = "font-family: Source Sans Pro")),
-        absolutePanel(top = 110, left = 50,
-                      div(dataTableOutput("top10_table"),
-            style = "font-family: Source Sans Pro; font-size: 14px;"))
+        absolutePanel(
+            top = 10, left = 430,
+            div(radioButtons("filter_input",
+                label = "Filter by",
+                choices = list(
+                    "View all signals" = 1,
+                    "Filter by signal group in sidebar" = 2
+                ),
+                selected = 1
+            ),
+            style = "font-family: Source Sans Pro"
+            )
+        ),
+        absolutePanel(
+            top = 110, left = 50,
+            div(dataTableOutput("top10_table"),
+                style = "font-family: Source Sans Pro; font-size: 14px;"
+            )
+        )
     ),
-    
+
     server = function(input, output, session) {
-        
+
         # observe({
-        #     period_options <- 
+        #     period_options <-
         #         if (input$time_frame == "Monthly") {
         #             map_month_options()
         #         } else if (input$time_frame == "Weekly") {
@@ -2518,33 +2705,35 @@ shinyApp(
         #         } else {
         #             c("one", "two") # for debugging. should never happen
         #         }
-        #     
+        #
         #     updateSelectInput(session, inputId = "period_input", choices = period_options)
         # })
-        
+
         output$MapPlot1 <- renderLeaflet({
-            
             format_ <- value_format(value())
-                
+
             pal <- colorBin(
                 palette = "YlGnBu",
                 domain = data()[[value()]],
                 bins = 5,
-                pretty = TRUE)
-            
+                pretty = TRUE
+            )
+
             leaflet() %>%
                 addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
                 addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
                 addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
                 addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo") %>%
                 addLayersControl(
-                    baseGroups = c("Light", "Dark", "Satellite", "Topo"), 
-                    options = layersControlOptions(collapsed = FALSE)) %>%
+                    baseGroups = c("Light", "Dark", "Satellite", "Topo"),
+                    options = layersControlOptions(collapsed = FALSE)
+                ) %>%
                 enableTileCaching() %>%
                 setView(
-                    lat = 33.7995454, 
-                    lng = -84.3729367, 
-                    zoom = 12) %>% 
+                    lat = 33.7995454,
+                    lng = -84.3729367,
+                    zoom = 12
+                ) %>%
                 addCircleMarkers(
                     data = data(),
                     lng = ~Longitude,
@@ -2552,35 +2741,37 @@ shinyApp(
                     popup = paste(
                         sep = "<br/>",
                         glue("<b>Signal: {data()$SignalID}</b> | {data()$Name}"),
-                        glue("<b>{value()}:</b> {format_(data()[[value()]])}")),
+                        glue("<b>{value()}:</b> {format_(data()[[value()]])}")
+                    ),
                     radius = 5,
                     fillColor = pal(data()[[value()]]),
                     stroke = FALSE,
                     fillOpacity = 1,
-                    group = "the_group") %>%
+                    group = "the_group"
+                ) %>%
                 addLegend(
-                    position = "topright", 
-                    pal = pal, 
+                    position = "topright",
+                    pal = pal,
                     values = data()[[value()]],
                     title = input$metric_input,
-                    opacity = 1)
+                    opacity = 1
+                )
         })
-        
+
         MapPlot1_proxy <- leafletProxy("MapPlot1")
-        
+
         table <- reactive({
-            metrics_df[metrics_df$description == input$metric_input,]$table
+            metrics_df[metrics_df$description == input$metric_input, ]$table
         })
-        
+
         value <- reactive({
-            metrics_df[metrics_df$description == input$metric_input,]$value
+            metrics_df[metrics_df$description == input$metric_input, ]$value
         })
-        
+
         data <- reactive({
-            
             format_ <- value_format(value())
-            
-            data <- sigdata()$mo[[table()]] %>% 
+
+            data <- sigdata()$mo[[table()]] %>%
                 filter(Month == current_month()) %>%
                 rename(SignalID = Corridor) %>%
                 filter(!as.character(Zone_Group) %in% rms_corridors()) %>%
@@ -2589,73 +2780,76 @@ shinyApp(
                     by = c("SignalID")
                 ) %>%
                 filter(!is.na(Latitude)) %>%
-                mutate(Name = iconv(Name,  "latin1", "UTF-8"))
+                mutate(Name = iconv(Name, "latin1", "UTF-8"))
 
             data
         })
-        
-        
+
+
         table_data <- reactive({
-            
             v <- as.name(value())
             data_ <- if (value() == "uptime") {
                 data() %>% arrange(!!v)
             } else {
                 data() %>% arrange(desc(!!v))
             }
-            
+
             format_ <- value_format(value())
-            
-            data_ <- data_ %>% 
+
+            data_ <- data_ %>%
                 transmute(
-                    Signal = paste0(SignalID, ": ", Name), 
-                    Corridor = Zone_Group, 
-                    !!v := format_(!!v)) %>%
+                    Signal = paste0(SignalID, ": ", Name),
+                    Corridor = Zone_Group,
+                    !!v := format_(!!v)
+                ) %>%
                 distinct()
-            
+
             if (input$filter_input != 1) {
                 data_ <- data_ %>%
                     filter(as.character(Corridor) %in% unique(as.character(filtered_corridors()$Corridor)))
             }
-            #print(data_)
+            # print(data_)
             data_ %>%
                 head(10)
         })
-        
+
         output$top10_table <- renderDataTable({
             datatable(
-                table_data(), 
+                table_data(),
                 options = list(
-                    dom = 't'),
-                #ordering = FALSE, 
-                #paging = FALSE, 
-                #searching = FALSE),
+                    dom = "t"
+                ),
+                # ordering = FALSE,
+                # paging = FALSE,
+                # searching = FALSE),
                 selection = "single",
-                rownames = FALSE) %>%
-                formatStyle(3, textAlign = 'right')
-            #formatStyle(
+                rownames = FALSE
+            ) %>%
+                formatStyle(3, textAlign = "right")
+            # formatStyle(
             #    columns = colnames(table_data()),
             #    backgroundColor = "rgba(255,255,255,0.1)" )
         })
-        
+
         observe({
             # pal <- colorNumeric(
             #     palette = "YlGnBu", # "Blues",
             #     domain = data()[[value()]])
-            
+
             if (nrow(data())) {
                 format_ <- value_format(value())
-                
+
                 pal <- colorBin(
                     palette = "YlGnBu",
                     domain = data()[[value()]],
                     bins = 5,
-                    pretty = TRUE)
-                
+                    pretty = TRUE
+                )
+
                 MapPlot1_proxy %>%
                     clearGroup(group = "the_group") %>%
                     clearControls()
-                
+
                 MapPlot1_proxy %>%
                     addCircleMarkers(
                         data = data(),
@@ -2664,73 +2858,74 @@ shinyApp(
                         popup = paste(
                             sep = "<br/>",
                             glue("<b>Signal: {data()$SignalID}</b> | {data()$Name}"),
-                            glue("<b>{value()}:</b> {format_(data()[[value()]])}")),
+                            glue("<b>{value()}:</b> {format_(data()[[value()]])}")
+                        ),
                         radius = 5,
                         fillColor = pal(data()[[value()]]),
                         stroke = FALSE,
                         fillOpacity = 1,
-                        group = "the_group") %>%
+                        group = "the_group"
+                    ) %>%
                     addLegend(
-                        position = "topright", 
-                        pal = pal, 
+                        position = "topright",
+                        pal = pal,
                         values = data()[[value()]],
                         title = input$metric_input,
-                        opacity = 1)
-                
+                        opacity = 1
+                    )
             }
         })
-        
+
         # to keep track of previously selected row
         prev_row <- reactiveVal()
-        
-        
+
+
         observeEvent(input$MapPlot1_click, {
             # Reset previously selected marker
-            if(!is.null(prev_row()))
-            {
+            if (!is.null(prev_row())) {
                 MapPlot1_proxy %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
-            # set new value to reactiveVal 
-            #prev_row(data_selected)
+            # set new value to reactiveVal
+            # prev_row(data_selected)
         })
-        
+
         observeEvent(input$top10_table_rows_selected, {
-            
             format_ <- value_format(value())
-            
-            #print(glue("Previous Row: {prev_row()}"))
-            
-            row_selected = table_data()[input$top10_table_rows_selected,]
+
+            # print(glue("Previous Row: {prev_row()}"))
+
+            row_selected <- table_data()[input$top10_table_rows_selected, ]
             signalid <- str_extract(row_selected$Signal, "^\\d+")
-            
-            #print(row_selected)
-            #print(signalid)
-            
+
+            # print(row_selected)
+            # print(signalid)
+
             data_selected <- data() %>% filter(SignalID == signalid)
-            
-            #print(data_selected)
-            
+
+            # print(data_selected)
+
             MapPlot1_proxy %>%
                 flyTo(lat = data_selected$Latitude, lng = data_selected$Longitude, zoom = 14) %>%
                 addCircleMarkers(
                     popup = paste(
                         sep = "<br/>",
                         glue("<b>Signal: {data_selected$SignalID}</b> | {data_selected$Name}"),
-                        glue("<b>{value()}:</b> {format_(data_selected[[value()]])}")),
+                        glue("<b>{value()}:</b> {format_(data_selected[[value()]])}")
+                    ),
                     layerId = as.character(data_selected$SignalID),
-                    lng=data_selected$Longitude,
-                    lat=data_selected$Latitude,
+                    lng = data_selected$Longitude,
+                    lat = data_selected$Latitude,
                     stroke = TRUE,
-                    color = "black")
-            
+                    color = "black"
+                )
+
             # Reset previously selected marker
-            if(!is.null(prev_row()))
-            {
+            if (!is.null(prev_row())) {
                 MapPlot1_proxy %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
-            # set new value to reactiveVal 
+            # set new value to reactiveVal
             prev_row(data_selected)
         })
     },
@@ -2743,17 +2938,25 @@ Signal Details
 =====================================
 
 ```{r signal_detail, eval = TRUE}
-fillCol(height = 100,
+fillCol(
+    height = 100,
 
     fluidRow(
-        column(width = 4,
-        renderUI(selectInput("signalid", "Select Signal:",
-                    choices = c("Select", filtered_signalids()),
-                    selected = "",
-                    width = "800px"))),
-        column(width = 1,
-        tags$div(class = "plot-signal-details-button",
-                 actionButton("signal_details_button", "Plot")))
+        column(
+            width = 4,
+            renderUI(selectInput("signalid", "Select Signal:",
+                choices = c("Select", filtered_signalids()),
+                selected = "",
+                width = "800px"
+            ))
+        ),
+        column(
+            width = 1,
+            tags$div(
+                class = "plot-signal-details-button",
+                actionButton("signal_details_button", "Plot")
+            )
+        )
     )
 )
 
@@ -2763,14 +2966,16 @@ sid <- eventReactive(input$signal_details_button, {
 })
 
 
-fillCol(height = 700,
+fillCol(
+    height = 700,
 
-        renderPlotly({
-            req(input$signal_details_button)
-            volplot_plotly(
-                athena_connection_pool, sid(), current_month(), endof_current_month(),
-                title = "Raw and Filtered Detector Data", ymax = NULL)
-        })
+    renderPlotly({
+        req(input$signal_details_button)
+        volplot_plotly(
+            athena_connection_pool, sid(), current_month(), endof_current_month(),
+            title = "Raw and Filtered Detector Data", ymax = NULL
+        )
+    })
 )
 ```
 
@@ -2795,8 +3000,10 @@ Row {.tabset .tabset-fade data-height=850}
 checkboxGroupInput(
     "maintenance_cols_checked",
     label = NULL,
-    c("Show Scores" = "scores",
-      "Show Metrics" = "metrics"),
+    c(
+        "Show Scores" = "scores",
+        "Show Metrics" = "metrics"
+    ),
     selected = c("scores", "metrics"),
     inline = TRUE
 )
@@ -2823,10 +3030,11 @@ maintenance_cols <- reactive({ #updated to reflect RSUs/RSU scores not being inc
 maint_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
-        maintenance_cols()$default, 
+        maintenance_cols()$default,
         maintenance_cols()[input$maintenance_cols_checked]
-        ) %>% 
-        unlist() %>% unname()
+    ) %>%
+        unlist() %>%
+        unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
     setdiff(maintenance_cols()$all, maintenance_cols_to_show)
@@ -2834,28 +3042,29 @@ maint_hide_cols <- reactive({
 
 
 maint_health_data <- reactive({
-
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             subdata()$mo$maint
         } else {
             sigdata()$mo$maint
         }
-        
+
         get_health_data_filtered(data_, zone_group(), corridor()) %>%
             filter(Month == current_month()) %>%
             ungroup() %>%
             select(-Month, -Zone_Group) %>%
-            
             mutate(
                 Subcorridor = if_else(
-                    as.character(Subcorridor) == as.character(Corridor), 
-                    "ALL", 
-                    as.character(Subcorridor)),
+                    as.character(Subcorridor) == as.character(Corridor),
+                    "ALL",
+                    as.character(Subcorridor)
+                ),
                 Corridor = if_else(
-                    as.character(Corridor) == as.character(Zone), 
-                    "ALL", 
-                    as.character(Corridor)))
+                    as.character(Corridor) == as.character(Zone),
+                    "ALL",
+                    as.character(Corridor)
+                )
+            )
     } else {
         data.frame()
     }
@@ -2868,21 +3077,20 @@ output$maintenance_table <- renderDT({
 
 
 observe({
-    dataTableProxy("maintenance_table") %>% 
-        replaceData(maint_health_data()) %>% 
+    dataTableProxy("maintenance_table") %>%
+        replaceData(maint_health_data()) %>%
         hideCols(isolate(maint_hide_cols()), reset = TRUE)
 })
 
 observe({
-    dataTableProxy("maintenance_table") %>% 
+    dataTableProxy("maintenance_table") %>%
         hideCols(maint_hide_cols(), reset = TRUE)
 })
 
 
 fillRow(
-    DTOutput('maintenance_table')
+    DTOutput("maintenance_table")
 )
-
 ```
 
 ### Maintenance Trend
@@ -2890,15 +3098,15 @@ fillRow(
 ```{r Maintenance Trend, warning = FALSE}
 
 selectInput(
-     inputId = "maintenance_var", 
-     label = "Maintenance Health Metric:",
-     choices = c("Percent Health"),
-     selected = "Percent Health")
+    inputId = "maintenance_var",
+    label = "Maintenance Health Metric:",
+    choices = c("Percent Health"),
+    selected = "Percent Health"
+)
 
 
 observe({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
-        
         if (input$corridor_x == "All Corridors") {
             choices_ <- c("Percent Health")
         } else {
@@ -2911,31 +3119,34 @@ observe({
         }
 
         updateSelectInput(session,
-            inputId = "maintenance_var", choices = choices_)
-    } 
+            inputId = "maintenance_var", choices = choices_
+        )
+    }
 })
 
 
 hr()
 
 fillRow(
-    plotlyOutput("health_maint_plot"), height = "85%"
+    plotlyOutput("health_maint_plot"),
+    height = "85%"
 )
 
 output$health_maint_plot <- renderPlotly({
-        get_bar_line_dashboard_plot(
-            cor_weekly = rename(mr()$mo$maint_plot, Date = Month),  # maint$sub
-            cor_monthly = mr()$mo$maint_plot, 
-            cor_hourly = NULL, 
-            var_ = input$maintenance_var,  #  "Percent Health", 
-            num_format = "percent",
-            highlight_color = GDOT_BLUE, 
-            month_ = current_month(), 
-            zone_group_ = zone_group(),
-            x_bar_title = input$maintenance_var,
-            x_line1_title = glue("{input$maintenance_var} trend"),
-            plot_title = input$maintenance_var,
-            accent_average = FALSE)
+    get_bar_line_dashboard_plot(
+        cor_weekly = rename(mr()$mo$maint_plot, Date = Month), # maint$sub
+        cor_monthly = mr()$mo$maint_plot,
+        cor_hourly = NULL,
+        var_ = input$maintenance_var, #  "Percent Health",
+        num_format = "percent",
+        highlight_color = GDOT_BLUE,
+        month_ = current_month(),
+        zone_group_ = zone_group(),
+        x_bar_title = input$maintenance_var,
+        x_line1_title = glue("{input$maintenance_var} trend"),
+        plot_title = input$maintenance_var,
+        accent_average = FALSE
+    )
 })
 ```
 
@@ -2949,8 +3160,10 @@ output$health_maint_plot <- renderPlotly({
 checkboxGroupInput(
     "operations_cols_checked",
     label = NULL,
-    c("Show Scores" = "scores",
-      "Show Metrics" = "metrics"),
+    c(
+        "Show Scores" = "scores",
+        "Show Metrics" = "metrics"
+    ),
     selected = c("scores", "metrics"),
     inline = TRUE
 )
@@ -2960,15 +3173,17 @@ operations_cols <- reactive({
         if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             list(
                 "all" = c(0:16),
-                "default" = c(0:6), 
-                "scores" = c(7:11), 
-                "metrics" = c(12:16))
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
+            )
         } else {
             list(
                 "all" = c(0:17),
-                "default" = c(0:7), 
-                "scores" = c(8:12), 
-                "metrics" = c(13:17))
+                "default" = c(0:7),
+                "scores" = c(8:12),
+                "metrics" = c(13:17)
+            )
         }
     }
 })
@@ -2977,10 +3192,11 @@ operations_cols <- reactive({
 ops_hide_cols <- reactive({
     # columns to show = default (label columns) + columns selected in checkbox
     operations_cols_to_show <- c(
-        operations_cols()$default, 
+        operations_cols()$default,
         operations_cols()[input$operations_cols_checked]
-        ) %>% 
-        unlist() %>% unname()
+    ) %>%
+        unlist() %>%
+        unname()
 
     # columns to hide = inverse (setdiff) of all columns and columns to show
     setdiff(operations_cols()$all, operations_cols_to_show)
@@ -2988,28 +3204,29 @@ ops_hide_cols <- reactive({
 
 
 ops_health_data <- reactive({
-
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             subdata()$mo$ops
         } else {
             sigdata()$mo$ops
         }
-        
+
         get_health_data_filtered(data_, zone_group(), corridor()) %>%
             filter(Month == current_month()) %>%
             ungroup() %>%
             select(-Month, -Zone_Group) %>%
-            
             mutate(
                 Subcorridor = if_else(
-                    as.character(Subcorridor) == as.character(Corridor), 
-                    "ALL", 
-                    as.character(Subcorridor)),
+                    as.character(Subcorridor) == as.character(Corridor),
+                    "ALL",
+                    as.character(Subcorridor)
+                ),
                 Corridor = if_else(
-                    as.character(Corridor) == as.character(Zone), 
-                    "ALL", 
-                    as.character(Corridor)))
+                    as.character(Corridor) == as.character(Zone),
+                    "ALL",
+                    as.character(Corridor)
+                )
+            )
     } else {
         data.frame()
     }
@@ -3022,22 +3239,21 @@ output$operations_table <- renderDT({
 
 
 observe({
-    dataTableProxy("operations_table") %>% 
-        replaceData(ops_health_data()) %>% 
+    dataTableProxy("operations_table") %>%
+        replaceData(ops_health_data()) %>%
         hideCols(isolate(ops_hide_cols()), reset = TRUE)
 })
 
 
 observe({
-    dataTableProxy("operations_table") %>% 
+    dataTableProxy("operations_table") %>%
         hideCols(ops_hide_cols(), reset = TRUE)
 })
 
 
 fillRow(
-    DTOutput('operations_table')
+    DTOutput("operations_table")
 )
-
 ```
 
 ### Operations Trend
@@ -3045,51 +3261,56 @@ fillRow(
 ```{r Operations Trend, warning = FALSE}
 
 selectInput(
-    inputId = "operations_var", 
+    inputId = "operations_var",
     label = "Operations Health Metric:",
     choices = c("Percent Health"),
-    selected = "Percent Health")
+    selected = "Percent Health"
+)
 
 
 observe({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
-        
         if (input$corridor_x == "All Corridors") {
             choices_ <- c("Percent Health")
         } else {
-            choices_ <- c("Percent Health", "Missing Data", "Platoon Ratio Score", 
-                        "Ped Delay Score", "Split Failures Score", 
-                        "Travel Time Index Score", "Buffer Index Score", 
-                        "Platoon Ratio", "Ped Delay", "Split Failures", 
-                        "Travel Time Index", "Buffer Index")
+            choices_ <- c(
+                "Percent Health", "Missing Data", "Platoon Ratio Score",
+                "Ped Delay Score", "Split Failures Score",
+                "Travel Time Index Score", "Buffer Index Score",
+                "Platoon Ratio", "Ped Delay", "Split Failures",
+                "Travel Time Index", "Buffer Index"
+            )
         }
 
         updateSelectInput(session,
-            inputId = "maintenance_var", choices = choices_)
-    } 
+            inputId = "maintenance_var", choices = choices_
+        )
+    }
 })
 
 
 hr()
 
 fillRow(
-    plotlyOutput("health_ops_plot"), height = "85%"
+    plotlyOutput("health_ops_plot"),
+    height = "85%"
 )
 
 output$health_ops_plot <- renderPlotly({
     get_bar_line_dashboard_plot(
-        cor_weekly = rename(mr()$mo$ops_plot, Date = Month), 
-        cor_monthly = mr()$mo$ops_plot, 
-        cor_hourly = NULL, 
-        var_ = input$operations_var,  #  "Percent Health", 
+        cor_weekly = rename(mr()$mo$ops_plot, Date = Month),
+        cor_monthly = mr()$mo$ops_plot,
+        cor_hourly = NULL,
+        var_ = input$operations_var, #  "Percent Health",
         num_format = "percent",
-        highlight_color = GDOT_BLUE, 
-        month_ = current_month(), 
+        highlight_color = GDOT_BLUE,
+        month_ = current_month(),
         zone_group_ = zone_group(),
         x_bar_title = input$operations_var,
         x_line1_title = glue("{input$operations_var} trend"),
         plot_title = input$operations_var,
-        accent_average = FALSE)
+        accent_average = FALSE
+    )
 })
 ```
 

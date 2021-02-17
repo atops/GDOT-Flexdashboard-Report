@@ -647,7 +647,9 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          goal = NULL,
                                          accent_average = TRUE) {
     
-    disk_cache$prune()
+    if (Sys.info()["sysname"] == "Linux") {
+        disk_cache$prune()
+    }
 	
     var_ <- as.name(var_)
     if (num_format == "percent") {
