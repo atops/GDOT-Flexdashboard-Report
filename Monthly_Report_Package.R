@@ -1305,7 +1305,7 @@ tryCatch(
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "cor_travel_time_metrics",
-            start_date = wk_calcs_start_date,
+            start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
             mutate(
@@ -2214,11 +2214,11 @@ tryCatch(
                 select(Zone_Group, Corridor, Date, vph),
             "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aogd, corridors) %>%
                 select(Zone_Group, Corridor, Date, aog),
-            "prd" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$pr, corridors) %>%
+            "prd" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$prd, corridors) %>%
                 select(Zone_Group, Corridor, Date, pr),
             "qsd" = sigify(readRDS("wqs.rds"), cor$wk$qsd, corridors) %>%
                 select(Zone_Group, Corridor, Date, qs_freq),
-            "sfd" = sigify(readRDS("wsf.rds"), cor$wk$sf, corridors) %>%
+            "sfd" = sigify(readRDS("wsf.rds"), cor$wk$sfd, corridors) %>%
                 select(Zone_Group, Corridor, Date, sf_freq),
             "sfo" = sigify(readRDS("wsfo.rds"), cor$wk$sfo, corridors) %>%
                 select(Zone_Group, Corridor, Date, sf_freq),
@@ -2324,7 +2324,7 @@ descs <- corridors %>%
 
 for (tab in c(
     "vpd", "papd", "pd",
-    "tp", "aog", "aogd", "aogh", "pr", "prd", "prh", "qs", "qsd", "qsh", "sf", "sfd", "sfh", "sfo",
+    "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot"
 )) {
     print(tab)
