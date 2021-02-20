@@ -2944,7 +2944,7 @@ fillCol(
     fluidRow(
         column(
             width = 4,
-            renderUI(selectInput("signalid", "Select Signal:",
+            renderUI(selectizeInput("signalid", "Select Signal:",
                 choices = c("Select", filtered_signalids()),
                 selected = "",
                 width = "800px"
