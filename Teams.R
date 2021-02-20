@@ -151,15 +151,15 @@ get_teams_tasks_from_s3 <- function(
     
     # Teams Locations
     if (!file.exists(basename(teams_locations_key))) {
-        aws.s3::save_object(teams_locations_key, bucket = bucket)  # "gdot-spm")
+        aws.s3::save_object(teams_locations_key, bucket = bucket)
     }
     teams_locations <- read_feather(basename(teams_locations_key))
     
     
     # Keys for past years' tasks. Not the one actively updated.
     teams_keys <- aws.s3::get_bucket_df(
-        bucket = bucket,  # "gdot-spm", 
-        prefix = archived_tasks_prefix  # "mark/teams/tasks20"
+        bucket = bucket, 
+        prefix = archived_tasks_prefix
     ) %>% 
         select(Key) %>%
         unlist(as.list(.))
@@ -183,11 +183,12 @@ get_teams_tasks_from_s3 <- function(
                                          delim = ",", 
                                          col_types = col_spec, 
                                          escape_double = FALSE),
-                                     bucket = bucket,  # "gdot-spm", 
+                                     bucket = bucket, 
                                      object = key)
                              }) %>% 
         bind_rows() %>% 
-        select(-X1) 
+        select(-X1) %>% 
+        filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
     
     
     # Read the file with current teams tasks
@@ -197,8 +198,9 @@ get_teams_tasks_from_s3 <- function(
             delim = ",", 
             col_types = col_spec, 
             escape_double = FALSE), 
-        bucket = bucket,  # "gdot-spm", 
-        object = current_tasks_key)  # "mark/teams/tasks.csv.zip")
+        bucket = bucket, 
+        object = current_tasks_key)  %>% 
+        filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
     
     bind_rows(archived_tasks, current_tasks) %>% 
         distinct() %>%
