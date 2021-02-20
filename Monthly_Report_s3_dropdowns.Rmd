@@ -3016,20 +3016,22 @@ checkboxGroupInput(
     inline = TRUE
 )
 
-maintenance_cols <- reactive({ #updated to reflect RSUs/RSU scores not being included
+maintenance_cols <- reactive({ # updated to reflect RSUs/RSU scores not being included
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             list(
                 "all" = c(0:16),
-                "default" = c(0:6), 
-                "scores" = c(7:11), 
-                "metrics" = c(12:16))
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
+            )
         } else {
             list(
                 "all" = c(0:17),
-                "default" = c(0:7), 
-                "scores" = c(8:12), 
-                "metrics" = c(13:17))
+                "default" = c(0:7),
+                "scores" = c(8:12),
+                "metrics" = c(13:17)
+            )
         }
     }
 })
@@ -3118,12 +3120,14 @@ observe({
         if (input$corridor_x == "All Corridors") {
             choices_ <- c("Percent Health")
         } else {
-            choices_ <- c("Percent Health", "Missing Data", "Detection Uptime Score",
-                          "Ped Actuation Uptime Score", "Comm Uptime Score",
-                          #"CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score",
-                          "CCTV Uptime Score", "Flash Events Score",
-                          "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime",
-                          "CCTV Uptime", "RSU Uptime")
+            choices_ <- c(
+                "Percent Health", "Missing Data", "Detection Uptime Score",
+                "Ped Actuation Uptime Score", "Comm Uptime Score",
+                # "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score",
+                "CCTV Uptime Score", "Flash Events Score",
+                "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime",
+                "CCTV Uptime", "RSU Uptime"
+            )
         }
 
         updateSelectInput(session,
