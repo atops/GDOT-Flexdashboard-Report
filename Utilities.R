@@ -14,6 +14,9 @@ sizeof <- function(x) {
     format(object.size(x), units = "Mb")
 }
 
+apply_style <- function(filename) {
+    styler::style_file(filename, transformers = styler::tidyverse_style(indent_by = 4))
+}
 
 get_most_recent_monday <- function(date_) {
     date_ + days(1 - lubridate::wday(date_, week_start = 1))
