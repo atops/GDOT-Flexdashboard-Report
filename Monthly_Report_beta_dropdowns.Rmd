@@ -265,9 +265,6 @@ mr_str <- reactive(
 
 
 
-
-
-
 One-Month Summary
 =====================================
 
@@ -804,8 +801,6 @@ renderValueBox({
 
 
 
-
-
 Quarter Summary
 =====================================
 
@@ -1057,7 +1052,6 @@ Row
 ### Vehicle Detector Availability {.value-box}
 
 ```{r}
-# cordata()$qu$veh
 renderValueBox({
     valueBox(
         value = get_valuebox(cordata()$qu$du, "uptime", as_pct,
@@ -1248,20 +1242,6 @@ renderValueBox({
     )
 })
 ```
-
-
-```{r, eval = FALSE}
-### {.value-box}
-renderValueBox({
-    valueBox(
-        value = NULL,
-        icon = NULL,
-        color = "gray80"
-    )
-})
-```
-
-
 
 
 
@@ -1535,8 +1515,6 @@ fillCol(
 
 
 
-
-
 Performance
 =====================================
 
@@ -1634,7 +1612,7 @@ output$performance <- renderPlotly({
         )
     } else if (input$performance_metric == "Arrivals on Green") {
         get_bar_line_dashboard_plot(
-            mr()$wk$aog,
+            mr()$wk$aogd,
             mr()$mo$aogd,
             mr()$mo$aogh,
             "aog",
@@ -1722,6 +1700,12 @@ output$performance <- renderPlotly({
 })
 ```
 
+
+
+
+
+
+
 Volumes
 =====================================
 
@@ -1797,7 +1781,6 @@ output$volume <- renderPlotly({
     }
 })
 ```
-
 
 
 
@@ -2063,6 +2046,12 @@ output$equipment <- renderPlotly({
     }
 })
 ```
+
+
+
+
+
+
 
 Reporting
 =====================================
@@ -2559,6 +2548,9 @@ renderDataTable({
 
 
 
+
+
+
 Map
 =====================================
 
@@ -2933,6 +2925,12 @@ shinyApp(
     options = list(height = 800)
 )
 ```
+
+
+
+
+
+
 
 Signal Details
 =====================================
@@ -3327,6 +3325,9 @@ output$health_ops_plot <- renderPlotly({
 
 
 ```
+
+
+
 
 
 
