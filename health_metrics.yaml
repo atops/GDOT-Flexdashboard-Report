@@ -58,22 +58,22 @@ weights_lookup:
         [Downtown Grid, Urban Commuter, Suburban Commuter, Coordinated Rural, Isolated Rural]
 
     Detection_Uptime_Weight:
-        [25, 10, 10, 15, 15]
+        [25, 12, 12, 15, 15]
 
     Ped_Act_Uptime_Weight:
-        [15, 40, 40, 40, 40]
+        [15, 47, 47, 40, 40]
 
     Comm_Uptime_Weight:
-        [40, 20, 20, 25, 25]
+        [40, 23, 23, 25, 25]
 
     CCTV_Uptime_Weight:
-        [10,  5,  5,  5,  5]
+        [10,  6,  6,  5,  5]
 
     RSU_Uptime_Weight:
-        [ 0, 15, 15,  0,  0]
+        [ 0,  0,  0,  0,  0]
 
     Flash_Events_Weight:
-        [10, 10, 10, 15, 15]
+        [10, 12, 12, 15, 15]
 
     Platoon_Ratio_Weight:
         [10, 30, 30, 15,  0]
