@@ -107,6 +107,7 @@ query_data <- function(
     resolution = "monthly", 
     hourly = FALSE, 
     zone_group, 
+    corridor = NULL,
     month = NULL, 
     quarter = NULL, 
     upto = TRUE) {
@@ -137,9 +138,7 @@ query_data <- function(
     table <- glue("{mr_}_{per}_{tab}")
     q <- glue(paste(
         "SELECT * FROM {table}",
-        "WHERE Corridor = '{zone_group}'"))
-    
-    aurora <- pool::poolCheckout(aurora_connection_pool)
+        "WHERE Zone_Group = '{zone_group}'"))
     
     comparison <- ifelse(upto, "<=", "=")
     
@@ -161,9 +160,12 @@ query_data <- function(
         "oops"
     }
     
-    df <- dbGetQuery(aurora, q)
-    pool::poolReturn(aurora)
+    df <- dbGetQuery(aurora_connection_pool, q)
     
+    if (!is.null(corridor)) {
+        df <- filter(df, Corridor == corridor)
+    }
+
     date_string <- intersect(c("Month", "Date"), names(df))
     df[[date_string]] = as_date(df[[date_string]])
     
