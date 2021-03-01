@@ -3,10 +3,6 @@
 
 suppressMessages({
     library(DBI)
-    library(rJava)
-    #.jinit()
-    library(RJDBC)
-    library(RAthena)
     library(readxl)
     library(readr)
     library(dplyr)

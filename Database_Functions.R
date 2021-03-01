@@ -1,7 +1,7 @@
 
 # Database Functions
-library(RJDBC)
 library(yaml)
+library(duckdb)
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
 
@@ -74,9 +74,24 @@ get_aurora_connection_pool <- function() {
 }
 
 
+get_duckdb_connection <- function(dbdir, read_only = FALSE, f = duckdb::dbConnect) {
+    f(
+        drv = duckdb::duckdb(),
+        dbdir = dbdir,
+        read_only = read_only
+    )
+}
+
+
+get_duckdb_connection_pool <- function(dbdir, read_only = FALSE) {
+    get_duckdb_connection(dbdir, read_only, pool::dbPool)
+}
+
+
 get_athena_connection <- function(conf_athena, f = dbConnect) {
     f(odbc::odbc(), dsn = "athena")
 }
+
 
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, pool::dbPool)
