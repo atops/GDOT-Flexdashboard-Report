@@ -18,7 +18,6 @@ suppressMessages({
     library(forcats)
     library(plotly)
     library(crosstalk)
-    library(memoise)
     library(future)
     library(pool)
     library(rsconnect)
@@ -48,13 +47,6 @@ usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
 
-cache_path <- "/data/beta/"
-
-if (Sys.info()["sysname"] == "Windows") {
-    disk_cache <- cache_filesystem('cache')
-} else if (Sys.info()["sysname"] == "Linux") {
-    disk_cache <- cachem::cache_disk(cache_path, max_size = 5 * 1024^3, evict = "lru", prune_rate = 5)
-}
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
@@ -632,7 +624,7 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_bar_line_dashboard_plot_ <- function(cor_weekly, 
+get_bar_line_dashboard_plot <- function(cor_weekly, 
                                          cor_monthly, 
                                          cor_hourly = NULL, 
                                          var_,
@@ -647,10 +639,6 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          goal = NULL,
                                          accent_average = TRUE) {
     
-    if (Sys.info()["sysname"] == "Linux") {
-        disk_cache$prune()
-    }
-	
     var_ <- as.name(var_)
     if (num_format == "percent") {
         var_fmt <- as_pct
@@ -830,7 +818,6 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         no_data_plot("")
     )
 }
-get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = disk_cache)
 
 
 get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 

@@ -1949,7 +1949,13 @@ tryCatch(
             "tsub" = readRDS("tasks_by_subtype.rds")$cor_daily,
             "tpri" = readRDS("tasks_by_priority.rds")$cor_daily,
             "tsou" = readRDS("tasks_by_source.rds")$cor_daily,
-            "tasks" = readRDS("tasks_all.rds")$cor_daily
+            "tasks" = readRDS("tasks_all.rds")$cor_daily,
+            "reported" = readRDS("tasks_all.rds")$cor_daily %>%
+                transmute(Zone_Group, Corridor, Date, Reported, delta = NA),
+            "resolved" = readRDS("tasks_all.rds")$cor_daily %>%
+                transmute(Zone_Group, Corridor, Date, Resolved, delta = NA),
+            "outstanding" = readRDS("tasks_all.rds")$cor_daily %>%
+                transmute(Zone_Group, Corridor, Date, Outstanding, delta = NA)
         )
         cor$wk <- list(
             "vpd" = readRDS("cor_weekly_vpd.rds"),
@@ -2014,6 +2020,16 @@ tryCatch(
             "tpri" = readRDS("tasks_by_priority.rds")$cor_monthly,
             "tsou" = readRDS("tasks_by_source.rds")$cor_monthly,
             "tasks" = readRDS("tasks_all.rds")$cor_monthly,
+            
+            
+            "reported" = readRDS("tasks_all.rds")$cor_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Reported, delta = delta.rep),
+            "resolved" = readRDS("tasks_all.rds")$cor_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Resolved, delta = delta.res),
+            "outstanding" = readRDS("tasks_all.rds")$cor_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Outstanding, delta = delta.out),
+
+                
             "over45" = readRDS("cor_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("cor_tasks_by_date.rds") %>%
@@ -2196,7 +2212,14 @@ tryCatch(
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
             "tsou" = readRDS("tasks_by_source.rds")$sig_daily,
-            "tasks" = readRDS("tasks_all.rds")$sig_daily
+            "tasks" = readRDS("tasks_all.rds")$sig_daily,
+            
+            "reported" = readRDS("tasks_all.rds")$sig_daily %>%
+                transmute(Zone_Group, Corridor, Date, Reported, delta = NA),
+            "resolved" = readRDS("tasks_all.rds")$sig_daily %>%
+                transmute(Zone_Group, Corridor, Date, Resolved, delta = NA),
+            "outstanding" = readRDS("tasks_all.rds")$sig_daily %>%
+                transmute(Zone_Group, Corridor, Date, Outstanding, delta = NA)
         )
         sig$wk <- list(
             "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
@@ -2290,6 +2313,14 @@ tryCatch(
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
             "tsou" = readRDS("tasks_by_source.rds")$sig_monthly,
             "tasks" = readRDS("tasks_all.rds")$sig_monthly,
+            
+            "reported" = readRDS("tasks_all.rds")$sig_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Reported, delta = delta.rep),
+            "resolved" = readRDS("tasks_all.rds")$sig_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Resolved, delta = delta.res),
+            "outstanding" = readRDS("tasks_all.rds")$sig_monthly %>%
+                transmute(Zone_Group, Corridor, Month, Outstanding, delta = delta.out),
+            
             "over45" = readRDS("sig_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("sig_tasks_by_date.rds") %>%

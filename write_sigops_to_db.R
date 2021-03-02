@@ -1,4 +1,6 @@
 
+library(aws.s3)
+library(qs)
 
 write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE) {
     
