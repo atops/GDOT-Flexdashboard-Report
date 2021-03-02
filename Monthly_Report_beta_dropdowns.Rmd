@@ -33,8 +33,6 @@ source("Monthly_Report_UI_Functions.R")
 FIG_WIDTH <- 14
 FIG_HEIGHT <- 7
 
-AWS_BUCKET <- "https://s3.amazonaws.com/gdot-spm"
-
 styl <- "font-family: Source Sans Pro; font-size: 14px; padding-top: 25px"
 ```
 
@@ -462,7 +460,7 @@ vpd_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             vpd,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -481,7 +479,7 @@ vphpa_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             am_peak_vph,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -500,7 +498,7 @@ vphpp_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             pm_peak_vph,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -520,7 +518,7 @@ papd_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             daily_pedestrian_pushbuttons,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -561,7 +559,7 @@ du_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             detector_uptime,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-car",
         color = BLUE
@@ -580,7 +578,7 @@ pau_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             ped_button_uptime,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-walking",
         color = BLUE
@@ -599,7 +597,7 @@ cctv_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             cctv_uptime,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "glyphicon-facetime-video",
         color = BLUE
@@ -618,7 +616,7 @@ cu_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             comm_uptime,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-broadcast-tower",
         color = BLUE
@@ -637,7 +635,7 @@ ru_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             rsu_uptime,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-wifi", # "fa-user" #
         color = BLUE
@@ -679,7 +677,7 @@ tasks_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             tasks_reported,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -698,7 +696,7 @@ res_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             tasks_resolved,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -717,7 +715,7 @@ unres_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             tasks_outstanding,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -736,7 +734,7 @@ over45_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             tasks_over45,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -755,7 +753,7 @@ mttr_valuebox <- reactive({
     valueBox(
         value = get_valuebox_value(
             tasks_mttr,
-            level = level(), zone_group = zone_group(), month = current_month(), line_break = TRUE
+            level = level(), zone_group = zone_group(), month = current_month(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = BLUE
@@ -819,10 +817,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$aogd, "aog", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            arrivals_on_green,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -835,10 +832,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$prd, "pr", as_2dec,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            progression_ratio,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -851,10 +847,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$qsd, "qs_freq", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            queue_spillback_rate,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -867,10 +862,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$sfd, "sf_freq", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            peak_period_split_failures,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -883,14 +877,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(
-            cordata()$qu$sfo,
-            "sf_freq",
-            as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(),
-            break_ = TRUE
+        value = get_valuebox_value(
+            off_peak_split_failures,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -903,10 +892,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$tti, "tti", as_2dec,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            travel_time_index,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-dashboard",
         color = GDOT_BLUE
@@ -919,10 +907,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$pti, "pti", as_2dec,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            planning_time_index,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-dashboard",
         color = GDOT_BLUE_RGB
@@ -947,10 +934,9 @@ Row
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$vpd, "vpd", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            vpd,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -963,10 +949,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$vphpa, "vph", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            am_peak_vph,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -979,10 +964,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$vphpp, "vph", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            pm_peak_vph,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -996,13 +980,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(
-            cordata()$qu$papd,
-            "papd", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(),
-            break_ = FALSE
+        value = get_valuebox_value(
+            ped_button_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -1038,10 +1018,9 @@ Row
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$du, "uptime", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            detector_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -1055,10 +1034,9 @@ renderValueBox({
 
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$pau, "uptime", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            ped_button_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-walking",
         color = GDOT_BLUE_RGB
@@ -1071,10 +1049,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$cctv, "uptime", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            cctv_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "glyphicon-facetime-video",
         color = GDOT_BLUE
@@ -1087,10 +1064,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$cu, "uptime", as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+        value = get_valuebox_value(
+            comm_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-broadcast-tower",
         color = GDOT_BLUE_RGB
@@ -1102,15 +1078,9 @@ renderValueBox({
 ```{r, eval = FALSE}
 ### Roadside Unit (RSU) Uptime {.value-box}
 renderValueBox({
-    valueBox(
-        value = get_valuebox(
-            cordata()$qu$ru,
-            "uptime",
-            as_pct,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(),
-            break_ = TRUE
+        value = get_valuebox_value(
+            rsu_uptime,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-wifi",
         color = GDOT_BLUE
@@ -1146,10 +1116,9 @@ Row
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$reported, "Reported", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            tasks_reported,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -1162,10 +1131,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$resolved, "Resolved", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            tasks_resolved,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -1178,10 +1146,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(cordata()$qu$outstanding, "Outstanding", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(), break_ = FALSE
+        value = get_valuebox_value(
+            tasks_outstanding,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -1194,13 +1161,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(
-            cordata()$qu$over45,
-            "over45", as_int,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(),
-            break_ = FALSE
+        value = get_valuebox_value(
+            tasks_over45,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -1213,13 +1176,9 @@ renderValueBox({
 ```{r}
 renderValueBox({
     valueBox(
-        value = get_valuebox(
-            cordata()$qu$mttr,
-            "mttr", as_2dec,
-            zone = zone_group(),
-            mo = current_month(),
-            qu = current_quarter(),
-            break_ = FALSE
+        value = get_valuebox_value(
+            tasks_mttr,
+            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW

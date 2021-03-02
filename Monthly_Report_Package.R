@@ -2328,6 +2328,23 @@ tryCatch(
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
                 select(-c(Name, ones))
         )
+        sig$qu <- list(
+            "vpd" = get_quarterly(sig$mo$vpd, "vpd"),
+            # "vph" = get_quarterly(sig$mo$vph, "vph"),
+            "vphpa" = get_quarterly(sig$mo$vphpa, "vph"),
+            "vphpp" = get_quarterly(sig$mo$vphpp, "vph"),
+            "tp" = get_quarterly(sig$mo$tp, "vph"),
+            # "aogd" = get_quarterly(sig$mo$aogd, "aog", "vol"),
+            # "prd" = get_quarterly(sig$mo$prd, "pr", "vol"),
+            "qsd" = get_quarterly(sig$mo$qsd, "qs_freq"),
+            "sfd" = get_quarterly(sig$mo$sfd, "sf_freq"),
+            "sfo" = get_quarterly(sig$mo$sfo, "sf_freq"),
+            "du" = get_quarterly(sig$mo$du, "uptime"),
+            "cu" = get_quarterly(sig$mo$cu, "uptime"),
+            "pau" = get_quarterly(sig$mo$pau, "uptime"),
+            "cctv" = get_quarterly(sig$mo$cctv, "uptime"),
+            "ru" = get_quarterly(sig$mo$ru, "uptime")
+        )
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")

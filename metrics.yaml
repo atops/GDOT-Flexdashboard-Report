@@ -158,7 +158,7 @@ daily_pedestrian_pushbuttons:
     variable: papd
     weight: ones
     data_type: integer
-    highligh_color: GDOT_BLUE
+    highligh_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     has_weekly: True
@@ -170,7 +170,7 @@ detector_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: BLUE
+    highlight_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     daily_table: du
@@ -184,7 +184,7 @@ ped_button_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: BLUE
+    highlight_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     daily_table: pau
@@ -198,7 +198,7 @@ cctv_uptime:
     variable: uptime
     weight: num
     data_type: percent
-    highlight_color: BLUE
+    highlight_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     daily_table: cctv
@@ -212,7 +212,7 @@ comm_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: BLUE
+    highlight_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     daily_table: cu
@@ -226,7 +226,7 @@ rsu_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: BLUE
+    highlight_color: "#045594"
     goal: 0.95
     hourly_table: NULL
     daily_table: ru
@@ -235,12 +235,12 @@ rsu_uptime:
 
 
 tasks_reported:
-    label: TEAMS Tasks Reported This Quarter
-    table: reported  # mo$tasks
+    label: TEAMS Tasks Reported This Period
+    table: reported  # tasks
     variable: Reported
     weight: ones
     data_type: integer
-    Highlight_color: BLUE
+    Highlight_color: "#045594"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -249,12 +249,12 @@ tasks_reported:
 
 
 tasks_resolved:
-    label: TEAMS Tasks Resolved This Quarter
-    table: resolved  # mo$tasks
+    label: TEAMS Tasks Resolved This Period
+    table: resolved  # tasks
     variable: Resolved
     weight: ones
     data_type: integer
-    Highlight_color: BLUE
+    Highlight_color: "#045594"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -264,11 +264,11 @@ tasks_resolved:
 
 tasks_outstanding:
     label: TEAMS Tasks Outstanding [Unresolved]
-    table: outstanding  # mo$tasks
+    table: outstanding  # tasks
     variable: Outstanding
     weight: ones
     data_type: integer
-    Highlight_color: BLUE
+    Highlight_color: "#045594"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -281,8 +281,8 @@ tasks_over45:
     table: over45
     variable: over45
     weight: ones
-    data_type: integer integer
-    Highlight_color: BLUE 
+    data_type: integer
+    Highlight_color: "#045594" 
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -296,7 +296,7 @@ tasks_mttr:
     variable: mttr
     weight: ones
     data_type: integer
-    Highlight_color: BLUE
+    Highlight_color: "#045594"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL

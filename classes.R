@@ -100,14 +100,17 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_trend_multiplot <- function(x, zone_group, month) {
+get_trend_multiplot <- function(metric, level, zone_group, month) {
     
-    var_ <- as.name(x$variable)
+    if (class(month) == "character") {
+        month <- as_date(month)
+    }
+    var_ <- as.name(metric$variable)
 
-    mdf <- filter_mr_data(cor$mo[[x$table]], zone_group)
+    mdf <- query_data(metric, level, "monthly", zone_group = zone_group, month = month, upto = FALSE)
     
-    per <- if_else(x$has_weekly, "wk", "mo")
-    wdf <- filter_mr_data(cor[[per]][[x$table]], zone_group)
+    per <- if_else(metric$has_weekly, "weekly", "monthly")
+    wdf <- query_data(metric, level, per, zone_group = zone_group, month = month, upto = TRUE)
     
     if (nrow(mdf) > 0 & nrow(wdf) > 0) {
         # Current Month Data
@@ -125,29 +128,29 @@ get_trend_multiplot <- function(x, zone_group, month) {
                              x = ~var, 
                              y = ~Corridor,
                              marker = list(color = ~col),
-                             text = ~data_format(x$data_type)(var),
+                             text = ~data_format(metric$data_type)(var),
                              textposition = "auto",
                              insidetextfont = list(color = "black"),
                              name = "",
                              customdata = ~glue(paste(
                                  "<b>{Description}</b>",
-                                 "<br>{x$label}: <b>{data_format(x$data_type)(var)}</b>")),
+                                 "<br>{metric$label}: <b>{data_format(metric$data_type)(var)}</b>")),
                              hovertemplate = "%{customdata}",
                              hoverlabel = list(font = list(family = "Source Sans Pro"))
         ) %>% layout(
                 barmode = "overlay",
                 xaxis = list(title = "Selected Month", 
                              zeroline = FALSE, 
-                             tickformat = tick_format(x$data_type)),
+                             tickformat = tick_format(metric$data_type)),
                 yaxis = list(title = ""),
                 showlegend = FALSE,
                 font = list(size = 11),
                 margin = list(pad = 4,
                               l = 100)
             )
-        if (!is.null(x$goal)) {
+        if (!is.null(metric$goal)) {
             bar_chart <- bar_chart %>% 
-                add_lines(x = x$goal,
+                add_lines(x = metric$goal,
                           y = ~Corridor,
                           mode = "lines",
                           marker = NULL,
@@ -176,22 +179,23 @@ get_trend_multiplot <- function(x, zone_group, month) {
                                      customdata = ~glue(paste(
                                          "<b>{Description}</b>",
                                          "<br>Week of: <b>{format(Date, '%B %e, %Y')}</b>",
-                                         "<br>{x$label}: <b>{data_format(x$data_type)(var)}</b>")),
+                                         "<br>{metric$label}: <b>{data_format(metric$data_type)(var)}</b>")),
                                      hovertemplate = "%{customdata}",
                                      hoverlabel = list(font = list(family = "Source Sans Pro"))
         ) %>% layout(xaxis = list(title = "Weekly Trend"),
-                   yaxis = list(tickformat = tick_format(x$data_type),
-                                hoverformat = tick_format(x$data_type)),
+                   yaxis = list(tickformat = tick_format(metric$data_type),
+                                hoverformat = tick_format(metric$data_type)),
                    title = "__plot1_title__",
                    showlegend = FALSE,
                    margin = list(t = 50)
             )
 
         # Hourly Data - current month
-        if (!is.null(x$hourly_table)) {
+        if (!is.null(metric$hourly_table)) {
             
-            hdf <- filter_mr_data(cor$mo[[x$hourly_table]], zone_group) %>%
-                filter(date(Hour) == month) %>%
+            hdf <- query_data(
+                metric, level = "corridor", "monthly", hourly = TRUE, zone_group = zone_group, month = month, upto = FALSE) %>%
+                # filter(date(Hour) == month) %>%
                 mutate(var = !!var_,
                        col = factor(ifelse(Corridor == zone_group, 0, 1))) %>%
                 group_by(Corridor)
@@ -207,11 +211,11 @@ get_trend_multiplot <- function(x, zone_group, month) {
                           customdata = ~glue(paste(
                               "<b>{Description}</b>",
                               "<br>Hour: <b>{format(Hour, '%l:%M %p')}</b>",
-                              "<br>{x$label}: <b>{data_format(x$data_type)(var)}</b>")),
+                              "<br>{metric$label}: <b>{data_format(metric$data_type)(var)}</b>")),
                           hovertemplate = "%{customdata}",
                           hoverlabel = list(font = list(family = "Source Sans Pro"))
-                ) %>% layout(xaxis = list(title = x$label),
-                       yaxis = list(tickformat = tick_format(x$data_type)),
+                ) %>% layout(xaxis = list(title = metric$label),
+                       yaxis = list(tickformat = tick_format(metric$data_type)),
                        title = "__plot2_title__",
                        showlegend = FALSE)
             
@@ -223,9 +227,9 @@ get_trend_multiplot <- function(x, zone_group, month) {
         
         subplot(bar_chart, s1, titleX = TRUE, widths = c(0.2, 0.8), margin = 0.03) %>%
             layout(margin = list(l = 100),
-                   title = x$label) %>%
+                   title = metric$label) %>%
             highlight(
-                color = x$highlight_color, 
+                color = metric$highlight_color, 
                 opacityDim = 0.9, 
                 defaultValues = c(zone_group),
                 selected = attrs_selected(
@@ -241,14 +245,35 @@ get_trend_multiplot <- function(x, zone_group, month) {
 
 
 
-get_valuebox_value <- function(x, zone_group, month, quarter = NULL, line_break = FALSE) {
-    
+get_valuebox_value <- function(metric, level, zone_group, month, quarter = NULL, line_break = FALSE) {
     
     if (is.null(quarter)) { # want monthly, not quarterly data
-        vals <- get_metric(aurora, x, "cor", "mo", zone_group, month) %>% as.list()
+        vals <- query_data(
+            metric, 
+            level, 
+            resolution = "monthly", 
+            zone_group = zone_group, 
+            corridor = zone_group, 
+            month = month, 
+            upto = FALSE
+        ) %>%
+        as.list()
     } else {
-        vals <- get_metric(aurora, x, "cor", "mo", zone_group, quarter) %>% as.list()
+        vals <- query_data(
+            metric, 
+            level, 
+            resolution = "quarterly", 
+            zone_group = zone_group, 
+            corridor = zone_group, 
+            quarter = quarter, 
+            upto = FALSE
+        ) %>%
+        as.list()
     }
+    
+    value <- data_format(metric$data_type)(vals[[metric$variable]])
+    shiny::validate(need(value, message = "NA"))
+    
     
     vals$delta <- if_else(is.na(vals$delta), 0, vals$delta)
     
@@ -260,11 +285,7 @@ get_valuebox_value <- function(x, zone_group, month, quarter = NULL, line_break 
         delta_prefix <- "  "
     }
     
-    value <- data_format(x$data_type)(vals[[x$variable]])
-    delta <- glue('{delta_prefix} {as_pct(vals$delta)}')
-    
-    
-    validate(need(value, message = "NA"))
+    delta <- glue("({delta_prefix} {as_pct(vals$delta)})")
     
     if (line_break) {
         tags$div(HTML(paste(
