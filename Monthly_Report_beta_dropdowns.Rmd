@@ -1207,11 +1207,9 @@ fillCol(
     fillRow(
         div("Throughput", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$tp, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "vph", "Throughput", RED2,
-                format_func = as_int
+            summary_plot(
+                throughput, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1219,14 +1217,9 @@ fillCol(
     fillRow(
         div("Arrivals on Green", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$aogd, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "aog", "Arrivals on Green\nGoal: 80%", RED2,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$aogd
+            summary_plot(
+                arrivals_on_green, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1234,14 +1227,9 @@ fillCol(
     fillRow(
         div("Progression Ratio", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$prd, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "pr", "Progression Ratio\nGoal: 1.2", RED2,
-                format_func = as_2dec,
-                hoverformat = ".2f",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$prd
+            summary_plot(
+                progression_ratio, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1249,14 +1237,9 @@ fillCol(
     fillRow(
         div("Queue Spillback", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$qsd, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "qs_freq", "Queue\nSpillback", RED2,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$qsd
+            summary_plot(
+                queue_spillback_rate, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1264,14 +1247,9 @@ fillCol(
     fillRow(
         div("Peak Period Split Failure", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$sfd, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "sf_freq", "Peak\nSplit Failure", RED2,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$sfd
+            summary_plot(
+                peak_period_split_failures, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1279,14 +1257,9 @@ fillCol(
     fillRow(
         div("Off-Peak Split Failure", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$sfo, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "sf_freq", "Off-Peak\nSplit Failure", RED2,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$sfd
+            summary_plot(
+                off_peak_split_failures, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1294,14 +1267,9 @@ fillCol(
     fillRow(
         div("Travel Time Index", style = styl),
         renderPlotly({
-            data.set <- filter(cordata()$mo$tti, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "tti", "Travel Time\nIndex", RED2,
-                format_func = as_2dec,
-                hoverformat = ".2f",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$tti
+            summary_plot(
+                travel_time_index, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1309,14 +1277,9 @@ fillCol(
     fillRow(
         div("Planning Time Index", style = styl),
         renderPlotly({
-            data.set <- filter(cordata()$mo$pti, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "pti", "Planning Time\nIndex", RED2,
-                format_func = as_2dec,
-                hoverformat = ".2f",
-                fill_color_ = LIGHT_RED,
-                goal_ = goal$pti
+            summary_plot(
+                planning_time_index, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1333,11 +1296,9 @@ fillCol(
     fillRow(
         div("Daily Volume", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$vpd, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "vpd", "Daily\nVolume", GDOT_BLUE,
-                format_func = as_int
+            summary_plot(
+                vpd, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1346,11 +1307,9 @@ fillCol(
     fillRow(
         div("AM Hourly Volume", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$vphpa, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "vph", "AM Hourly\nVolume", GDOT_BLUE,
-                format_func = as_int
+            summary_plot(
+                am_peak_vph, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1358,11 +1317,9 @@ fillCol(
     fillRow(
         div("PM Hourly Volume", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$vphpp, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "vph", "PM Hourly\nVolume", GDOT_BLUE,
-                format_func = as_int
+            summary_plot(
+                pm_peak_vph, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1371,14 +1328,9 @@ fillCol(
     fillRow(
         div("Detector Uptime", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$du, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Detector\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$du
+            summary_plot(
+                detector_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1386,17 +1338,9 @@ fillCol(
     fillRow(
         div("Ped Pushbutton Uptime", style = styl),
         renderPlotly({
-            data.set <- filter(
-                cordata()$mo$pau,
-                Corridor == zone_group() & Month <= current_month()
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Ped Pushbutton\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$pau
+            summary_plot(
+                ped_button_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1404,17 +1348,9 @@ fillCol(
     fillRow(
         div("CCTV Uptime", style = styl),
         renderPlotly({
-            data.set <- filter(
-                mr()$mo$cctv,
-                Corridor == zone_group() & Month <= current_month()
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "CCTV\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cctv
+            summary_plot(
+                cctv_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1422,14 +1358,9 @@ fillCol(
     fillRow(
         div("Comm Uptime", style = styl),
         renderPlotly({
-            data.set <- filter(mr()$mo$cu, Corridor == zone_group() & Month <= current_month())
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            perf_plot_beta(
-                data.set, "uptime", "Communications\nUptime\nGoal: 95%", ORANGE,
-                format_func = as_pct,
-                hoverformat = ".1%",
-                fill_color_ = LIGHT_ORANGE,
-                goal_ = goal$cu
+            summary_plot(
+                comm_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1437,14 +1368,10 @@ fillCol(
     # fillRow(
     #     div("RSU Uptime", style = styl),
     #     renderPlotly    ({
-    #         data.set <- filter(mr()$mo$ru, Corridor==zone_group() & Month <= current_month())
-    #         shiny::validate(need(nrow(data.set) > 0, "No Data"))
-    #         perf_plot_beta(
-    #             data.set, "uptime", "Roadside Unit (RSU)\nUptime\nGoal: 95%", ORANGE,
-    #             format_func = as_pct,
-    #             hoverformat = ".1%",
-    #             fill_color_ = LIGHT_ORANGE,
-    #             goal_ = goal$cu)
+            # summary_plot(
+            #     rsu_uptime, 
+            #     level = level(), zone_group = zone_group(), month = current_month()
+            # )
     #     }),
     #     flex = c(2, 10)
     # ),

@@ -2,7 +2,14 @@
 # Metrics
 # Data to define classes
 
-# - #045594 - GDOT BLUE (R: 4 G: 85 B: 148 - from Branding Guidelines)
+# - #00458F - SigOps BLUE (R: 4 G: 85 B: 148 - from Branding Guidelines)
+# - #007338 - SigOps GREEN
+# - #990000 - SigOps RED
+# - #998200 - SigOps PUKEY YELLOW
+# - #99E6BF - GREEN FILL
+# - #99C7F7 - BLUE FILL
+# - #FF9999 - RED FILL
+# - #FFF099 - YELLOW FILL
 
 daily_traffic_volume:
     label: Traffic Volume [veh/day]
@@ -11,6 +18,7 @@ daily_traffic_volume:
     weight: ones
     data_type: integer
     highlight_color: "#045594"
+    fill_color: "#99C7F7"
     goal: NULL
     hourly_table: NULL
     has_weekly: True
@@ -23,6 +31,7 @@ am_peak_hour_volume:
     weight: ones
     data_type: integer
     highlight_color: "#045594"
+    fill_color: "#99C7F7"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -37,6 +46,7 @@ pm_peak_hour_volume:
     weight: ones
     data_type: integer
     highlight_color: "#045594"
+    fill_color: "#99C7F7"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -50,7 +60,8 @@ throughput:
     variable: vph
     weight: ones
     data_type: integer
-    highlight_color: "#045594"
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     hourly_table: NULL
     has_weekly: True
@@ -61,7 +72,8 @@ arrivals_on_green:
     table: aogd
     variable: aog
     weight: vol
-    highlight_color: "#045594"
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     data_type: percent
     hourly_table: aogh
@@ -73,7 +85,8 @@ progression_ratio:
     table: prd
     variable: pr
     weight: vol
-    highligh_color: RED2
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     data_type: decimal
     hourly_table: prh
@@ -86,8 +99,9 @@ queue_spillback_rate:
     variable: qs_freq
     weight: cycles
     data_type: percent
-    highligh_color: RED2
-    goal: cycles
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
+    goal: NULL
     hourly_table: qsh
     has_weekly: True
 
@@ -98,8 +112,9 @@ peak_period_split_failures:
     variable: sf_freq
     weight: cycles
     data_type: percent
-    highligh_color: RED2
-    goal: cycles
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
+    goal: NULL
     hourly_table: sfh
     has_weekly: True
 
@@ -110,7 +125,8 @@ off_peak_split_failures:
     variable: sf_freq
     weight: cycles
     data_type: percent
-    highligh_color: RED2
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     hourly_table: NULL
     has_weekly: True
@@ -122,7 +138,8 @@ travel_time_index:
     variable: tti
     weight: NULL
     data_type: decimal
-    highlight_color: NULL
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     hourly_table: ttih
     has_weekly: False
@@ -134,7 +151,8 @@ planning_time_index:
     variable: pti
     weight: NULL
     data_type: decimal
-    highlight_color: NULL
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     hourly_table: ptih
     has_weekly: False
@@ -146,7 +164,8 @@ average_speed:
     variable: speed_mph
     weight: NULL
     data_type: integer
-    highlight_color: NULL
+    highlight_color: "#007338"
+    fill_color: "#99E6BF"
     goal: NULL
     hourly_table: spdh
     has_weekly: False
@@ -158,7 +177,8 @@ daily_pedestrian_pushbuttons:
     variable: papd
     weight: ones
     data_type: integer
-    highligh_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     has_weekly: True
@@ -170,7 +190,8 @@ detector_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     daily_table: du
@@ -184,7 +205,8 @@ ped_button_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     daily_table: pau
@@ -198,7 +220,8 @@ cctv_uptime:
     variable: uptime
     weight: num
     data_type: percent
-    highlight_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     daily_table: cctv
@@ -212,7 +235,8 @@ comm_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     daily_table: cu
@@ -226,7 +250,8 @@ rsu_uptime:
     variable: uptime
     weight: ones
     data_type: percent
-    highlight_color: "#045594"
+    highlight_color: "#990000"
+    fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
     daily_table: ru
@@ -240,7 +265,8 @@ tasks_reported:
     variable: Reported
     weight: ones
     data_type: integer
-    Highlight_color: "#045594"
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -254,7 +280,8 @@ tasks_resolved:
     variable: Resolved
     weight: ones
     data_type: integer
-    Highlight_color: "#045594"
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -268,7 +295,8 @@ tasks_outstanding:
     variable: Outstanding
     weight: ones
     data_type: integer
-    Highlight_color: "#045594"
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -282,7 +310,8 @@ tasks_over45:
     variable: over45
     weight: ones
     data_type: integer
-    Highlight_color: "#045594" 
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -296,7 +325,8 @@ tasks_mttr:
     variable: mttr
     weight: ones
     data_type: integer
-    Highlight_color: "#045594"
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
     daily_table: NULL
@@ -315,6 +345,7 @@ template:
     weight:
     data_type:
     highlight_color:
+    fill_color:     
     goal:
     hourly_table:
     daily_table:

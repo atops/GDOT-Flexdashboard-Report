@@ -41,7 +41,7 @@ if (interactive()) {
 }
 
 source("Utilities.R")
-source("classes.R")
+source("Classes.R")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
