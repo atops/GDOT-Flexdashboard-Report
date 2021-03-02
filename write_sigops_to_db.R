@@ -122,7 +122,7 @@ if (FALSE) {
     table_names <- table_names[!grepl("cor_mo_hourly_udc", table_names)]
     
     
-    if (class(conn) == "MySQLConnection") {
+    if (class(conn) == "MySQLConnection") { # Aurora
         print("Aurora Database Connection")
         
         # Get CREATE TABLE Statements for each Table
