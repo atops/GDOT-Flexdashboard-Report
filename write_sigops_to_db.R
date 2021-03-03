@@ -112,6 +112,12 @@ if (FALSE) {
     sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
     
     
+    cor$mo$udc_trend_table <- data.frame(
+        key = "udc", 
+        data = rjson::toJSON(cor$mo$udc_trend_table), 
+        stringsAsFactors = FALSE)
+    
+    
     write_sigops_to_db(conn, cor, "cor", recreate = TRUE)
     write_sigops_to_db(conn, sub, "sub", recreate = TRUE)
     write_sigops_to_db(conn, sig, "sig", recreate = TRUE)
@@ -119,7 +125,7 @@ if (FALSE) {
     
     table_names <- dbListTables(conn)
     table_names <- table_names[grepl("^(cor)|(sub)|(sig)", table_names)]
-    table_names <- table_names[!grepl("cor_mo_hourly_udc", table_names)]
+    #table_names <- table_names[!grepl("cor_mo_hourly_udc", table_names)]
     
     
     if (class(conn) == "MySQLConnection") { # Aurora
