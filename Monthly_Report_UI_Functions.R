@@ -26,11 +26,10 @@ suppressMessages({
     library(htmltools)
     library(leaflet)
     library(sp)
-    library(RJDBC)
     library(jsonlite)
     library(shinycssloaders)
     library(DT)
-    library(compiler)
+    library(log4r)
 })
 
 
@@ -46,7 +45,7 @@ source("Classes.R")
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-
+logger <- log4r::logger(threshold = "DEBUG")
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
