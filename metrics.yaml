@@ -2,7 +2,10 @@
 # Metrics
 # Data to define classes
 
-# - #00458F - SigOps BLUE (R: 4 G: 85 B: 148 - from Branding Guidelines)
+# - #045594   GDOT BLUE (R: 4 G: 85 B: 148 - from Branding Guidelines)
+# - #002E5E   GDOT GREEN
+
+# - #00458F - SigOps BLUE 
 # - #007338 - SigOps GREEN
 # - #990000 - SigOps RED
 # - #998200 - SigOps PUKEY YELLOW
@@ -133,7 +136,7 @@ off_peak_split_failures:
 
 
 travel_time_index:
-    label: Travel Time Index [%]
+    label: Travel Time Index (TTI)
     table: tti
     variable: tti
     weight: NULL
@@ -146,7 +149,7 @@ travel_time_index:
 
 
 planning_time_index:
-    label: Planning Time Index [%]
+    label: Planning Time Index (PTI)
     table: pti
     variable: pti
     weight: NULL
@@ -257,6 +260,50 @@ rsu_uptime:
     daily_table: ru
     daily_variable: uptime
     has_weekly: True
+
+
+tasks:
+    label: TEAMS Tasks This Period
+    table: tasks
+    variable: Reported
+    weight: ones
+    data_type: integer
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
+    goal: NULL
+    hourly_table: NULL
+    daily_table: tasks
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_by_type:
+    label: TEAMS Tasks This Period By Type
+    table: ttyp
+    goal: NULL
+    hourly_table: NULL
+    daily_table: ttyp
+    daily_variable: NULL
+    has_weekly: False
+
+
+tasks_by_subtype:
+    label: TEAMS Tasks This Period By Subtype
+    table: tsub
+    goal: NULL
+    hourly_table: NULL
+    daily_table: tsub
+    daily_variable: NULL
+    has_weekly: False
+
+tasks_by_source:
+    label: TEAMS Tasks This Period By Source
+    table: tsou
+    goal: NULL
+    hourly_table: NULL
+    daily_table: tsou
+    daily_variable: NULL
+    has_weekly: False
 
 
 tasks_reported:

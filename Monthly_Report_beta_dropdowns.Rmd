@@ -1497,16 +1497,8 @@ output$performance <- renderPlotly({
             level = level(), zone_group(), current_month()
         )
     } else if (input$performance_metric == "Travel Time Metrics") {
-        get_tt_plot(
-            cordata()$mo$tti,
-            cordata()$mo$ttih,
-            cordata()$mo$pti,
-            cordata()$mo$ptih,
-            month_ = current_month(),
-            zone_group_ = zone_group(),
-            x_bar_title = paste(input$month, "TTI & PTI"),
-            x_line1_title = paste(input$month, "TTI by hr"),
-            x_line2_title = paste(input$month, "PTI by hr")
+        travel_times_plot(
+            level = level(), zone_group(), current_month()
         )
     }
 })
@@ -1651,26 +1643,17 @@ Row {data-height=700}
 plotlyOutput("equipment", height = "100%", width = "100%")
 
 output$equipment <- renderPlotly({
+    
     if (input$equipment_metric == "Detector Uptime") {
-        mr_dy_du <- mr()$dy$du
-        mr_mo_du <- mr()$mo$du
-        zone_group_ <- zone_group()
-        current_month_ <- current_month()
-        input_month <- input$month
-
         if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_trend_multiplot(
                 detector_uptime, 
                 level = level(), zone_group(), current_month()
             )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            get_cor_det_uptime_plot(
-                mr_dy_du,
-                mr_mo_du,
-                month_name = input_month,
-                month_ = current_month_,
-                zone_group_ = zone_group_
-            )
+            uptime_multiplot(
+                detector_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month())
         } else {
             get_trend_multiplot(
                 detector_uptime, 
@@ -1678,25 +1661,15 @@ output$equipment <- renderPlotly({
             )
         }
     } else if (input$equipment_metric == "Pedestrian Pushbutton Uptime") {
-        mr_dy_pau <- mr()$dy$pau
-        mr_mo_pau <- mr()$mo$pau
-        zone_group_ <- zone_group()
-        current_month_ <- current_month()
-        input_month <- input$month
-
         if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_trend_multiplot(
                 ped_button_uptime, 
                 level = level(), zone_group(), current_month()
             )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            get_cor_comm_uptime_plot(
-                mr_dy_pau,
-                mr_mo_pau,
-                month_name = input_month,
-                month_ = current_month_,
-                zone_group_ = zone_group_
-            )
+            uptime_multiplot(
+                ped_button_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month())
         } else {
             get_trend_multiplot(
                 ped_button_uptime, 
@@ -1704,42 +1677,26 @@ output$equipment <- renderPlotly({
             )
         }
     } else if (input$equipment_metric == "CCTV Uptime") {
-        zone_group_ <- zone_group()
-        current_month_ <- current_month()
-        input_month <- input$month
-
-        if (corridor() == "All Corridors") {
+        if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
+            debug(logger, glue("Line 1681 | {zone_group()} | {current_month()}"))
             get_trend_multiplot(
                 cctv_uptime, 
                 level = level(), zone_group(), current_month()
             )
         } else {
-            plot_individual_cctvs(
-                sigdata()$dy$cctv,
-                month_ = current_month_,
-                zone_group_ = zone_group_
-            )
+            debug(logger, glue("Line 1687 | {zone_group()} | {current_month()}"))
+            individual_cctvs_plot(zone_group(), current_month())
         }
     } else if (input$equipment_metric == "Communications Uptime") {
-        mr_dy_cu <- mr()$dy$cu
-        mr_mo_cu <- mr()$mo$cu
-        mr()$mo$cu
-        zone_group_ <- zone_group()
-        current_month_ <- current_month()
-        input_month <- input$month
-
         if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_trend_multiplot(
                 comm_uptime, 
                 level = level(), zone_group(), current_month()
             )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            get_cor_comm_uptime_plot(mr_dy_cu,
-                mr_mo_cu,
-                month_name = input_month,
-                month_ = current_month_,
-                zone_group_ = zone_group_
-            )
+            uptime_multiplot(
+                comm_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month())
         } else {
             get_trend_multiplot(
                 comm_uptime, 
@@ -1753,13 +1710,9 @@ output$equipment <- renderPlotly({
                 level = level(), zone_group(), current_month()
             )
         } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            get_cor_comm_uptime_plot(
-                mr()$dy$ru,
-                mr()$mo$ru,
-                month_name = input$month,
-                month_ = current_month(),
-                zone_group_ = zone_group()
-            )
+            uptime_multiplot(
+                rsu_uptime, 
+                level = level(), zone_group = zone_group(), month = current_month())
         } else {
             get_trend_multiplot(
                 rsu_uptime, 
@@ -1822,42 +1775,44 @@ Row {.tabset .tabset-fade data-height=800}
 fillRow(
     fillCol(
         renderPlotly({
-            data.set <- gather_outstanding_events(
-                filter(
-                    mr()$mo$tasks,
-                    Zone_Group == zone_group(),
-                    Corridor == zone_group(),
-                    Month <= current_month()
+            data <- query_data(
+                tasks, 
+                level = level(), "monthly", zone_group = zone_group(), month = current_month()
                 )
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            cum_events_plot(data.set)
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            data <- data[data$Corridor == zone_group(),] %>%
+                gather_outstanding_events()
+            
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            cum_events_plot(data)
         }),
         renderPlotly({
-            data.set <- filter(
-                mr()$mo$ttyp,
-                Zone_Group == zone_group(),
-                Corridor == zone_group(),
-                Month == current_month(),
-                Reported > 0 | Resolved > 0 | Outstanding > 0
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            plot_teams_tasks(data.set,
+            data <- query_data(
+                tasks_by_type,
+                level = level(), "monthly", zone_group = zone_group(), month = current_month(), upto = FALSE
+                )
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            data <- data[data$Corridor == zone_group(),]
+            data <- subset(data, Reported > 0 | Resolved > 0 | Outstanding > 0)
+            
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            plot_teams_tasks(data,
                 var_ = "Task_Type",
                 title_ = "Incidents This Month by Type (top), Source (bottom)",
                 height_ = 250
             )
         }),
         renderPlotly({
-            data.set <- filter(
-                mr()$mo$tsou,
-                Zone_Group == zone_group(),
-                Corridor == zone_group(),
-                Month == current_month(),
-                Reported > 0 | Resolved > 0 | Outstanding > 0
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            plot_teams_tasks(data.set,
+            data <- query_data(
+                tasks_by_source,
+                level = level(), "monthly", zone_group = zone_group(), month = current_month(), upto = FALSE
+                )
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            data <- data[data$Corridor == zone_group(),]
+            data <- subset(data, Reported > 0 | Resolved > 0 | Outstanding > 0)
+
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            plot_teams_tasks(data,
                 var_ = "Task_Source",
                 height_ = 150
             )
@@ -1867,15 +1822,16 @@ fillRow(
 
     fillCol(
         renderPlotly({
-            data.set <- filter(
-                mr()$mo$tsub,
-                Zone_Group == zone_group(),
-                Corridor == zone_group(),
-                Month == current_month(),
-                Reported > 0 | Resolved > 0 | Outstanding > 0
-            )
-            shiny::validate(need(nrow(data.set) > 0, "No Data"))
-            plot_teams_tasks(data.set,
+            data <- query_data(
+                tasks_by_subtype,
+                level = level(), "monthly", zone_group = zone_group(), month = current_month(), upto = FALSE
+                )
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            data <- data[data$Corridor == zone_group(),]
+            data <- subset(data, Reported > 0 | Resolved > 0 | Outstanding > 0)
+
+            shiny::validate(need(nrow(data) > 0, "No Data"))
+            plot_teams_tasks(data,
                 var_ = "Task_Subtype",
                 title = "Incidents This Month by Subtype",
                 textpos = "outside",
@@ -2318,12 +2274,11 @@ value_format <- function(value) {
 
 
 map_month_options <- reactive({
-    x <- rev(sort(unique(sigdata()$mo$vpd$Month)))
-    format(ymd(x), "%b %Y") # convert format to Jan 2020, for example
+    format(ymd(rev(month_options)), "%b %Y") # convert format to Jan 2020, for example
 })
-map_week_options <- reactive({
-    unique(sort(sigdata()$w$vpd$Date))
-})
+# map_week_options <- reactive({
+#     unique(sort(sigdata()$w$vpd$Date))
+# })
 
 
 # Metrics not used
