@@ -119,7 +119,7 @@ if (FALSE) {
     
     table_names <- dbListTables(conn)
     table_names <- table_names[grepl("^(cor)|(sub)|(sig)", table_names)]
-    table_names <- table_names[!grepl("cor_mo_hourly_udc", table_names)]
+    table_names <- table_names[!grepl("udc_trend_table", table_names)]
     
     
     if (class(conn) == "MySQLConnection") { # Aurora
