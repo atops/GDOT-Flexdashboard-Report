@@ -2006,8 +2006,6 @@ tryCatch(
             "du" = readRDS("cor_monthly_detector_uptime.rds"),
             "cu" = readRDS("cor_monthly_comm_uptime.rds"),
             "pau" = readRDS("cor_monthly_pa_uptime.rds"),
-            # "veh" = readRDS("cor_monthly_xl_veh_uptime.rds"),
-            # "ped" = readRDS("cor_monthly_xl_ped_uptime.rds"),
             "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
             "ru" = readRDS("cor_monthly_rsu_uptime.rds") %>%
                 complete(
@@ -2058,8 +2056,6 @@ tryCatch(
             "du" = get_quarterly(cor$mo$du, "uptime"),
             "cu" = get_quarterly(cor$mo$cu, "uptime"),
             "pau" = get_quarterly(cor$mo$pau, "uptime"),
-            # "veh" = get_quarterly(cor$mo$veh, "uptime", "num"),
-            # "ped" = get_quarterly(cor$mo$ped, "uptime", "num"),
             "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
             "ru" = get_quarterly(cor$mo$ru, "uptime"),
             "reported" = get_quarterly(cor$mo$tasks, "Reported"),
@@ -2245,6 +2241,8 @@ tryCatch(
                 select(Zone_Group, Corridor, Date, sf_freq),
             "sfo" = sigify(readRDS("wsfo.rds"), cor$wk$sfo, corridors) %>%
                 select(Zone_Group, Corridor, Date, sf_freq),
+            "du" = sigify(readRDS("weekly_detector_uptime.rds"), cor$wk$du, corridors) %>%
+                select(Zone_Group, Corridor, Date, uptime),
             "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors) %>%
                 select(Zone_Group, Corridor, Date, uptime),
             "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
