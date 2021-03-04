@@ -1855,7 +1855,11 @@ fillRow(
 
 corridor_summary_table <- reactive({
     if (startsWith(input$zone_group, "Zone")) {
-        get_corridor_summary_table(cordata()$summary_data, current_month(), input$zone_group)
+        get_corridor_summary_table(
+           tbl(aurora_connection_pool, "cor_summary_data") %>%
+                filter(Zone_Group == !!zone_group(), Month == !!current_month()) %>%
+                collect()
+        )
     } else {
         data.frame()
     }
@@ -2241,8 +2245,8 @@ library(leaflet.extras)
 
 metrics_list <- list(
     "Vehicles Per Day" = vpd,
-    "AM Peak Hour Volume" = am_peak_vph,
-    "PM Peak Hour Volume" = pm_peak_vph,
+    # "AM Peak Hour Volume" = am_peak_vph,
+    # "PM Peak Hour Volume" = pm_peak_vph,
     "Throughput" = throughput,
     "Arrivals on Green" = arrivals_on_green,
     "Progression Ratio" = progression_ratio,
@@ -2256,7 +2260,7 @@ metrics_list <- list(
     "Detector Uptime" = detector_uptime,
     "Pedestrian Pushbutton Uptime" = ped_button_uptime,
     "Cameras Uptime" = cctv_uptime,
-    "Communications Uptime" = comm_uptime,
+    "Communications Uptime" = comm_uptime
     #"Roadside Unit Uptime" = rsu_uptime,
     # "tasks" = tasks,
     # "tasks_by_type" = tasks_by_type,
@@ -2271,31 +2275,18 @@ metrics_list <- list(
     #"Pedestrian Delay" = NULL
 )
 
+
 rms_corridors <- reactive({
     as.character(unique(corridors()[corridors()$Zone_Group == "Ramp Meters", "Corridor"]$Corridor))
 })
 
-# value_format <- function(value) {
-#     if (value %in% c("uptime", "aog", "qs_freq", "sf_freq")) {
-#         as_pct
-#     } else if (value == "pr") {
-#         as_2dec
-#     } else {
-#         as_int
-#     }
-# }
 
 
 map_month_options <- reactive({
     format(ymd(rev(month_options)), "%b %Y") # convert format to Jan 2020, for example
 })
-# map_week_options <- reactive({
-#     unique(sort(sigdata()$w$vpd$Date))
-# })
 
 
-# Metrics not used
-# met_trash <- c("tsub", "ttyp", "tpri", "tsou", "tasks", "over45", "mttr", "tti", "pti", "bi", "vphp", "sfo")
 
 line_popups <- function(num, name, corr, subc, tmc) {
     paste(
@@ -2308,6 +2299,8 @@ line_popups <- function(num, name, corr, subc, tmc) {
     )
 }
 
+
+
 point_popups <- function(signalid, name, corridor) {
     paste(
         sep = "<br/>",
@@ -2315,6 +2308,8 @@ point_popups <- function(signalid, name, corridor) {
         glue("<b>Corridor:</b> {corridor}")
     )
 }
+
+
 
 line_labels <- function(corridor, subcorridor) {
     paste(
@@ -2324,13 +2319,15 @@ line_labels <- function(corridor, subcorridor) {
     )
 }
 
+
+
 shinyApp(
     ui = fluidPage(
         tags$head(
             tags$link(rel = "stylesheet", type = "text/css", href = "style.css")
         ),
 
-        leafletOutput("MapPlot1", height = "800px"),
+        leafletOutput("SigOpsMap", height = "800px"),
 
         absolutePanel(
             top = 10, left = 100, # 260,
@@ -2372,8 +2369,8 @@ shinyApp(
 
     server = function(input, output, session) {
 
-        output$MapPlot1 <- renderLeaflet({
-            debug(logger, "output$mapplot1")
+        output$SigOpsMap <- renderLeaflet({
+            debug(logger, "output$SigOpsMap")
             leaflet() %>%
                 addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
                 addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
@@ -2394,9 +2391,11 @@ shinyApp(
         
         
         map_metric <- reactive({
+            debug(logger, "map_metric")
             metrics_list[[input$metric_input]]
         })
 
+        
         
         map_data <- reactive({
             debug(logger, "map_data")
@@ -2428,9 +2427,9 @@ shinyApp(
             v <- as.name(map_metric()$variable)
             
             data_ <- if (map_metric()$variable == "uptime") {
-                map_data() %>% arrange(!!v)  # map_metric()$variable)
+                map_data() %>% arrange(!!v)
             } else {
-                map_data() %>% arrange(desc(!!v))  # map_metric()$variable))
+                map_data() %>% arrange(desc(!!v))
             }
 
             data_ <- data_ %>%
@@ -2451,21 +2450,28 @@ shinyApp(
 
         output$top10_table <- renderDataTable({
             debug(logger, "output$top10_table")
+
             datatable(
-                subset(table_data(), select = -c(SignalID)),
+                subset(table_data(), select = -c(SignalID)) %>%
+                    rename(value = ncol(table_data())-1),
                 options = list(
                     dom = "t"
                 ),
-                # ordering = FALSE,
-                # paging = FALSE,
-                # searching = FALSE),
                 selection = "single",
                 rownames = FALSE
             ) %>%
                 formatStyle(3, textAlign = "right")
-            # formatStyle(
-            #    columns = colnames(table_data()),
-            #    backgroundColor = "rgba(255,255,255,0.1)" )
+        }, server = TRUE)
+
+        
+        observe({
+            debug(logger, "observe on table_data(): top10_table proxy")
+            
+            dataTableProxy("top10_table") %>%
+                DT::reloadData(
+                    subset(table_data(), select = -c(SignalID)) %>%
+                        rename(value = ncol(table_data()) - 1),
+                    clearSelection = "all")
         })
         
         
@@ -2481,7 +2487,11 @@ shinyApp(
                     pretty = TRUE
                 )
                 
-                leafletProxy("MapPlot1") %>%
+                leafletProxy("SigOpsMap") %>%
+                    clearGroup(group = "the_group") %>%
+                    clearControls()
+                
+                leafletProxy("SigOpsMap") %>%
                     addCircleMarkers(
                         data = map_data(),
                         lng = ~ Longitude,
@@ -2510,26 +2520,14 @@ shinyApp(
         })
 
 
-        # table <- reactive({
-        #     metrics_df[metrics_df$description == input$metric_input, ]$table
-        # })
-
-        # value <- reactive({
-        #     metrics_df[metrics_df$description == input$metric_input, ]$value
-        # })
-        
-
-
-
-
         # to keep track of previously selected row
         prev_row <- reactiveVal()
 
 
-        observeEvent(input$MapPlot1_click, {
+        observeEvent(input$SigOpsMap_click, {
             # Reset previously selected marker
             if (!is.null(prev_row())) {
-                leafletProxy("MapPlot1") %>%
+                leafletProxy("SigOpsMap") %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
             # set new value to reactiveVal
@@ -2539,13 +2537,12 @@ shinyApp(
         
         observeEvent(input$top10_table_rows_selected, {
             debug(logger, "observe event on top10 table row selected")
-            
-            row_selected <- table_data()[input$top10_table_rows_selected, ]
-            signalid <- str_extract(row_selected$Signal, "^\\d+")
+
+            signalid <- table_data()[input$top10_table_rows_selected, "SignalID"]
 
             data_selected <- map_data() %>% filter(SignalID == signalid)
 
-            leafletProxy("MapPlot1") %>%
+            leafletProxy("SigOpsMap") %>%
                 flyTo(lat = data_selected$Latitude, lng = data_selected$Longitude, zoom = 14) %>%
                 addCircleMarkers(
                     popup = paste(
@@ -2564,7 +2561,7 @@ shinyApp(
 
             # Reset previously selected marker
             if (!is.null(prev_row())) {
-                leafletProxy("MapPlot1") %>%
+                leafletProxy("SigOpsMap") %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
             # set new value to reactiveVal
