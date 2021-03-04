@@ -1,5 +1,6 @@
 
 # Database Functions
+library(odbc)
 library(yaml)
 library(duckdb)
 
