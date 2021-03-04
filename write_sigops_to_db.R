@@ -2,7 +2,7 @@
 library(aws.s3)
 library(qs)
 
-write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE) {
+write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, asof_date = NULL) {
     
     for (per in c("qu", "mo", "wk", "dy")) {
         for (tab in names(df[[per]])) { 
@@ -20,10 +20,11 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE) {
                         row.names = FALSE)
                 } else {
                     dbSendQuery(conn, glue("DELETE from {table_name}"))
+                    # dbExecute(conn, glue("DELETE from {table_name} WHERE {datefield} >= {asof_date}"))
                     dbWriteTable(
                         conn, 
                         table_name, 
-                        df[[per]][[tab]], 
+                        df[[per]][[tab]], # filter(datefield >= {asof_date})
                         overwrite = FALSE,
                         append = TRUE,
                         row.names = FALSE)
