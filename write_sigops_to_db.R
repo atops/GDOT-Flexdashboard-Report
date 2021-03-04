@@ -159,7 +159,7 @@ if (FALSE) {
     
     table_names <- dbListTables(conn)
     table_names <- table_names[grepl("^(cor)|(sub)|(sig)", table_names)]
-    table_names <- table_names[!grepl("udc", table_names)]
+    #table_names <- table_names[!grepl("udc", table_names)]
     
     
     if (class(conn) == "MySQLConnection") { # Aurora
@@ -200,7 +200,10 @@ if (FALSE) {
         # Create Indexes
         lapply(create_statements$Table, function(x) {
             print(x)
-            set_index_aurora(conn, x)
+            try(
+                set_index_aurora(conn, x)
+            )
+            
         })
         
     } else if (class(conn) == "duckdb_connection") {
