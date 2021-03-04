@@ -2369,7 +2369,7 @@ descs <- corridors %>%
     ungroup()
 
 for (tab in c(
-    "vpd", "papd", "pd",
+    "vpd", "vphpa", "vphpp", "papd", "pd",
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot"
 )) {

@@ -115,8 +115,6 @@ add_partition <- function(conf_athena, table_name, date_) {
 
 
 
-# -- This is a Work in Progress -- 2021-01-18
-
 query_data <- function(
     metric, 
     level = "corridor", 
@@ -157,21 +155,19 @@ query_data <- function(
     if (level == "corridor" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
         if (zone_group == "All RTOP") {
             zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
-            zones <- paste(glue("'{zones}'"), collapse = ",")
-            where_clause <- glue("WHERE Zone_Group in ({zones})")
         } else if (zone_group == "RTOP1") {
             zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
-            zones <- paste(glue("'{zones}'"), collapse = ",")
-            where_clause <- glue("WHERE Zone_Group in ({zones})")
         } else if (zone_group == "RTOP2") {
             zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
-            zones <- paste(glue("'{zones}'"), collapse = ",")
-            where_clause <- glue("WHERE Zone_Group in ({zones})")
         } else if (zone_group == "Zone 7") {
             zones <- c("Zone 7m", "Zone 7d")
-            zones <- paste(glue("'{zones}'"), collapse = ",")
-            where_clause <- glue("WHERE Zone_Group in ({zones})")
         }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+    } else if (level == "signal" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+        # This is used by the map which currently shows signal-level data
+        # for all signals all the time.
+        where_clause <- "WHERE True"
     } else {
         where_clause <- "WHERE Zone_Group = '{zone_group}'"
     }
