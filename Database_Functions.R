@@ -229,10 +229,26 @@ query_data <- function(
 }
 
 
-# udc_trend_table
 
+# udc_trend_table
 query_udc_trend <- function() {
-    df <- dbGetQuery(aurora_connection_pool, "cor_mo_udc_trend_table")
+    df <- dbReadTable(aurora_connection_pool, "cor_mo_udc_trend_table")
     udc_list <- jsonlite::fromJSON(df$data)
     lapply(udc_list, function(x) as_tibble(x) %>% mutate(Month = as_date(Month)))
 }
+
+
+
+# udc hourly table
+query_udc_hourly <- function(zone_group, month) {
+    df <- dbReadTable(aurora_connection_pool, "cor_mo_hourly_udc")
+    df$Month <- as_date(df$Month)
+    df$month_hour <- as_datetime(df$month_hour)
+    subset(df, Zone == zone_group & Month <= as_date(month))
+}
+
+# TODO: mark/user_delay_costs not calculating since Nov 2020.
+# Figure out where script is supposed to run (SAM?) and get it scheduled again.
+# Run on Lenny for back dates in the meantime.
+
+# TODO: tasks chart doesn't render when drilling down to the subcorridor level.

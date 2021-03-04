@@ -37,6 +37,37 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE) {
 }
 
 
+
+write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE) {
+    
+    table_name <- dfname
+    print(table_name)
+    
+    tryCatch({
+        if (recreate) {
+            dbWriteTable(conn,
+                         table_name,
+                         head(df, 3),
+                         overwrite = TRUE,
+                         row.names = FALSE)
+        } else {
+            dbSendQuery(conn, glue("DELETE from {table_name}"))
+            dbWriteTable(
+                conn,
+                table_name,
+                df,
+                overwrite = FALSE,
+                append = TRUE,
+                row.names = FALSE
+            )
+        }
+        
+    }, error = function(e) {
+        print(e)
+    })
+}
+
+
 set_index_duckdb <- function(conn, table_name) {
     fields <- dbListFields(conn, table_name)
     period <- intersect(fields, c("Month", "Date", "Hour", "Quarter"))
@@ -121,12 +152,15 @@ if (FALSE) {
     write_sigops_to_db(conn, cor, "cor", recreate = TRUE)
     write_sigops_to_db(conn, sub, "sub", recreate = TRUE)
     write_sigops_to_db(conn, sig, "sig", recreate = TRUE)
-    
+
+    write_to_db_once_off(conn, cor$mo$udc_trend_table, "cor_mo_udc_trend", recreate = TRUE)
+    write_to_db_once_off(conn, cor$mo$hourly_udc, "cor_mo_hourly_udc", recreate = TRUE)
+    write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = TRUE)
     
     table_names <- dbListTables(conn)
     table_names <- table_names[grepl("^(cor)|(sub)|(sig)", table_names)]
-    table_names <- table_names[!grepl("udc_trend_table", table_names)]
-
+    table_names <- table_names[!grepl("udc", table_names)]
+    
     
     if (class(conn) == "MySQLConnection") { # Aurora
         print("Aurora Database Connection")
@@ -220,7 +254,9 @@ write_sigops_to_db(conn, cor, "cor", recreate = FALSE)
 write_sigops_to_db(conn, sub, "sub", recreate = FALSE)
 write_sigops_to_db(conn, sig, "sig", recreate = FALSE)
 
-
+write_to_db_once_off(conn, cor$mo$udc_trend_table, "cor_mo_udc_trend", recreate = FALSE)
+write_to_db_once_off(conn, cor$mo$hourly_udc, "cor_mo_hourly_udc", recreate = FALSE)
+write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = FALSE)
 
 
 

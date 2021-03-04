@@ -1945,7 +1945,7 @@ udc_plot_height <- reactive({
 
 output$udc_plot <- renderPlotly({
     udcplot_plotly(
-        cordata()$mo$hourly_udc %>% filter(Zone == zone_group(), Month <= current_month())
+        query_udc_hourly(zone_group(), current_month())
     )
 })
 
