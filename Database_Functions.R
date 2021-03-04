@@ -227,3 +227,12 @@ query_data <- function(
 
     df
 }
+
+
+# udc_trend_table
+
+query_udc_trend <- function() {
+    df <- dbGetQuery(aurora_connection_pool, "cor_mo_udc_trend_table")
+    udc_list <- jsonlite::fromJSON(df$data)
+    lapply(udc_list, function(x) as_tibble(x) %>% mutate(Month = as_date(Month)))
+}

@@ -1955,7 +1955,8 @@ output$udc_table <- renderFormattable({
     )
 
     month_str <- format(current_month(), "%F")
-    data <- cordata()$mo$udc_trend_table
+    #data <- cordata()$mo$udc_trend_table
+    data <- query_udc_trend()
 
     shiny::validate(
         need(month_str %in% names(data), "No data")
