@@ -16,7 +16,9 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  Include = "logical",
                  Modified = "date",
                  Note = "text",
-                 Asof2 = "date")
+                 Latitude = "numeric",
+                 Longitude = "numeric")
+    
     
     df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
         
@@ -46,9 +48,11 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Corridor = as.factor(Corridor),
                   Subcorridor = as.factor(Subcorridor),
                   Milepost = as.numeric(Milepost),
-                  Agency = Agency,
-                  Name = Name,
-                  Asof = date(Asof)) %>%
+                  Agency,
+                  Name,
+                  Asof = date(Asof),
+                  Latitude,
+                  Longitude) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
 }
