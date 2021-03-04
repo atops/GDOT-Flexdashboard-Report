@@ -1,6 +1,6 @@
 
 # Database Functions
-library(RJDBC)
+library(odbc)
 library(yaml)
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
