@@ -2239,39 +2239,50 @@ Map
 
 library(leaflet.extras)
 
-metrics_df <- read_csv(
-    "table,value,description
-    vpd,vpd,Vehicles Per Day
-    papd,papd,Pedestrian Actuations Per Day
-    pd,pd,Pedestrian Delay
-    tp,vph,Throughput
-    aogd,aog,Arrivals on Green
-    prd,pr,Progression Ratio
-    qsd,qs_freq,Queue Spillback
-    sfd,sf_freq,Peak Split Failures
-    sfo,sf_freq,Off-Peak Split Failures
-    ru,uptime,Roadside Unit Uptime
-    pau,uptime,Pedestrian Actuations Uptime
-    cu,uptime,Communications Uptime
-    du,uptime,Detector Uptime"
+metrics_list <- list(
+    "Vehicles Per Day" = vpd,
+    "AM Peak Hour Volume" = am_peak_vph,
+    "PM Peak Hour Volume" = pm_peak_vph,
+    "Throughput" = throughput,
+    "Arrivals on Green" = arrivals_on_green,
+    "Progression Ratio" = progression_ratio,
+    "Queue Spillback" = queue_spillback_rate,
+    "Peak Split Failures" = peak_period_split_failures,
+    "Off-Peak Split Failures" = off_peak_split_failures,
+    #"travel_time_index" = travel_time_index,
+    #"planning_time_index" = planning_time_index,
+    #"average_speed" = average_speed,
+    "Pedestrian Actuations Per Day" = daily_pedestrian_pushbuttons,
+    "Detector Uptime" = detector_uptime,
+    "Pedestrian Pushbutton Uptime" = ped_button_uptime,
+    "Cameras Uptime" = cctv_uptime,
+    "Communications Uptime" = comm_uptime,
+    #"Roadside Unit Uptime" = rsu_uptime,
+    # "tasks" = tasks,
+    # "tasks_by_type" = tasks_by_type,
+    # "tasks_by_subtype" = tasks_by_subtype,
+    # "tasks_by_source" = tasks_by_source,
+    # "tasks_reported" = tasks_reported,
+    # "tasks_resolved" = tasks_resolved,
+    # "tasks_outstanding" = tasks_outstanding,
+    # "tasks_over45" = tasks_over45,
+    # "tasks_mttr" = tasks_mttr
+    "Pedestrian Delay" = NULL  # TODO: Need a class for this metric. Add to Classes.R (not used elsewhere on the site?)
 )
 
 rms_corridors <- reactive({
-    x <- corridors() %>%
-        filter(Zone_Group == "Ramp Meters") %>%
-        distinct(Corridor)
-    as.character(x$Corridor)
+    as.character(unique(corridors[corridors$Zone_Group == "Ramp Meters", "Corridor"]$Corridor))
 })
 
-value_format <- function(value) {
-    if (value %in% c("uptime", "aog", "qs_freq", "sf_freq")) {
-        as_pct
-    } else if (value == "pr") {
-        as_2dec
-    } else {
-        as_int
-    }
-}
+# value_format <- function(value) {
+#     if (value %in% c("uptime", "aog", "qs_freq", "sf_freq")) {
+#         as_pct
+#     } else if (value == "pr") {
+#         as_2dec
+#     } else {
+#         as_int
+#     }
+# }
 
 
 map_month_options <- reactive({
@@ -2283,7 +2294,7 @@ map_month_options <- reactive({
 
 
 # Metrics not used
-met_trash <- c("tsub", "ttyp", "tpri", "tsou", "tasks", "over45", "mttr", "tti", "pti", "bi", "vphp", "sfo")
+# met_trash <- c("tsub", "ttyp", "tpri", "tsou", "tasks", "over45", "mttr", "tti", "pti", "bi", "vphp", "sfo")
 
 line_popups <- function(num, name, corr, subc, tmc) {
     paste(
@@ -2320,19 +2331,12 @@ shinyApp(
 
         leafletOutput("MapPlot1", height = "800px"),
 
-        # left = 150 | 310(150+150+10) | 620(310+300+10)
-        # absolutePanel(top = 10, left = 100,
-        #               selectInput(inputId = "time_frame",
-        #                           label = "Time Frame",
-        #                           choices = c("Monthly"),  # "Weekly"),
-        #                           selected = 1,
-        #                           width = "150px")),
         absolutePanel(
             top = 10, left = 100, # 260,
             div(selectInput(
                 inputId = "metric_input",
                 label = "Select Metric",
-                choices = metrics_df$description,
+                choices = names(metrics_list),
                 width = "300px"
             ),
             style = "font-family: Source Sans Pro;"
@@ -2367,28 +2371,7 @@ shinyApp(
 
     server = function(input, output, session) {
 
-        # observe({
-        #     period_options <-
-        #         if (input$time_frame == "Monthly") {
-        #             map_month_options()
-        #         } else if (input$time_frame == "Weekly") {
-        #             map_week_options()
-        #         } else {
-        #             c("one", "two") # for debugging. should never happen
-        #         }
-        #
-        #     updateSelectInput(session, inputId = "period_input", choices = period_options)
-        # })
-
         output$MapPlot1 <- renderLeaflet({
-            format_ <- value_format(value())
-
-            pal <- colorBin(
-                palette = "YlGnBu",
-                domain = data()[[value()]],
-                bins = 5,
-                pretty = TRUE
-            )
 
             leaflet() %>%
                 addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
@@ -2404,80 +2387,98 @@ shinyApp(
                     lat = 33.7995454,
                     lng = -84.3729367,
                     zoom = 12
-                ) %>%
-                addCircleMarkers(
-                    data = data(),
-                    lng = ~Longitude,
-                    lat = ~Latitude,
-                    popup = paste(
-                        sep = "<br/>",
-                        glue("<b>Signal: {data()$SignalID}</b> | {data()$Name}"),
-                        glue("<b>{value()}:</b> {format_(data()[[value()]])}")
-                    ),
-                    radius = 5,
-                    fillColor = pal(data()[[value()]]),
-                    stroke = FALSE,
-                    fillOpacity = 1,
-                    group = "the_group"
-                ) %>%
-                addLegend(
-                    position = "topright",
-                    pal = pal,
-                    values = data()[[value()]],
-                    title = input$metric_input,
-                    opacity = 1
                 )
         })
+        
+        observe({
+            if (nrow(data())) {
 
-        MapPlot1_proxy <- leafletProxy("MapPlot1")
-
-        table <- reactive({
-            metrics_df[metrics_df$description == input$metric_input, ]$table
+                pal <- colorBin(
+                    palette = "YlGnBu",
+                    domain = data()[[map_metric()$table]],
+                    bins = 5,
+                    pretty = TRUE
+                )
+                
+                leafletProxy("MapPlot1") %>%
+                    addCircleMarkers(
+                        data = data(),
+                        lng = ~ Longitude,
+                        lat = ~ Latitude,
+                        popup = paste(
+                            sep = "<br/>",
+                            glue("Signal {data()$Description}"),
+                            glue(paste(
+                                "<b>{input$metric_input}:</b>", 
+                                "{data_format(map_metric()$data_type)(data()[[map_metric()$variable]])}"))
+                        ),
+                        radius = 5,
+                        fillColor = pal(data()[[map_metric()$table]]),
+                        stroke = FALSE,
+                        fillOpacity = 1,
+                        group = "the_group"
+                    ) %>%
+                    addLegend(
+                        position = "topright",
+                        pal = pal,
+                        values = data()[[map_metric()$table]],
+                        title = input$metric_input,
+                        opacity = 1
+                    )
+            }            
         })
 
-        value <- reactive({
-            metrics_df[metrics_df$description == input$metric_input, ]$value
+
+        # table <- reactive({
+        #     metrics_df[metrics_df$description == input$metric_input, ]$table
+        # })
+
+        # value <- reactive({
+        #     metrics_df[metrics_df$description == input$metric_input, ]$value
+        # })
+        
+        map_metric <- reactive({
+            metrics_list[[input$metric_input]]
         })
 
         data <- reactive({
-            format_ <- value_format(value())
-
-            data <- sigdata()$mo[[table()]] %>%
-                filter(Month == current_month()) %>%
+            query_data(
+                map_metric(), 
+                level = "signal", resolution = "monthly", zone_group = zone_group(), month = current_month(), upto = FALSE
+            ) %>%
+                subset(!Zone_Group %in% rms_corridors()) %>%
                 rename(SignalID = Corridor) %>%
-                filter(!as.character(Zone_Group) %in% rms_corridors()) %>%
                 left_join(
-                    mapdata()$signals_sp %>% select(SignalID, Latitude, Longitude, Name = Name.x),
+                    corridors[c("SignalID", "Latitude", "Longitude")],
                     by = c("SignalID")
                 ) %>%
-                filter(!is.na(Latitude)) %>%
-                mutate(Name = iconv(Name, "latin1", "UTF-8"))
-
-            data
+                subset(!is.na(Latitude))
+            #data$Description <- iconv(data$Description, "latin1", "UTF-8")  # From before. Not sure if still needed.
+            #data
         })
 
 
         table_data <- reactive({
-            v <- as.name(value())
-            data_ <- if (value() == "uptime") {
-                data() %>% arrange(!!v)
+            v <- as.name(map_metric()$variable)
+            
+            data_ <- if (map_metric()$variable == "uptime") {
+                data() %>% arrange(map_metric()$variable)
             } else {
-                data() %>% arrange(desc(!!v))
+                data() %>% arrange(desc(map_metric()$variable))
             }
-
-            format_ <- value_format(value())
 
             data_ <- data_ %>%
                 transmute(
-                    Signal = paste0(SignalID, ": ", Name),
+                    SignalID = Corridor,
+                    Signal = Description,
                     Corridor = Zone_Group,
-                    !!v := format_(!!v)
+                    !!v := data_format(map_metric()$data_type)(!!v)
                 ) %>%
                 distinct()
 
             if (input$filter_input != 1) {
                 data_ <- data_ %>%
-                    filter(as.character(Corridor) %in% unique(as.character(filtered_corridors()$Corridor)))
+                    subset(as.character(Corridor) %in% unique(as.character(filtered_corridors()$Corridor)))
             }
             # print(data_)
             data_ %>%
@@ -2486,7 +2487,7 @@ shinyApp(
 
         output$top10_table <- renderDataTable({
             datatable(
-                table_data(),
+                subset(table_data(), select = -c(SignalID)),
                 options = list(
                     dom = "t"
                 ),
@@ -2502,50 +2503,7 @@ shinyApp(
             #    backgroundColor = "rgba(255,255,255,0.1)" )
         })
 
-        observe({
-            # pal <- colorNumeric(
-            #     palette = "YlGnBu", # "Blues",
-            #     domain = data()[[value()]])
 
-            if (nrow(data())) {
-                format_ <- value_format(value())
-
-                pal <- colorBin(
-                    palette = "YlGnBu",
-                    domain = data()[[value()]],
-                    bins = 5,
-                    pretty = TRUE
-                )
-
-                MapPlot1_proxy %>%
-                    clearGroup(group = "the_group") %>%
-                    clearControls()
-
-                MapPlot1_proxy %>%
-                    addCircleMarkers(
-                        data = data(),
-                        lng = ~Longitude,
-                        lat = ~Latitude,
-                        popup = paste(
-                            sep = "<br/>",
-                            glue("<b>Signal: {data()$SignalID}</b> | {data()$Name}"),
-                            glue("<b>{value()}:</b> {format_(data()[[value()]])}")
-                        ),
-                        radius = 5,
-                        fillColor = pal(data()[[value()]]),
-                        stroke = FALSE,
-                        fillOpacity = 1,
-                        group = "the_group"
-                    ) %>%
-                    addLegend(
-                        position = "topright",
-                        pal = pal,
-                        values = data()[[value()]],
-                        title = input$metric_input,
-                        opacity = 1
-                    )
-            }
-        })
 
         # to keep track of previously selected row
         prev_row <- reactiveVal()
@@ -2554,35 +2512,29 @@ shinyApp(
         observeEvent(input$MapPlot1_click, {
             # Reset previously selected marker
             if (!is.null(prev_row())) {
-                MapPlot1_proxy %>%
+                leafletProxy("MapPlot1") %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
             # set new value to reactiveVal
             # prev_row(data_selected)
         })
 
+        
         observeEvent(input$top10_table_rows_selected, {
-            format_ <- value_format(value())
-
-            # print(glue("Previous Row: {prev_row()}"))
-
             row_selected <- table_data()[input$top10_table_rows_selected, ]
             signalid <- str_extract(row_selected$Signal, "^\\d+")
 
-            # print(row_selected)
-            # print(signalid)
-
             data_selected <- data() %>% filter(SignalID == signalid)
 
-            # print(data_selected)
-
-            MapPlot1_proxy %>%
+            leafletProxy("MapPlot1") %>%
                 flyTo(lat = data_selected$Latitude, lng = data_selected$Longitude, zoom = 14) %>%
                 addCircleMarkers(
                     popup = paste(
                         sep = "<br/>",
-                        glue("<b>Signal: {data_selected$SignalID}</b> | {data_selected$Name}"),
-                        glue("<b>{value()}:</b> {format_(data_selected[[value()]])}")
+                        glue("Signal {data()$Description}"),
+                        glue(paste(
+                            "<b>{input$metric_input}:</b>", 
+                            "{data_format(map_metric()$data_type)(data()[[map_metric()$variable]])}"))
                     ),
                     layerId = as.character(data_selected$SignalID),
                     lng = data_selected$Longitude,
@@ -2593,7 +2545,7 @@ shinyApp(
 
             # Reset previously selected marker
             if (!is.null(prev_row())) {
-                MapPlot1_proxy %>%
+                leafletProxy("MapPlot1") %>%
                     removeMarker(as.character(prev_row()$SignalID))
             }
             # set new value to reactiveVal
