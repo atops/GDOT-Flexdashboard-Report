@@ -166,7 +166,7 @@ query_data <- function(
         where_clause <- glue("WHERE Zone_Group in ({zones})")
     } else if (level == "signal" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
         # This is used by the map which currently shows signal-level data
-        # for all signals all the time.
+        # for all signals all the time. No filter.
         where_clause <- "WHERE True"
     } else {
         where_clause <- "WHERE Zone_Group = '{zone_group}'"

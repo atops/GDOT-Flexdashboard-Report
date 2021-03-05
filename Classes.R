@@ -9,34 +9,172 @@ library(yaml)
 metrics <- read_yaml("metrics.yaml")
 
 
+# Function to create a metric (child) by specifying only differences from another (parent) metric.
+# Created for health metrics for which there are many, but nearly identical.
+inherit <- function(parent, child) {
+    tryCatch({
+        keys <- unique(c(names(parent), names(child)))
+        x <- setNames(Map(c, parent[keys], child[keys]), keys)
+        sapply(x, tail, 1)
+    }, warning = function(w) {
+        print(paste("Can't inherit child from parent:", w))
+        NULL
+    })
+}
 
-vpd <- structure(metrics[["daily_traffic_volume"]], class = "metric")
-am_peak_vph <- structure(metrics[["am_peak_hour_volume"]], class = "metric")
-pm_peak_vph <- structure(metrics[["pm_peak_hour_volume"]], class = "metric")
-throughput <- structure(metrics[["throughput"]], class = "metric")
-aog <- arrivals_on_green <- structure(metrics[["arrivals_on_green"]], class = "metric")
-progression_ratio <- structure(metrics[["progression_ratio"]], class = "metric")
-queue_spillback_rate <- structure(metrics[["queue_spillback_rate"]], class = "metric")
-peak_period_split_failures <- structure(metrics[["peak_period_split_failures"]], class = "metric")
-off_peak_split_failures <- structure(metrics[["off_peak_split_failures"]], class = "metric")
-travel_time_index <- structure(metrics[["travel_time_index"]], class = "metric")
-planning_time_index <- structure(metrics[["planning_time_index"]], class = "metric")
-average_speed <- structure(metrics[["average_speed"]], class = "metric")
-daily_pedestrian_pushbuttons <- structure(metrics[["daily_pedestrian_pushbuttons"]], class = "metric")
-detector_uptime <- structure(metrics[["detector_uptime"]], class = "metric")
-ped_button_uptime <- structure(metrics[["ped_button_uptime"]], class = "metric")
-cctv_uptime <- structure(metrics[["cctv_uptime"]], class = "metric")
-comm_uptime <- structure(metrics[["comm_uptime"]], class = "metric")
-rsu_uptime <- structure(metrics[["rsu_uptime"]], class = "metric")
-tasks <- structure(metrics[["tasks"]], class = "metric")
-tasks_by_type <- structure(metrics[["tasks_by_type"]], class = "metric")
-tasks_by_subtype <- structure(metrics[["tasks_by_subtype"]], class = "metric")
-tasks_by_source <- structure(metrics[["tasks_by_source"]], class = "metric")
-tasks_reported <- structure(metrics[["tasks_reported"]], class = "metric")
-tasks_resolved <- structure(metrics[["tasks_resolved"]], class = "metric")
-tasks_outstanding <- structure(metrics[["tasks_outstanding"]], class = "metric")
-tasks_over45 <- structure(metrics[["tasks_over45"]], class = "metric")
-tasks_mttr <- structure(metrics[["tasks_mttr"]], class = "metric")
+
+vpd <- structure(
+    metrics[["daily_traffic_volume"]], class = "metric"
+)
+am_peak_vph <- structure(
+    metrics[["am_peak_hour_volume"]], class = "metric"
+)
+pm_peak_vph <- structure(
+    metrics[["pm_peak_hour_volume"]], class = "metric"
+)
+throughput <- structure(
+    metrics[["throughput"]], class = "metric"
+)
+aog <- arrivals_on_green <- structure(
+    metrics[["arrivals_on_green"]], class = "metric"
+)
+progression_ratio <- structure(
+    metrics[["progression_ratio"]], class = "metric"
+)
+queue_spillback_rate <- structure(
+    metrics[["queue_spillback_rate"]], class = "metric"
+)
+peak_period_split_failures <- structure(
+    metrics[["peak_period_split_failures"]], class = "metric"
+)
+off_peak_split_failures <- structure(
+    metrics[["off_peak_split_failures"]], class = "metric"
+)
+travel_time_index <- structure(
+    metrics[["travel_time_index"]], class = "metric"
+)
+planning_time_index <- structure(
+    metrics[["planning_time_index"]], class = "metric"
+)
+average_speed <- structure(
+    metrics[["average_speed"]], class = "metric"
+)
+daily_pedestrian_pushbuttons <- structure(
+    metrics[["daily_pedestrian_pushbuttons"]], class = "metric"
+)
+detector_uptime <- structure(
+    inherit(metrics[["uptime"]], metrics[["detector_uptime"]]), class = "metric"
+)
+ped_button_uptime <- structure(
+    inherit(metrics[["uptime"]], metrics[["ped_button_uptime"]]), class = "metric"
+)
+cctv_uptime <- structure(
+    inherit(metrics[["uptime"]], metrics[["cctv_uptime"]]), class = "metric"
+)
+comm_uptime <- structure(
+    inherit(metrics[["uptime"]], metrics[["comm_uptime"]]), class = "metric"
+)
+rsu_uptime <- structure(
+    inherit(metrics[["uptime"]], metrics[["rsu_uptime"]]), class = "metric"
+)
+tasks <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks"]]), class = "metric"
+)
+tasks_by_type <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_by_type"]]), class = "metric"
+)
+tasks_by_subtype <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_by_subtype"]]), class = "metric"
+)
+tasks_by_source <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_by_source"]]), class = "metric"
+)
+tasks_reported <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_reported"]]), class = "metric"
+)
+tasks_resolved <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_resolved"]]), class = "metric"
+)
+tasks_outstanding <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_outstanding"]]), class = "metric"
+)
+tasks_over45 <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_over45"]]), class = "metric"
+)
+tasks_mttr <- structure(
+    inherit(metrics[["tasks_template"]], metrics[["tasks_mttr"]]), class = "metric"
+)
+
+maint_percent_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["maint_percent_health"]]), class = "metric"
+)
+maint_missing_data <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["maint_missing_data"]]), class = "metric"
+)
+du_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["du_score"]]), class = "metric"
+)
+pau_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pau_score"]]), class = "metric"
+)
+cu_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cu_score"]]), class = "metric"
+)
+cctv_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cctv_score"]]), class = "metric"
+)
+flash_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["flash_score"]]), class = "metric"
+)
+du_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["du_health"]]), class = "metric"
+)
+pau_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pau_health"]]), class = "metric"
+)
+cu_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cu_health"]]), class = "metric"
+)
+cctv_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cctv_health"]]), class = "metric"
+)
+
+ops_missing_data <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["maint_missing_data"]]), class = "metric"
+)
+ops_percent_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["ops_percent_health"]]), class = "metric"
+)
+pr_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pr_score"]]), class = "metric"
+)
+pd_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pd_score"]]), class = "metric"
+)
+sf_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["sf_score"]]), class = "metric"
+)
+tti_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["tti_score"]]), class = "metric"
+)
+bi_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["bi_score"]]), class = "metric"
+)
+pr_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pr_health"]]), class = "metric"
+)
+pd_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["pd_health"]]), class = "metric"
+)
+sf_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["sf_health"]]), class = "metric"
+)
+tti_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["tti_health"]]), class = "metric"
+)
+bi_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["bi_health"]]), class = "metric"
+)
 
 
 
@@ -248,7 +386,7 @@ summary_plot <- function(metric, level, zone_group, month) {
 
 
 
-get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "weekly") {
+get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "weekly", accent_average = TRUE) {
     
     if (class(month) == "character") {
         month <- as_date(month)
@@ -271,7 +409,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
             filter(Month == month) %>%
             arrange(!!var_) %>%
             mutate(var = !!var_,
-                   col = factor(ifelse(Corridor == zone_group, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                   col = factor(ifelse(accent_average & Corridor == zone_group, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
                    Corridor = factor(Corridor, levels = Corridor))
         
         sdm <- SharedData$new(mdf, ~Corridor, group = "grp")
@@ -316,7 +454,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
         wdf <- wdf %>%
             filter(Date < month + months(1)) %>%
             mutate(var = !!var_,
-                   col = factor(ifelse(Corridor == zone_group, 0, 1))) %>%
+                   col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1))) %>%
             group_by(Corridor)
         
         sdw <- SharedData$new(wdf, ~Corridor, group = "grp")
@@ -326,7 +464,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
                                      mode = "lines",
                                      x = ~Date, 
                                      y = ~var, 
-                                     color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
+                                     color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                                      alpha = 0.6,
                                      name = "",
                                      customdata = ~glue(paste(
@@ -355,7 +493,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
                 month = month, upto = FALSE
                 ) %>%
                 mutate(var = !!var_,
-                       col = factor(ifelse(Corridor == zone_group, 0, 1))) %>%
+                       col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1))) %>%
                 group_by(Corridor)
             
             sdh <- SharedData$new(hdf, ~Corridor, group = "grp")
@@ -363,7 +501,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
             hourly_line_chart <- plot_ly(sdh) %>%
                 add_lines(x = ~Hour,
                           y = ~var,
-                          color = ~col, colors = c(BLACK, LIGHT_GRAY_BAR),
+                          color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                           alpha = 0.6,
                           name = "",
                           customdata = ~glue(paste(
@@ -403,7 +541,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
 
 
 
-travel_times_plot <- function(level, zone_group, month) {
+travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
 
     data_format <- data_format(travel_time_index$data_type)
     tick_format <- tick_format(travel_time_index$data_type)
@@ -429,7 +567,8 @@ travel_times_plot <- function(level, zone_group, month) {
         mutate(bti = pti - tti) %>%
         ungroup() %>%
         filter(Month < month + months(1)) %>%
-        select(Corridor, Zone_Group, Month, tti, pti, bti)
+        select(Corridor, Zone_Group, Month, tti, pti, bti) %>%
+        mutate(col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)))
     
     hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
                       by = c("Corridor", "Zone_Group", "Hour"),
@@ -437,13 +576,14 @@ travel_times_plot <- function(level, zone_group, month) {
         filter(!is.na(Corridor)) %>%
         mutate(bti = pti - tti) %>%
         ungroup() %>%
-        select(Corridor, Zone_Group, Hour, tti, pti, bti)
+        select(Corridor, Zone_Group, Hour, tti, pti, bti) %>%
+        mutate(col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)))
     
-    mo_max <- round(max(mott$pti), 1) + .1
-    hr_max <- round(max(hrtt$pti), 1) + .1
+    mo_max <- round(max(mott$pti), 1) + 0.1
+    hr_max <- round(max(hrtt$pti), 1) + 0.1
     
-    mo_min <- round(min(mott$pti), 1) - .1
-    hr_min <- round(min(hrtt$pti), 1) - .1
+    mo_min <- round(min(mott$pti), 1) - 0.1
+    hr_min <- round(min(hrtt$pti), 1) - 0.1
     
     
     if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
@@ -467,7 +607,7 @@ travel_times_plot <- function(level, zone_group, month) {
             add_bars(x = ~tti, 
                      y = ~factor(Corridor, levels = Corridor),
                      text = ~data_format(tti),
-                     color = I("gray"),
+                     color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                      textposition = "auto",
                      insidetextfont = list(color = "black"),
                      name = "",
@@ -499,6 +639,7 @@ travel_times_plot <- function(level, zone_group, month) {
         pttimo <- base_m %>%
             add_lines(x = ~Month, 
                       y = ~tti, 
+                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                       alpha = 0.6,
                       name = "",
                       customdata = ~glue(paste(
@@ -516,6 +657,7 @@ travel_times_plot <- function(level, zone_group, month) {
         pttihr <- base_h %>%
             add_lines(x = ~Hour,
                       y = ~tti,
+                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                       alpha = 0.6,
                       name = "",
                       customdata = ~glue(paste(
@@ -533,6 +675,7 @@ travel_times_plot <- function(level, zone_group, month) {
         pptimo <- base_m %>%
             add_lines(x = ~Month, 
                       y = ~pti, 
+                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                       alpha = 0.6,
                       name = "",
                       customdata = ~glue(paste(
@@ -549,6 +692,7 @@ travel_times_plot <- function(level, zone_group, month) {
         pptihr <- base_h %>%
             add_lines(x = ~Hour,
                       y = ~pti,
+                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                       alpha = 0.6,
                       name = "",
                       customdata = ~glue(paste(

@@ -160,15 +160,15 @@ zone_group <- reactive(
 )
 
 
-mr <- reactive(
-    if (corridor() == "All Corridors") {
-        cordata()
-    } else if (input$subcorridors == "By Sub-corridor") {
-        subdata()
-    } else {
-        sigdata()
-    }
-)
+# mr <- reactive(
+#     if (corridor() == "All Corridors") {
+#         cordata()
+#     } else if (input$subcorridors == "By Sub-corridor") {
+#         subdata()
+#     } else {
+#         sigdata()
+#     }
+# )
 
 
 level <- reactive(
@@ -226,15 +226,15 @@ filtered_signalids <- reactive({
 })
 
 
-mr_str <- reactive(
-    if (corridor() == "All Corridors") {
-        "cor"
-    } else if (input$subcorridors == "By Sub-corridor") {
-        "sub"
-    } else {
-        "sig"
-    }
-)
+# mr_str <- reactive(
+#     if (corridor() == "All Corridors") {
+#         "cor"
+#     } else if (input$subcorridors == "By Sub-corridor") {
+#         "sub"
+#     } else {
+#         "sig"
+#     }
+# )
 
 # renderText({"\nSelected Month"})
 # renderPrint({current_month()})
@@ -1959,7 +1959,6 @@ output$udc_table <- renderFormattable({
     )
 
     month_str <- format(current_month(), "%F")
-    #data <- cordata()$mo$udc_trend_table
     data <- query_udc_trend()
 
     shiny::validate(
@@ -2641,7 +2640,7 @@ Row {.tabset .tabset-fade data-height=850}
 
 #### Maintenance Health Summary
 
-```{r Maintenance, warning = FALSE, eval = FALSE}
+```{r Maintenance, warning = FALSE, eval = TRUE}
 
 checkboxGroupInput(
     "maintenance_cols_checked",
@@ -2692,8 +2691,12 @@ maint_hide_cols <- reactive({
 maint_health_data <- reactive({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         data_ <- if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
+            debug(logger, glue(paste("maint_health_data | subdata |", 
+                                     "level={level()} | zone_group={zone_group()} | corridor={corridor()}")))
             subdata()$mo$maint
         } else {
+            debug(logger, glue(paste("maint_health_data | sigdata |", 
+                                     "level={level()} | zone_group={zone_group()} | corridor={corridor()}")))
             sigdata()$mo$maint
         }
 
@@ -2745,6 +2748,20 @@ fillRow(
 
 ```{r Maintenance Trend, warning = FALSE}
 
+maint_metrics_list <- list(
+    "Percent Health" = maint_percent_health,
+    "Missing Data" = maint_missing_data,
+    "Detection Uptime Score" = du_score,
+    "Ped Actuation Uptime Score" = pau_score,
+    "Comm Uptime Score" = cu_score,
+    "CCTV Uptime Score" = cctv_score,
+    "Flash Events Score" = flash_score,
+    "Detection Uptime" = du_health,
+    "Ped Actuation Uptime" = pau_health,
+    "Comm Uptime" = cu_health,
+    "CCTV Uptime" = cctv_health
+)
+
 selectInput(
     inputId = "maintenance_var",
     label = "Maintenance Health Metric:",
@@ -2759,12 +2776,7 @@ observe({
             choices_ <- c("Percent Health")
         } else {
             choices_ <- c(
-                "Percent Health", "Missing Data", "Detection Uptime Score",
-                "Ped Actuation Uptime Score", "Comm Uptime Score",
-                # "CCTV Uptime Score", "RSU Uptime Score", "Flash Events Score",
-                "CCTV Uptime Score", "Flash Events Score",
-                "Detection Uptime", "Ped Actuation Uptime", "Comm Uptime",
-                "CCTV Uptime", "RSU Uptime"
+                names(maint_metrics_list)
             )
         }
 
@@ -2782,20 +2794,11 @@ fillRow(
     height = "85%"
 )
 
+
 output$health_maint_plot <- renderPlotly({
-    get_bar_line_dashboard_plot(
-        cor_weekly = rename(mr()$mo$maint_plot, Date = Month), # maint$sub
-        cor_monthly = mr()$mo$maint_plot,
-        cor_hourly = NULL,
-        var_ = input$maintenance_var, #  "Percent Health",
-        num_format = "percent",
-        highlight_color = GDOT_BLUE,
-        month_ = current_month(),
-        zone_group_ = zone_group(),
-        x_bar_title = input$maintenance_var,
-        x_line1_title = glue("{input$maintenance_var} trend"),
-        plot_title = input$maintenance_var,
-        accent_average = FALSE
+    get_trend_multiplot(
+        maint_metrics_list[[input$maintenance_var]],
+        level = level(), zone_group(), current_month(), line_chart = "monthly", accent_average = FALSE
     )
 })
 ```
@@ -2910,6 +2913,21 @@ fillRow(
 
 ```{r Operations Trend, warning = FALSE}
 
+ops_metrics_list <- list(
+    "Percent Health" = ops_percent_health,
+    "Missing Data" = ops_missing_data,
+    "Platoon Ratio Score" = pr_score,
+    "Ped Delay Score" = pd_score,
+    "Split Failures Score" = sf_score,
+    "Travel Time Index Score" = tti_score,
+    "Buffer Index Score" = bi_score,
+    "Platoon Ratio" = pr_health,
+    "Ped Delay" = pd_health,
+    "Split Failures" = sf_health,
+    "Travel Time Index" = tti_health,
+    "Buffer Index" = bi_health
+)
+
 selectInput(
     inputId = "operations_var",
     label = "Operations Health Metric:",
@@ -2924,16 +2942,12 @@ observe({
             choices_ <- c("Percent Health")
         } else {
             choices_ <- c(
-                "Percent Health", "Missing Data", "Platoon Ratio Score",
-                "Ped Delay Score", "Split Failures Score",
-                "Travel Time Index Score", "Buffer Index Score",
-                "Platoon Ratio", "Ped Delay", "Split Failures",
-                "Travel Time Index", "Buffer Index"
+                names(ops_metrics_list)
             )
         }
 
         updateSelectInput(session,
-            inputId = "maintenance_var", choices = choices_
+            inputId = "operations_var", choices = choices_
         )
     }
 })
@@ -2947,19 +2961,9 @@ fillRow(
 )
 
 output$health_ops_plot <- renderPlotly({
-    get_bar_line_dashboard_plot(
-        cor_weekly = rename(mr()$mo$ops_plot, Date = Month),
-        cor_monthly = mr()$mo$ops_plot,
-        cor_hourly = NULL,
-        var_ = input$operations_var, #  "Percent Health",
-        num_format = "percent",
-        highlight_color = GDOT_BLUE,
-        month_ = current_month(),
-        zone_group_ = zone_group(),
-        x_bar_title = input$operations_var,
-        x_line1_title = glue("{input$operations_var} trend"),
-        plot_title = input$operations_var,
-        accent_average = FALSE
+    get_trend_multiplot(
+        ops_metrics_list[[input$operations_var]],
+        level = level(), zone_group(), current_month(), line_chart = "monthly", accent_average = FALSE
     )
 })
 ```

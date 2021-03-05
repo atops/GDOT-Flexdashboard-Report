@@ -37,8 +37,6 @@ am_peak_hour_volume:
     fill_color: "#99C7F7"
     goal: NULL
     hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
     has_weekly: True
     
     
@@ -52,8 +50,6 @@ pm_peak_hour_volume:
     fill_color: "#99C7F7"
     goal: NULL
     hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
     has_weekly: True
     
     
@@ -187,9 +183,9 @@ daily_pedestrian_pushbuttons:
     has_weekly: True
 
 
-detector_uptime:
-    label: Detector Uptime [%]
-    table: du
+uptime:
+    label: NULL
+    table: NULL
     variable: uptime
     weight: ones
     data_type: percent
@@ -197,192 +193,226 @@ detector_uptime:
     fill_color: "#FF9999"
     goal: 0.95
     hourly_table: NULL
-    daily_table: du
-    daily_variable: uptime
     has_weekly: True
 
+detector_uptime:
+    label: Detector Uptime [%]
+    table: du
 
 ped_button_uptime:
     label: Pedestrian Pushbutton Uptime [%]
     table: pau
-    variable: uptime
-    weight: ones
-    data_type: percent
-    highlight_color: "#990000"
-    fill_color: "#FF9999"
-    goal: 0.95
-    hourly_table: NULL
-    daily_table: pau
-    daily_variable: uptime
-    has_weekly: True
-
 
 cctv_uptime:
     label: CCTV Uptime [%]
     table: cctv
-    variable: uptime
-    weight: num
-    data_type: percent
-    highlight_color: "#990000"
-    fill_color: "#FF9999"
-    goal: 0.95
-    hourly_table: NULL
-    daily_table: cctv
-    daily_variable: uptime
-    has_weekly: True
-
 
 comm_uptime:
     label: Communication Uptime [%]
     table: cu
-    variable: uptime
-    weight: ones
-    data_type: percent
-    highlight_color: "#990000"
-    fill_color: "#FF9999"
-    goal: 0.95
-    hourly_table: NULL
-    daily_table: cu
-    daily_variable: uptime
-    has_weekly: True
-
 
 rsu_uptime:
     label: RSU Uptime [%]
     table: ru
-    variable: uptime
-    weight: ones
-    data_type: percent
-    highlight_color: "#990000"
-    fill_color: "#FF9999"
-    goal: 0.95
-    hourly_table: NULL
-    daily_table: ru
-    daily_variable: uptime
-    has_weekly: True
 
+
+tasks_template:
+    label: NULL
+    table: NULL
+    variable: NULL
+    weight: ones
+    data_type: integer
+    highlight_color: "#998200"
+    fill_color: "#FFF099"
+    goal: NULL
+    hourly_table: NULL
+    has_weekly: False
 
 tasks:
     label: TEAMS Tasks This Period
     table: tasks
     variable: Reported
-    weight: ones
-    data_type: integer
-    highlight_color: "#998200"
-    fill_color: "#FFF099"
-    goal: NULL
-    hourly_table: NULL
-    daily_table: tasks
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_by_type:
     label: TEAMS Tasks This Period By Type
     table: ttyp
-    goal: NULL
-    hourly_table: NULL
-    daily_table: ttyp
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_by_subtype:
     label: TEAMS Tasks This Period By Subtype
     table: tsub
-    goal: NULL
-    hourly_table: NULL
-    daily_table: tsub
-    daily_variable: NULL
-    has_weekly: False
 
 tasks_by_source:
     label: TEAMS Tasks This Period By Source
     table: tsou
-    goal: NULL
-    hourly_table: NULL
-    daily_table: tsou
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_reported:
     label: TEAMS Tasks Reported This Period
     table: reported  # tasks
     variable: Reported
-    weight: ones
-    data_type: integer
-    highlight_color: "#998200"
-    fill_color: "#FFF099"
-    goal: NULL
-    hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_resolved:
     label: TEAMS Tasks Resolved This Period
     table: resolved  # tasks
     variable: Resolved
-    weight: ones
-    data_type: integer
-    highlight_color: "#998200"
-    fill_color: "#FFF099"
-    goal: NULL
-    hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_outstanding:
     label: TEAMS Tasks Outstanding [Unresolved]
     table: outstanding  # tasks
     variable: Outstanding
-    weight: ones
-    data_type: integer
-    highlight_color: "#998200"
-    fill_color: "#FFF099"
-    goal: NULL
-    hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_over45:
     label: TEAMS Tasks Over 45 Days [Unresolved]
     table: over45
     variable: over45
-    weight: ones
-    data_type: integer
-    highlight_color: "#998200"
-    fill_color: "#FFF099"
-    goal: NULL
-    hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
-    has_weekly: False
-
 
 tasks_mttr:
     label: TEAMS Tasks Mean Time to Resolve [Days]
     table: mttr
     variable: mttr
-    weight: ones
-    data_type: integer
+
+# --- Health Metrics ----------------------------
+health_metrics:
+    label: NULL
+    table: NULL
+    variable: NULL
+    weight: NULL
+    data_type: NULL
     highlight_color: "#998200"
     fill_color: "#FFF099"
     goal: NULL
     hourly_table: NULL
-    daily_table: NULL
-    daily_variable: NULL
     has_weekly: False
 
+maint_percent_health:
+    label: Percent Health
+    table: maint_plot
+    variable: Percent Health
+    data_type: percent
+
+maint_missing_data: 
+    label: Missing Data 
+    table: maint_plot
+    variable: Missing Data 
+    data_type: percent
+
+du_score: 
+    label: Detection Uptime Score
+    table: maint_plot
+    variable: Detection Uptime Score
+    data_type: integer
+
+pau_score: 
+    label: Ped Actuation Uptime Score 
+    table: maint_plot
+    variable: Ped Actuation Uptime Score 
+    data_type: integer
+
+cu_score: 
+    label: Comm Uptime Score
+    table: maint_plot
+    variable: Comm Uptime Score
+    data_type: integer
+
+cctv_score: 
+    label: CCTV Uptime Score 
+    table: maint_plot
+    variable: CCTV Uptime Score 
+    data_type: integer
+
+flash_score: 
+    label: Flash Events Score
+    table: maint_plot
+    variable: Flash Events Score
+    data_type: integer
+
+du_health: 
+    label: Detection Uptime 
+    data_type: percent
+    table: maint_plot
+    variable: Detection Uptime 
+
+pau_health: 
+    label: Ped Actuation Uptime 
+    data_type: percent
+    table: maint_plot
+    variable: Ped Actuation Uptime 
+
+cu_health:
+    label: Comm Uptime
+    data_type: percent
+    table: maint_plot
+    variable: Comm Uptime
+
+cctv_health:
+    label: CCTV Uptime
+    data_type: percent
+    table: maint_plot
+    variable: CCTV Uptime
 
 
+ops_percent_health:
+    label: Percent Health
+    table: ops_plot
+    variable: Percent Health
+    data_type: percent
 
+ops_missing_data:
+    label: Missing Data
+    table: ops_plot
+    variable: Missing Data
+    data_type: percent
+
+pr_score:
+    label: Platoon Ratio Score
+    table: ops_plot
+    variable: Platoon Ratio Score
+    data_type: integer
+pd_score:
+    label: Ped Delay Score
+    table: ops_plot
+    variable: Ped Delay Score
+    data_type: integer
+sf_score:
+    label: Split Failures Score
+    table: ops_plot
+    variable: Split Failures Score
+    data_type: integer
+tti_score:
+    label: Travel Time Index Score
+    table: ops_plot
+    variable: Travel Time Index Score
+    data_type: integer
+bi_score:
+    label: Buffer Index Score
+    table: ops_plot
+    variable: Buffer Index Score
+    data_type: integer
+
+pr_health:
+    label: Platoon Ratio
+    table: ops_plot
+    variable: Platoon Ratio
+    data_type: decimal
+pd_health:
+    label: Ped Delay
+    table: ops_plot
+    variable: Ped Delay
+    data_type: integer
+sf_health:
+    label: Split Failures
+    table: ops_plot
+    variable: Split Failures
+    data_type: percent
+tti_health:
+    label: Travel Time Index
+    table: ops_plot
+    variable: Travel Time Index
+    data_type: decimal
+bi_health:
+    label: Buffer Index
+    table: ops_plot
+    variable: Buffer Index
+    data_type: decimal
 
     
 template:
@@ -398,13 +428,4 @@ template:
     daily_table:
     daily_variable:
     has_weekly:
-
-# vphp
-# 
-# papd
-# 
-# sfd
-# sfh
-# sfo
-# 
 

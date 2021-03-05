@@ -8,7 +8,7 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, asof_date = N
         for (tab in names(df[[per]])) { 
             
             table_name <- glue("{dfname}_{per}_{tab}")
-            print(table_name)
+            print(glue("{table_name} | {nrow(df[[per]][[tab]])}"))
             
             tryCatch({
                 if (recreate) {
@@ -179,7 +179,7 @@ if (FALSE) {
         # To change text to VARCHAR with fixed size because this is required for indexing these fields
         # This is needed for Aurora
         for (swap in list(
-            c("`Zone_Group` text", "`Zone_Group` VARCHAR(12)"), 
+            c("`Zone_Group` text", "`Zone_Group` VARCHAR(128)"), 
             c("`Corridor` text", "`Corridor` VARCHAR(128)"),
             c("`Quarter` text", "`Quarter` VARCHAR(8)"),
             c("`Date` text", "`Date` DATE"),
