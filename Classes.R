@@ -393,13 +393,13 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
     }
     var_ <- as.name(metric$variable)
 
-    mdf <- query_data(metric, level, "monthly", zone_group = zone_group, month = month, upto = FALSE)
+    mdf <- query_data(metric, level, zone_group = zone_group, month = month, upto = FALSE)
     
     if ((line_chart == "weekly" & !metric$has_weekly) | (line_chart == "monthly")) {
-        wdf <- query_data(metric, level, "monthly", zone_group = zone_group, month = month, upto = TRUE) %>%
+        wdf <- query_data(metric, level, resolution = "monthly", zone_group = zone_group, month = month, upto = TRUE) %>%
             rename(Date = Month)
     } else {
-        wdf <- query_data(metric, level, line_chart, zone_group = zone_group, month = month, upto = TRUE)
+        wdf <- query_data(metric, level, resolution = line_chart, zone_group = zone_group, month = month, upto = TRUE)
     }
     
     
@@ -410,6 +410,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
             arrange(!!var_) %>%
             mutate(var = !!var_,
                    col = factor(ifelse(accent_average & Corridor == zone_group, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                   text_col = factor(ifelse(accent_average & Corridor == zone_group, "white", "black")),
                    Corridor = factor(Corridor, levels = Corridor))
         
         sdm <- SharedData$new(mdf, ~Corridor, group = "grp")
@@ -421,7 +422,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
                              marker = list(color = ~col),
                              text = ~data_format(metric$data_type)(var),
                              textposition = "auto",
-                             insidetextfont = list(color = "black"),
+                             insidetextfont = list(color = ~text_col),
                              name = "",
                              customdata = ~glue(paste(
                                  "<b>{Description}</b>",
@@ -486,11 +487,8 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
             
             hdf <- query_data(
                 metric, 
-                level = "corridor", 
-                resolution = "monthly", 
-                hourly = TRUE, 
-                zone_group = zone_group, 
-                month = month, upto = FALSE
+                level, resolution = "monthly", hourly = TRUE, 
+                zone_group = zone_group, month = month, upto = FALSE
                 ) %>%
                 mutate(var = !!var_,
                        col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1))) %>%
@@ -568,7 +566,9 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
         ungroup() %>%
         filter(Month < month + months(1)) %>%
         select(Corridor, Zone_Group, Month, tti, pti, bti) %>%
-        mutate(col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)))
+        mutate(
+            col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)),
+            text_col = factor(ifelse(accent_average & Corridor == zone_group, "white", "black")))
     
     hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
                       by = c("Corridor", "Zone_Group", "Hour"),
@@ -609,7 +609,7 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                      text = ~data_format(tti),
                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                      textposition = "auto",
-                     insidetextfont = list(color = "black"),
+                     insidetextfont = list(color = ~text_col),
                      name = "",
                      customdata = ~glue(paste(
                          "<b>{Corridor}</b>",

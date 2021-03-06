@@ -2103,7 +2103,7 @@ tryCatch(
                 select(Zone_Group, Corridor, Date, pd),
             "tp" = readRDS("sub_weekly_throughput.rds") %>%
                 select(Zone_Group, Corridor, Date, vph),
-            "aog" = readRDS("sub_weekly_aog_by_day.rds") %>%
+            "aogd" = readRDS("sub_weekly_aog_by_day.rds") %>%
                 select(Zone_Group, Corridor, Date, aog),
             "prd" = readRDS("sub_weekly_pr_by_day.rds") %>%
                 select(Zone_Group, Corridor, Date, pr),
@@ -2231,7 +2231,7 @@ tryCatch(
                 select(Zone_Group, Corridor, Date, pd),
             "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
                 select(Zone_Group, Corridor, Date, vph),
-            "aog" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aogd, corridors) %>%
+            "aogd" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aogd, corridors) %>%
                 select(Zone_Group, Corridor, Date, aog),
             "prd" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$prd, corridors) %>%
                 select(Zone_Group, Corridor, Date, pr),
@@ -2430,19 +2430,19 @@ qsave(sub, "sub.qs")
 
 aws.s3::put_object(
     file = "cor.qs",
-    object = "cor_ec2.qs",
+    object = "db/cor_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sig.qs",
-    object = "sig_ec2.qs",
+    object = "db/sig_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sub.qs",
-    object = "sub_ec2.qs",
+    object = "db/sub_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )

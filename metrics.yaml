@@ -14,6 +14,7 @@
 # - #FF9999 - RED FILL
 # - #FFF099 - YELLOW FILL
 
+# --- Volume Metrics ----------------------------
 daily_traffic_volume:
     label: Traffic Volume [veh/day]
     table: vpd
@@ -79,6 +80,7 @@ arrivals_on_green:
     has_weekly: True
 
 
+# --- Performance Metrics -----------------------
 progression_ratio:
     label: Progression Ratio
     table: prd
@@ -183,6 +185,7 @@ daily_pedestrian_pushbuttons:
     has_weekly: True
 
 
+# --- Uptime Metrics ----------------------------
 uptime:
     label: NULL
     table: NULL
@@ -215,7 +218,7 @@ rsu_uptime:
     label: RSU Uptime [%]
     table: ru
 
-
+# --- TEAMS Tasks -------------------------------
 tasks_template:
     label: NULL
     table: NULL
@@ -271,6 +274,7 @@ tasks_mttr:
     variable: mttr
 
 # --- Health Metrics ----------------------------
+# --- Maintenance Health Metrics ----------------
 health_metrics:
     label: NULL
     table: NULL
@@ -349,7 +353,7 @@ cctv_health:
     table: maint_plot
     variable: CCTV Uptime
 
-
+# --- Operations Health Metrics -----------------
 ops_percent_health:
     label: Percent Health
     table: ops_plot
@@ -367,21 +371,25 @@ pr_score:
     table: ops_plot
     variable: Platoon Ratio Score
     data_type: integer
+
 pd_score:
     label: Ped Delay Score
     table: ops_plot
     variable: Ped Delay Score
     data_type: integer
+
 sf_score:
     label: Split Failures Score
     table: ops_plot
     variable: Split Failures Score
     data_type: integer
+
 tti_score:
     label: Travel Time Index Score
     table: ops_plot
     variable: Travel Time Index Score
     data_type: integer
+
 bi_score:
     label: Buffer Index Score
     table: ops_plot
@@ -393,26 +401,33 @@ pr_health:
     table: ops_plot
     variable: Platoon Ratio
     data_type: decimal
+
 pd_health:
     label: Ped Delay
     table: ops_plot
     variable: Ped Delay
     data_type: integer
+
 sf_health:
     label: Split Failures
     table: ops_plot
     variable: Split Failures
     data_type: percent
+
 tti_health:
     label: Travel Time Index
     table: ops_plot
     variable: Travel Time Index
     data_type: decimal
+
 bi_health:
     label: Buffer Index
     table: ops_plot
     variable: Buffer Index
     data_type: decimal
+
+# --- Safety Health Metrics ---------------------
+# Placeholder
 
     
 template:

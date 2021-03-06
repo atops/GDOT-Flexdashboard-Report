@@ -164,7 +164,7 @@ query_data <- function(
         }
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
-    } else if (level == "signal" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+    } else if (level == "signal" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7") {
         # This is used by the map which currently shows signal-level data
         # for all signals all the time. No filter.
         where_clause <- "WHERE True"
@@ -219,6 +219,7 @@ query_data <- function(
             df[[datetime_string]] = as_datetime(df[[datetime_string]])
         }
     }, error = function(e) {
+        print(e)
         df <<- data.frame()
     })
 
@@ -231,7 +232,9 @@ query_data <- function(
 query_udc_trend <- function() {
     df <- dbReadTable(aurora_connection_pool, "cor_mo_udc_trend_table")
     udc_list <- jsonlite::fromJSON(df$data)
-    lapply(udc_list, function(x) as_tibble(x) %>% mutate(Month = as_date(Month)))
+    lapply(udc_list, function(x) {
+        as_tibble(x) %>% mutate(Month = as_date(Month))
+    })
 }
 
 
