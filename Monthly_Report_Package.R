@@ -1656,7 +1656,7 @@ tryCatch(
         teams <- get_teams_tasks_from_s3(
             bucket = conf$bucket,
             teams_locations_key = "mark/teams/teams_locations.feather",
-            archived_tasks_prefix = "mark/teams/tasks20",
+            archived_tasks_prefix = "mark/teams/tasks202",
             current_tasks_key = "mark/teams/tasks.csv.zip",
             replicate = TRUE
         )
@@ -1748,13 +1748,6 @@ tryCatch(
         }) %>% bind_rows()
 
         hourly_udc <- udc %>%
-            # transmute(
-            #     Zone = zone,
-            #     Corridor = corridor,
-            #     month_hour = mdy_hms(date), # YYYY-mm-dd HH:MM:SS
-            #     month_hour = month_hour - days(day(month_hour)) + days(1), # YYYY-mm-01 HH:MM:SS
-            #     Month = date(floor_date(month_hour, "month")), # YYYY-mm-01  # year_month
-            #     delay_cost = combined.delay_cost) %>%
             group_by(Zone, Corridor, Month, month_hour) %>% # year_month
             summarize(delay_cost = sum(delay_cost, na.rm = TRUE), .groups = "drop")
 
@@ -1770,14 +1763,8 @@ tryCatch(
 
 
             udc_trend_table_list <- udc %>%
-                filter(analysis_month <= current_month) %>%
-                # transmute(
-                #     Zone = zone,
-                #     Corridor = corridor,
-                #     date = date(mdy_hms(date)),
-                #     month = floor_date(date, "months"),
-                #     delay_cost = combined.delay_cost) %>%
                 filter(
+                    analysis_month <= current_month,
                     Month %in% c(current_month, last_month, last_year)
                 ) %>%
                 group_by(
@@ -1818,23 +1805,6 @@ tryCatch(
 )
 
 
-map_data <- list(
-    signals_sp = get_signals_sp(corridors) %>%
-        select(
-            SignalID, Latitude, Longitude,
-            PrimaryName, SecondaryName, Corridor, Subcorridor, Name.x,
-            color, fill_color, stroke_color
-        )
-)
-
-qsave(map_data, "map_data.qs")
-
-aws.s3::put_object(
-    file = "map_data.qs",
-    object = "map_data.qs",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
 
 # Flash Events ###############################################################
 
