@@ -539,7 +539,7 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
 
 
 
-travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
+travel_times_plot <- function(level, zone_group, month) {
 
     data_format <- data_format(travel_time_index$data_type)
     tick_format <- tick_format(travel_time_index$data_type)
@@ -563,21 +563,21 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                       suffix = c(".tti", ".pti")) %>%
         filter(!is.na(Corridor)) %>%
         mutate(bti = pti - tti) %>%
-        ungroup() %>%
-        filter(Month < month + months(1)) %>%
         select(Corridor, Zone_Group, Month, tti, pti, bti) %>%
         mutate(
-            col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)),
-            text_col = factor(ifelse(accent_average & Corridor == zone_group, "white", "black")))
+            col = factor(ifelse(Corridor == zone_group, 1, 0), levels = c(0, 1)),
+            text_col = ifelse(Corridor == zone_group, "white", "black"))
+            
     
     hrtt <- full_join(cor_monthly_tti_by_hr, cor_monthly_pti_by_hr,
                       by = c("Corridor", "Zone_Group", "Hour"),
                       suffix = c(".tti", ".pti"))  %>%
         filter(!is.na(Corridor)) %>%
         mutate(bti = pti - tti) %>%
-        ungroup() %>%
         select(Corridor, Zone_Group, Hour, tti, pti, bti) %>%
-        mutate(col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)))
+        mutate(
+            col = factor(ifelse(Corridor == zone_group, 1, 0), levels = c(0, 1)),
+            Corridor = factor(Corridor))
     
     mo_max <- round(max(mott$pti), 1) + 0.1
     hr_max <- round(max(hrtt$pti), 1) + 0.1
@@ -587,29 +587,23 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
     
     
     if (nrow(mott) > 0 & nrow(hrtt) > 0) {    
-        sdb <- SharedData$new(
-            mott[mott$Month == month,], ~Corridor, group = "grp")
-        sdm <- SharedData$new(
-            mott, ~Corridor, group = "grp")
-        sdh <- SharedData$new(
-            hrtt, ~Corridor, group = "grp")
         
-        base_b <- plot_ly(sdb, color = I("gray")) %>%
-            group_by(Corridor)
-        base_m <- plot_ly(sdm, color = I("gray")) %>%
-            group_by(Corridor)
-        base_h <- plot_ly(sdh, color = I("gray")) %>%
+        mdf <- mott[mott$Month == month,] %>% 
+            arrange(tti) %>%
+            mutate(Corridor = factor(Corridor, levels = Corridor)) %>%
             group_by(Corridor)
 
-                
-        pbar <- base_b %>%
-            arrange(tti) %>%
+        sdb <- SharedData$new(mdf, ~Corridor, group = "grp")
+        sdm <- SharedData$new(mott %>% group_by(Corridor), ~Corridor, group = "grp")
+        sdh <- SharedData$new(hrtt %>% group_by(Corridor), ~Corridor, group = "grp")
+        
+        pbar <- plot_ly(sdb) %>%
             add_bars(x = ~tti, 
-                     y = ~factor(Corridor, levels = Corridor),
+                     y = ~Corridor,
                      text = ~data_format(tti),
                      color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
                      textposition = "auto",
-                     insidetextfont = list(color = ~text_col),
+                     insidetextfont = list(color = "black"),  # ~text_col), # -- couldn't get this to work.
                      name = "",
                      customdata = ~glue(paste(
                          "<b>{Corridor}</b>",
@@ -636,7 +630,8 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                 font = list(size = 11),
                 margin = list(pad = 4)
             )
-        pttimo <- base_m %>%
+        
+        pttimo <- plot_ly(sdm) %>%
             add_lines(x = ~Month, 
                       y = ~tti, 
                       color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
@@ -654,7 +649,7 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                                 tickformat = tick_format),
                    showlegend = FALSE)
         
-        pttihr <- base_h %>%
+        pttihr <- plot_ly(sdh) %>%
             add_lines(x = ~Hour,
                       y = ~tti,
                       color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
@@ -672,7 +667,7 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                                 tickformat = tick_format),
                    showlegend = FALSE)
         
-        pptimo <- base_m %>%
+        pptimo <- plot_ly(sdm) %>%
             add_lines(x = ~Month, 
                       y = ~pti, 
                       color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
@@ -689,7 +684,7 @@ travel_times_plot <- function(level, zone_group, month, accent_average = TRUE) {
                                 tickformat = tick_format),
                    showlegend = FALSE)
         
-        pptihr <- base_h %>%
+        pptihr <- plot_ly(sdh) %>%
             add_lines(x = ~Hour,
                       y = ~pti,
                       color = ~col, colors = c(LIGHT_GRAY_BAR, BLACK),
@@ -772,8 +767,10 @@ uptime_multiplot <- function(metric, level, zone_group, month) {
         
         df <- df %>% 
             arrange(uptime) %>% ungroup() %>%
-            mutate(col = factor(ifelse(Corridor==zone_group, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
-                   Corridor = factor(Corridor, levels = Corridor))
+            mutate(
+                col = factor(ifelse(Corridor == zone_group, DARK_GRAY_BAR, LIGHT_GRAY_BAR)),
+                text_col = factor(ifelse(Corridor == zone_group, "white", "black")),
+                Corridor = factor(Corridor, levels = Corridor))
         
         plot_ly(data = arrange(df, uptime),
                 marker = list(color = ~col)) %>%
@@ -782,7 +779,7 @@ uptime_multiplot <- function(metric, level, zone_group, month) {
                 y = ~Corridor,
                 text = ~as_pct(uptime),
                 textposition = "auto",
-                insidetextfont = list(color = "black"),
+                insidetextfont = list(color = ~text_col),
                 showlegend = FALSE,
                 name = "",
                 customdata = ~glue(paste(

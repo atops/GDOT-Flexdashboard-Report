@@ -1505,6 +1505,8 @@ output$performance <- renderPlotly({
             level = level(), zone_group(), current_month()
         )
     } else if (input$performance_metric == "Travel Time Metrics") {
+        shiny::validate(
+            need(level() != "signal", "Travel times are calculated at the corridor and subcorridor levels only"))
         travel_times_plot(
             level = level(), zone_group(), current_month()
         )
