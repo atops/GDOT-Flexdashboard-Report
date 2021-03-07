@@ -37,10 +37,10 @@ def create_ami(today):
         'DeviceName': '/dev/sdb',
         'VirtualName': 'Shiny-Server Production Cache',
         'Ebs': {
-            'Iops': 4000,
+            'Iops': 3000,
             'VolumeSize': 20,
             'VolumeType': 'gp3',
-            'Throughput': 250
+            'Throughput': 125
         },
     }
     
