@@ -62,8 +62,16 @@ get_teams_locations <- function(locs, conf) {
 
 
 
-tidy_teams_tasks <- function(tasks, locations, replicate = FALSE) {
+tidy_teams_tasks <- function(tasks, teams_locations_key, corridors, replicate = FALSE) {
     
+    
+    # Teams Locations
+    if (!file.exists(basename(teams_locations_key))) {
+        aws.s3::save_object(teams_locations_key, bucket = bucket)
+    }
+    locations <- read_feather(basename(teams_locations_key))
+
+    corridors <- select(corridors, -c(Latitude, Longitude))
     # Get tasks and join locations, corridors
     tasks <- tasks %>%
         dplyr::select(-`Maintained by`) %>%
@@ -147,14 +155,7 @@ tidy_teams_tasks <- function(tasks, locations, replicate = FALSE) {
 
 
 get_teams_tasks_from_s3 <- function(
-    bucket, teams_locations_key, archived_tasks_prefix, current_tasks_key, replicate = TRUE) {
-    
-    # Teams Locations
-    if (!file.exists(basename(teams_locations_key))) {
-        aws.s3::save_object(teams_locations_key, bucket = bucket)
-    }
-    teams_locations <- read_feather(basename(teams_locations_key))
-    
+    bucket, archived_tasks_prefix, current_tasks_key) {
     
     # Keys for past years' tasks. Not the one actively updated.
     teams_keys <- aws.s3::get_bucket_df(
@@ -203,8 +204,7 @@ get_teams_tasks_from_s3 <- function(
         filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
     
     bind_rows(archived_tasks, current_tasks) %>% 
-        distinct() %>%
-        tidy_teams_tasks(teams_locations, replicate)
+        distinct()
 }
 
 
