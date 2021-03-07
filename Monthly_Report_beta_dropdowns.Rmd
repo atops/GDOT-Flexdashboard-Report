@@ -85,6 +85,7 @@ conditionalPanel(
 )
 
 observe({
+    debug(logger, "observe on input$zone_group: sidebar zone_group dropdown choices")
     choices_ <- if (is.null(input$zone_group)) {
         NULL
     } else {
@@ -143,6 +144,7 @@ current_quarter <- reactive(as.character(lubridate::quarter(current_month(), wit
 
 # This is a simpler version of what is commented out below
 corridor <- reactive({
+    debug(logger, "reactive on input$corridor_x: corridor()")
     if (input$zone_group == "All RTOP") {
         "All Corridors"
     } else {
@@ -151,13 +153,14 @@ corridor <- reactive({
 })
 
 
-zone_group <- reactive(
+zone_group <- reactive({
+    debug(logger, "reactive on corridor() and input$zone_group: zone_group()")
     if (corridor() == "All Corridors") {
         input$zone_group
     } else {
         corridor()
     }
-)
+})
 
 
 # mr <- reactive(
@@ -183,7 +186,7 @@ level <- reactive(
 
 
 filtered_corridors <- reactive({
-
+    debug(logger, "reactive on input$zone_group: filtered_corridors()")
     # All RTOP is the union of RTOP1, RTOP2
     if (input$zone_group == "All RTOP") {
         corr <- corridors() %>%
@@ -213,12 +216,14 @@ filtered_corridors <- reactive({
 })
 
 ntraces <- reactive({
+    debug(logger, "reactive on filtered_corridors(): ntraces()")
     filtered_corridors() %>%
         distinct(Corridor) %>%
         nrow()
 })
 
 filtered_signalids <- reactive({
+    debug(logger, "reactive on corridors(): filtered_signalids()")
     x <- corridors() %>% # filtered_corridors() %>%
         filter(as.integer(as.character(SignalID)) > 0) %>%
         arrange(as.integer(as.character(SignalID)))
@@ -292,6 +297,7 @@ Row
 
 ```{r}
 tp_valuebox <- reactive({
+    debug(logger, "reactive on zone_group() and current_month(): valuebox")
     valueBox(
         value = get_valuebox_value(
             throughput,
@@ -1078,9 +1084,9 @@ renderValueBox({
 ```{r, eval = FALSE}
 ### Roadside Unit (RSU) Uptime {.value-box}
 renderValueBox({
-        value = get_valuebox_value(
-            rsu_uptime,
-            level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
+    value = get_valuebox_value(
+        rsu_uptime,
+        level = level(), zone_group = zone_group(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-wifi",
         color = GDOT_BLUE
@@ -1207,6 +1213,7 @@ fillCol(
     fillRow(
         div("Throughput", style = styl),
         renderPlotly({
+            debug(logger, "reactive on level(), zone_group() and current_month(): summary_plot (all)")
             summary_plot(
                 throughput, 
                 level = level(), zone_group = zone_group(), month = current_month()
@@ -1466,6 +1473,7 @@ Row {data-height=700}
 plotlyOutput("performance", height = "100%", width = "100%")
 
 output$performance <- renderPlotly({
+    debug(logger, glue("Performance Trend Multiplot | {input$performance_metric} | {level()} | {zone_group()} | {current_month()}"))
     if (input$performance_metric == "Throughput") {
         get_trend_multiplot(
             throughput, 
@@ -1554,6 +1562,7 @@ Row {data-height=700}
 plotlyOutput("volume", height = "100%", width = "100%")
 
 output$volume <- renderPlotly({
+    debug(logger, glue("Volumes Trend Multiplot | {input$volume_metric} | {level()} | {zone_group()} | {current_month()}"))
     if (input$volume_metric == "Daily Traffic Volumes") {
         get_trend_multiplot(
             vpd, 
@@ -1643,7 +1652,7 @@ Row {data-height=700}
 plotlyOutput("equipment", height = "100%", width = "100%")
 
 output$equipment <- renderPlotly({
-    
+    debug(logger, glue("Equipment Trend Multiplot | {input$equipment_metric} | {level()} | {zone_group()} | {current_month()}"))
     if (input$equipment_metric == "Detector Uptime") {
         if (zone_group() == "All RTOP" || ntraces() > 24) {
             get_trend_multiplot(
@@ -1678,13 +1687,11 @@ output$equipment <- renderPlotly({
         }
     } else if (input$equipment_metric == "CCTV Uptime") {
         if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            debug(logger, glue("Line 1681 | {zone_group()} | {current_month()}"))
             get_trend_multiplot(
                 cctv_uptime, 
                 level = level(), zone_group(), current_month()
             )
         } else {
-            debug(logger, glue("Line 1687 | {zone_group()} | {current_month()}"))
             individual_cctvs_plot(zone_group(), current_month())
         }
     } else if (input$equipment_metric == "Communications Uptime") {
@@ -1775,6 +1782,7 @@ Row {.tabset .tabset-fade data-height=800}
 fillRow(
     fillCol(
         renderPlotly({
+            debug(logger, glue("TEAMS Plots | {level()} | {zone_group()} | {current_month()}"))
             data <- query_data(
                 tasks, 
                 level = level(), "monthly", zone_group = zone_group(), month = current_month()
@@ -1870,6 +1878,7 @@ tags$div(
     class = "corridor_summary_table",
     fillRow(
         renderFormattable({
+            debug(logger, "renderFormattable on input$zone_group: corridor_summary_table")
             shiny::validate(
                 need(
                     startsWith(input$zone_group, "Zone"),
@@ -1934,26 +1943,28 @@ renderUI({
 
 ```{r User Delay Costs, echo=FALSE, eval = TRUE}
 
-udc_plot_height <- reactive({
-    ncorrs <- corridors %>%
-        filter(grepl("^Zone", Zone)) %>%
-        distinct(Zone, Corridor) %>%
-        group_by(Zone) %>%
-        summarize(n = ceiling(n() / 2)) %>%
-        mutate(Zone = as.character(Zone))
-    n <- ncorrs[ncorrs$Zone == "Zone 1", ]$n
-    # n <- 3
-    css_px <- as.character(200 * n)
-    paste0(css_px, "px")
-})
+# udc_plot_height <- reactive({
+#     ncorrs <- corridors %>%
+#         filter(grepl("^Zone", Zone)) %>%
+#         distinct(Zone, Corridor) %>%
+#         group_by(Zone) %>%
+#         summarize(n = ceiling(n() / 2)) %>%
+#         mutate(Zone = as.character(Zone))
+#     n <- ncorrs[ncorrs$Zone == "Zone 1", ]$n
+#     # n <- 3
+#     css_px <- as.character(200 * n)
+#     paste0(css_px, "px")
+# })
 
 output$udc_plot <- renderPlotly({
+    debug(logger, "renderPlotly on zone_group() and current_month(): udc_plot")
     udcplot_plotly(
         query_udc_hourly(zone_group(), current_month())
     )
 })
 
 output$udc_table <- renderFormattable({
+    debug(logger, "renderPlotly on zone_group() and current_month(): udc_table")
     shiny::validate(
         need(startsWith(zone_group(), "Zone"), "")
     )
@@ -2067,6 +2078,7 @@ filtered_alerts <- reactive({
 
 
 output$alerts_plot <- renderPlot({
+    debug(logger, "renderPlot on filtered_alerts(), input$date_range: alerts_plot")
     plot_df <- filtered_alerts()$plot
 
     if (nrow(plot_df) > 0) {
@@ -2182,6 +2194,7 @@ fillRow(
         tabPanel(
             "Table",
             renderDataTable({
+                debug(logger, "renderDataTable on filtered_alerts(): filtered_alerts()$table")
                 datatable(filtered_alerts()$table,
                     escape = FALSE,
                     extensions = "Scroller",
@@ -2215,6 +2228,7 @@ Row {data-height = 800}
 
 ```{r}
 renderDataTable({
+    debug(logger, "renderDataTable on filtered_corridors(): filtered_corridors()")
     datatable(filter(filtered_corridors(), as.integer(as.character(SignalID)) > 0),
         escape = FALSE,
         extensions = "Scroller",
@@ -2276,12 +2290,14 @@ metrics_list <- list(
 
 
 rms_corridors <- reactive({
+    debug(logger, "reactive on corridors(): rms_corridors")
     as.character(unique(corridors()[corridors()$Zone_Group == "Ramp Meters", "Corridor"]$Corridor))
 })
 
 
 
 map_month_options <- reactive({
+    debug(logger, "reactive on ??: map_month_options (doesn't need to be a reactive value")
     format(ymd(rev(month_options)), "%b %Y") # convert format to Jan 2020, for example
 })
 
@@ -2369,7 +2385,7 @@ shinyApp(
     server = function(input, output, session) {
 
         output$SigOpsMap <- renderLeaflet({
-            debug(logger, "output$SigOpsMap")
+            debug(logger, "renderLeaflet on []: output$SigOpsMap")
             leaflet() %>%
                 addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
                 addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
@@ -2390,14 +2406,14 @@ shinyApp(
         
         
         map_metric <- reactive({
-            debug(logger, "map_metric")
+            debug(logger, "reactive on input$metric_input: map_metric")
             metrics_list[[input$metric_input]]
         })
 
         
         
         map_data <- reactive({
-            debug(logger, "map_data")
+            debug(logger, "reactive on zone_group(), corridors(), rms_corridors(): map_data")
 
             query_data(
                 map_metric(), 
@@ -2421,7 +2437,7 @@ shinyApp(
 
 
         table_data <- reactive({
-            debug(logger, "table_data")
+            debug(logger, "reactive on map_metric(), filtered_corridors(), input$filter_input: table_data")
 
             v <- as.name(map_metric()$variable)
             
@@ -2448,7 +2464,7 @@ shinyApp(
         })
 
         output$top10_table <- renderDataTable({
-            debug(logger, "output$top10_table")
+            debug(logger, "renderDataTable on table_data(): output$top10_table")
 
             datatable(
                 subset(table_data(), select = -c(SignalID)) %>%
@@ -2475,7 +2491,7 @@ shinyApp(
         
         
         observe({
-            debug(logger, "observe on data(): update map")
+            debug(logger, "observe on map_data(): SigOpsMap_proxy")
             debug(logger, paste(glue("{names(map_data())}"), collapse = "|"))
 
             if (nrow(map_data())) {
@@ -2524,6 +2540,7 @@ shinyApp(
 
 
         observeEvent(input$SigOpsMap_click, {
+            debug(logger, "observe on prev_row(): SigOpsMap_proxy - remove marker")
             # Reset previously selected marker
             if (!is.null(prev_row())) {
                 leafletProxy("SigOpsMap") %>%
@@ -2535,7 +2552,7 @@ shinyApp(
 
         
         observeEvent(input$top10_table_rows_selected, {
-            debug(logger, "observe event on top10 table row selected")
+            debug(logger, "observe event on input$top10_table_rows_selected: SigOpsMap_proxy")
 
             signalid <- table_data()[input$top10_table_rows_selected, "SignalID"]
 
@@ -2616,6 +2633,7 @@ fillCol(
 
     renderPlotly({
         req(input$signal_details_button)
+        debug(logger, "renderPlotly on sid(), current_month(), endof_current_month(): volplot_plotly")
         volplot_plotly(
             athena_connection_pool, sid(), current_month(), endof_current_month(),
             title = "Raw and Filtered Detector Data", ymax = NULL
@@ -2654,6 +2672,7 @@ checkboxGroupInput(
 )
 
 maintenance_cols <- reactive({ # updated to reflect RSUs/RSU scores not being included
+    debug(logger, "reactive on input$zone_group, input$corridors_x, input$subcorridors: maintenance_cols")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             list(
@@ -2675,6 +2694,7 @@ maintenance_cols <- reactive({ # updated to reflect RSUs/RSU scores not being in
 
 
 maint_hide_cols <- reactive({
+    debug(logger, "reactive on maintenance_cols(), input$maintenance_cols_checked: maint_hide_cols")
     # columns to show = default (label columns) + columns selected in checkbox
     maintenance_cols_to_show <- c(
         maintenance_cols()$default,
@@ -2723,17 +2743,20 @@ maint_health_data <- reactive({
 
 
 output$maintenance_table <- renderDT({
+    debug(logger, "renderDT on maint_health_data(): maintenance_table")
     get_monthly_maintenance_health_table(maint_health_data())
 })
 
 
 observe({
+    debug(logger, "observe on maint_health_data() and maint_hide_cols(): replace data and hide cols")
     dataTableProxy("maintenance_table") %>%
         replaceData(maint_health_data()) %>%
         hideCols(isolate(maint_hide_cols()), reset = TRUE)
 })
 
 observe({
+    debug(logger, "observe on and maint_hide_cols(): hide cols")
     dataTableProxy("maintenance_table") %>%
         hideCols(maint_hide_cols(), reset = TRUE)
 })
@@ -2771,6 +2794,7 @@ selectInput(
 
 
 observe({
+    debug(logger, "observe on input$zone_group: maint_metrics list choices")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
         if (input$corridor_x == "All Corridors") {
             choices_ <- c("Percent Health")
@@ -2796,6 +2820,7 @@ fillRow(
 
 
 output$health_maint_plot <- renderPlotly({
+    debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_maint_plot")
     get_trend_multiplot(
         maint_metrics_list[[input$maintenance_var]],
         level = level(), zone_group(), current_month(), line_chart = "monthly", accent_average = FALSE
