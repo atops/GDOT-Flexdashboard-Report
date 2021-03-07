@@ -1655,10 +1655,13 @@ tryCatch(
     {
         teams <- get_teams_tasks_from_s3(
             bucket = conf$bucket,
-            teams_locations_key = "mark/teams/teams_locations.feather",
             archived_tasks_prefix = "mark/teams/tasks202",
-            current_tasks_key = "mark/teams/tasks.csv.zip",
-            replicate = TRUE
+            current_tasks_key = "mark/teams/tasks.csv.zip"
+        )
+        teams <- tidy_teams_tasks(
+            teams, 
+            teams_locations_key = "mark/teams/teams_locations.feather",
+            corridors, replicate = TRUE
         )
 
         tasks_by_type <- get_outstanding_tasks_by_param(
