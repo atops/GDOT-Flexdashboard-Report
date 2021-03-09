@@ -142,14 +142,14 @@ if (FALSE) {
     }
     
     # Prep before writing to db
-    cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
-    cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
-    
-    sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
-    sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
-    
-    sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
-    sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
+    # cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
+    # cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
+    # 
+    # sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
+    # sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
+    # 
+    # sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
+    # sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
     
     
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
@@ -256,14 +256,14 @@ if (FALSE) {
 }
 
 # Prep before writing to db
-cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
-cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
-
-sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
-sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
-
-sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
-sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
+# cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
+# cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
+# 
+# sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
+# sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
+# 
+# sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
+# sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
 
 # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
 cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)

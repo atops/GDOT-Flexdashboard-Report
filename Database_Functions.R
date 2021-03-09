@@ -252,3 +252,65 @@ query_udc_hourly <- function(zone_group, month) {
 # Run on Lenny for back dates in the meantime.
 
 # TODO: tasks chart doesn't render when drilling down to the subcorridor level.
+
+
+
+query_health_data <- function(
+    health_metric, 
+    level, 
+    zone_group, 
+    corridor = NULL,
+    month = NULL) {
+    
+    # metric is one of {ops, maint, safety}
+    # level is one of {corridor, subcorridor, signal}
+    # resolution is one of {quarterly, monthly, weekly, daily}
+    
+    per <- "mo"
+    
+    mr_ <- switch(
+        level,
+        "corridor" = "sub",
+        "subcorridor" = "sub",
+        "signal" = "sig")
+    
+    tab <- health_metric
+    
+    table <- glue("{mr_}_{per}_{tab}")
+    
+    # Special cases--groups of corridors
+    if ((level == "corridor" | level == "subcorridor") & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+        if (zone_group == "All RTOP") {
+            zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
+        } else if (zone_group == "RTOP1") {
+            zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
+        } else if (zone_group == "RTOP2") {
+            zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
+        } else if (zone_group == "Zone 7") {
+            zones <- c("Zone 7m", "Zone 7d")
+        }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone in ({zones})")
+    } else if (level == "corridor" | level == "subcorridor") {
+        where_clause <- glue("WHERE Corridor = '{zone_group}'")
+    } else {  #} if (level == "corridor" | level == "subcorridor") {
+        where_clause <- glue("WHERE Corridor = '{corridor}'")
+    }
+    
+    query <- glue(paste(
+        "SELECT * FROM {table}", 
+        where_clause))
+    
+    df <- data.frame()
+    
+    tryCatch({
+        df <- dbGetQuery(aurora_connection_pool, query)
+        date_string <- intersect(c("Month", "Date"), names(df))
+        df$Month = as_date(df$Month)
+    }, error = function(e) {
+        print(e)
+        df <<- data.frame()
+    })
+    
+    df
+}
