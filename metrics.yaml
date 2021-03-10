@@ -116,7 +116,7 @@ peak_period_split_failures:
     highlight_color: "#007338"
     fill_color: "#99E6BF"
     goal: NULL
-    hourly_table: sfh
+    hourly_table: NULL
     has_weekly: True
 
 
