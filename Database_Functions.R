@@ -164,9 +164,9 @@ query_data <- function(
         }
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
-    } else if (level == "signal" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7") {
-        # This is used by the map which currently shows signal-level data
-        # for all signals all the time. No filter.
+    } else if (level == "signal" & zone_group == "All") {
+        # Special case used by the map which currently shows signal-level data
+        # for all signals all the time.
         where_clause <- "WHERE True"
     } else {
         where_clause <- "WHERE Zone_Group = '{zone_group}'"
@@ -290,23 +290,22 @@ query_health_data <- function(
             zones <- c("Zone 7m", "Zone 7d")
         }
         zones <- paste(glue("'{zones}'"), collapse = ",")
-        where_clause <- glue("WHERE Zone in ({zones})")
-    } else if (level == "corridor" | level == "subcorridor") {
-        where_clause <- glue("WHERE Corridor = '{zone_group}'")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+    } else if ((level == "corridor" | level == "subcorridor") & corridor == "All Corridors") {
+        where_clause <- glue("WHERE Zone_Group = '{zone_group}'")  # Zone_Group is a proxy for Zone
     } else {  #} if (level == "corridor" | level == "subcorridor") {
         where_clause <- glue("WHERE Corridor = '{corridor}'")
     }
+    where_clause <- glue("{where_clause} AND Month = '{month}'")
     
     query <- glue(paste(
         "SELECT * FROM {table}", 
         where_clause))
-    
-    df <- data.frame()
-    
+
     tryCatch({
         df <- dbGetQuery(aurora_connection_pool, query)
-        date_string <- intersect(c("Month", "Date"), names(df))
         df$Month = as_date(df$Month)
+        #df <- subset(df, select = -Zone_Group)  # This was a proxy for Zone for indexing consistency
     }, error = function(e) {
         print(e)
         df <<- data.frame()
