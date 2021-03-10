@@ -38,7 +38,7 @@ end_date: yesterday
 
 report_start_date: 2019-12-01
 report_end_date: yesterday
-calcs_start_date: auto
+calcs_start_date: 2020-12-01
 production_report_end_date: 2020-12-01
 
 corridors_filename_s3: Corridors_Latest.xlsx

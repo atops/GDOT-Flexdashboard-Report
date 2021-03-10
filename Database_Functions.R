@@ -2,6 +2,7 @@
 # Database Functions
 library(odbc)
 library(yaml)
+library(duckdb)
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
 
@@ -74,9 +75,24 @@ get_aurora_connection_pool <- function() {
 }
 
 
+get_duckdb_connection <- function(dbdir, read_only = FALSE, f = duckdb::dbConnect) {
+    f(
+        drv = duckdb::duckdb(),
+        dbdir = dbdir,
+        read_only = read_only
+    )
+}
+
+
+get_duckdb_connection_pool <- function(dbdir, read_only = FALSE) {
+    get_duckdb_connection(dbdir, read_only, pool::dbPool)
+}
+
+
 get_athena_connection <- function(conf_athena, f = dbConnect) {
     f(odbc::odbc(), dsn = "athena")
 }
+
 
 get_athena_connection_pool <- function(conf_athena) {
     get_athena_connection(conf_athena, pool::dbPool)
@@ -99,14 +115,13 @@ add_partition <- function(conf_athena, table_name, date_) {
 
 
 
-# -- This is a Work in Progress -- 2021-01-18
-
 query_data <- function(
     metric, 
     level = "corridor", 
     resolution = "monthly", 
     hourly = FALSE, 
     zone_group, 
+    corridor = NULL,
     month = NULL, 
     quarter = NULL, 
     upto = TRUE) {
@@ -135,11 +150,31 @@ query_data <- function(
     }
     
     table <- glue("{mr_}_{per}_{tab}")
-    q <- glue(paste(
-        "SELECT * FROM {table}",
-        "WHERE Corridor = '{zone_group}'"))
     
-    aurora <- pool::poolCheckout(aurora_connection_pool)
+    # Special cases--groups of corridors
+    if (level == "corridor" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+        if (zone_group == "All RTOP") {
+            zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
+        } else if (zone_group == "RTOP1") {
+            zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
+        } else if (zone_group == "RTOP2") {
+            zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
+        } else if (zone_group == "Zone 7") {
+            zones <- c("Zone 7m", "Zone 7d")
+        }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+    } else if (level == "signal" & zone_group == "All") {
+        # Special case used by the map which currently shows signal-level data
+        # for all signals all the time.
+        where_clause <- "WHERE True"
+    } else {
+        where_clause <- "WHERE Zone_Group = '{zone_group}'"
+    }
+    
+    query <- glue(paste(
+        "SELECT * FROM {table}", 
+        where_clause))
     
     comparison <- ifelse(upto, "<=", "=")
     
@@ -147,25 +182,134 @@ query_data <- function(
         month <- as_date(month)
     }
     
-    q <- if (hourly & !is.null(metric$hourly_table)) {
-        paste(q, glue("AND Hour {comparison} '{month + months(1) - hours(1)}'"))
+    if (hourly & !is.null(metric$hourly_table)) {
+        if (resolution == "monthly") {
+            query <- paste(query, glue("AND Hour <= '{month + months(1) - hours(1)}'"))
+            if (!upto) {
+                query <- paste(query, glue("AND Hour >= '{month}'"))
+            }
+        }
     } else if (resolution == "monthly") {
-        paste(q, glue("AND Month {comparison} '{month}'"))
+        query <- paste(query, glue("AND Month {comparison} '{month}'"))
     } else if (resolution == "quarterly") { # current_quarter is not null
-        paste(q, glue("AND Quarter {comparison} {quarter}"))
+        query <- paste(query, glue("AND Quarter {comparison} {quarter}"))
         
     } else if (resolution == "weekly" | resolution == "daily") {
-        paste(q, glue("AND Date {comparison} '{month + months(1) - days(1)}'"))
+        query <- paste(query, glue("AND Date {comparison} '{month + months(1) - days(1)}'"))
         
     } else {
         "oops"
     }
+
+    df <- data.frame()
     
-    df <- dbGetQuery(aurora, q)
-    pool::poolReturn(aurora)
+    tryCatch({
+        df <- dbGetQuery(aurora_connection_pool, query)
+        
+        if (!is.null(corridor)) {
+            df <- filter(df, Corridor == corridor)
+        }
+        
+        date_string <- intersect(c("Month", "Date"), names(df))
+        if (length(date_string)) {
+            df[[date_string]] = as_date(df[[date_string]])
+        }
+        datetime_string <- intersect(c("Hour"), names(df))
+        if (length(datetime_string)) {
+            df[[datetime_string]] = as_datetime(df[[datetime_string]])
+        }
+    }, error = function(e) {
+        print(e)
+        df <<- data.frame()
+    })
+
+    df
+}
+
+
+
+# udc_trend_table
+query_udc_trend <- function() {
+    df <- dbReadTable(aurora_connection_pool, "cor_mo_udc_trend_table")
+    udc_list <- jsonlite::fromJSON(df$data)
+    lapply(udc_list, function(x) {
+        as_tibble(x) %>% mutate(Month = as_date(Month))
+    })
+}
+
+
+
+# udc hourly table
+query_udc_hourly <- function(zone_group, month) {
+    df <- dbReadTable(aurora_connection_pool, "cor_mo_hourly_udc")
+    df$Month <- as_date(df$Month)
+    df$month_hour <- as_datetime(df$month_hour)
+    subset(df, Zone == zone_group & Month <= as_date(month))
+}
+
+# TODO: mark/user_delay_costs not calculating since Nov 2020.
+# Figure out where script is supposed to run (SAM?) and get it scheduled again.
+# Run on Lenny for back dates in the meantime.
+
+# TODO: tasks chart doesn't render when drilling down to the subcorridor level.
+
+
+
+query_health_data <- function(
+    health_metric, 
+    level, 
+    zone_group, 
+    corridor = NULL,
+    month = NULL) {
     
-    date_string <- intersect(c("Month", "Date"), names(df))
-    df[[date_string]] = as_date(df[[date_string]])
+    # metric is one of {ops, maint, safety}
+    # level is one of {corridor, subcorridor, signal}
+    # resolution is one of {quarterly, monthly, weekly, daily}
+    
+    per <- "mo"
+    
+    mr_ <- switch(
+        level,
+        "corridor" = "sub",
+        "subcorridor" = "sub",
+        "signal" = "sig")
+    
+    tab <- health_metric
+    
+    table <- glue("{mr_}_{per}_{tab}")
+    
+    # Special cases--groups of corridors
+    if ((level == "corridor" | level == "subcorridor") & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+        if (zone_group == "All RTOP") {
+            zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
+        } else if (zone_group == "RTOP1") {
+            zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
+        } else if (zone_group == "RTOP2") {
+            zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
+        } else if (zone_group == "Zone 7") {
+            zones <- c("Zone 7m", "Zone 7d")
+        }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+    } else if ((level == "corridor" | level == "subcorridor") & corridor == "All Corridors") {
+        where_clause <- glue("WHERE Zone_Group = '{zone_group}'")  # Zone_Group is a proxy for Zone
+    } else {  #} if (level == "corridor" | level == "subcorridor") {
+        where_clause <- glue("WHERE Corridor = '{corridor}'")
+    }
+    where_clause <- glue("{where_clause} AND Month = '{month}'")
+    
+    query <- glue(paste(
+        "SELECT * FROM {table}", 
+        where_clause))
+
+    tryCatch({
+        df <- dbGetQuery(aurora_connection_pool, query)
+        df$Month = as_date(df$Month)
+        #df <- subset(df, select = -Zone_Group)  # This was a proxy for Zone for indexing consistency
+    }, error = function(e) {
+        print(e)
+        df <<- data.frame()
+    })
     
     df
 }

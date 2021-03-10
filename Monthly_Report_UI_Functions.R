@@ -18,20 +18,20 @@ suppressMessages({
     library(forcats)
     library(plotly)
     library(crosstalk)
-    library(memoise)
     library(future)
+    library(promises)
     library(pool)
     library(rsconnect)
     library(formattable)
     library(data.table)
     library(htmltools)
     library(leaflet)
+    library(leaflet.extras)
     library(sp)
-    library(RJDBC)
     library(jsonlite)
     library(shinycssloaders)
     library(DT)
-    library(compiler)
+    library(log4r)
 })
 
 
@@ -42,19 +42,13 @@ if (interactive()) {
 }
 
 source("Utilities.R")
-source("classes.R")
+source("Classes.R")
+source("zone_manager_reports_editor.R")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-
-cache_path <- "/data/beta/"
-
-if (Sys.info()["sysname"] == "Windows") {
-    disk_cache <- cache_filesystem('cache')
-} else if (Sys.info()["sysname"] == "Linux") {
-    disk_cache <- cachem::cache_disk(cache_path, max_size = 5 * 1024^3, evict = "lru", prune_rate = 5)
-}
+logger <- log4r::logger(threshold = "DEBUG")
 
 #options(warn = 2)
 options(dplyr.summarise.inform = FALSE)
@@ -79,6 +73,7 @@ LIGHT_GRAY_BAR = "#bdbdbd"
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+SIGOPS_GREEN = "#007338"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
            "3" = LIGHT_GREEN, "4" = GREEN, 
@@ -254,10 +249,10 @@ if (conf$mode == "production") {
     corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
     corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
 
-    cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
-    sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
-    subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
-    mapdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "map_data.qs", aws_conf)
+    # cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
+    # sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
+    # subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
+    # mapdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "map_data.qs", aws_conf)
 
 
 } else {
@@ -632,7 +627,7 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_bar_line_dashboard_plot_ <- function(cor_weekly, 
+get_bar_line_dashboard_plot <- function(cor_weekly, 
                                          cor_monthly, 
                                          cor_hourly = NULL, 
                                          var_,
@@ -647,10 +642,6 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
                                          goal = NULL,
                                          accent_average = TRUE) {
     
-    if (Sys.info()["sysname"] == "Linux") {
-        disk_cache$prune()
-    }
-	
     var_ <- as.name(var_)
     if (num_format == "percent") {
         var_fmt <- as_pct
@@ -830,7 +821,6 @@ get_bar_line_dashboard_plot_ <- function(cor_weekly,
         no_data_plot("")
     )
 }
-get_bar_line_dashboard_plot <- memoise(get_bar_line_dashboard_plot_, cache = disk_cache)
 
 
 get_tt_plot <- function(cor_monthly_tti, cor_monthly_tti_by_hr, 
@@ -1575,7 +1565,7 @@ plot_teams_tasks <- function(tab, var_,
     p3 <- plot_ly(data = tab) %>% 
         add_bars(x = ~Outstanding,  # ~outstanding, 
                  y = ~var, 
-                 color = I(ORANGE),
+                 color = I(SIGOPS_GREEN),
                  name = "Outstanding",
                  text = ~Outstanding, 
                  textposition = textpos, 
@@ -1610,14 +1600,14 @@ cum_events_plot <- function(df) {
                   x = ~Month,
                   y = ~Status,
                   type = 'scatter', mode = 'lines', name = 'Outstanding',
-                  line = list(color = ORANGE)) %>%
+                  line = list(color = SIGOPS_GREEN)) %>%
         add_trace(data = filter(df, Events == "Outstanding"),
                   x = ~Month,
                   y = ~Status,
                   type = 'scatter',
                   mode = 'markers', 
                   name = 'Outstanding',
-                  marker = list(color = ORANGE),
+                  marker = list(color = SIGOPS_GREEN),
                   showlegend = FALSE) %>%
         layout(barmode = "group",
                yaxis = list(title = "Events"),
@@ -1740,7 +1730,7 @@ udcplot_plotly <- function(hourly_udc) {
                 x = ~month_hour, 
                 y = ~delay_cost, 
                 name = current_month_str, 
-                line = list(color = ORANGE),
+                line = list(color = SIGOPS_GREEN),
                 customdata = ~glue(paste(
                     "<b>{Corridor}</b>",
                     "<br><b>{format(month_hour, '%I:%M %p')}</b>",
@@ -2043,7 +2033,7 @@ getcolorder <- function(no.corridors) {
 
 
 
-get_corridor_summary_table <- function(data, current_month, zone_group) {
+get_corridor_summary_table <- function(data) {  # }, current_month, zone_group) {
     
     #' Creates an html table for a corridor by zone in a month
     #' with all metrics color coded by whether they met goal
@@ -2053,9 +2043,9 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
     #' @param zone_group a Zone Group
     #' @return An html table for markdown or shiny
     
-    if (zone_group %in% unique(data$Zone_Group)) {
+    #if (zone_group %in% unique(data$Zone_Group)) {
         # table for plotting
-        dt <- filter(data, Month == current_month, Zone_Group == zone_group) %>%
+        dt <- data %>%  #filter(data, Month == current_month, Zone_Group == zone_group) %>%
             select(-c(seq(5, 25, 2)), -Zone_Group, -Month) %>%
             gather("Metric", "value", 2:12) %>%
             spread(Corridor, value)
@@ -2066,7 +2056,7 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
         setDT(dt)
         
         # table with deltas - to be used for formatting data table
-        dt.deltas <- filter(data, Month == current_month, Zone_Group == zone_group) %>%
+        dt.deltas <- data %>%  # filter(data, Month == current_month, Zone_Group == zone_group) %>%
             select(-c(seq(4, 24, 2)), -Zone_Group, -Month) %>%
             rename_at(vars(ends_with(".delta")), ~str_replace(., ".delta", "")) %>%
             gather("Metric", "value", 2:12) %>%
@@ -2173,9 +2163,9 @@ get_corridor_summary_table <- function(data, current_month, zone_group) {
                                  )
         )
         
-    } else {
-        NULL
-    }
+    #} else {
+    #    NULL
+    #}
 }
 
 

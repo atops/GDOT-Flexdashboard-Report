@@ -176,20 +176,24 @@ get_teams_tasks_from_s3 <- function(
         Longitude = col_double()
     )
     
-    archived_tasks <- lapply(teams_keys, 
-                             function(key) {
-                                 s3read_using(
-                                     function(x) read_delim(
-                                         x, 
-                                         delim = ",", 
-                                         col_types = col_spec, 
-                                         escape_double = FALSE),
-                                     bucket = bucket, 
-                                     object = key)
-                             }) %>% 
-        bind_rows() %>% 
-        select(-X1) %>% 
-        filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
+    if (length(teams_keys)) {
+        archived_tasks <- lapply(teams_keys, 
+                                 function(key) {
+                                     s3read_using(
+                                         function(x) read_delim(
+                                             x, 
+                                             delim = ",", 
+                                             col_types = col_spec, 
+                                             escape_double = FALSE),
+                                         bucket = bucket, 
+                                         object = key)
+                                 }) %>% 
+            bind_rows() %>% 
+            select(-X1) %>% 
+            filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
+    } else {
+        archived_tasks <- data.frame()
+    }
     
     
     # Read the file with current teams tasks
