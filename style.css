@@ -1,40 +1,33 @@
 
-/*@import url(//fonts.googleapis.com/css?family=Open+Sans);*/
-@import url(//fonts.googleapis.com/css?family=Josefin+Sans);
-@import url(//fonts.googleapis.com/css?family=Source+Sans+Pro);
-@import url(//fonts.googleapis.com/css?family=Ubuntu+Condensed);
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro');
+@import url('https://fonts.googleapis.com/css?family=Ubuntu+Condensed');
 
+@font-face {
+    font-family: 'tex_gyre_adventor';
+    src: url('texgyreadventor-regular-webfont.woff');
+    font-weight: normal;
+    font-style: normal;
+}
 
-/*
-@font-face { 
-  font-family: "Open Sans";
-  src: url("fonts/OpenSans-Regular.ttf");
+@font-face {
+    font-family: 'tex_gyre_adventor';
+    src: url('texgyreadventor-bold-webfont.woff');
+    font-weight: bold;
+    font-style: normal;
 }
-@font-face {  
-  font-family: "Open Sans";
-  font-style: bold;
-  font-weight: bold;
-  src: url("fonts/OpenSans-Bold.ttf");
-}
-@font-face { 
-  font-family: "Josefin Sans";
-  src: url("JosefinSans-Regular.ttf");
-}
-*/
 
 .navbar {
-  background-color:#045594; /*#256194;*/
-  border-color:white;
+    background-color:#045594;
+    border-color:white;
 }
 .navbar-logo {
-  height:48px;
-  padding-top:5px;
+    height:48px;
+    padding-top:5px;
 }
 .navbar-brand {
-  color: white!important;
-  font-family: 'Ubuntu Condensed', 'Josefin Sans', sans-serif;
-  font-size: 24px;
-  /*font-weight: bold;*/
+    color: white!important;
+    font-family: 'Ubuntu Condensed', 'tex_gyre_adventor', sans-serif;
+    font-size: 24px;
 }
 .navbar-inverse .navbar-nav>li>a:focus{
     color:#ffffff;
@@ -70,19 +63,9 @@
     height: 34px;
     border-radius: 4px;
 }
-/* From Watchdog App * /
-.form-control {
-  font-size: 12px;
-}
-.datepicker-days {
-  font-size: 12px;
-}
-.input-daterange {
-  font-size: 12px;
-}
-*/
+
 .tabbable {
-  margin-left: 20px;  
+    margin-left: 20px;  
 }
 
 /*.help-block {
@@ -103,7 +86,6 @@
 }
 
 #section-row-data-height-92 {
-    /*background-color: yellow;*/
     height: 88px !important;
     flex: 0 0 88px !important;
 }

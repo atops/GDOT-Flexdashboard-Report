@@ -581,7 +581,7 @@ Row
 du_valuebox <- reactive({
     valueBox(
         value = get_valuebox(mr()$mo$du, "uptime", as_pct,
-            zone = zone_group(), mo = current_month(), break_ = TRUE
+            zone = zone_group(), mo = current_month(), break_ = FALSE
         ),
         icon = "fa-car",
         color = BLUE
@@ -599,7 +599,7 @@ valueBoxOutput("du_valuebox1")
 pau_valuebox <- reactive({
     valueBox(
         value = get_valuebox(mr()$mo$pau, "uptime", as_pct,
-            zone = zone_group(), mo = current_month(), break_ = TRUE
+            zone = zone_group(), mo = current_month(), break_ = FALSE
         ),
         icon = "fa-walking",
         color = BLUE
@@ -617,7 +617,7 @@ valueBoxOutput("pau_valuebox1")
 cctv_valuebox <- reactive({
     valueBox(
         value = get_valuebox(mr()$mo$cctv, "uptime", as_pct,
-            zone = zone_group(), mo = current_month(), break_ = TRUE
+            zone = zone_group(), mo = current_month(), break_ = FALSE
         ),
         icon = "glyphicon-facetime-video",
         color = BLUE
@@ -635,7 +635,7 @@ valueBoxOutput("cctv_valuebox1")
 cu_valuebox <- reactive({
     valueBox(
         value = get_valuebox(mr()$mo$cu, "uptime", as_pct,
-            zone = zone_group(), mo = current_month(), break_ = TRUE
+            zone = zone_group(), mo = current_month(), break_ = FALSE
         ),
         icon = "fa-broadcast-tower",
         color = BLUE
@@ -1066,7 +1066,7 @@ renderValueBox({
         value = get_valuebox(cor$qu$du, "uptime", as_pct,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+            qu = current_quarter(), break_ = FALSE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -1083,7 +1083,7 @@ renderValueBox({
         value = get_valuebox(cor$qu$pau, "uptime", as_pct,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+            qu = current_quarter(), break_ = FALSE
         ),
         icon = "fa-walking",
         color = GDOT_BLUE_RGB
@@ -1099,7 +1099,7 @@ renderValueBox({
         value = get_valuebox(cor$qu$cctv, "uptime", as_pct,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+            qu = current_quarter(), break_ = FALSE
         ),
         icon = "glyphicon-facetime-video",
         color = GDOT_BLUE
@@ -1115,7 +1115,7 @@ renderValueBox({
         value = get_valuebox(cor$qu$cu, "uptime", as_pct,
             zone = zone_group(),
             mo = current_month(),
-            qu = current_quarter(), break_ = TRUE
+            qu = current_quarter(), break_ = FALSE
         ),
         icon = "fa-broadcast-tower",
         color = GDOT_BLUE_RGB
@@ -2240,7 +2240,7 @@ fillRow(
           target = "_blank",
           "Click here to edit progress reports")`
 
-```{r}
+```{r, eval = FALSE}
 zmdf_conn <- pool::poolCheckout(aurora_connection_pool)
 
 zmdf <- read_from_db(zmdf_conn) %>%
