@@ -72,7 +72,9 @@ LIGHT_GRAY_BAR = "#bdbdbd"
 
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
+GDOT_GREEN = "#13784B"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+SIGOPS_BLUE = "#00458F"
 SIGOPS_GREEN = "#007338"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
@@ -382,8 +384,7 @@ read_signal_data <- function(conn, signalid, plot_start_date, plot_end_date) {
             CallPhase = factor(callphase),
             vol_rc,
             vol_ac,
-            bad_day = as.logical(as.integer(bad_day))) %>% 
-        as_tibble()
+            bad_day = as.logical(as.integer(bad_day)))
 }
 
 

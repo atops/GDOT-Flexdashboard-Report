@@ -92,25 +92,21 @@ observe({
         } else if (input$zone_group %in% c("RTOP1", "RTOP2")) {
             c(
                 "All Corridors",
+                # as.character(unique(corridors()[corridors()$Zone_Group == input$zone_group,]$Corridor))
                 as.character(unique(filter(
                     corridors(), Zone_Group == input$zone_group
                 )$Corridor))
             )
-            # The following is faster
-            # as.character(unique(corridors()[corridors()$Zone_Group == input$zone_group,]$Corridor))
         } else {
             c(
                 "All Corridors",
+                # as.character(unique(corridors()[corridors()$Zone == input$zone_group,]$Corridor))
                 as.character(unique(filter(
                     corridors(), Zone == input$zone_group
                 )$Corridor))
             )
-            # The following is faster
-            # as.character(unique(corridors()[corridors()$Zone == input$zone_group,]$Corridor))
         }
     }
-    # print(choices_)
-
     updateSelectInput(session, "corridor_x", choices = sort(choices_), selected = "All Corridors")
 })
 
@@ -250,7 +246,7 @@ tp_valuebox <- reactive({
             zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
         ),
         icon = "fa-bar-chart",
-        color = BLUE
+        color = BLUE 
     )
 })
 
@@ -756,7 +752,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             throughput,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-bar-chart",
         color = GDOT_BLUE
@@ -771,7 +767,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             arrivals_on_green,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -786,7 +782,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             progression_ratio,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -801,7 +797,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             queue_spillback_rate,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -816,7 +812,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             peak_period_split_failures,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -831,7 +827,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             off_peak_split_failures,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-car",
         color = GDOT_BLUE_RGB
@@ -846,7 +842,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             travel_time_index,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-dashboard",
         color = GDOT_BLUE
@@ -861,7 +857,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             planning_time_index,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = TRUE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = TRUE
         ),
         icon = "fa-dashboard",
         color = GDOT_BLUE_RGB
@@ -888,7 +884,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             vpd,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -903,7 +899,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             am_peak_vph,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -918,7 +914,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             pm_peak_vph,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -934,7 +930,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             ped_button_uptime,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -972,7 +968,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             detector_uptime,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-car",
         color = GDOT_BLUE
@@ -988,7 +984,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             ped_button_uptime,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-walking",
         color = GDOT_BLUE_RGB
@@ -1003,7 +999,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             cctv_uptime,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "glyphicon-facetime-video",
         color = GDOT_BLUE
@@ -1018,7 +1014,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             comm_uptime,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-broadcast-tower",
         color = GDOT_BLUE_RGB
@@ -1032,7 +1028,7 @@ renderValueBox({
 renderValueBox({
     value = get_valuebox_value(
         rsu_uptime,
-        zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+        zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-wifi",
         color = GDOT_BLUE
@@ -1070,7 +1066,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             tasks_reported,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -1085,7 +1081,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             tasks_resolved,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -1100,7 +1096,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             tasks_outstanding,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
@@ -1115,7 +1111,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             tasks_over45,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW_RGB
@@ -1130,7 +1126,7 @@ renderValueBox({
     valueBox(
         value = get_valuebox_value(
             tasks_mttr,
-            zone_group = input$zone_group, corridor = corridor(), month = current_month(), line_break = FALSE
+            zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
         color = GDOT_YELLOW
