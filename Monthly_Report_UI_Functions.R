@@ -19,6 +19,7 @@ suppressMessages({
     library(plotly)
     library(crosstalk)
     library(future)
+    library(promises)
     library(pool)
     library(rsconnect)
     library(formattable)

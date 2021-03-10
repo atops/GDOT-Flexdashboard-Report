@@ -1419,44 +1419,51 @@ Row {data-height=700}
 plotlyOutput("performance", height = "100%", width = "100%")
 
 output$performance <- renderPlotly({
-    debug(logger, glue("Performance Trend Multiplot | {input$performance_metric} | {level()} | {zone_group()} | {current_month()}"))
-    if (input$performance_metric == "Throughput") {
-        get_trend_multiplot(
-            throughput, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Arrivals on Green") {
-        get_trend_multiplot(
-            arrivals_on_green, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Progression Ratio") {
-        get_trend_multiplot(
-            progression_ratio, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Queue Spillback Rate") {
-        get_trend_multiplot(
-            queue_spillback_rate, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Peak Period Split Failures") {
-        get_trend_multiplot(
-            peak_period_split_failures, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Off-Peak Split Failures") {
-        get_trend_multiplot(
-            off_peak_split_failures, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$performance_metric == "Travel Time Metrics") {
-        shiny::validate(
-            need(level() != "signal", "Travel times are calculated at the corridor and subcorridor levels only"))
-        travel_times_plot(
-            level = level(), zone_group(), current_month()
-        )
-    }
+    level_ <- level()
+    zone_group_ <- zone_group()
+    current_month_ <- current_month()
+    input_performance_metric <- input$performance_metric
+
+    future_promise({
+        debug(logger, glue("Performance Trend Multiplot | {input_performance_metric} | {level_} | {zone_group_} | {current_month_}"))
+        if (input$performance_metric == "Throughput") {
+            get_trend_multiplot(
+                throughput, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Arrivals on Green") {
+            get_trend_multiplot(
+                arrivals_on_green, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Progression Ratio") {
+            get_trend_multiplot(
+                progression_ratio, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Queue Spillback Rate") {
+            get_trend_multiplot(
+                queue_spillback_rate, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Peak Period Split Failures") {
+            get_trend_multiplot(
+                peak_period_split_failures, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Off-Peak Split Failures") {
+            get_trend_multiplot(
+                off_peak_split_failures, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$performance_metric == "Travel Time Metrics") {
+            shiny::validate(
+                need(level_ != "signal", "Travel times are calculated at the corridor and subcorridor levels only"))
+            travel_times_plot(
+                level = level_, zone_group_, current_month_
+            )
+        }
+    })
 })
 ```
 
@@ -1510,18 +1517,25 @@ Row {data-height=700}
 plotlyOutput("volume", height = "100%", width = "100%")
 
 output$volume <- renderPlotly({
-    debug(logger, glue("Volumes Trend Multiplot | {input$volume_metric} | {level()} | {zone_group()} | {current_month()}"))
-    if (input$volume_metric == "Daily Traffic Volumes") {
-        get_trend_multiplot(
-            vpd, 
-            level = level(), zone_group(), current_month()
-        )
-    } else if (input$volume_metric == "Daily Pedestrian Pushbutton Activity") {
-        get_trend_multiplot(
-            daily_pedestrian_pushbuttons, 
-            level = level(), zone_group(), current_month()
-        )
-    }
+    level_ <- level()
+    zone_group_ <- zone_group()
+    current_month_ <- current_month()
+    input_volume_metric <- input$volume_metric
+    
+    future_promise({
+        debug(logger, glue("Volumes Trend Multiplot | {input_volume_metric} | {level_} | {zone_group_} | {current_month_}"))
+        if (input$volume_metric == "Daily Traffic Volumes") {
+            get_trend_multiplot(
+                vpd, 
+                level = level_, zone_group_, current_month_
+            )
+        } else if (input$volume_metric == "Daily Pedestrian Pushbutton Activity") {
+            get_trend_multiplot(
+                daily_pedestrian_pushbuttons, 
+                level = level_, zone_group_, current_month_
+            )
+        }
+    })
 })
 ```
 
@@ -1600,81 +1614,91 @@ Row {data-height=700}
 plotlyOutput("equipment", height = "100%", width = "100%")
 
 output$equipment <- renderPlotly({
-    debug(logger, glue("Equipment Trend Multiplot | {input$equipment_metric} | {level()} | {zone_group()} | {current_month()}"))
-    if (input$equipment_metric == "Detector Uptime") {
-        if (zone_group() == "All RTOP" || ntraces() > 24) {
-            get_trend_multiplot(
-                detector_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            uptime_multiplot(
-                detector_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month())
-        } else {
-            get_trend_multiplot(
-                detector_uptime, 
-                level = level(), zone_group(), current_month()
-            )
+    level_ <- level()
+    zone_group_ <- zone_group()
+    corridor_ <- corridor()
+    current_month_ <- current_month()
+    ntraces_ <- ntraces()
+    input_subcorridors <- input$subcorridors
+    input_equipment_metric <- input$equipment_metric
+    
+    future_promise({
+        debug(logger, glue("Equipment Trend Multiplot | {input_equipment_metric} | {level_} | {zone_group_} | {current_month_}"))
+        if (input_equipment_metric == "Detector Uptime") {
+            if (zone_group_ == "All RTOP" || ntraces_ > 24) {
+                get_trend_multiplot(
+                    detector_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            } else if (corridor_ == "All Corridors" || input_subcorridors == "By Sub-corridor") {
+                uptime_multiplot(
+                    detector_uptime, 
+                    level = level_, zone_group = zone_group_, month = current_month_)
+            } else {
+                get_trend_multiplot(
+                    detector_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            }
+        } else if (input_equipment_metric == "Pedestrian Pushbutton Uptime") {
+            if (zone_group_ == "All RTOP" || ntraces_ > 24) {
+                get_trend_multiplot(
+                    ped_button_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            } else if (corridor_ == "All Corridors" || input_subcorridors == "By Sub-corridor") {
+                uptime_multiplot(
+                    ped_button_uptime, 
+                    level = level_, zone_group = zone_group_, month = current_month_)
+            } else {
+                get_trend_multiplot(
+                    ped_button_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            }
+        } else if (input_equipment_metric == "CCTV Uptime") {
+            if (corridor_ == "All Corridors" || input_subcorridors == "By Sub-corridor") {
+                get_trend_multiplot(
+                    cctv_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            } else {
+                individual_cctvs_plot(zone_group_, current_month_)
+            }
+        } else if (input_equipment_metric == "Communications Uptime") {
+            if (zone_group_ == "All RTOP" || ntraces_ > 24) {
+                get_trend_multiplot(
+                    comm_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            } else if (corridor_ == "All Corridors" || input_subcorridors == "By Sub-corridor") {
+                uptime_multiplot(
+                    comm_uptime, 
+                    level = level_, zone_group = zone_group_, month = current_month_)
+            } else {
+                get_trend_multiplot(
+                    comm_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            }
+        } else if (input_equipment_metric == "RSU Uptime") {
+            if (zone_group_ == "All RTOP" || ntraces_ > 24) {
+                get_trend_multiplot(
+                    rsu_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            } else if (corridor_ == "All Corridors" || input_subcorridors == "By Sub-corridor") {
+                uptime_multiplot(
+                    rsu_uptime, 
+                    level = level_, zone_group = zone_group_, month = current_month_)
+            } else {
+                get_trend_multiplot(
+                    rsu_uptime, 
+                    level = level_, zone_group_, current_month_
+                )
+            }
         }
-    } else if (input$equipment_metric == "Pedestrian Pushbutton Uptime") {
-        if (zone_group() == "All RTOP" || ntraces() > 24) {
-            get_trend_multiplot(
-                ped_button_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            uptime_multiplot(
-                ped_button_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month())
-        } else {
-            get_trend_multiplot(
-                ped_button_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        }
-    } else if (input$equipment_metric == "CCTV Uptime") {
-        if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            get_trend_multiplot(
-                cctv_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        } else {
-            individual_cctvs_plot(zone_group(), current_month())
-        }
-    } else if (input$equipment_metric == "Communications Uptime") {
-        if (zone_group() == "All RTOP" || ntraces() > 24) {
-            get_trend_multiplot(
-                comm_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            uptime_multiplot(
-                comm_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month())
-        } else {
-            get_trend_multiplot(
-                comm_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        }
-    } else if (input$equipment_metric == "RSU Uptime") {
-        if (zone_group() == "All RTOP" || ntraces() > 24) {
-            get_trend_multiplot(
-                rsu_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        } else if (corridor() == "All Corridors" || input$subcorridors == "By Sub-corridor") {
-            uptime_multiplot(
-                rsu_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month())
-        } else {
-            get_trend_multiplot(
-                rsu_uptime, 
-                level = level(), zone_group(), current_month()
-            )
-        }
-    }
+    })
 })
 ```
 
@@ -2797,11 +2821,18 @@ fillRow(
 
 
 output$health_maint_plot <- renderPlotly({
-    debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_maint_plot")
-    get_trend_multiplot(
-        maint_metrics_list[[input$maintenance_var]],
-        level = level(), zone_group(), current_month(), line_chart = "monthly", accent_average = FALSE
-    )
+    level_ <- level()
+    zone_group_ <- zone_group()
+    current_month_ <- current_month()
+    input$maintenance_var <- input_maintenance_var
+    
+    future_promise({
+        debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_maint_plot")
+        get_trend_multiplot(
+            maint_metrics_list[[input_maintenance_var]],
+            level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
+        )
+    })
 })
 ```
 
@@ -2957,10 +2988,18 @@ fillRow(
 )
 
 output$health_ops_plot <- renderPlotly({
-    get_trend_multiplot(
-        ops_metrics_list[[input$operations_var]],
-        level = level(), zone_group(), current_month(), line_chart = "monthly", accent_average = FALSE
-    )
+    level_ <- level()
+    zone_group_ <- zone_group()
+    current_month_ <- current_month()
+    input_operations_var <- input$operations_var
+
+    future_promise({
+        debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_ops_plot")
+        get_trend_multiplot(
+            ops_metrics_list[[input_operations_var]],
+            level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
+        )
+    })
 })
 ```
 
