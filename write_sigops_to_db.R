@@ -142,14 +142,14 @@ if (FALSE) {
     }
     
     # Prep before writing to db
-    # cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
-    # cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
-    # 
-    # sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
-    # sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
-    # 
-    # sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
-    # sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
+    cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
+    cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+
+    sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
+    sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
+
+    sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
+    sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
     
     
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
@@ -189,8 +189,10 @@ if (FALSE) {
             c("`Quarter` text", "`Quarter` VARCHAR(8)"),
             c("`Date` text", "`Date` DATE"),
             c("`Month` text", "`Month` DATE"),
-            c("`Hour` text", "`Hour` DATETIME"))) {
-            
+            c("`Hour` text", "`Hour` DATETIME"),
+            c("`data` text", "`data` mediumtext")
+            )
+        ) {
             create_statements[["Create Table"]] <- stringr::str_replace(create_statements[["Create Table"]], swap[1], swap[2])
         }
         
@@ -256,17 +258,19 @@ if (FALSE) {
 }
 
 # Prep before writing to db
-# cor$mo$maint <- rename(cor$mo$maint, Zone_Group = `Zone Group`)
-# cor$mo$ops <- rename(cor$mo$ops, Zone_Group = `Zone Group`)
-# 
-# sub$mo$maint <- rename(sub$mo$maint, Zone_Group = `Zone Group`)
-# sub$mo$ops <- rename(sub$mo$ops, Zone_Group = `Zone Group`)
-# 
-# sig$mo$maint <- rename(sig$mo$maint, Zone_Group = `Zone Group`)
-# sig$mo$ops <- rename(sig$mo$ops, Zone_Group = `Zone Group`)
+cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
+cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+
+sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
+sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
+
+sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
+sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
 
 # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
-cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)
+if (names(cor$mo$udc_trend_table) != c("key", "data")) {
+    cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)
+}
 
 write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = FALSE)
 
