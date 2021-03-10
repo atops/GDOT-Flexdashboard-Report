@@ -25,6 +25,7 @@ suppressMessages({
     library(data.table)
     library(htmltools)
     library(leaflet)
+    library(leaflet.extras)
     library(sp)
     library(jsonlite)
     library(shinycssloaders)
@@ -41,6 +42,7 @@ if (interactive()) {
 
 source("Utilities.R")
 source("Classes.R")
+source("zone_manager_reports_editor.R")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -70,6 +72,7 @@ LIGHT_GRAY_BAR = "#bdbdbd"
 RED2 = "#e41a1c"
 GDOT_BLUE = "#045594"; GDOT_BLUE_RGB = "#2d6797"
 GDOT_YELLOW = "#EEB211"; GDOT_YELLOW_RGB = "rgba(238, 178, 17, 0.80)"
+SIGOPS_GREEN = "#007338"
 
 colrs <- c("1" = LIGHT_BLUE, "2" = BLUE, 
            "3" = LIGHT_GREEN, "4" = GREEN, 
@@ -1561,7 +1564,7 @@ plot_teams_tasks <- function(tab, var_,
     p3 <- plot_ly(data = tab) %>% 
         add_bars(x = ~Outstanding,  # ~outstanding, 
                  y = ~var, 
-                 color = I(ORANGE),
+                 color = I(SIGOPS_GREEN),
                  name = "Outstanding",
                  text = ~Outstanding, 
                  textposition = textpos, 
@@ -1596,14 +1599,14 @@ cum_events_plot <- function(df) {
                   x = ~Month,
                   y = ~Status,
                   type = 'scatter', mode = 'lines', name = 'Outstanding',
-                  line = list(color = ORANGE)) %>%
+                  line = list(color = SIGOPS_GREEN)) %>%
         add_trace(data = filter(df, Events == "Outstanding"),
                   x = ~Month,
                   y = ~Status,
                   type = 'scatter',
                   mode = 'markers', 
                   name = 'Outstanding',
-                  marker = list(color = ORANGE),
+                  marker = list(color = SIGOPS_GREEN),
                   showlegend = FALSE) %>%
         layout(barmode = "group",
                yaxis = list(title = "Events"),
@@ -1726,7 +1729,7 @@ udcplot_plotly <- function(hourly_udc) {
                 x = ~month_hour, 
                 y = ~delay_cost, 
                 name = current_month_str, 
-                line = list(color = ORANGE),
+                line = list(color = SIGOPS_GREEN),
                 customdata = ~glue(paste(
                     "<b>{Corridor}</b>",
                     "<br><b>{format(month_hour, '%I:%M %p')}</b>",

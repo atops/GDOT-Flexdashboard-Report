@@ -2202,8 +2202,6 @@ Map
 
 ```{r Map, echo = FALSE, eval = TRUE}
 
-library(leaflet.extras)
-
 metrics_list <- list(
     "Vehicles Per Day" = vpd,
     # "AM Peak Hour Volume" = am_peak_vph,
@@ -2334,23 +2332,56 @@ shinyApp(
 
         output$SigOpsMap <- renderLeaflet({
             debug(logger, "renderLeaflet on []: output$SigOpsMap")
-            leaflet() %>%
-                addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
-                addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
-                addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
-                addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo") %>%
-                addLayersControl(
-                    baseGroups = c("Light", "Dark", "Satellite", "Topo"),
-                    options = layersControlOptions(collapsed = FALSE)
-                ) %>%
-                enableTileCaching() %>%
-                setView(
-                    lat = 33.7995454,
-                    lng = -84.3729367,
-                    zoom = 12
+            isolate({
+                pal <- colorBin(
+                    palette = "YlGnBu",
+                    domain = map_data()[[map_metric()$variable]],
+                    bins = 5,
+                    pretty = TRUE
                 )
+                
+                leaflet() %>%
+                    addProviderTiles(providers$CartoDB.Positron, group = "Light") %>%
+                    addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
+                    addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+                    addProviderTiles(providers$Esri.WorldTopoMap, group = "Topo") %>%
+                    addLayersControl(
+                        baseGroups = c("Light", "Dark", "Satellite", "Topo"),
+                        options = layersControlOptions(collapsed = FALSE)
+                    ) %>%
+                    enableTileCaching() %>%
+                    setView(lat = 33.7995454,
+                            lng = -84.3729367,
+                            zoom = 12) %>%
+                    addCircleMarkers(
+                        data = map_data(),
+                        lng = ~ Longitude,
+                        lat = ~ Latitude,
+                        popup = paste(
+                            sep = "<br/>",
+                            glue("Signal {map_data()[['Description']]}"),
+                            glue(
+                                paste(
+                                    "<b>{input$metric_input}:</b>",
+                                    "{data_format(map_metric()$data_type)(map_data()[[map_metric()$variable]])}"
+                                )
+                            )
+                        ),
+                        radius = 5,
+                        fillColor = pal(map_data()[[map_metric()$variable]]),
+                        stroke = FALSE,
+                        fillOpacity = 1,
+                        group = "the_group"
+                    ) %>%
+                    addLegend(
+                        position = "topright",
+                        pal = pal,
+                        values = map_data()[[map_metric()$variable]],
+                        title = input$metric_input,
+                        opacity = 1
+                    )
+            })
         })
-        
         
         
         map_metric <- reactive({
@@ -2559,7 +2590,7 @@ fillCol(
         column(
             width = 4,
             renderUI(selectizeInput("signalid", "Select Signal:",
-                choices = c("Select", filtered_signalids()),
+                choices = c("Select"),
                 selected = "",
                 width = "800px"
             ))
@@ -2574,6 +2605,9 @@ fillCol(
     )
 )
 
+observeEvent(input$zone_group, {
+    updateSelectizeInput(session, "signalid", choices = c("Select", filtered_signalids()), server = TRUE)
+}, priority = -1)
 
 sid <- eventReactive(input$signal_details_button, {
     req(input$signalid)
