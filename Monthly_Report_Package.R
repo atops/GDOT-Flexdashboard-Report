@@ -2176,19 +2176,7 @@ tryCatch(
                     Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                     Description = factor(Description)
                 ),
-            "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors),
-            "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
-            "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
-            "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
-            "tsou" = readRDS("tasks_by_source.rds")$sig_daily,
-            "tasks" = readRDS("tasks_all.rds")$sig_daily,
-            
-            "reported" = readRDS("tasks_all.rds")$sig_daily %>%
-                transmute(Zone_Group, Corridor, Date, Reported, delta = NA),
-            "resolved" = readRDS("tasks_all.rds")$sig_daily %>%
-                transmute(Zone_Group, Corridor, Date, Resolved, delta = NA),
-            "outstanding" = readRDS("tasks_all.rds")$sig_daily %>%
-                transmute(Zone_Group, Corridor, Date, Outstanding, delta = NA)
+            "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors)
         )
         sig$wk <- list(
             "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
@@ -2305,8 +2293,8 @@ tryCatch(
             "vphpa" = get_quarterly(sig$mo$vphpa, "vph"),
             "vphpp" = get_quarterly(sig$mo$vphpp, "vph"),
             "tp" = get_quarterly(sig$mo$tp, "vph"),
-            # "aogd" = get_quarterly(sig$mo$aogd, "aog", "vol"),
-            # "prd" = get_quarterly(sig$mo$prd, "pr", "vol"),
+            "aogd" = get_quarterly(sig$mo$aogd, "aog", "vol"),
+            "prd" = get_quarterly(sig$mo$prd, "pr", "vol"),
             "qsd" = get_quarterly(sig$mo$qsd, "qs_freq"),
             "sfd" = get_quarterly(sig$mo$sfd, "sf_freq"),
             "sfo" = get_quarterly(sig$mo$sfo, "sf_freq"),

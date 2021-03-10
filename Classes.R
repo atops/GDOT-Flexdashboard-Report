@@ -242,31 +242,42 @@ p0 <- plot_ly(type = "scatter", mode = "markers") %>% layout(xaxis = x0, yaxis =
 
 
 
-get_valuebox_value <- function(metric, level, zone_group, month, quarter = NULL, line_break = FALSE) {
+get_valuebox_value <- function(metric, zone_group, corridor, month, quarter = NULL, line_break = FALSE) {
     
+    if (corridor == "All Corridors") {
+        corridor <- NULL
+    }
+
     if (is.null(quarter)) { # want monthly, not quarterly data
         vals <- query_data(
             metric, 
-            level, 
+            level = "corridor", 
             resolution = "monthly", 
             zone_group = zone_group, 
-            corridor = zone_group, 
+            corridor = corridor, 
             month = month, 
             upto = FALSE
-        ) %>%
-            as.list()
+        )
     } else {
         vals <- query_data(
             metric, 
-            level, 
+            level = "corridor", 
             resolution = "quarterly", 
             zone_group = zone_group, 
-            corridor = zone_group, 
+            corridor = corridor, 
             quarter = quarter, 
             upto = FALSE
-        ) %>%
-            as.list()
+        )
     }
+    
+    if (is.null(corridor)) {
+        if (zone_group %in% c("All RTOP", "RTOP1", "RTOP2")) {
+            vals <- subset(vals, Zone_Group == zone_group)
+        } else if (is.null(corridor)) {
+            vals <- subset(vals, Zone_Group == Corridor)
+        }
+    } 
+    vals <- as.list(vals)
     
     value <- data_format(metric$data_type)(vals[[metric$variable]])
     shiny::validate(need(value, message = "NA"))
@@ -453,9 +464,10 @@ get_trend_multiplot <- function(metric, level, zone_group, month, line_chart = "
         
         # Weekly Data - historical trend
         wdf <- wdf %>%
-            filter(Date < month + months(1)) %>%
             mutate(var = !!var_,
-                   col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1))) %>%
+                   col = factor(ifelse(accent_average & Corridor == zone_group, 1, 0), levels = c(0, 1)),
+                   Corridor = factor(Corridor)) %>%
+            filter(!is.na(var)) %>%
             group_by(Corridor)
         
         sdw <- SharedData$new(wdf, ~Corridor, group = "grp")
