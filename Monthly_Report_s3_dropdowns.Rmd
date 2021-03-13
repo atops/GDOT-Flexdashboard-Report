@@ -2953,7 +2953,7 @@ fillCol(
         column(
             width = 4,
             renderUI(selectizeInput("signalid", "Select Signal:",
-                choices = c("Select", filtered_signalids()),
+                choices = c("Select"),
                 selected = "",
                 width = "800px"
             ))
@@ -2967,6 +2967,10 @@ fillCol(
         )
     )
 )
+
+observeEvent(input$zone_group, {
+    updateSelectizeInput(session, "signalid", choices = c("Select", filtered_signalids()), server = TRUE)
+}, priority = -1)
 
 sid <- eventReactive(input$signal_details_button, {
     req(input$signalid)

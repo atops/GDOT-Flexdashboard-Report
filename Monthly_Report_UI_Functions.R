@@ -2034,7 +2034,7 @@ getcolorder <- function(no.corridors) {
 
 
 
-get_corridor_summary_table <- function(data) {  # }, current_month, zone_group) {
+get_corridor_summary_table <- function(data) {
     
     #' Creates an html table for a corridor by zone in a month
     #' with all metrics color coded by whether they met goal
@@ -2046,7 +2046,7 @@ get_corridor_summary_table <- function(data) {  # }, current_month, zone_group) 
     
     #if (zone_group %in% unique(data$Zone_Group)) {
         # table for plotting
-        dt <- data %>%  #filter(data, Month == current_month, Zone_Group == zone_group) %>%
+        dt <- data %>%
             select(-c(seq(5, 25, 2)), -Zone_Group, -Month) %>%
             gather("Metric", "value", 2:12) %>%
             spread(Corridor, value)
@@ -2057,7 +2057,7 @@ get_corridor_summary_table <- function(data) {  # }, current_month, zone_group) 
         setDT(dt)
         
         # table with deltas - to be used for formatting data table
-        dt.deltas <- data %>%  # filter(data, Month == current_month, Zone_Group == zone_group) %>%
+        dt.deltas <- data %>%
             select(-c(seq(4, 24, 2)), -Zone_Group, -Month) %>%
             rename_at(vars(ends_with(".delta")), ~str_replace(., ".delta", "")) %>%
             gather("Metric", "value", 2:12) %>%
@@ -2164,9 +2164,6 @@ get_corridor_summary_table <- function(data) {  # }, current_month, zone_group) 
                                  )
         )
         
-    #} else {
-    #    NULL
-    #}
 }
 
 
