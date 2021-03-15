@@ -123,7 +123,7 @@ convert_to_key_value_df <- function(key, df) {
 }
 
 conn <- get_aurora_connection()
-duckconn <- get_duckdb_connection("sigops.duckdb")
+#conn <- get_duckdb_connection("sigops.duckdb")
 
 
 
@@ -218,7 +218,7 @@ if (FALSE) {
         print("DuckDB Database Connection")
         
         # Create Indexes
-        lapply(create_statements$Table, function(x) {
+        lapply(table_names, function(x) {
             print(x)
             set_index_duckdb(conn, x)
         })
