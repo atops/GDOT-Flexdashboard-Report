@@ -2,29 +2,45 @@
 library(aws.s3)
 library(qs)
 
-write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, asof_date = NULL) {
+write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_date = NULL, report_end_date = NULL) {
     
     for (per in c("qu", "mo", "wk", "dy")) {
         for (tab in names(df[[per]])) { 
             
             table_name <- glue("{dfname}_{per}_{tab}")
-            print(glue("Writing {table_name} | {nrow(df[[per]][[tab]])} | recreate = {recreate}"))
+            df_ <- df[[per]][[tab]]
+            datefield <- intersect(names(df_), c("Month", "Date", "Hour"))
+            
+            print(glue("Writing {table_name} | {nrow(df_)} | recreate = {recreate}"))
             
             tryCatch({
                 if (recreate) {
+                    # Overwrite
                     dbWriteTable(
                         conn, 
                         table_name, 
-                        head(df[[per]][[tab]], 3), 
+                        head(df_, 3), 
                         overwrite = TRUE,
                         row.names = FALSE)
                 } else {
-                    dbSendQuery(conn, glue("DELETE from {table_name}"))
-                    # dbExecute(conn, glue("DELETE from {table_name} WHERE {datefield} >= {asof_date}"))
+                    # Clear Prior to Append
+                    if (!is.null(calcs_start_date) & length(datefield) == 1) {
+                        dbExecute(conn, glue(paste(
+                            "DELETE from {table_name} WHERE {datefield} >= '{calcs_start_date}'")))
+                    } else {
+                        dbSendQuery(conn, glue("DELETE from {table_name}"))
+                    }
+                    # Filter Dates and Append
+                    if (!is.null(calcs_start_date) & length(datefield) == 1) {
+                        df_ <- filter(df_, !!as.name(datefield) >= calcs_start_date)
+                    }
+                    if (!is.null(report_end_date) & length(datefield) == 1) {
+                        df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
+                    }
                     dbWriteTable(
                         conn, 
                         table_name, 
-                        df[[per]][[tab]], # filter(datefield >= {asof_date})
+                        df_,
                         overwrite = FALSE,
                         append = TRUE,
                         row.names = FALSE)
@@ -36,8 +52,6 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, asof_date = N
         }
     }    
 }
-
-
 
 write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE) {
     
@@ -122,12 +136,11 @@ convert_to_key_value_df <- function(key, df) {
     
 }
 
-conn <- get_aurora_connection()
-#conn <- get_duckdb_connection("sigops.duckdb")
 
 
 
-if (FALSE) {
+
+recreate_database <- function(conn) {
     # ------------------------------------------------------------------------------
     # -- Run just the first time to create database tables and indexes
     # ------------------------------------------------------------------------------
@@ -225,56 +238,59 @@ if (FALSE) {
     }
     
     
-    tab <- "cor"
-    tab <- "sub"
-    tab <- "sig"
-    
-    tab_table_names <- table_names[startsWith(table_names, glue("{tab}_"))]
-    
-    for (table_name in table_names[startsWith(table_names, glue("{tab}_"))]) {
-        cat(table_name)
-        tryCatch({
-            if ("Month" %in% dbListFields(conn, table_name)) {
-                df <- tbl(conn, table_name) %>% arrange(desc(Month)) %>% head(1) %>% collect()
-                print(df$Month)
-            } else if ("Date" %in% dbListFields(conn, table_name)) {
-                df <- tbl(conn, table_name) %>% arrange(desc(Date)) %>% head(1) %>% collect()
-                print(df$Date)
-            } else if ("Hour" %in% dbListFields(conn, table_name)) {
-                df <- tbl(conn, table_name) %>% arrange(desc(Hour)) %>% head(1) %>% collect()
-                print(df$Hour)
-            } else if ("Quarter" %in% dbListFields(conn, table_name)) {
-                df <- tbl(conn, table_name) %>% arrange(desc(Quarter)) %>% head(1) %>% collect()
-                print(df$Quarter)
-            } else {
-                print(dbListFields(conn, table_name))
-            }
-        }, error = function(e) {
-            print('Error')
-        })
-    }
+    # tab <- "cor"
+    # tab <- "sub"
+    # tab <- "sig"
+    # 
+    # tab_table_names <- table_names[startsWith(table_names, glue("{tab}_"))]
+    # 
+    # for (table_name in table_names[startsWith(table_names, glue("{tab}_"))]) {
+    #     cat(table_name)
+    #     tryCatch({
+    #         if ("Month" %in% dbListFields(conn, table_name)) {
+    #             df <- tbl(conn, table_name) %>% arrange(desc(Month)) %>% head(1) %>% collect()
+    #             print(df$Month)
+    #         } else if ("Date" %in% dbListFields(conn, table_name)) {
+    #             df <- tbl(conn, table_name) %>% arrange(desc(Date)) %>% head(1) %>% collect()
+    #             print(df$Date)
+    #         } else if ("Hour" %in% dbListFields(conn, table_name)) {
+    #             df <- tbl(conn, table_name) %>% arrange(desc(Hour)) %>% head(1) %>% collect()
+    #             print(df$Hour)
+    #         } else if ("Quarter" %in% dbListFields(conn, table_name)) {
+    #             df <- tbl(conn, table_name) %>% arrange(desc(Quarter)) %>% head(1) %>% collect()
+    #             print(df$Quarter)
+    #         } else {
+    #             print(dbListFields(conn, table_name))
+    #         }
+    #     }, error = function(e) {
+    #         print('Error')
+    #     })
+    # }
     
     # ------------------------------------------------------------------------------
 }
 
-# Prep before writing to db
-cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
-cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+append_to_database <- function(conn, cor, sub, sig, calcs_start_date, report_end_date) {
 
-sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
-sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
-
-sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
-sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
-
-# This is a more complex data structure. Convert to a JSON string that can be unwound on query.
-if (names(cor$mo$udc_trend_table) != c("key", "data")) {
-    cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)
+    # Prep before writing to db
+    cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
+    cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+    
+    sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
+    sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
+    
+    sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
+    sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
+    
+    # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
+    if (names(cor$mo$udc_trend_table) != c("key", "data")) {
+        cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)
+    }
+    
+    write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = FALSE)
+    
+    # Write entire data set to database
+    write_sigops_to_db(conn, cor, "cor", recreate = FALSE, calcs_start_date, report_end_date)
+    write_sigops_to_db(conn, sub, "sub", recreate = FALSE, calcs_start_date, report_end_date)
+    write_sigops_to_db(conn, sig, "sig", recreate = FALSE, calcs_start_date, report_end_date)
 }
-
-write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = FALSE)
-
-# Write entire data set to database
-write_sigops_to_db(conn, cor, "cor", recreate = FALSE)
-write_sigops_to_db(conn, sub, "sub", recreate = FALSE)
-write_sigops_to_db(conn, sig, "sig", recreate = FALSE)
