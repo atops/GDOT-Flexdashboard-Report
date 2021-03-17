@@ -181,9 +181,6 @@ source("Database_Functions.R")
 
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
 
-if (Sys.info()["sysname"] == "Linux") {
-    aurora_connection_pool <- get_aurora_connection_pool()
-}
 
 if (conf$mode == "production") {
     last_month <- ymd(conf$production_report_end_date)   # Production
@@ -243,19 +240,23 @@ s3reactivePoll <- function(intervalMillis, bucket, object, aws_s3) {
 
 
 if (conf$mode == "production") {
+
+    corridors <- function() {qs::qread("all_Corridors_Latest.qs")}
     
-    # Do nothing. Files are read in .Rmd file
+    if (Sys.info()["sysname"] == "Linux") {
+        sigops_connection_pool <<- get_duckdb_connection_pool("/data/staging/sigops.duckdb", read_only = TRUE)
+        aurora_connection_pool <<- get_aurora_connection_pool()
+    }
     
 } else if (conf$mode == "beta") {
     
     corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
     corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
-
-    # cordata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "cor_ec2.qs", aws_conf)
-    # sigdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sig_ec2.qs", aws_conf)
-    # subdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "sub_ec2.qs", aws_conf)
-    # mapdata <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "map_data.qs", aws_conf)
-
+    
+    if (Sys.info()["sysname"] == "Linux") {
+        sigops_connection_pool <<- get_aurora_connection_pool()
+        aurora_connection_pool <<- sigops_connection_pool
+    }
 
 } else {
     stop("mode defined in configuration yaml file must be either production or beta")
@@ -272,96 +273,6 @@ read_zipped_feather <- function(x) {
 
 
 # Functions to get and filter data for plotting ---------------------------
-
-
-# Filter for zone_group and zone
-filter_mr_data <- function(df, zone_group_) {
-    if (zone_group_ == "All RTOP") {
-       df %>% 
-            filter(Zone_Group %in% c(RTOP1_ZONES, RTOP2_ZONES, "RTOP1", "RTOP2", "All RTOP"),
-                   !Corridor %in% c(RTOP1_ZONES, RTOP2_ZONES))
-        
-    } else if (zone_group_ == "RTOP1") {
-        df %>%
-            filter(Zone_Group %in% c(RTOP1_ZONES, "RTOP1"),
-                   !Corridor %in% c(RTOP1_ZONES))
-        
-    } else if (zone_group_ == "RTOP2") {
-       df %>%
-            filter(Zone_Group %in% c(RTOP2_ZONES, "RTOP2"),
-                   !Corridor %in% c(RTOP2_ZONES))
-        
-    } else if (zone_group_ == "Zone 7") {
-        df %>%
-            filter(Zone_Group %in% c("Zone 7m", "Zone 7d", "Zone 7"))
-        
-    } else {
-        df %>% 
-            filter(as.character(Zone_Group) == zone_group_)
-    }
-}
-
-
-
-rds_vb_query <- function(mr, per, tab, zone_group, current_month = NULL, current_quarter = NULL) {
-    
-    table <- glue("{mr}_{per}_{tab}")
-    df <- tbl(conn, table)
-    if (!is.null(current_month)) {
-        df %>% 
-            filter(Month == current_month,
-                   Corridor == zone_group) %>%
-            collect() %>%
-            mutate(Month = date(Month))
-    } else { # current_quarter is not null
-        df %>% 
-            filter(Quarter == current_quarter,
-                   Corridor == zone_group) %>%
-            collect()
-    }
-}
-
-
-
-rds_pp_query <- function(mr, per, tab, first_month, current_month, zone_group = NULL) {
-    
-    table <- glue("{mr}_{per}_{tab}")
-    df <- tbl(conn, table)
-    
-    if ("Month" %in% names(df)) {
-        df <- filter(df, Month >= first_month, Month <= current_month)
-    }
-    if ("Date" %in% names(df)) {
-        df <- filter(Date >= first_month, Date <= current_month)
-    }
-    if ("Hour" %in% names(df)) {
-        df <- filter(Hour >= first_month, Hour <= current_month)
-    }
-    
-    if (!is.null(zone_group)) {
-        df <- filter(df, Corridor == zone_group)
-    }
-    
-    df <- collect(df)
-    
-    if ("Month" %in% names(df)) {
-        df <- mutate(df, Month = date(Month))
-    }
-    if ("Date" %in% names(df)) {
-        df <- mutate(df, Date = date(Date))
-    }
-    if ("Hour" %in% names(df)) {
-        df <- mutate(df, Hour = ymd_hms(Hour))
-    }
-    
-    if ("Corridor" %in% names(df)) {
-        df <- mutate(df, Corridor = factor(Corridor))
-    }
-    if ("Zone_Group" %in% names(df)) {
-        df <- mutate(df, Zone_Group = factor(Zone_Group))
-    }
-    df
-}
 
 
 
