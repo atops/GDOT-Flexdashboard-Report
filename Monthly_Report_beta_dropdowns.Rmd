@@ -929,7 +929,7 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox_value(
-            ped_button_uptime,
+            daily_pedestrian_pushbuttons,
             zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
@@ -1158,7 +1158,7 @@ fillCol(
             debug(logger, "reactive on level(), zone_group() and current_month(): summary_plot (all)")
             summary_plot(
                 throughput, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1168,7 +1168,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 arrivals_on_green, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1178,7 +1178,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 progression_ratio, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1188,7 +1188,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 queue_spillback_rate, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1198,7 +1198,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 peak_period_split_failures, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1208,7 +1208,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 off_peak_split_failures, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1218,7 +1218,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 travel_time_index, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1228,7 +1228,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 planning_time_index, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1247,7 +1247,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 vpd, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1258,7 +1258,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 am_peak_vph, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1268,7 +1268,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 pm_peak_vph, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1279,7 +1279,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 detector_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1289,7 +1289,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 ped_button_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1299,7 +1299,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 cctv_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1309,7 +1309,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 comm_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1319,7 +1319,7 @@ fillCol(
     #     renderPlotly    ({
             # summary_plot(
             #     rsu_uptime, 
-            #     level = level(), zone_group = zone_group(), month = current_month()
+            #     zone_group = input$zone_group, corridor = corridor(), month = current_month()
             # )
     #     }),
     #     flex = c(2, 10)
