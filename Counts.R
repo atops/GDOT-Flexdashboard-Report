@@ -570,6 +570,8 @@ get_adjusted_counts_split <- function(filtered_counts) {
             group_by(SignalID, Timeperiod, CallPhase) %>%
             mutate(mvol = mean(vol/Ph_Contr, na.rm = TRUE)) %>% ungroup()
         
+        fc_phc$mvol[fc_phc$mvol > 3000] <- NA  # Prevent ridiculously high interpolated values
+
         fc_phc$vol[is.na(fc_phc$vol)] <- as.integer(fc_phc$mvol[is.na(fc_phc$vol)] * fc_phc$Ph_Contr[is.na(fc_phc$vol)])
         
         #hourly volumes over the month to fill in missing data for all detectors in a phase
