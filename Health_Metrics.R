@@ -47,39 +47,50 @@ get_summary_data <- function(df, current_month = NULL) {
     #' @return A data frame, monthly data of all metrics by Zone and Corridor
     # current_month <- months[order(months)][match(current_month, months.formatted)]
     
-    
     # Cleaner Version (mostly) for future use more broadly on the site.
     # Still have the issue of certain metrics not applying at certain levels,
     # e.g., tti in sig data frame has no meaning since it's a corridor, not a signal-level metric
     #
     # data <- list(
-    #     select(df$mo[["du"]], Zone_Group, Corridor, Date, du.uptime = uptime, uptime.sb, uptime.pr),
-    #     select(df$mo[["cu"]], Zone_Group, Corridor, Date, cu.uptime = uptime),
-    #     select(df$mo[["pau"]], Zone_Group, Corridor, Date, pau.uptime = uptime),
-    #     select(df$mo[["cctv"]], Zone_Group, Corridor, Date, cctv.uptime = uptime),
-    #     select(df$mo[["ru"]], Zone_Group, Corridor, Date, ru.uptime = uptime),
+    #     select(df$mo[["du"]], Zone_Group, Corridor, Month, du = uptime, du.delta = delta),
+    #     select(df$mo[["cu"]], Zone_Group, Corridor, Month, cu = uptime, cu.delta = delta),
+    #     select(df$mo[["pau"]], Zone_Group, Corridor, Month, pau = uptime, pau.delta = delta),
+    #     select(df$mo[["cctv"]], Zone_Group, Corridor, Month, cctv = uptime, cctv.delta = delta),
+    #     select(df$mo[["ru"]], Zone_Group, Corridor, Month, ru = uptime, ru.delta = delta),
     # 
-    #     select(df$mo[["vpd"]], Zone_Group, Corridor, Date, vpd, Description),
-    #     select(df$mo[["papd"]], Zone_Group, Corridor, Date, papd),
-    #     select(df$mo[["pd"]], Zone_Group, Corridor, Date, pd),
-    #     select(df$mo[["tp"]], Zone_Group, Corridor, Date, vph),
-    #     select(df$mo[["aog"]], Zone_Group, Corridor, Date, aog),
-    #     select(df$mo[["pr"]], Zone_Group, Corridor, Date, pr),
-    #     select(df$mo[["qsd"]], Zone_Group, Corridor, Date, qs_freq),
-    #     select(df$mo[["sfd"]], Zone_Group, Corridor, Date, sf_freq),
-    #     select(df$mo[["sfo"]], Zone_Group, Corridor, Date, sf_freq),
+    #     select(df$mo[["vpd"]], Zone_Group, Corridor, Month, vpd, vpd.delta = delta),
+    #     select(df$mo[["papd"]], Zone_Group, Corridor, Month, papd, papd.delta = delta),
+    #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
+    #     select(df$mo[["tp"]], Zone_Group, Corridor, Month, vph, vph.delta = delta),
+    #     select(df$mo[["aogd"]], Zone_Group, Corridor, Month, aog, aog.delta = delta),
+    #     select(df$mo[["pr"]], Zone_Group, Corridor, Month, pr, pr.delta = delta),
+    #     select(df$mo[["qsd"]], Zone_Group, Corridor, Month, qs, qs.delta = delta),
+    #     select(df$mo[["sfd"]], Zone_Group, Corridor, Month, sfd, sfd.delta = delta),
+    #     select(df$mo[["sfo"]], Zone_Group, Corridor, Month, sfo, sfo.delta = delta),
+    #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
+    #     select(df$mo[["flash"]], Zone_Group, Corridor, Month, flash_events = flash, flash.delta = delta),
+    # ifelse(nrow(df$mo$tti) > 0, 
+    #        select(
+    #            df$mo[["tti"]], Zone_Group, Corridor, Month, tti, tti.delta = delta),
+    #        data.frame(
+    #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), tti = double(), tti.delta = double())
+    # )
+    # ifelse(nrow(df$mo$pti) > 0, 
+    #        select(
+    #            df$mo[["pti"]], Zone_Group, Corridor, Month, pti, pti.delta = delta),
+    #        data.frame(
+    #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), pti = double(), pti.delta = double())
+    # )
     #     
     # 
     # ) %>%
-    #     reduce(full_join, by = c("Zone_Group", "Corridor", "Date"))
+    #     reduce(full_join, by = c("Zone_Group", "Corridor", "Month"))
     
     
     
     data <- list(
         rename(df$mo$du, du = uptime, du.delta = delta),
         rename(df$mo$pau, pau = uptime, pau.delta = delta),
-        # rename(df$mo$pdc, pdc = Avg.Max.Ped.Delay, pdc.delta = delta),
-        # rename(df$mo$pdf, pdf = Avg.Max.Ped.Delay, pdf.delta = delta),
         rename(df$mo$cctv, cctv = uptime, cctv.delta = delta),
         #rename(df$mo$ru, rsu = uptime, rsu.delta = delta),
         rename(df$mo$cu, cu = uptime, cu.delta = delta),

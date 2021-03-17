@@ -154,15 +154,18 @@ recreate_database <- function(conn) {
         sig <- s3read_using(qread, bucket = "gdot-spm", object = "sig_ec2.qs")
     }
     
-    # Prep before writing to db
+    # Prep before writing to db. These come from Health_Metrics.R
     cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
     cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+    cor$mo$safety <- mutate(cor$mo$safety, Zone_Group = Zone)
 
     sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
     sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
-
+    cor$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
+    
     sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
     sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
+    cor$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
     
     
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
@@ -272,16 +275,19 @@ recreate_database <- function(conn) {
 
 append_to_database <- function(conn, cor, sub, sig, calcs_start_date, report_end_date) {
 
-    # Prep before writing to db
+    # Prep before writing to db. These come from Health_Metrics.R
     cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
     cor$mo$ops <- mutate(cor$mo$ops, Zone_Group = Zone)
+    cor$mo$safety <- mutate(cor$mo$safety, Zone_Group = Zone)
     
     sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
     sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
+    cor$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
     
     sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
     sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
-    
+    cor$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
+
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
     if (names(cor$mo$udc_trend_table) != c("key", "data")) {
         cor$mo$udc_trend_table <- convert_to_key_value_df("udc", cor$mo$udc_trend_table)

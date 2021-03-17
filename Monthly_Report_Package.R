@@ -1940,6 +1940,133 @@ tryCatch(
 
 
 
+# RELATIVE SPEED INDEX ########################################################
+
+print(glue("{Sys.time()} Relative Speed Index [25 of 27]"))
+
+tryCatch(
+    {
+        calcs_start_date <- "2020-01-01"
+        date_range <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "month")
+        
+        sub_monthly_rsi <- lapply(
+            date_range, function(d) {
+                obj <- glue("mark/relative_speed_index/rsi_sub_{d}.parquet")
+                if (length(get_bucket(conf$bucket, obj)) > 0) {
+                    s3read_using(read_parquet, bucket = conf$bucket, object = obj) %>%
+                        select(-starts_with("__")) %>%
+                        mutate(Month = d, .before = "rsi")
+                }
+            }
+        ) %>% bind_rows() %>%
+            mutate(
+                Corridor = factor(Corridor),
+                Subcorridor = factor(Subcorridor)
+            )
+        
+        
+        cor_monthly_rsi <- lapply(
+            date_range, function(d) {
+                obj <- glue("mark/relative_speed_index/rsi_cor_{d}.parquet")
+                if (length(get_bucket(conf$bucket, obj)) > 0) {
+                    s3read_using(read_parquet, bucket = conf$bucket, object = obj) %>%
+                        select(-starts_with("__")) %>%
+                        mutate(Month = d, .before = "rsi")
+                }
+            }
+        ) %>% bind_rows() %>%
+            mutate(
+                Corridor = factor(Corridor)
+            )
+        
+        sub_monthly_rsi <- bind_rows(
+            sub_monthly_rsi,
+            mutate(cor_monthly_rsi, Subcorridor = Corridor)
+        ) %>% 
+            rename(Zone_Group = Corridor, Corridor = Subcorridor) %>%
+            group_by(Zone_Group, Corridor) %>% 
+            arrange(Month) %>% 
+            mutate(
+                ones = NA,
+                delta = (rsi - lag(rsi))/lag(rsi)) %>%
+            ungroup()
+        
+        cor_monthly_rsi <- left_join(
+            cor_monthly_rsi, 
+            distinct(corridors, Zone_Group, Corridor), 
+            by = "Corridor"
+        ) %>% 
+            relocate(Zone_Group, .before = "Corridor") %>%
+            group_by(Zone_Group, Corridor) %>% 
+            arrange(Month) %>% 
+            mutate(
+                ones = NA,
+                delta = (rsi - lag(rsi))/lag(rsi)) %>%
+            ungroup()
+        
+        addtoRDS(cor_monthly_rsi, "cor_monthly_rsi.rds", "rsi", report_start_date, calcs_start_date)
+        addtoRDS(sub_monthly_rsi, "sub_monthly_rsi.rds", "rsi", report_start_date, calcs_start_date)
+        
+        rm(cor_monthly_rsi)
+        rm(sub_monthly_rsi)
+    },
+    error = function(e) {
+        print("ENCOUNTERED AN ERROR:")
+        print(e)
+    }
+)
+
+
+
+# CRASH INDICES ###############################################################
+
+print(glue("{Sys.time()} Crash Indices [26 of 27]"))
+
+tryCatch(
+    {
+        monthly_crashes <- s3read_using(
+            read_csv, bucket = conf$bucket, object = "mark/crash_indices/sigs_compiled.csv") %>%
+            rename(Date = Month,
+                   cri = crash_rate_index,
+                   kabco = kabco_index) %>% 
+            filter(!is.na(SignalID), !is.na(cri), !is.na(kabco), !is.infinite(cri), !is.infinite(kabco)) %>%
+            mutate(CallPhase = 0)
+        
+        monthly_crash_rate_index <- get_monthly_avg_by_day(monthly_crashes, "cri")
+        monthly_kabco_index <- get_monthly_avg_by_day(monthly_crashes, "kabco")
+        
+        cor_monthly_crash_rate_index <- get_cor_monthly_avg_by_day(
+            monthly_crash_rate_index, corridors, "cri")
+        
+        cor_monthly_kabco_index <- get_cor_monthly_avg_by_day(
+            monthly_kabco_index, corridors, "kabco")
+        
+        
+        sub_monthly_crash_rate_index <- get_cor_monthly_avg_by_day(
+            monthly_crash_rate_index, subcorridors, "cri")
+        
+        sub_monthly_kabco_index <- get_cor_monthly_avg_by_day(
+            monthly_kabco_index, subcorridors, "kabco")
+        
+        
+        addtoRDS(monthly_crash_rate_index, "monthly_crash_rate_index.rds", "cri", report_start_date, calcs_start_date)
+        addtoRDS(monthly_kabco_index, "monthly_kabco_index.rds", "kabco", report_start_date, calcs_start_date)
+        
+        addtoRDS(cor_monthly_crash_rate_index, "cor_monthly_crash_rate_index.rds", "cri", report_start_date, calcs_start_date)
+        addtoRDS(cor_monthly_kabco_index, "cor_monthly_kabco_index.rds", "kabco", report_start_date, calcs_start_date)
+        
+        addtoRDS(sub_monthly_crash_rate_index, "sub_monthly_crash_rate_index.rds", "cri", report_start_date, calcs_start_date)
+        addtoRDS(sub_monthly_kabco_index, "sub_monthly_kabco_index.rds", "kabco", report_start_date, calcs_start_date)
+    },
+    error = function(e) {
+        print("ENCOUNTERED AN ERROR:")
+        print(e)
+    }
+)
+
+
+
+
 # Package up for Flexdashboard
 
 print(glue("{Sys.time()} Package for Monthly Report [25 of 27]"))
@@ -2091,7 +2218,10 @@ tryCatch(
             "hourly_udc" = readRDS("hourly_udc.rds"),
             "udc_trend_table" = readRDS("udc_trend_table_list.rds"),
             "flash" = readRDS("cor_monthly_flash.rds"),
-            "bpsi" = readRDS("cor_monthly_bpsi.rds")
+            "bpsi" = readRDS("cor_monthly_bpsi.rds"),
+            "rsi" = readRDS("cor_monthly_rsi.rds"),
+            "cri" = readRDS("cor_monthly_crash_rate_index.rds"),
+            "kabco" = readRDS("cor_monthly_kabco_index.rds")
         )
         cor$qu <- list(
             "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
@@ -2120,7 +2250,10 @@ tryCatch(
             "outstanding" = get_quarterly(cor$mo$tasks, "Outstanding", operation = "latest"),
             "over45" = get_quarterly(cor$mo$over45, "over45", operation = "latest"),
             "mttr" = get_quarterly(cor$mo$mttr, "mttr", operation = "latest"),
-            "bpsi" = get_quarterly(cor$mo$bpsi, "bpsi")
+            "bpsi" = get_quarterly(cor$mo$bpsi, "bpsi"),
+            "rsi" = get_quarterly(cor$mo$rsi, "rsi"),
+            "cri" = get_quarterly(cor$mo$cri, "cri"),
+            "kabco" = get_quarterly(cor$mo$kabco, "kabco")
         )
 
         cor$summary_data <- get_corridor_summary_data(cor)
@@ -2218,7 +2351,10 @@ tryCatch(
                     Month = dates
                 ),
             "flash" = readRDS("sub_monthly_flash.rds"),
-            "bpsi" = readRDS("sub_monthly_bpsi.rds")
+            "bpsi" = readRDS("sub_monthly_bpsi.rds"),
+            "rsi" = readRDS("sub_monthly_rsi.rds"),
+            "cri" = readRDS("sub_monthly_crash_rate_index.rds"),
+            "kabco" = readRDS("sub_monthly_kabco_index.rds")
         )
         sub$qu <- list(
             "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
@@ -2371,7 +2507,13 @@ tryCatch(
             "mttr" = readRDS("sig_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
-                select(-c(Name, ones))
+                select(-c(Name, ones)),
+            
+            
+            "cri" = sigify(readRDS("monthly_crash_rate_index.rds"), cor$mo$cri, corridors) %>%
+                select(Zone_Group, Corridor, Month, cri, delta),
+            "kabco" = sigify(readRDS("monthly_kabco_index.rds"), cor$mo$kabco, corridors) %>%
+                select(Zone_Group, Corridor, Month, kabco, delta)
         )
     },
     error = function(e) {
@@ -2399,7 +2541,7 @@ descs <- corridors %>%
     ungroup()
 
 for (tab in c(
-    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi",
+    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi", "rsi", "csi", "kabco",
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot"
 )) {

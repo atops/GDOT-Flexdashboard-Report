@@ -176,6 +176,38 @@ bi_health <- structure(
     inherit(metrics[["health_metrics"]], metrics[["bi_health"]]), class = "metric"
 )
 
+safety_percent_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["safety_percent_health"]]), class = "metric"
+)
+safety_missing_data <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["safety_missing_data"]]), class = "metric"
+)
+bpsi_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["bpsi_score"]]), class = "metric"
+)
+rsi_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["rsi_score"]]), class = "metric"
+)
+cri_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cri_score"]]), class = "metric"
+)
+kabco_score <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["kabco_score"]]), class = "metric"
+)
+bpsi_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["bpsi_health"]]), class = "metric"
+)
+rsi_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["rsi_health"]]), class = "metric"
+)
+cri_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["cri_health"]]), class = "metric"
+)
+kabco_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["kabco_health"]]), class = "metric"
+)
+
+
 
 
 get_descriptionBlock <- function(x, zone_group, month, quarter = NULL) {
@@ -286,14 +318,14 @@ get_valuebox_value <- function(metric, zone_group, corridor, month, quarter = NU
     vals$delta <- if_else(is.na(vals$delta), 0, vals$delta)
     
     if (vals$delta > 0) {
-        delta_prefix <- " +"
+        delta_prefix <- "+"
     } else if (vals$delta == 0) {
-        delta_prefix <- "  "
+        delta_prefix <- " "
     } else { # vals$delta < 0
-        delta_prefix <- "  "
+        delta_prefix <- " "
     }
     
-    delta <- glue("({delta_prefix} {as_pct(vals$delta)})")
+    delta <- glue("({delta_prefix}{as_pct(vals$delta)})")
     
     if (line_break) {
         tags$div(HTML(paste(
@@ -310,7 +342,7 @@ get_valuebox_value <- function(metric, zone_group, corridor, month, quarter = NU
 
 
 
-summary_plot <- function(metric, level, zone_group, month) {
+summary_plot <- function(metric, zone_group, corridor, month) {
     
     ax <- list(
         title = "", showticklabels = TRUE, showgrid = FALSE)
@@ -319,15 +351,31 @@ summary_plot <- function(metric, level, zone_group, month) {
         zeroline = FALSE, hoverformat = tick_format(metric$data_type))
     
     
+    if (!is.null(corridor)) {
+        if (corridor == "All Corridors") {
+            corridor <- NULL
+        }
+    }
+    
     data <- query_data(
-        metric, level, "monthly", zone_group = zone_group, month = month, upto = TRUE
+        metric, 
+        level = "corridor", 
+        resolution = "monthly", 
+        zone_group = zone_group, 
+        corridor = corridor, 
+        month = month, 
+        upto = TRUE
     )
+
+    if (is.null(corridor)) {
+        if (zone_group %in% c("All RTOP", "RTOP1", "RTOP2", "Zone 7")) {
+            data <- subset(data, Zone_Group == zone_group)
+        } else {
+            data <- subset(data, Zone_Group == Corridor)
+        }
+    } 
     shiny::validate(need(nrow(data) > 0, "No Data"))
-    
-    data <- data[data$Corridor == zone_group,]
-    shiny::validate(need(nrow(data) > 0, "No Data"))
-    
-    
+
     first <- data[which.min(data$Month), ]
     last <- data[which.max(data$Month), ]
     

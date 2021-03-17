@@ -427,7 +427,65 @@ bi_health:
     data_type: decimal
 
 # --- Safety Health Metrics ---------------------
-# Placeholder
+safety_percent_health:
+    label: Percent Health
+    table: safety_plot
+    variable: Percent Health
+    data_type: percent
+
+safety_missing_data:
+    label: Missing Data
+    table: safety_plot
+    variable: Missing Data
+    data_type: percent
+
+bpsi_score:
+    label: Bike/Ped Safety Index Score
+    table: safety_plot
+    variable: Bike/Ped Safety Index Score
+    data_type: integer
+
+rsi_score:
+    label: Road Safety Index Score
+    table: safety_plot
+    variable: Road Safety Index Score
+    data_type: integer
+
+bpsi_health:
+    label: Bike/Ped Safety Index
+    table: safety_plot
+    variable: Bike/Ped Safety Index
+    data_type: decimal
+
+rsi_health:
+    label: Road Safety Index
+    table: safety_plot
+    variable: Road Safety Index
+    data_type: decimal
+
+cri_score:
+    label: Crash Rate Index Score
+    table: safety_plot
+    variable: Crash Rate Index Score
+    data_type: integer
+
+cri_health:
+    label: Crash Rate Index
+    table: safety_plot
+    variable: Crash Rate Index
+    data_type: integer
+
+kabco_score:
+    label: KABCO Index Score
+    table: safety_plot
+    variable: KABCO Index
+    data_type: decimal
+
+kabco_health:
+    label: KABCO Index
+    table: safety_plot
+    variable: KABCO Index Score
+    data_type: decimal
 
     
 template:
