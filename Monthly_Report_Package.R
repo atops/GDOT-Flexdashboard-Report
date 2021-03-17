@@ -2485,12 +2485,18 @@ source("write_sigops_to_db.R")
 # Update Aurora Nightly
 conn <- get_aurora_connection()
 # recreate_database(conn)
-append_to_database(conn, cor, sub, sig, wk_calcs_start_date)
+append_to_database(
+    conn, cor, sub, sig, wk_calcs_start_date, 
+    report_end_date = conf$production_report_end_date)
+
 
 # Update DuckDB Once per Month for Staging/Main
 duckconn <- get_duckdb_connection("sigops.duckdb")
 # recreate_database(duckconn)
-append_to_database(duckconn, cor, sub, sig, calcs_start_date = ymd("2021-02-01"), report_end_date = conf$production_report_end_date)
+append_to_database(
+    duckconn, cor, sub, sig, 
+    calcs_start_date = ymd("2021-02-01"), 
+    report_end_date = conf$production_report_end_date)
 
 # Need to disconnect and reconnect to commit write-ahead long (wal)
 dbDisconnect(duckconn)
