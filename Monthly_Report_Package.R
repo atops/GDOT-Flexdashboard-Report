@@ -6,7 +6,7 @@ source("Monthly_Report_Package_init.R")
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 26]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 27]"))
 
 tryCatch(
     {
@@ -109,7 +109,7 @@ tryCatch(
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 26]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 27]"))
 
 tryCatch(
     {
@@ -271,7 +271,7 @@ tryCatch(
 
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [3 of 26]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 27]"))
 
 tryCatch(
     {
@@ -457,7 +457,7 @@ tryCatch(
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 26]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 27]"))
 
 tryCatch(
     {
@@ -507,7 +507,7 @@ tryCatch(
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 26]"))
+print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 27]"))
 
 tryCatch(
     {
@@ -549,7 +549,7 @@ tryCatch(
 
 # GET PEDESTRIAN DELAY ###################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 26]"))
+print(glue("{Sys.time()} Pedestrian Delay [6 of 27]"))
 
 tryCatch(
     {
@@ -624,7 +624,7 @@ tryCatch(
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [7 of 26]"))
+print(glue("{Sys.time()} Communication Uptime [7 of 27]"))
 
 tryCatch(
     {
@@ -697,7 +697,7 @@ tryCatch(
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [8 of 26]"))
+print(glue("{Sys.time()} Daily Volumes [8 of 27]"))
 
 tryCatch(
     {
@@ -760,7 +760,7 @@ tryCatch(
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [9 of 26]"))
+print(glue("{Sys.time()} Hourly Volumes [9 of 27]"))
 
 tryCatch(
     {
@@ -845,7 +845,7 @@ tryCatch(
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [10 of 26]"))
+print(glue("{Sys.time()} Daily Throughput [10 of 27]"))
 
 tryCatch(
     {
@@ -904,7 +904,7 @@ tryCatch(
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [11 of 26]"))
+print(glue("{Sys.time()} Daily AOG [11 of 27]"))
 
 tryCatch(
     {
@@ -961,7 +961,7 @@ tryCatch(
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [12 of 26]"))
+print(glue("{Sys.time()} Hourly AOG [12 of 27]"))
 
 tryCatch(
     {
@@ -997,7 +997,7 @@ tryCatch(
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [13 of 26]"))
+print(glue("{Sys.time()} Daily Progression Ratio [13 of 27]"))
 
 tryCatch(
     {
@@ -1039,7 +1039,7 @@ tryCatch(
 
 # HOURLY PROGESSION RATIO ####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [14 of 26]"))
+print(glue("{Sys.time()} Hourly Progression Ratio [14 of 27]"))
 
 tryCatch(
     {
@@ -1078,7 +1078,7 @@ tryCatch(
 
 tryCatch(
     {
-        print(glue("{Sys.time()} Daily Split Failures [15 of 26]"))
+        print(glue("{Sys.time()} Daily Split Failures [15 of 27]"))
 
         sf <- s3_read_parquet_parallel(
             bucket = conf$bucket,
@@ -1175,7 +1175,7 @@ tryCatch(
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [16 of 26]"))
+print(glue("{Sys.time()} Hourly Split Failures [16 of 27]"))
 
 tryCatch(
     {
@@ -1209,7 +1209,7 @@ tryCatch(
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [17 of 26]"))
+print(glue("{Sys.time()} Daily Queue Spillback [17 of 27]"))
 
 tryCatch(
     {
@@ -1262,7 +1262,7 @@ tryCatch(
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [18 of 26]"))
+print(glue("{Sys.time()} Hourly Queue Spillback [18 of 27]"))
 
 tryCatch(
     {
@@ -1295,7 +1295,7 @@ tryCatch(
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [19 of 26]"))
+print(glue("{Sys.time()} Travel Time Indexes [19 of 27]"))
 
 tryCatch(
     {
@@ -1439,7 +1439,7 @@ tryCatch(
 
 # CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} CCTV Uptimes [20 of 26]"))
+print(glue("{Sys.time()} CCTV Uptimes [20 of 27]"))
 
 tryCatch(
     {
@@ -1649,7 +1649,7 @@ tryCatch(
 
 # ACTIVITIES ##############################
 
-print(glue("{Sys.time()} TEAMS [21 of 26]"))
+print(glue("{Sys.time()} TEAMS [21 of 27]"))
 
 tryCatch(
     {
@@ -1723,7 +1723,7 @@ tryCatch(
 # USER DELAY COSTS   ##############################
 
 
-print(glue("{Sys.time()} User Delay Costs [22 of 26]"))
+print(glue("{Sys.time()} User Delay Costs [22 of 27]"))
 
 
 tryCatch(
@@ -1811,7 +1811,7 @@ tryCatch(
 
 # Flash Events ###############################################################
 
-print(glue("{Sys.time()} Flash Events [23 of 26]"))
+print(glue("{Sys.time()} Flash Events [23 of 27]"))
 
 tryCatch(
     {
@@ -1857,9 +1857,92 @@ tryCatch(
     }
 )
 
+
+
+# BIKE/PED SAFETY INDEX #######################################################
+
+print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 27]"))
+
+tryCatch(
+    {
+        calcs_start_date <- "2020-01-01"
+        date_range <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "month")
+        
+        sub_monthly_bpsi <- lapply(
+            date_range, function(d) {
+                obj <- glue("mark/bike_ped_safety_index/bpsi_sub_{d}.parquet")
+                if (length(get_bucket(conf$bucket, obj)) > 0) {
+                    s3read_using(read_parquet, bucket = conf$bucket, object = obj) %>%
+                        select(-starts_with("__")) %>%
+                        mutate(Month = d, .before = "overall_pct") %>%
+                        rename(bpsi = overall_pct)
+                }
+            }
+        ) %>% bind_rows() %>%
+            mutate(
+                Corridor = factor(Corridor),
+                Subcorridor = factor(Subcorridor)
+            )
+        
+        
+        cor_monthly_bpsi <- lapply(
+            date_range, function(d) {
+                obj <- glue("mark/bike_ped_safety_index/bpsi_cor_{d}.parquet")
+                if (length(get_bucket(conf$bucket, obj)) > 0) {
+                    s3read_using(read_parquet, bucket = conf$bucket, object = obj) %>%
+                        select(-starts_with("__")) %>%
+                        mutate(Month = d, .before = "overall_pct") %>%
+                        rename(bpsi = overall_pct)
+                }
+            }
+        ) %>% bind_rows() %>%
+            mutate(
+                Corridor = factor(Corridor)
+            )
+        
+        sub_monthly_bpsi <- bind_rows(
+            sub_monthly_bpsi,
+            mutate(cor_monthly_bpsi, Subcorridor = Corridor)
+        ) %>% 
+            rename(Zone_Group = Corridor, Corridor = Subcorridor) %>%
+            group_by(Zone_Group, Corridor) %>% 
+            arrange(Month) %>% 
+            mutate(
+                ones = NA,
+                delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
+            ungroup()
+        
+        cor_monthly_bpsi <- left_join(
+            cor_monthly_bpsi, 
+            distinct(corridors, Zone_Group, Corridor), 
+            by = "Corridor"
+        ) %>% 
+            relocate(Zone_Group, .before = "Corridor") %>%
+            group_by(Zone_Group, Corridor) %>% 
+            arrange(Month) %>% 
+            mutate(
+                ones = NA,
+                delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
+            ungroup()
+        
+        addtoRDS(cor_monthly_bpsi, "cor_monthly_bpsi.rds", "bpsi", report_start_date, calcs_start_date)
+        addtoRDS(sub_monthly_bpsi, "sub_monthly_bpsi.rds", "bpsi", report_start_date, calcs_start_date)
+        
+        rm(cor_monthly_bpsi)
+        rm(sub_monthly_bpsi)
+        # gc()
+    },
+    error = function(e) {
+        print("ENCOUNTERED AN ERROR:")
+        print(e)
+    }
+)
+
+
+
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [24 of 26]"))
+print(glue("{Sys.time()} Package for Monthly Report [25 of 27]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
@@ -2007,7 +2090,8 @@ tryCatch(
                 transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
             "hourly_udc" = readRDS("hourly_udc.rds"),
             "udc_trend_table" = readRDS("udc_trend_table_list.rds"),
-            "flash" = readRDS("cor_monthly_flash.rds")
+            "flash" = readRDS("cor_monthly_flash.rds"),
+            "bpsi" = readRDS("cor_monthly_bpsi.rds")
         )
         cor$qu <- list(
             "vpd" = get_quarterly(cor$mo$vpd, "vpd"),
@@ -2035,7 +2119,8 @@ tryCatch(
             "resolved" = get_quarterly(cor$mo$tasks, "Resolved"),
             "outstanding" = get_quarterly(cor$mo$tasks, "Outstanding", operation = "latest"),
             "over45" = get_quarterly(cor$mo$over45, "over45", operation = "latest"),
-            "mttr" = get_quarterly(cor$mo$mttr, "mttr", operation = "latest")
+            "mttr" = get_quarterly(cor$mo$mttr, "mttr", operation = "latest"),
+            "bpsi" = get_quarterly(cor$mo$bpsi, "bpsi")
         )
 
         cor$summary_data <- get_corridor_summary_data(cor)
@@ -2132,7 +2217,8 @@ tryCatch(
                     nesting(Corridor, Zone_Group),
                     Month = dates
                 ),
-            "flash" = readRDS("sub_monthly_flash.rds")
+            "flash" = readRDS("sub_monthly_flash.rds"),
+            "bpsi" = readRDS("sub_monthly_bpsi.rds")
         )
         sub$qu <- list(
             "vpd" = get_quarterly(sub$mo$vpd, "vpd"),
@@ -2287,23 +2373,6 @@ tryCatch(
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
                 select(-c(Name, ones))
         )
-        sig$qu <- list(
-            "vpd" = get_quarterly(sig$mo$vpd, "vpd"),
-            # "vph" = get_quarterly(sig$mo$vph, "vph"),
-            "vphpa" = get_quarterly(sig$mo$vphpa, "vph"),
-            "vphpp" = get_quarterly(sig$mo$vphpp, "vph"),
-            "tp" = get_quarterly(sig$mo$tp, "vph"),
-            "aogd" = get_quarterly(sig$mo$aogd, "aog", "vol"),
-            "prd" = get_quarterly(sig$mo$prd, "pr", "vol"),
-            "qsd" = get_quarterly(sig$mo$qsd, "qs_freq"),
-            "sfd" = get_quarterly(sig$mo$sfd, "sf_freq"),
-            "sfo" = get_quarterly(sig$mo$sfo, "sf_freq"),
-            "du" = get_quarterly(sig$mo$du, "uptime"),
-            "cu" = get_quarterly(sig$mo$cu, "uptime"),
-            "pau" = get_quarterly(sig$mo$pau, "uptime"),
-            "cctv" = get_quarterly(sig$mo$cctv, "uptime"),
-            "ru" = get_quarterly(sig$mo$ru, "uptime")
-        )
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -2330,7 +2399,7 @@ descs <- corridors %>%
     ungroup()
 
 for (tab in c(
-    "vpd", "vphpa", "vphpp", "papd", "pd",
+    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi",
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot"
 )) {
@@ -2381,7 +2450,7 @@ for (tab in c("du", "cu", "ru", "pau")) {
 
 
 
-print(glue("{Sys.time()} Upload to AWS [25 of 26]"))
+print(glue("{Sys.time()} Upload to AWS [26 of 27]"))
 
 
 
@@ -2391,24 +2460,40 @@ qsave(sub, "sub.qs")
 
 aws.s3::put_object(
     file = "cor.qs",
-    object = "db/cor_ec2.qs",
+    object = "cor_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sig.qs",
-    object = "db/sig_ec2.qs",
+    object = "sig_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 aws.s3::put_object(
     file = "sub.qs",
-    object = "db/sub_ec2.qs",
+    object = "sub_ec2.qs",
     bucket = conf$bucket,
     multipart = TRUE
 )
 
 
-print(glue("{Sys.time()} Write to Database [26 of 26]"))
+print(glue("{Sys.time()} Write to Database [27 of 27]"))
 
 source("write_sigops_to_db.R")
+
+# Update Aurora Nightly
+conn <- get_aurora_connection()
+# recreate_database(conn)
+append_to_database(conn, cor, sub, sig, wk_calcs_start_date)
+
+# Update DuckDB Once per Month for Staging/Main
+duckconn <- get_duckdb_connection("sigops.duckdb")
+# recreate_database(duckconn)
+append_to_database(duckconn, cor, sub, sig, calcs_start_date = ymd("2021-02-01"), report_end_date = conf$production_report_end_date)
+
+# Need to disconnect and reconnect to commit write-ahead long (wal)
+dbDisconnect(duckconn)
+duckconn <- get_duckdb_connection("sigops.duckdb")
+dbDisconnect(duckconn)
+
