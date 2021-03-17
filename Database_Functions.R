@@ -152,16 +152,19 @@ query_data <- function(
     table <- glue("{mr_}_{per}_{tab}")
     
     # Special cases--groups of corridors
-    if (level == "corridor" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+    if (level == "corridor" & (grepl("RTOP", zone_group))) {
         if (zone_group == "All RTOP") {
             zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
         } else if (zone_group == "RTOP1") {
             zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
         } else if (zone_group == "RTOP2") {
             zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
-        } else if (zone_group == "Zone 7") {
-            zones <- c("Zone 7m", "Zone 7d")
         }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+        where_clause <- paste(where_clause, "AND Corridor NOT LIKE 'Zone%'")
+    } else if (zone_group == "Zone 7" ) {
+        zones <- c("Zone 7", "Zone 7m", "Zone 7d")
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
     } else if (level == "signal" & zone_group == "All") {
