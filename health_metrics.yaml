@@ -38,24 +38,24 @@ scoring_lookup:
     bi:
         [0.250, 0.225, 0.200, 0.175, 0.150, 0.125, 0.100, 0.075, 0.050, 0.000]
 
-    kabco_severity:
-        [0.010, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
+    crash_rate:
+        [    9,     8,     7,     6,     5,     4,     3,     2,     1,     0]
+        
+    kabco:
+        [  900,   800,   700,   600,   500,   400,   300,   200,   100,     0]
 
-    crash_index:
-        [0.010, 0.009, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.001]
-
-    speeding_percentage:
-        [ 0.09,  0.08,  0.07,  0.06,  0.05,  0.04,  0.03,  0.02,  0.01,  0.00]
-
-    speed:
-        [   30,    29,    28,    27,    26,    25,    24,    23,    22,    21]
+    high_speed:
+        [ 2.00,  1.20,  1.15,  1.10,  1.05,  1.00,  0.95,  0.90,  0.85,  0.00]
+        
+    ped_injury_exposure:
+        [ 1.00,  0.95,  0.85,  0.75,  0.65,  0.55,  0.45,  0.35,  0.30,  0.00]
 
 weights_lookup:
     Context:
         [ 1,  2,  3,  4,  5]
 
     Context_Category:
-        [Downtown Grid, Urban Commuter, Suburban Commuter, Coordinated Rural, Isolated Rural]
+        [Multi-Modal with Pedestrian Focus, Multi-Modal Balanced and Coordinated, Mainline Vehicle Progression, Low Volume Coordinated, Non-Coordinated or Isolated]
 
     Detection_Uptime_Weight:
         [25, 12, 12, 15, 15]
@@ -90,14 +90,16 @@ weights_lookup:
     BI_Weight:
         [15, 20, 25, 20, 25]
 
-    KABCO_Severity_Weight:
+    Crash_Rate_Index_Weight:
+        [50, 20, 10,  5, 10]
+    
+    KABCO_Crash_Severity_Index_Weight:
         [10, 30, 30, 15,  0]
 
-    Crash_Index_Weight:
-        [50, 20, 10,  5, 10]
-
-    Speeding_Percentage_Weight:
+    High_Speed_Index_Weight:
+        [ 5, 10, 20, 30, 25]
+        
+    Ped_Injury_Exposure_Index_Weight:
         [20, 20, 15, 30, 40]
 
-    Speed_Weight:
-        [ 5, 10, 20, 30, 25]
+    
