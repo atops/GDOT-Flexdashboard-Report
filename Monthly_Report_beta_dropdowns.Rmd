@@ -2681,19 +2681,19 @@ checkboxGroupInput(
 maintenance_cols <- reactive({ # updated to reflect RSUs/RSU scores not being included
     debug(logger, "reactive on input$zone_group, input$corridors_x, input$subcorridors: maintenance_cols")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
-        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
-            list(
-                "all" = c(0:16),
-                "default" = c(0:6),
-                "scores" = c(7:11),
-                "metrics" = c(12:16)
-            )
-        } else {
+        if (level() == "signal") {
             list(
                 "all" = c(0:17),
                 "default" = c(0:7),
                 "scores" = c(8:12),
                 "metrics" = c(13:17)
+            )
+        } else {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
             )
         }
     }
@@ -2855,19 +2855,19 @@ checkboxGroupInput(
 
 operations_cols <- reactive({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
-        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
-            list(
-                "all" = c(0:16),
-                "default" = c(0:6),
-                "scores" = c(7:11),
-                "metrics" = c(12:16)
-            )
-        } else {
+        if (level() == "signal") {
             list(
                 "all" = c(0:17),
                 "default" = c(0:7),
                 "scores" = c(8:12),
                 "metrics" = c(13:17)
+            )
+        } else {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
             )
         }
     }
@@ -3026,21 +3026,21 @@ checkboxGroupInput(
 safety_cols <- reactive({
     debug(logger, "reactive on input$zone_group, input$corridors_x, input$subcorridors: safety_cols")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
-        switch(
-            level(),
-            "signal" = list(
+        if (level() == "signal") {
+            list(
                 "all" = c(0:15),
                 "default" = c(0:7),
                 "scores" = c(8:11),
                 "metrics" = c(12:15)
-                ),
+            )
+        } else {
             list(
                 "all" = c(0:14),
                 "default" = c(0:6),
                 "scores" = c(7:10),
                 "metrics" = c(11:14)
-                )  # "corridor", "subcorridor" or other
-        )
+            )  # "corridor", "subcorridor" or other
+        }
     }
 })
 
