@@ -2771,15 +2771,18 @@ fillRow(
 maint_metrics_list <- list(
     "Percent Health" = maint_percent_health,
     "Missing Data" = maint_missing_data,
+    
     "Detection Uptime Score" = du_score,
     "Ped Actuation Uptime Score" = pau_score,
     "Comm Uptime Score" = cu_score,
     "CCTV Uptime Score" = cctv_score,
     "Flash Events Score" = flash_score,
+    
     "Detection Uptime" = du_health,
     "Ped Actuation Uptime" = pau_health,
     "Comm Uptime" = cu_health,
-    "CCTV Uptime" = cctv_health
+    "CCTV Uptime" = cctv_health,
+    "Flash Events" = flash_health
 )
 
 selectInput(
@@ -2820,7 +2823,7 @@ output$health_maint_plot <- renderPlotly({
     level_ <- level()
     zone_group_ <- zone_group()
     current_month_ <- current_month()
-    input$maintenance_var <- input_maintenance_var
+    input_maintenance_var <- input$maintenance_var
     
     future_promise({
         debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_maint_plot")
@@ -2837,7 +2840,7 @@ output$health_maint_plot <- renderPlotly({
 
 #### Operations Health Summary
 
-```{r Operations, warning = FALSE, eval = FALSE}
+```{r Operations, warning = FALSE, eval = TRUE}
 
 checkboxGroupInput(
     "operations_cols_checked",
@@ -2939,11 +2942,13 @@ fillRow(
 ops_metrics_list <- list(
     "Percent Health" = ops_percent_health,
     "Missing Data" = ops_missing_data,
+
     "Platoon Ratio Score" = pr_score,
     "Ped Delay Score" = pd_score,
     "Split Failures Score" = sf_score,
     "Travel Time Index Score" = tti_score,
     "Buffer Index Score" = bi_score,
+    
     "Platoon Ratio" = pr_health,
     "Ped Delay" = pd_health,
     "Split Failures" = sf_health,
@@ -3005,7 +3010,7 @@ output$health_ops_plot <- renderPlotly({
 
 #### Safety Health Summary
 
-```{r Safety, warning = FALSE, eval = FALSE}
+```{r Safety, warning = FALSE, eval = TRUE}
 
 checkboxGroupInput(
     "safety_cols_checked",
@@ -3023,17 +3028,17 @@ safety_cols <- reactive({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
             list(
-                "all" = c(0:16),
+                "all" = c(0:15),
                 "default" = c(0:6),
-                "scores" = c(7:11),
-                "metrics" = c(12:16)
+                "scores" = c(7:10),
+                "metrics" = c(11:15)
             )
         } else {
             list(
-                "all" = c(0:17),
+                "all" = c(0:16),
                 "default" = c(0:7),
-                "scores" = c(8:12),
-                "metrics" = c(13:17)
+                "scores" = c(8:11),
+                "metrics" = c(12:16)
             )
         }
     }
@@ -3056,6 +3061,7 @@ safety_hide_cols <- reactive({
 
 
 safety_health_data <- reactive({
+    debug(logger, "reactive on safety_health_data: input$zone_group, input$corridor_x, input$subcorridors")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
         data_ <- query_health_data(
             "safety", level(), zone_group(), corridor = corridor(), month = current_month()) %>%
@@ -3111,10 +3117,17 @@ fillRow(
 safety_metrics_list <- list(
     "Percent Health" = safety_percent_health,
     "Missing Data" = safety_missing_data,
-    "Bike/Ped Safety Index Score" = bpsi_score,
-    "Road Safety Index Score" = rsi_score,
-    "Bike/Ped Safety Index" = bpsi_health,
-    "Road Safety Index" = rsi_health
+    
+    "Ped Injury Exposure Index Score" = bpsi_score,
+    "High Speed Index Score" = rsi_score,
+    "Crash Rate Index Score" = cri_score,
+    "KABCO Crash Severity Index Score" = kabco_score,
+    
+    "Ped Injury Exposure Index" = bpsi_health,
+    "High Speed Index" = rsi_health,
+    "Crash Rate Index" = cri_health,
+    "KABCO Crash Severity Index" = kabco_health
+    
 )
 
 selectInput(

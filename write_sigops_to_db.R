@@ -161,11 +161,11 @@ recreate_database <- function(conn) {
 
     sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
     sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
-    cor$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
+    sub$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
     
     sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
     sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
-    cor$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
+    sig$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
     
     
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
@@ -273,7 +273,7 @@ recreate_database <- function(conn) {
     # ------------------------------------------------------------------------------
 }
 
-append_to_database <- function(conn, cor, sub, sig, calcs_start_date, report_end_date) {
+append_to_database <- function(conn, cor, sub, sig, calcs_start_date = NULL, report_end_date = NULL) {
 
     # Prep before writing to db. These come from Health_Metrics.R
     cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
@@ -282,11 +282,11 @@ append_to_database <- function(conn, cor, sub, sig, calcs_start_date, report_end
     
     sub$mo$maint <- mutate(sub$mo$maint, Zone_Group = Zone)
     sub$mo$ops <- mutate(sub$mo$ops, Zone_Group = Zone)
-    cor$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
+    sub$mo$safety <- mutate(sub$mo$safety, Zone_Group = Zone)
     
     sig$mo$maint <- mutate(sig$mo$maint, Zone_Group = Zone)
     sig$mo$ops <- mutate(sig$mo$ops, Zone_Group = Zone)
-    cor$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
+    sig$mo$safety <- mutate(sig$mo$safety, Zone_Group = Zone)
 
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
     if (names(cor$mo$udc_trend_table) != c("key", "data")) {

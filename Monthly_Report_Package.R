@@ -2627,9 +2627,10 @@ source("write_sigops_to_db.R")
 # Update Aurora Nightly
 conn <- get_aurora_connection()
 # recreate_database(conn)
+# append_to_database(conn, cor, sub, sig)
 append_to_database(
-    conn, cor, sub, sig, wk_calcs_start_date, 
-    report_end_date = conf$production_report_end_date)
+    conn, cor, sub, sig, 
+    wk_calcs_start_date, report_end_date = NULL)
 
 
 # Update DuckDB Once per Month for Staging/Main

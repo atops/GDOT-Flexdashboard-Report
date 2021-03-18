@@ -2191,6 +2191,50 @@ get_monthly_operations_health_table <- function(data_) {
 
 
 
+# separate functions for maintenance/ops/safety datatables since formatting is different - would be nice to abstractify
+get_monthly_safety_health_table <- function(data_) {
+    
+    all_cols <- names(data_)
+    rounded0_cols <- all_cols[endsWith(all_cols, "Score")]
+    # rounded1_cols <- NULL
+    rounded2_cols <- all_cols[endsWith(all_cols, "Index")]
+    percent_cols <- c("Percent Health", "Missing Data")
+
+    datatable(data_,
+              filter = "top",
+              rownames = FALSE,
+              extensions = "Scroller",
+              options = list(
+                  scrollY = 550,
+                  scrollX = TRUE,
+                  pageLength = 1000,
+                  dom = "t",
+                  selection = "none"
+              )
+    ) %>%
+        formatPercentage(percent_cols) %>%
+        formatRound(rounded0_cols, digits = 0) %>%
+        # formatRound(rounded1_cols, digits = 1) %>%
+        formatRound(rounded2_cols, digits = 2) %>%
+        formatStyle("Subcorridor",
+                    target = "row",
+                    backgroundColor = styleEqual("ALL", "lightgray"),
+                    fontStyle = styleEqual("ALL", "italic")
+        ) %>%
+        formatStyle("Corridor",
+                    target = "row",
+                    backgroundColor = styleEqual("ALL", "gray"),
+                    fontWeight = styleEqual("ALL", "bold")
+        ) %>%
+        formatStyle("Missing Data",
+                    color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
+                    borderRight = "2px solid #ddd"
+        ) # %>%
+        # formatStyle("Buffer Index Score", borderRight = "2px solid #ddd") %>%
+        # formatStyle("Buffer Index", borderRight = "2px solid #ddd")
+}
+
+
 # function to filter health data based on user inputs
 get_health_data_filtered <- function(data_, zone_group_, corridor_) {
     

@@ -3,8 +3,10 @@
 # Possibly make this file all about the metrics class and rename to metrics.R
 #
 
-library(shiny)
-library(yaml)
+suppressMessages({
+    library(shiny)
+    library(yaml)
+})
 
 metrics <- read_yaml("metrics.yaml")
 
@@ -137,6 +139,9 @@ cu_health <- structure(
 )
 cctv_health <- structure(
     inherit(metrics[["health_metrics"]], metrics[["cctv_health"]]), class = "metric"
+)
+flash_health <- structure(
+    inherit(metrics[["health_metrics"]], metrics[["flash_health"]]), class = "metric"
 )
 
 ops_missing_data <- structure(

@@ -353,6 +353,11 @@ cctv_health:
     table: maint_plot
     variable: CCTV Uptime
 
+flash_health: 
+    label: Flash Events
+    table: maint_plot
+    variable: Flash Events
+
 # --- Operations Health Metrics -----------------
 ops_percent_health:
     label: Percent Health
@@ -439,29 +444,18 @@ safety_missing_data:
     variable: Missing Data
     data_type: percent
 
+
 bpsi_score:
-    label: Bike/Ped Safety Index Score
+    label: Ped Injury Exposure Index Score
     table: safety_plot
-    variable: Bike/Ped Safety Index Score
+    variable: Ped Injury Exposure Index Score
     data_type: integer
 
 rsi_score:
-    label: Road Safety Index Score
+    label: High Speed Index Score
     table: safety_plot
-    variable: Road Safety Index Score
+    variable: High Speed Index Score
     data_type: integer
-
-bpsi_health:
-    label: Bike/Ped Safety Index
-    table: safety_plot
-    variable: Bike/Ped Safety Index
-    data_type: decimal
-
-rsi_health:
-    label: Road Safety Index
-    table: safety_plot
-    variable: Road Safety Index
-    data_type: decimal
 
 cri_score:
     label: Crash Rate Index Score
@@ -469,22 +463,34 @@ cri_score:
     variable: Crash Rate Index Score
     data_type: integer
 
+kabco_score:
+    label: KABCO Crash Severity Index Score
+    table: safety_plot
+    variable: KABCO Crash Severity Index Score
+    data_type: decimal
+
+bpsi_health:
+    label: Ped Injury Exposure Index
+    table: safety_plot
+    variable: Ped Injury Exposure Index
+    data_type: decimal
+
+rsi_health:
+    label: High Speed Index
+    table: safety_plot
+    variable: High Speed Index
+    data_type: decimal
+
 cri_health:
     label: Crash Rate Index
     table: safety_plot
     variable: Crash Rate Index
     data_type: integer
 
-kabco_score:
-    label: KABCO Index Score
-    table: safety_plot
-    variable: KABCO Index
-    data_type: decimal
-
 kabco_health:
-    label: KABCO Index
+    label: KABCO Crash Severity Index
     table: safety_plot
-    variable: KABCO Index Score
+    variable: KABCO Crash Severity Index
     data_type: decimal
 
     

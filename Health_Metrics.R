@@ -23,7 +23,6 @@ suppressMessages({
 ### USER-DEFINED CONSTANTS AND LOOKUPS
 ############################################################################
 
-#setwd("C:\\Users\\Anthony.Gallo\\OneDrive - KH\\ATSPM\\GDOT-Flexdashboard-Report")
 health_conf <- read_yaml("health_metrics.yaml")
 
 scoring_lookup <- health_conf$scoring_lookup %>%
