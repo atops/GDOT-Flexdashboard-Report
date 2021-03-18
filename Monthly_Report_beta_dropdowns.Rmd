@@ -2994,13 +2994,13 @@ output$health_ops_plot <- renderPlotly({
     current_month_ <- current_month()
     input_operations_var <- input$operations_var
 
-    future_promise({
+    # future_promise({
         debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_ops_plot")
         get_trend_multiplot(
             ops_metrics_list[[input_operations_var]],
             level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
         )
-    })
+    # })
 })
 ```
 
@@ -3112,7 +3112,7 @@ fillRow(
 
 ### Safety Trend
 
-```{r Safety Trend, warning = FALSE, eval = FALSE}
+```{r Safety Trend, warning = FALSE, eval = TRUE}
 
 safety_metrics_list <- list(
     "Percent Health" = safety_percent_health,
@@ -3168,15 +3168,15 @@ output$health_safety_plot <- renderPlotly({
     level_ <- level()
     zone_group_ <- zone_group()
     current_month_ <- current_month()
-    input$safety_var <- input_safety_var
+    input_safety_var <- input$safety_var
     
-    future_promise({
+    # future_promise({
         debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_safety_plot")
         get_trend_multiplot(
             safety_metrics_list[[input_safety_var]],
             level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
         )
-    })
+    # })
 })
 ```
 
