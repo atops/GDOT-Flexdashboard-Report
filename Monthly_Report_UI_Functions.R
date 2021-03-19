@@ -2126,6 +2126,7 @@ get_monthly_maintenance_health_table <- function(data_) {
     ) %>%
         formatPercentage(percent_cols) %>%
         formatRound(rounded_cols, digits = 0) %>%
+	formatStyle("Percent Health", fontWeight = 'bold') %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2137,7 +2138,7 @@ get_monthly_maintenance_health_table <- function(data_) {
                     fontWeight = styleEqual("ALL", "bold")
         ) %>%
         formatStyle("Missing Data",
-                    color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
+                    color = styleInterval(c(0.05, 0.3, 0.5), c("#1A1A1A", "#D6604D", "#B2182B", "#67001F")), #  c("black", "gold", "orangered", "crimson")),
                     borderRight = "2px solid #ddd"
         ) %>%
         formatStyle("Flash Events Score", borderRight = "2px solid #ddd") %>%
@@ -2171,6 +2172,7 @@ get_monthly_operations_health_table <- function(data_) {
         formatRound(rounded0_cols, digits = 0) %>%
         formatRound(rounded1_cols, digits = 1) %>%
         formatRound(rounded2_cols, digits = 2) %>%
+	formatStyle("Percent Health", fontWeight = 'bold') %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2182,7 +2184,7 @@ get_monthly_operations_health_table <- function(data_) {
                     fontWeight = styleEqual("ALL", "bold")
         ) %>%
         formatStyle("Missing Data",
-                    color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
+                    color = styleInterval(c(0.05, 0.3, 0.5), c("#1A1A1A", "#D6604D", "#B2182B", "#67001F")), #  c("black", "gold", "orangered", "crimson")),
                     borderRight = "2px solid #ddd"
         ) %>%
         formatStyle("Buffer Index Score", borderRight = "2px solid #ddd") %>%
@@ -2216,6 +2218,7 @@ get_monthly_safety_health_table <- function(data_) {
         formatRound(rounded0_cols, digits = 0) %>%
         # formatRound(rounded1_cols, digits = 1) %>%
         formatRound(rounded2_cols, digits = 2) %>%
+	formatStyle("Percent Health", fontWeight = 'bold') %>%
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2227,7 +2230,7 @@ get_monthly_safety_health_table <- function(data_) {
                     fontWeight = styleEqual("ALL", "bold")
         ) %>%
         formatStyle("Missing Data",
-                    color = styleInterval(c(0.1, 0.3, 0.5), c("black", "gold", "orangered", "crimson")),
+                    color = styleInterval(c(0.05, 0.3, 0.5), c("#1A1A1A", "#D6604D", "#B2182B", "#67001F")), #  c("black", "gold", "orangered", "crimson")),
                     borderRight = "2px solid #ddd"
         ) # %>%
         # formatStyle("Buffer Index Score", borderRight = "2px solid #ddd") %>%
