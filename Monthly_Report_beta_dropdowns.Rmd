@@ -1420,7 +1420,7 @@ output$performance <- renderPlotly({
     current_month_ <- current_month()
     input_performance_metric <- input$performance_metric
 
-    future_promise({
+    # future_promise({
         debug(logger, glue("Performance Trend Multiplot | {input_performance_metric} | {level_} | {zone_group_} | {current_month_}"))
         if (input$performance_metric == "Throughput") {
             get_trend_multiplot(
@@ -1459,7 +1459,7 @@ output$performance <- renderPlotly({
                 level = level_, zone_group_, current_month_
             )
         }
-    })
+    # })
 })
 ```
 
@@ -1518,7 +1518,7 @@ output$volume <- renderPlotly({
     current_month_ <- current_month()
     input_volume_metric <- input$volume_metric
     
-    future_promise({
+    # future_promise({
         debug(logger, glue("Volumes Trend Multiplot | {input_volume_metric} | {level_} | {zone_group_} | {current_month_}"))
         if (input$volume_metric == "Daily Traffic Volumes") {
             get_trend_multiplot(
@@ -1531,7 +1531,7 @@ output$volume <- renderPlotly({
                 level = level_, zone_group_, current_month_
             )
         }
-    })
+    # })
 })
 ```
 
@@ -1618,7 +1618,7 @@ output$equipment <- renderPlotly({
     input_subcorridors <- input$subcorridors
     input_equipment_metric <- input$equipment_metric
     
-    future_promise({
+    # future_promise({
         debug(logger, glue("Equipment Trend Multiplot | {input_equipment_metric} | {level_} | {zone_group_} | {current_month_}"))
         if (input_equipment_metric == "Detector Uptime") {
             if (zone_group_ == "All RTOP" || ntraces_ > 24) {
@@ -1694,7 +1694,7 @@ output$equipment <- renderPlotly({
                 )
             }
         }
-    })
+    # })
 })
 ```
 
@@ -2825,13 +2825,13 @@ output$health_maint_plot <- renderPlotly({
     current_month_ <- current_month()
     input_maintenance_var <- input$maintenance_var
     
-    future_promise({
+    # future_promise({
         debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_maint_plot")
         get_trend_multiplot(
             maint_metrics_list[[input_maintenance_var]],
             level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
         )
-    })
+    # })
 })
 ```
 
