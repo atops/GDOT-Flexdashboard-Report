@@ -141,7 +141,7 @@ travel_time_index:
     data_type: decimal
     highlight_color: "#007338"
     fill_color: "#99E6BF"
-    goal: NULL
+    goal: 1.2
     hourly_table: ttih
     has_weekly: False
 
@@ -154,7 +154,7 @@ planning_time_index:
     data_type: decimal
     highlight_color: "#007338"
     fill_color: "#99E6BF"
-    goal: NULL
+    goal: 1.3
     hourly_table: ptih
     has_weekly: False
 
@@ -180,7 +180,7 @@ daily_pedestrian_pushbuttons:
     data_type: integer
     highlight_color: "#990000"
     fill_color: "#FF9999"
-    goal: 0.95
+    goal: NULL
     hourly_table: NULL
     has_weekly: True
 
@@ -353,6 +353,11 @@ cctv_health:
     table: maint_plot
     variable: CCTV Uptime
 
+flash_health: 
+    label: Flash Events
+    table: maint_plot
+    variable: Flash Events
+
 # --- Operations Health Metrics -----------------
 ops_percent_health:
     label: Percent Health
@@ -427,7 +432,66 @@ bi_health:
     data_type: decimal
 
 # --- Safety Health Metrics ---------------------
-# Placeholder
+safety_percent_health:
+    label: Percent Health
+    table: safety_plot
+    variable: Percent Health
+    data_type: percent
+
+safety_missing_data:
+    label: Missing Data
+    table: safety_plot
+    variable: Missing Data
+    data_type: percent
+
+
+bpsi_score:
+    label: Ped Injury Exposure Index Score
+    table: safety_plot
+    variable: Ped Injury Exposure Index Score
+    data_type: integer
+
+rsi_score:
+    label: High Speed Index Score
+    table: safety_plot
+    variable: High Speed Index Score
+    data_type: integer
+
+cri_score:
+    label: Crash Rate Index Score
+    table: safety_plot
+    variable: Crash Rate Index Score
+    data_type: integer
+
+kabco_score:
+    label: KABCO Crash Severity Index Score
+    table: safety_plot
+    variable: KABCO Crash Severity Index Score
+    data_type: decimal
+
+bpsi_health:
+    label: Ped Injury Exposure Index
+    table: safety_plot
+    variable: Ped Injury Exposure Index
+    data_type: decimal
+
+rsi_health:
+    label: High Speed Index
+    table: safety_plot
+    variable: High Speed Index
+    data_type: decimal
+
+cri_health:
+    label: Crash Rate Index
+    table: safety_plot
+    variable: Crash Rate Index
+    data_type: integer
+
+kabco_health:
+    label: KABCO Crash Severity Index
+    table: safety_plot
+    variable: KABCO Crash Severity Index
+    data_type: decimal
 
     
 template:

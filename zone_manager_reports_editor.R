@@ -1,13 +1,14 @@
 #
 # Shiny app for Zone Managers to edit their progress reports
 #
-
-library(shiny)
-library(yaml)
-library(tidyverse)
-library(lubridate)
-library(shinyMCE)
-library(glue)
+suppressMessages({
+    library(shiny)
+    library(yaml)
+    library(tidyverse)
+    library(lubridate)
+    library(shinyMCE)
+    library(glue)
+})
 
 
 conf <- read_yaml("Monthly_Report.yaml")

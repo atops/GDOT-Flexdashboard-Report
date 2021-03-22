@@ -47,39 +47,50 @@ get_summary_data <- function(df, current_month = NULL) {
     #' @return A data frame, monthly data of all metrics by Zone and Corridor
     # current_month <- months[order(months)][match(current_month, months.formatted)]
     
-    
     # Cleaner Version (mostly) for future use more broadly on the site.
     # Still have the issue of certain metrics not applying at certain levels,
     # e.g., tti in sig data frame has no meaning since it's a corridor, not a signal-level metric
     #
     # data <- list(
-    #     select(df$mo[["du"]], Zone_Group, Corridor, Date, du.uptime = uptime, uptime.sb, uptime.pr),
-    #     select(df$mo[["cu"]], Zone_Group, Corridor, Date, cu.uptime = uptime),
-    #     select(df$mo[["pau"]], Zone_Group, Corridor, Date, pau.uptime = uptime),
-    #     select(df$mo[["cctv"]], Zone_Group, Corridor, Date, cctv.uptime = uptime),
-    #     select(df$mo[["ru"]], Zone_Group, Corridor, Date, ru.uptime = uptime),
+    #     select(df$mo[["du"]], Zone_Group, Corridor, Month, du = uptime, du.delta = delta),
+    #     select(df$mo[["cu"]], Zone_Group, Corridor, Month, cu = uptime, cu.delta = delta),
+    #     select(df$mo[["pau"]], Zone_Group, Corridor, Month, pau = uptime, pau.delta = delta),
+    #     select(df$mo[["cctv"]], Zone_Group, Corridor, Month, cctv = uptime, cctv.delta = delta),
+    #     select(df$mo[["ru"]], Zone_Group, Corridor, Month, ru = uptime, ru.delta = delta),
     # 
-    #     select(df$mo[["vpd"]], Zone_Group, Corridor, Date, vpd, Description),
-    #     select(df$mo[["papd"]], Zone_Group, Corridor, Date, papd),
-    #     select(df$mo[["pd"]], Zone_Group, Corridor, Date, pd),
-    #     select(df$mo[["tp"]], Zone_Group, Corridor, Date, vph),
-    #     select(df$mo[["aog"]], Zone_Group, Corridor, Date, aog),
-    #     select(df$mo[["pr"]], Zone_Group, Corridor, Date, pr),
-    #     select(df$mo[["qsd"]], Zone_Group, Corridor, Date, qs_freq),
-    #     select(df$mo[["sfd"]], Zone_Group, Corridor, Date, sf_freq),
-    #     select(df$mo[["sfo"]], Zone_Group, Corridor, Date, sf_freq),
+    #     select(df$mo[["vpd"]], Zone_Group, Corridor, Month, vpd, vpd.delta = delta),
+    #     select(df$mo[["papd"]], Zone_Group, Corridor, Month, papd, papd.delta = delta),
+    #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
+    #     select(df$mo[["tp"]], Zone_Group, Corridor, Month, vph, vph.delta = delta),
+    #     select(df$mo[["aogd"]], Zone_Group, Corridor, Month, aog, aog.delta = delta),
+    #     select(df$mo[["pr"]], Zone_Group, Corridor, Month, pr, pr.delta = delta),
+    #     select(df$mo[["qsd"]], Zone_Group, Corridor, Month, qs, qs.delta = delta),
+    #     select(df$mo[["sfd"]], Zone_Group, Corridor, Month, sfd, sfd.delta = delta),
+    #     select(df$mo[["sfo"]], Zone_Group, Corridor, Month, sfo, sfo.delta = delta),
+    #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
+    #     select(df$mo[["flash"]], Zone_Group, Corridor, Month, flash_events = flash, flash.delta = delta),
+    # ifelse(nrow(df$mo$tti) > 0, 
+    #        select(
+    #            df$mo[["tti"]], Zone_Group, Corridor, Month, tti, tti.delta = delta),
+    #        data.frame(
+    #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), tti = double(), tti.delta = double())
+    # )
+    # ifelse(nrow(df$mo$pti) > 0, 
+    #        select(
+    #            df$mo[["pti"]], Zone_Group, Corridor, Month, pti, pti.delta = delta),
+    #        data.frame(
+    #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), pti = double(), pti.delta = double())
+    # )
     #     
     # 
     # ) %>%
-    #     reduce(full_join, by = c("Zone_Group", "Corridor", "Date"))
+    #     reduce(full_join, by = c("Zone_Group", "Corridor", "Month"))
     
     
     
     data <- list(
         rename(df$mo$du, du = uptime, du.delta = delta),
         rename(df$mo$pau, pau = uptime, pau.delta = delta),
-        # rename(df$mo$pdc, pdc = Avg.Max.Ped.Delay, pdc.delta = delta),
-        # rename(df$mo$pdf, pdf = Avg.Max.Ped.Delay, pdf.delta = delta),
         rename(df$mo$cctv, cctv = uptime, cctv.delta = delta),
         #rename(df$mo$ru, rsu = uptime, rsu.delta = delta),
         rename(df$mo$cu, cu = uptime, cu.delta = delta),
@@ -101,6 +112,21 @@ get_summary_data <- function(df, current_month = NULL) {
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
             rename(select(df$mo$pd, 1:6), pti = pd, pti.delta = delta) %>%
                 mutate(pti = NA, pti.delta = NA)
+        },
+        # safety metrics - new 3/17/21
+        rename(df$mo$kabco, kabco.delta = delta),
+        rename(df$mo$cri, crash.delta = delta),
+        if (!is.null(df$mo$rsi)) {
+            rename(df$mo$rsi, rsi.delta = delta)
+        } else { # if dealing with signals data - copy another df, rename, and set columns to NA
+            rename(df$mo$vpd, rsi = vpd, rsi.delta = delta) %>%
+                mutate(rsi = NA, rsi.delta = NA)
+        },
+        if (!is.null(df$mo$bpsi)) {
+            rename(df$mo$bpsi, bpsi.delta = delta)
+        } else { # if dealing with signals data - copy another df, rename, and set columns to NA
+            rename(df$mo$vpd, bpsi = vpd, bpsi.delta = delta) %>%
+                mutate(bpsi = NA, bpsi.delta = NA)
         }
     ) %>%
         reduce(full_join, by = c("Zone_Group", "Corridor", "Month")) %>%
@@ -152,24 +178,26 @@ get_health_all <- function(df) {
             #RSU_Uptime = rsu,
             Flash_Events = flash_events,
             
-            # operations
+            # safety
             Platoon_Ratio = pr,
             Ped_Delay = pd,
             Split_Failures = sf_freq,
             TTI = tti,
-            pti # ,
+            pti,
             
-            ## safety
-            # KABCO_Severity,
-            # Crash_Index,
-            # Speeding_Percentage,
-            # Speed
+            ## safety - updated 3/17/21
+            Crash_Rate_Index = cri,
+            KABCO_Crash_Severity_Index = kabco,
+            High_Speed_Index = rsi,
+            Ped_Injury_Exposure_Index = bpsi
         ) %>%
         mutate( # scores for each metric
             # cleanup
             Flash_Events = ifelse(is.na(Flash_Events), 0, Flash_Events), # assuming we want this
             BI = pti - TTI,
             pti = NULL,
+            Crash_Rate_Index = ifelse(is.infinite(Crash_Rate_Index), NA, Crash_Rate_Index * 1000), #may need to be modified in future
+            KABCO_Crash_Severity_Index = ifelse(is.infinite(KABCO_Crash_Severity_Index), NA, KABCO_Crash_Severity_Index),
             
             # maintenance
             # backward: set roll to -Inf (higher value => higher score)
@@ -196,17 +224,18 @@ get_health_all <- function(df) {
             TTI_Score = get_lookup_value(
                 scoring_lookup, "tti", "score", TTI),
             BI_Score = get_lookup_value(
-                scoring_lookup, "bi", "score", BI) # ,
+                scoring_lookup, "bi", "score", BI),
             
             ## safety
-            # KABCO_Severity_Score = get_lookup_value(
-            #     scoring_lookup, "kabco_severity", "score", KABCO_Severity),
-            # Crash_Index_Score = get_lookup_value(
-            #     scoring_lookup, "crash_index", "score", Crash_Index),
-            # Speeding_Percentage_Score = get_lookup_value(
-            #     scoring_lookup, "speeding_percentage", "score", Speeding_Percentage),
-            # Speed_Score = get_lookup_value(
-            #     scoring_lookup, "speed", "score", Speed)
+            Crash_Rate_Index_Score = get_lookup_value(
+                scoring_lookup, "crash_rate", "score", Crash_Rate_Index),
+            KABCO_Crash_Severity_Index_Score = get_lookup_value(
+                scoring_lookup, "kabco", "score", KABCO_Crash_Severity_Index),
+            High_Speed_Index_Score = get_lookup_value(
+                scoring_lookup, "high_speed", "score", High_Speed_Index),
+            Ped_Injury_Exposure_Index_Score = get_lookup_value(
+                scoring_lookup, "ped_injury_exposure", "score", Ped_Injury_Exposure_Index)
+            
         ) %>%
         inner_join(weights_lookup, by = c("Context"))
     
@@ -218,7 +247,7 @@ get_health_all <- function(df) {
     #df$RSU_Uptime_Weight[is.na(df$RSU_Uptime_Score)] <- NA
     df$Flash_Events_Weight[is.na(df$Flash_Events_Score)] <- NA
 
-    # Operations
+    # operations
     df$Platoon_Ratio_Weight[is.na(df$Platoon_Ratio_Score)] <- NA
     df$Ped_Delay_Weight[is.na(df$Ped_Delay_Score)] <- NA
     df$Split_Failures_Weight[is.na(df$Split_Failures_Score)] <- NA
@@ -226,10 +255,10 @@ get_health_all <- function(df) {
     df$BI_Weight[is.na(df$BI_Score)] <- NA
 
     # Safety
-    # df$KABCO_Severity_Weight[is.na(df$KABCO_Severity_Score)] <- NA
-    # df$Crash_Index_Weight[is.na(df$Crash_Index_Score)] <- NA
-    # df$Speeding_Percentage_Weight[is.na(df$Speeding_Percentage_Score)] <- NA
-    # df$Speed_Weight[is.na(df$Speed_Score)] <- NA
+    df$Crash_Rate_Index_Weight[is.na(df$Crash_Rate_Index_Score)] <- NA
+    df$KABCO_Crash_Severity_Index_Weight[is.na(df$KABCO_Crash_Severity_Index_Score)] <- NA
+    df$High_Speed_Index_Weight[is.na(df$High_Speed_Index_Score)] <- NA
+    df$Ped_Injury_Exposure_Index_Weight[is.na(df$Ped_Injury_Exposure_Index_Score)] <- NA
     
     df
 }
@@ -287,7 +316,7 @@ get_health_maintenance <- function(df) {
         )
 }
 
-# function to product operations % health data frame
+# function to product safety % health data frame
 get_health_operations <- function(df) {
     health <- df %>%
         select(
@@ -336,6 +365,57 @@ get_health_operations <- function(df) {
             `Buffer Index` = BI
         )
 }
+
+
+# function to product safety % health data frame
+get_health_safety <- function(df) {
+    health <- df %>%
+        select(
+            Zone_Group, Zone, Corridor, Subcorridor, Month, Context, Context_Category,
+            starts_with(c("Crash_Rate", "KABCO", "High_Speed", "Ped_Injury")))
+    
+    
+    # filter out scores and weights and make sure they're both in the same sort order
+    scores <- health %>% 
+        select(ends_with("Score")) %>% 
+        select(sort(tidyselect::peek_vars()))
+    weights <- health %>% 
+        select(ends_with("Weight")) %>% 
+        select(sort(tidyselect::peek_vars()))
+    
+    health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
+    health$Missing_Data <- 1 - rowSums(weights, na.rm = T)/100
+    
+    health <- health %>%
+        group_by(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
+        mutate(
+            Percent_Health = mean(Percent_Health, na.rm = T),
+            Missing_Data = mean(Missing_Data, na.rm = T)) %>%
+        ungroup() %>%
+        
+        get_percent_health_subtotals() %>%
+        select(
+            `Zone Group` = Zone_Group,
+            Zone,
+            Corridor,
+            Subcorridor,
+            Month,
+            `Context` = Context_Category,
+            `Percent Health` = Percent_Health,
+            `Missing Data` = Missing_Data,
+            #scores
+            `Crash Rate Index Score` = Crash_Rate_Index_Score,
+            `KABCO Crash Severity Index Score` = KABCO_Crash_Severity_Index_Score,
+            `High Speed Index Score` = High_Speed_Index_Score,
+            `Ped Injury Exposure Index Score` = Ped_Injury_Exposure_Index_Score,
+            #metrics
+            `Crash Rate Index` = Crash_Rate_Index,
+            `KABCO Crash Severity Index` = KABCO_Crash_Severity_Index,
+            `High Speed Index` = High_Speed_Index,
+            `Ped Injury Exposure Index` = Ped_Injury_Exposure_Index,
+        )
+}
+
 
 # function used to look up health score for various metric
 # data.table approach - update so last field is up/down
@@ -480,8 +560,13 @@ if (TRUE) {
         summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
     
     ## compile safety % health
-    # safety_sub <- get_health_safety(health_all_sub)
-    # safety_sig <- get_health_safety(health_all_sig)
+    safety_sub <- get_health_safety(health_all_sub)
+    safety_sig <- get_health_safety(health_all_sig)
+    
+    safety_cor <- safety_sub %>%
+        select(-c(Subcorridor, Context)) %>% 
+        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
 }
 
 if (FALSE) {
@@ -494,6 +579,9 @@ if (FALSE) {
     qsave(operations_sub, "operations_sub.qs")
     qsave(operations_sig, "operations_sig.qs")
 
+    qsave(safety_cor, "safety_cor.qs")
+    qsave(safety_sub, "safety_sub.qs")
+    qsave(safety_sig, "safety_sig.qs")
     
     maintenance_cor <- qread("maintenance_cor.qs")
     maintenance_sub <- qread("maintenance_sub.qs")
@@ -502,6 +590,11 @@ if (FALSE) {
     operations_cor <- qread("operations_cor.qs")
     operations_sub <- qread("operations_sub.qs")
     operations_sig <- qread("operations_sig.qs")
+    
+    safety_cor <- qread("safety_cor.qs")
+    safety_sub <- qread("safety_sub.qs")
+    safety_sig <- qread("safety_sig.qs")
+    
 }
 
 
@@ -541,6 +634,10 @@ cor$mo$ops_plot <- get_cor_health_metrics_plot_df(operations_cor)
 sub$mo$ops_plot <- get_health_metrics_plot_df(operations_sub)
 sig$mo$ops_plot <- get_health_metrics_plot_df(operations_sig)
 
+cor$mo$safety_plot <- get_cor_health_metrics_plot_df(safety_cor)
+sub$mo$safety_plot <- get_health_metrics_plot_df(safety_sub)
+sig$mo$safety_plot <- get_health_metrics_plot_df(safety_sig)
+
 cor$mo$maint <- maintenance_cor
 sub$mo$maint <- maintenance_sub
 sig$mo$maint <- maintenance_sig
@@ -548,6 +645,10 @@ sig$mo$maint <- maintenance_sig
 cor$mo$ops <- operations_cor
 sub$mo$ops <- operations_sub
 sig$mo$ops <- operations_sig
+
+cor$mo$safety <- safety_cor
+sub$mo$safety <- safety_sub
+sig$mo$safety <- safety_sig
 
 
 add_subcorridor <- function(df)  {
@@ -562,4 +663,5 @@ add_subcorridor <- function(df)  {
 
 sig$mo$maint <- add_subcorridor(sig$mo$maint)
 sig$mo$ops <- add_subcorridor(sig$mo$ops)
+sig$mo$safety <- add_subcorridor(sig$mo$safety)
 

@@ -152,16 +152,19 @@ query_data <- function(
     table <- glue("{mr_}_{per}_{tab}")
     
     # Special cases--groups of corridors
-    if (level == "corridor" & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+    if (level == "corridor" & (grepl("RTOP", zone_group))) {
         if (zone_group == "All RTOP") {
             zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
         } else if (zone_group == "RTOP1") {
             zones <- c("All RTOP", "RTOP1", RTOP1_ZONES)
         } else if (zone_group == "RTOP2") {
             zones <- c("All RTOP", "RTOP2", RTOP2_ZONES)
-        } else if (zone_group == "Zone 7") {
-            zones <- c("Zone 7m", "Zone 7d")
         }
+        zones <- paste(glue("'{zones}'"), collapse = ",")
+        where_clause <- glue("WHERE Zone_Group in ({zones})")
+        where_clause <- paste(where_clause, "AND Corridor NOT LIKE 'Zone%'")
+    } else if (zone_group == "Zone 7" ) {
+        zones <- c("Zone 7", "Zone 7m", "Zone 7d")
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
     } else if (level == "signal" & zone_group == "All") {
@@ -204,7 +207,7 @@ query_data <- function(
     df <- data.frame()
     
     tryCatch({
-        df <- dbGetQuery(aurora_connection_pool, query)
+        df <- dbGetQuery(sigops_connection_pool, query)
         
         if (!is.null(corridor)) {
             df <- filter(df, Corridor == corridor)
@@ -220,7 +223,6 @@ query_data <- function(
         }
     }, error = function(e) {
         print(e)
-        df <<- data.frame()
     })
 
     df
@@ -230,10 +232,12 @@ query_data <- function(
 
 # udc_trend_table
 query_udc_trend <- function() {
-    df <- dbReadTable(aurora_connection_pool, "cor_mo_udc_trend_table")
+    df <- dbReadTable(sigops_connection_pool, "cor_mo_udc_trend_table")
     udc_list <- jsonlite::fromJSON(df$data)
     lapply(udc_list, function(x) {
-        as.data.frame(x) %>% mutate(Month = as_date(Month))
+        data <- as.data.frame(x) %>% mutate(Month = as_date(Month))
+	colnames(data) <- str_replace_all(colnames(data), "[:punct:]", " ")
+	data
     })
 }
 
@@ -241,7 +245,7 @@ query_udc_trend <- function() {
 
 # udc hourly table
 query_udc_hourly <- function(zone_group, month) {
-    df <- dbReadTable(aurora_connection_pool, "cor_mo_hourly_udc")
+    df <- dbReadTable(sigops_connection_pool, "cor_mo_hourly_udc")
     df$Month <- as_date(df$Month)
     df$month_hour <- as_datetime(df$month_hour)
     subset(df, Zone == zone_group & Month <= as_date(month))
@@ -301,12 +305,11 @@ query_health_data <- function(
         where_clause))
 
     tryCatch({
-        df <- dbGetQuery(aurora_connection_pool, query)
+        df <- dbGetQuery(sigops_connection_pool, query)
         df$Month = as_date(df$Month)
         #df <- subset(df, select = -Zone_Group)  # This was a proxy for Zone for indexing consistency
     }, error = function(e) {
         print(e)
-        df <<- data.frame()
     })
     
     df
