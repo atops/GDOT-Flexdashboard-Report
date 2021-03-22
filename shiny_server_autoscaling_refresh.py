@@ -37,10 +37,10 @@ def create_ami(today):
         'DeviceName': '/dev/sdb',
         'VirtualName': 'Shiny-Server Production Cache',
         'Ebs': {
-            'Iops': 3000,
+            # 'Iops': 3000,
+            # 'Throughput': 125
             'VolumeSize': 20,
-            'VolumeType': 'gp3',
-            'Throughput': 125
+            'VolumeType': 'gp2' # 'gp3'
         },
     }
     
@@ -155,7 +155,7 @@ if __name__=='__main__':
     today = datetime.today().strftime("%F")
     
     EC2_INSTANCE_ID = 'i-00a90d0152470f49b'
-    EC2_INSTANCE_TYPE = 'm5.large'
+    EC2_INSTANCE_TYPE = 't3.large'
     AUTOSCALING_GROUP_NAME = 'Shiny-Server-Auto-Scaling-Group-2020-09-18'
     LAUNCH_TEMPLATE_ID = 'lt-0f0fa90ee94062747'
     
