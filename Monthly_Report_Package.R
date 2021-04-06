@@ -2630,7 +2630,7 @@ conn <- get_aurora_connection()
 # append_to_database(conn, cor, sub, sig)
 append_to_database(
     conn, cor, sub, sig, 
-    wk_calcs_start_date, report_end_date = NULL)
+    calcs_start_date, report_end_date = NULL)
 
 
 # Update DuckDB Once per Month for Staging/Main

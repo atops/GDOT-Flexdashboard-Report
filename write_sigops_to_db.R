@@ -10,6 +10,12 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_d
             table_name <- glue("{dfname}_{per}_{tab}")
             df_ <- df[[per]][[tab]]
             datefield <- intersect(names(df_), c("Month", "Date", "Hour"))
+
+            if (per == "wk") {
+                start_date <- round_to_tuesday(calcs_start_date)
+            } else {
+                start_date <- calcs_start_date
+            }
             
             print(glue("Writing {table_name} | {nrow(df_)} | recreate = {recreate}"))
             
@@ -24,15 +30,15 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_d
                         row.names = FALSE)
                 } else {
                     # Clear Prior to Append
-                    if (!is.null(calcs_start_date) & length(datefield) == 1) {
+                    if (!is.null(start_date) & length(datefield) == 1) {
                         dbExecute(conn, glue(paste(
-                            "DELETE from {table_name} WHERE {datefield} >= '{calcs_start_date}'")))
+                            "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
                     } else {
                         dbSendQuery(conn, glue("DELETE from {table_name}"))
                     }
                     # Filter Dates and Append
-                    if (!is.null(calcs_start_date) & length(datefield) == 1) {
-                        df_ <- filter(df_, !!as.name(datefield) >= calcs_start_date)
+                    if (!is.null(start_date) & length(datefield) == 1) {
+                        df_ <- filter(df_, !!as.name(datefield) >= start_date)
                     }
                     if (!is.null(report_end_date) & length(datefield) == 1) {
                         df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
@@ -53,9 +59,11 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_d
     }    
 }
 
-write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE) {
+write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start_date = NULL, report_end_date = NULL) {
     
     table_name <- dfname
+    datefield <- intersect(names(df), c("Month", "Date", "Hour"))
+    start_date <- calcs_start_date
     print(glue("Writing {table_name} | {nrow(df)} | recreate = {recreate}"))
     
     tryCatch({
@@ -66,7 +74,15 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE) {
                          overwrite = TRUE,
                          row.names = FALSE)
         } else {
+            # Clear Prior to Append
             dbSendQuery(conn, glue("DELETE from {table_name}"))
+            # Filter Dates and Append
+            if (!is.null(start_date) & length(datefield) == 1) {
+                df <- filter(df, !!as.name(datefield) >= start_date)
+            }
+            if (!is.null(report_end_date) & length(datefield) == 1) {
+                df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
+            }
             dbWriteTable(
                 conn,
                 table_name,
