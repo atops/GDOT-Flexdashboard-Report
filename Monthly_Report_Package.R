@@ -2638,7 +2638,7 @@ duckconn <- get_duckdb_connection("sigops.duckdb")
 # recreate_database(duckconn)
 append_to_database(
     duckconn, cor, sub, sig, 
-    calcs_start_date = ymd("2021-02-01"), 
+    calcs_start_date = report_start_date, 
     report_end_date = conf$production_report_end_date)
 
 # Need to disconnect and reconnect to commit write-ahead long (wal)
