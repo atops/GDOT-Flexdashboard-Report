@@ -929,7 +929,7 @@ renderValueBox({
 renderValueBox({
     valueBox(
         value = get_valuebox_value(
-            ped_button_uptime,
+            daily_pedestrian_pushbuttons,
             zone_group = input$zone_group, corridor = corridor(), quarter = current_quarter(), line_break = FALSE
         ),
         icon = "fa-area-chart",
@@ -1158,7 +1158,7 @@ fillCol(
             debug(logger, "reactive on level(), zone_group() and current_month(): summary_plot (all)")
             summary_plot(
                 throughput, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1168,7 +1168,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 arrivals_on_green, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1178,7 +1178,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 progression_ratio, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1188,7 +1188,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 queue_spillback_rate, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1198,7 +1198,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 peak_period_split_failures, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1208,7 +1208,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 off_peak_split_failures, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1218,7 +1218,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 travel_time_index, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1228,7 +1228,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 planning_time_index, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1247,7 +1247,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 vpd, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1258,7 +1258,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 am_peak_vph, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1268,7 +1268,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 pm_peak_vph, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1279,7 +1279,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 detector_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1289,7 +1289,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 ped_button_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1299,7 +1299,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 cctv_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1309,7 +1309,7 @@ fillCol(
         renderPlotly({
             summary_plot(
                 comm_uptime, 
-                level = level(), zone_group = zone_group(), month = current_month()
+                zone_group = input$zone_group, corridor = corridor(), month = current_month()
             )
         }),
         flex = c(2, 10)
@@ -1319,7 +1319,7 @@ fillCol(
     #     renderPlotly    ({
             # summary_plot(
             #     rsu_uptime, 
-            #     level = level(), zone_group = zone_group(), month = current_month()
+            #     zone_group = input$zone_group, corridor = corridor(), month = current_month()
             # )
     #     }),
     #     flex = c(2, 10)
@@ -1948,8 +1948,8 @@ output$udc_table <- renderFormattable({
         filter(Zone == input$zone_group) %>%
         select(-Month) %>%
         rename(
-            `Month Change` = `Month over Month`,
-            `Year Change` = `Year over Year`
+            `Month Change` = `Month-over-Month`,
+            `Year Change` = `Year-over-Year`
         )
 
     shiny::validate(
@@ -2681,19 +2681,19 @@ checkboxGroupInput(
 maintenance_cols <- reactive({ # updated to reflect RSUs/RSU scores not being included
     debug(logger, "reactive on input$zone_group, input$corridors_x, input$subcorridors: maintenance_cols")
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
-        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
-            list(
-                "all" = c(0:16),
-                "default" = c(0:6),
-                "scores" = c(7:11),
-                "metrics" = c(12:16)
-            )
-        } else {
+        if (level() == "signal") {
             list(
                 "all" = c(0:17),
                 "default" = c(0:7),
                 "scores" = c(8:12),
                 "metrics" = c(13:17)
+            )
+        } else {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
             )
         }
     }
@@ -2771,15 +2771,18 @@ fillRow(
 maint_metrics_list <- list(
     "Percent Health" = maint_percent_health,
     "Missing Data" = maint_missing_data,
+    
     "Detection Uptime Score" = du_score,
     "Ped Actuation Uptime Score" = pau_score,
     "Comm Uptime Score" = cu_score,
     "CCTV Uptime Score" = cctv_score,
     "Flash Events Score" = flash_score,
+    
     "Detection Uptime" = du_health,
     "Ped Actuation Uptime" = pau_health,
     "Comm Uptime" = cu_health,
-    "CCTV Uptime" = cctv_health
+    "CCTV Uptime" = cctv_health,
+    "Flash Events" = flash_health
 )
 
 selectInput(
@@ -2837,7 +2840,7 @@ output$health_maint_plot <- renderPlotly({
 
 #### Operations Health Summary
 
-```{r Operations, warning = FALSE, eval = FALSE}
+```{r Operations, warning = FALSE, eval = TRUE}
 
 checkboxGroupInput(
     "operations_cols_checked",
@@ -2852,19 +2855,19 @@ checkboxGroupInput(
 
 operations_cols <- reactive({
     if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
-        if (corridor() == "All Corridors" | input$subcorridors == "By Sub-corridor") {
-            list(
-                "all" = c(0:16),
-                "default" = c(0:6),
-                "scores" = c(7:11),
-                "metrics" = c(12:16)
-            )
-        } else {
+        if (level() == "signal") {
             list(
                 "all" = c(0:17),
                 "default" = c(0:7),
                 "scores" = c(8:12),
                 "metrics" = c(13:17)
+            )
+        } else {
+            list(
+                "all" = c(0:16),
+                "default" = c(0:6),
+                "scores" = c(7:11),
+                "metrics" = c(12:16)
             )
         }
     }
@@ -2939,11 +2942,13 @@ fillRow(
 ops_metrics_list <- list(
     "Percent Health" = ops_percent_health,
     "Missing Data" = ops_missing_data,
+
     "Platoon Ratio Score" = pr_score,
     "Ped Delay Score" = pd_score,
     "Split Failures Score" = sf_score,
     "Travel Time Index Score" = tti_score,
     "Buffer Index Score" = bi_score,
+    
     "Platoon Ratio" = pr_health,
     "Ped Delay" = pd_health,
     "Split Failures" = sf_health,
@@ -2999,18 +3004,180 @@ output$health_ops_plot <- renderPlotly({
 })
 ```
 
+
+
 ### Safety
-```{r Safety, warning = FALSE}
+
+#### Safety Health Summary
+
+```{r Safety, warning = FALSE, eval = TRUE}
+
+checkboxGroupInput(
+    "safety_cols_checked",
+    label = NULL,
+    c(
+        "Show Scores" = "scores",
+        "Show Metrics" = "metrics"
+    ),
+    selected = c("scores", "metrics"),
+    inline = TRUE
+)
+
+safety_cols <- reactive({
+    debug(logger, "reactive on input$zone_group, input$corridors_x, input$subcorridors: safety_cols")
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        if (level() == "signal") {
+            list(
+                "all" = c(0:15),
+                "default" = c(0:7),
+                "scores" = c(8:11),
+                "metrics" = c(12:15)
+            )
+        } else {
+            list(
+                "all" = c(0:14),
+                "default" = c(0:6),
+                "scores" = c(7:10),
+                "metrics" = c(11:14)
+            )  # "corridor", "subcorridor" or other
+        }
+    }
+})
 
 
+safety_hide_cols <- reactive({
+    debug(logger, "reactive on safety_cols(), input$safety_cols_checked: safety_hide_cols")
+    # columns to show = default (label columns) + columns selected in checkbox
+    safety_cols_to_show <- c(
+        safety_cols()$default,
+        safety_cols()[input$safety_cols_checked]
+    ) %>%
+        unlist() %>%
+        unname()
+    
+    # columns to hide = inverse (setdiff) of all columns and columns to show
+    setdiff(safety_cols()$all, safety_cols_to_show)
+})
 
+
+safety_health_data <- reactive({
+    debug(logger, "reactive on safety_health_data: input$zone_group, input$corridor_x, input$subcorridors")
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x) & !is.null(input$subcorridors)) {
+        data_ <- query_health_data(
+            "safety", level(), zone_group(), corridor = corridor(), month = current_month()) %>%
+            
+            select(-Month, -Zone_Group) %>%
+            mutate(
+                Subcorridor = if_else(
+                    as.character(Subcorridor) == as.character(Corridor),
+                    "ALL",
+                    as.character(Subcorridor)
+                ),
+                Corridor = if_else(
+                    as.character(Corridor) == as.character(Zone),
+                    "ALL",
+                    as.character(Corridor)
+                )
+            )
+    } else {
+        data.frame()
+    }
+})
+
+
+output$safety_table <- renderDT({
+    debug(logger, "renderDT on safety_health_data(): safety_table")
+    get_monthly_safety_health_table(safety_health_data())
+})
+
+
+observe({
+    debug(logger, "observe on safety_health_data() and safety_hide_cols(): replace data and hide cols")
+    dataTableProxy("safety_table") %>%
+        replaceData(safety_health_data()) %>%
+        hideCols(isolate(safety_hide_cols()), reset = TRUE)
+})
+
+observe({
+    debug(logger, "observe on and safety_hide_cols(): hide cols")
+    dataTableProxy("safety_table") %>%
+        hideCols(safety_hide_cols(), reset = TRUE)
+})
+
+
+fillRow(
+    DTOutput("safety_table")
+)
 ```
 
 ### Safety Trend
-```{r Safety Trend, warning = FALSE}
+
+```{r Safety Trend, warning = FALSE, eval = TRUE}
+
+safety_metrics_list <- list(
+    "Percent Health" = safety_percent_health,
+    "Missing Data" = safety_missing_data,
+    
+    "Ped Injury Exposure Index Score" = bpsi_score,
+    "High Speed Index Score" = rsi_score,
+    "Crash Rate Index Score" = cri_score,
+    "KABCO Crash Severity Index Score" = kabco_score,
+    
+    "Ped Injury Exposure Index" = bpsi_health,
+    "High Speed Index" = rsi_health,
+    "Crash Rate Index" = cri_health,
+    "KABCO Crash Severity Index" = kabco_health
+    
+)
+
+selectInput(
+    inputId = "safety_var",
+    label = "Safety Health Metric:",
+    choices = c("Percent Health"),
+    selected = "Percent Health"
+)
 
 
+observe({
+    debug(logger, "observe on input$zone_group: safety_metrics list choices")
+    if (!is.null(input$zone_group) & !is.null(input$corridor_x)) {
+        if (input$corridor_x == "All Corridors") {
+            choices_ <- c("Percent Health")
+        } else {
+            choices_ <- c(
+                names(safety_metrics_list)
+            )
+        }
+        
+        updateSelectInput(session,
+                          inputId = "safety_var", choices = choices_
+        )
+    }
+})
 
+
+hr()
+
+fillRow(
+    plotlyOutput("health_safety_plot"),
+    height = "85%"
+)
+
+
+output$health_safety_plot <- renderPlotly({
+    level_ <- level()
+    zone_group_ <- zone_group()
+    current_month_ <- current_month()
+    input_safety_var <- input$safety_var
+    
+    # future_promise({
+        debug(logger, "renderPlotly on level(), zone_group(), current_month(): health_safety_plot")
+        get_trend_multiplot(
+            safety_metrics_list[[input_safety_var]],
+            level = level_, zone_group_, current_month_, line_chart = "monthly", accent_average = FALSE
+        )
+    # })
+})
 ```
 
 
