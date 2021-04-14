@@ -1888,6 +1888,10 @@ fillRow(
 ### Zone Activity Reports
 
 ```{r echo=FALSE, eval=TRUE}
+#`r tags$a(href = "http://sigopsmetrics.com/editor",
+#          target = "_blank",
+#          "Click here to edit progress reports")`
+
 
 # print("Checkout connection from pool...")
 conn <- pool::poolCheckout(aurora_connection_pool)
