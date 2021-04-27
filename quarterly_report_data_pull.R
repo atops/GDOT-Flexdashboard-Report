@@ -1,5 +1,5 @@
 
-source("classes.R")
+source("Monthly_Report_Functions.R")
 
 # vpd <- structure(metrics[["daily_traffic_volume"]], class = "metric")
 # throughput <- structure(metrics[["throughput"]], class = "metric")
@@ -25,12 +25,15 @@ source("classes.R")
 
 cor <- get_cor()
 
+aws.s3::save_object(bucket = "gdot-spm", object = "code/sigops.duckdb", file = "sigops.duckdb")
+conn <- get_duckdb_connection("sigops.duckdb")
+
 qdata <- lapply(
     list(vpd,
          am_peak_vph,
          pm_peak_vph,
          throughput,
-         aog,
+         arrivals_on_green,
          progression_ratio,
          queue_spillback_rate,
          peak_period_split_failures,
@@ -43,17 +46,17 @@ qdata <- lapply(
          ped_button_uptime,
          cctv_uptime,
          comm_uptime,
-         rsu_uptime,
          tasks_reported,
          tasks_resolved,
          tasks_outstanding,
          tasks_over45,
          tasks_mttr),
-    function(cls) {
-        print(cls$label)
-        cor$qu[[cls$table]] %>% 
-            mutate(Metric = cls$label) %>%
-            rename(value = cls$variable) %>%
+    function(metric) {
+        print(metric$label)
+        dbReadTable(conn, glue("cor_qu_{metric$table}")) %>%
+        # cor$qu[[cls$table]] %>% 
+            mutate(Metric = metric$label) %>%
+            rename(value = metric$variable) %>%
             select(Metric, Zone_Group, Corridor, Quarter, value)
     }
 ) %>% bind_rows() %>% 
@@ -95,3 +98,30 @@ bottlenecks$length_1yr <- purrr::map(bottlenecks$tmcs_1yr, function(x) {
 bottlenecks <- bottlenecks %>% select(-c(tmcs_current, tmcs_1yr))
 
 readr::write_csv(bottlenecks, "quarterly_bottlenecks.csv")
+
+
+
+
+sid <- "7729"
+dat <- "2021-02-23"
+
+cd <- s3read_using(
+    read_parquet, 
+    bucket = "gdot-spm-cycles", 
+    object = glue("date={dat}/cd_{sid}_{dat}.parquet")
+    ) %>% 
+    convert_to_utc()
+
+cd %>% 
+    filter(Phase %in% c(2,6)) %>% 
+    select(-c(PhaseStart, PhaseEnd)) %>% 
+    mutate(EventCode = recode(EventCode, `1` = "G", `8` = "Y", `9` = "R")) %>%
+    pivot_wider(
+        names_from = EventCode, 
+        values_from = c(TermType, Duration, Volume), 
+        values_fn = function(x) x[1],
+        values_fill = 0
+    ) %>% 
+    select(-c(TermType_Y, TermType_R)) %>% 
+    rename(TermType = TermType_G) %>%
+    write_csv(glue("aog_{sid}.csv"))
