@@ -2024,13 +2024,73 @@ print(glue("{Sys.time()} Crash Indices [26 of 29]"))
 
 tryCatch(
     {
-        monthly_crashes <- s3read_using(
-            read_csv, bucket = conf$bucket, object = "mark/crash_indices/sigs_compiled.csv") %>%
-            rename(Date = Month,
-                   cri = crash_rate_index,
-                   kabco = kabco_index) %>% 
-            filter(!is.na(SignalID), !is.na(cri), !is.na(kabco), !is.infinite(cri), !is.infinite(kabco)) %>%
-            mutate(CallPhase = 0)
+        crashes <- s3read_using(
+            read_excel, 
+            bucket = conf$bucket, 
+            object = "Collisions Dataset 2017-2019.xlsm"
+        ) %>%
+            transmute(
+                SignalID = as.factor(Signal_ID_Clean),
+                Month = as.Date(Month),
+                crashes_k, 
+                crashes_a,
+                crashes_b,
+                crashes_c,
+                crashes_o,
+                crashes_total,
+                cost) %>%
+            drop_na() %>%    
+            arrange(SignalID, Month) %>%
+            group_by(SignalID, Month) %>%
+            summarise(across(c(starts_with("crashes"), cost), sum), .groups = "drop")
+        
+        
+        monthly_vpd <- readRDS("~/Code/GDOT/production_scripts/monthly_vpd.rds")
+        
+        # Running 12-months of volumes
+        monthly_vpd <- monthly_vpd %>% 
+            complete(SignalID, Month) %>%
+            arrange(SignalID, Month) %>%
+            group_by(SignalID) %>% 
+            mutate(vpd12 = runner::mean_run(vpd, lag = 0, k = 12)) %>%
+            ungroup()
+        
+        # Running 36 months of crashes
+        monthly_36mo_crashes <- crashes %>% 
+            complete(SignalID, Month) %>%
+            replace(is.na(.), 0) %>%
+            arrange(SignalID, Month) %>% 
+            group_by(SignalID) %>% 
+            
+            mutate(across(
+                starts_with("crashes"), 
+                function(x) {runner::sum_run(x, lag = 0, k = 36)}
+            )) %>% 
+            mutate(cost = runner::sum_run(cost, lag = 0, k = 36)) %>%
+            ungroup()
+        
+        # -- Hack to use a fixed 36 month period for all months in report (which is the same as the vpd months)
+        monthly_36mo_crashes <- filter(monthly_36mo_crashes, Month == max(Month))
+        monthly_36mo_crashes <- lapply(
+            unique(monthly_vpd$Month), 
+            function(m) mutate(monthly_36mo_crashes, Month = m)
+            ) %>% 
+            bind_rows()
+        # -- ---------------------------------------------------
+
+        monthly_crashes <- full_join(
+            monthly_36mo_crashes, 
+            monthly_vpd, 
+            by = c("SignalID", "Month")
+            ) %>%
+            mutate(
+                cri = crashes_total * 1000 / (vpd * 3),
+                kabco = cost / (vpd * 3),
+                Date = Month,
+                CallPhase = 0
+            )
+        
+        # TODO: Insert a step to handle vpd==NA. Remove? Do nothing?
         
         monthly_crash_rate_index <- get_monthly_avg_by_day(monthly_crashes, "cri")
         monthly_kabco_index <- get_monthly_avg_by_day(monthly_crashes, "kabco")
