@@ -2,7 +2,11 @@
 library(aws.s3)
 library(qs)
 
-write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_date = NULL, report_end_date = NULL) {
+write_sigops_to_db <- function(
+    conn, df, dfname, recreate = FALSE, 
+    	calcs_start_date = NULL, 
+        report_start_date = NULL,
+        report_end_date = NULL) {
     
     for (per in c("qu", "mo", "wk", "dy")) {
         for (tab in names(df[[per]])) { 
@@ -29,7 +33,12 @@ write_sigops_to_db <- function(conn, df, dfname, recreate = FALSE, calcs_start_d
                         overwrite = TRUE,
                         row.names = FALSE)
                 } else {
-                    # Clear Prior to Append
+                    # Clear head of table prior to report start date
+                    if (!is.null(report_start_date) & length(datefield) == 1) {
+                        dbExecute(conn, glue(paste(
+                            "DELETE from {table_name} WHERE {datefield} < '{report_start_date}'")))
+                    }
+                    # Clear Tail Prior to Append
                     if (!is.null(start_date) & length(datefield) == 1) {
                         dbExecute(conn, glue(paste(
                             "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
@@ -289,7 +298,11 @@ recreate_database <- function(conn) {
     # ------------------------------------------------------------------------------
 }
 
-append_to_database <- function(conn, cor, sub, sig, calcs_start_date = NULL, report_end_date = NULL) {
+append_to_database <- function(
+    conn, cor, sub, sig, 
+    calcs_start_date = NULL, 
+    report_start_date = NULL,
+    report_end_date = NULL) {
 
     # Prep before writing to db. These come from Health_Metrics.R
     cor$mo$maint <- mutate(cor$mo$maint, Zone_Group = Zone)
@@ -312,7 +325,7 @@ append_to_database <- function(conn, cor, sub, sig, calcs_start_date = NULL, rep
     write_to_db_once_off(conn, cor$summary_data, "cor_summary_data", recreate = FALSE)
     
     # Write entire data set to database
-    write_sigops_to_db(conn, cor, "cor", recreate = FALSE, calcs_start_date, report_end_date)
-    write_sigops_to_db(conn, sub, "sub", recreate = FALSE, calcs_start_date, report_end_date)
-    write_sigops_to_db(conn, sig, "sig", recreate = FALSE, calcs_start_date, report_end_date)
+    write_sigops_to_db(conn, cor, "cor", recreate = FALSE, calcs_start_date, report_start_date, report_end_date)
+    write_sigops_to_db(conn, sub, "sub", recreate = FALSE, calcs_start_date, report_start_date, report_end_date)
+    write_sigops_to_db(conn, sig, "sig", recreate = FALSE, calcs_start_date, report_start_date, report_end_date)
 }
