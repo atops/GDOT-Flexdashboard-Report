@@ -1833,11 +1833,11 @@ tryCatch(
         monthly_flash <- get_monthly_flashevent(fe)
 
         # Group into corridors
-        cor_monthly_flash %<-% get_cor_monthly_flash(monthly_flash, corridors)
+        cor_monthly_flash <- get_cor_monthly_flash(monthly_flash, corridors)
+        
         # Subcorridors
-        sub_monthly_flash %<-%
-            (get_cor_monthly_flash(monthly_flash, subcorridors) %>%
-                filter(!is.na(Corridor)))
+        sub_monthly_flash <- get_cor_monthly_flash(monthly_flash, subcorridors) %>%
+            filter(!is.na(Corridor))
 
         # Monthly % change from previous month by corridor ----------------------------
 
@@ -2630,7 +2630,9 @@ conn <- get_aurora_connection()
 # append_to_database(conn, cor, sub, sig)
 append_to_database(
     conn, cor, sub, sig, 
-    calcs_start_date, report_end_date = NULL)
+    calcs_start_date, 
+    report_start_date = report_start_date,
+    report_end_date = NULL)
 
 
 # Update DuckDB Once per Month for Staging/Main
@@ -2639,6 +2641,7 @@ duckconn <- get_duckdb_connection("sigops.duckdb")
 append_to_database(
     duckconn, cor, sub, sig, 
     calcs_start_date = report_start_date, 
+    report_start_date = report_start_date,
     report_end_date = conf$production_report_end_date)
 
 # Need to disconnect and reconnect to commit write-ahead long (wal)

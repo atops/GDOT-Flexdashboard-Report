@@ -85,7 +85,17 @@ if (conf$calcs_start_date == "auto") {
 } else {
     calcs_start_date <- conf$calcs_start_date
 }
-wk_calcs_start_date <- ymd(calcs_start_date) - wday(ymd(calcs_start_date)) + 3
+# wk_calcs_start_date <- ymd(calcs_start_date) - wday(ymd(calcs_start_date)) + 3
+round_to_tuesday <- function(date_) {
+    if (is.null(date_)) {
+        return (NULL)
+    }
+    if (is.character(date_)) {
+        date_ <- ymd(date_)
+    }
+    date_ - wday(date_) + 3
+}
+wk_calcs_start_date <- round_to_tuesday(calcs_start_date)
 
 dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
 month_abbrs <- get_month_abbrs(report_start_date, report_end_date)
