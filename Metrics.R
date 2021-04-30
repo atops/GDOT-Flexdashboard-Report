@@ -879,7 +879,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
 }
 
 
-
+# Not used. All the work is done in Python.
 get_flash_events <- function(start_date, end_date) {
     
     flash_events <- s3_read_parquet_parallel(
@@ -890,7 +890,6 @@ get_flash_events <- function(start_date, end_date) {
             rename(Timestamp = TimeStamp) %>% 
             arrange(SignalID, Timestamp) %>% 
             group_by(SignalID) %>% 
-            filter(EventParam - lag(EventParam) > 0) %>%
             mutate(
                 FlashDuration_s = as.numeric(Timestamp - lag(Timestamp)),
                 EndParam = lead(EventParam)) %>%
