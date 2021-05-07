@@ -17,7 +17,9 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  Modified = "date",
                  Note = "text",
                  Latitude = "numeric",
-                 Longitude = "numeric")
+                 Longitude = "numeric",
+                 County = "text",
+                 City = "text")
     
     
     df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
