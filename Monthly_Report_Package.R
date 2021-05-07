@@ -2045,7 +2045,7 @@ tryCatch(
             summarise(across(c(starts_with("crashes"), cost), sum), .groups = "drop")
         
         
-        monthly_vpd <- readRDS("~/Code/GDOT/production_scripts/monthly_vpd.rds")
+        monthly_vpd <- readRDS("monthly_vpd.rds")
         
         # Running 12-months of volumes
         monthly_vpd <- monthly_vpd %>% 
@@ -2569,6 +2569,7 @@ tryCatch(
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
                 select(-c(Name, ones)),
             
+            
             "cri" = sigify(readRDS("monthly_crash_rate_index.rds"), cor$mo$cri, corridors) %>%
                 select(Zone_Group, Corridor, Month, cri, delta),
             "kabco" = sigify(readRDS("monthly_kabco_index.rds"), cor$mo$kabco, corridors) %>%
@@ -2707,4 +2708,11 @@ append_to_database(
 dbDisconnect(duckconn)
 duckconn <- get_duckdb_connection("sigops.duckdb")
 dbDisconnect(duckconn)
+
+aws.s3::put_object(
+    file = "sigops.duckdb",
+    object = "code/sigops.duckdb",
+    bucket = conf$bucket,
+    multipart = TRUE
+)
 
