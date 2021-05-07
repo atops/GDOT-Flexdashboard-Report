@@ -91,15 +91,15 @@ weights_lookup:
         [15, 20, 25, 20, 25]
 
     Crash_Rate_Index_Weight:
-        [50, 20, 10,  5, 10]
+        [50, 20, 10, 20, 35] #from DC email 3/9/21
     
     KABCO_Crash_Severity_Index_Weight:
-        [10, 30, 30, 15,  0]
+        [10, 30, 30, 20, 35] #from DC email 3/9/21
 
     High_Speed_Index_Weight:
-        [ 5, 10, 20, 30, 25]
+        [10, 30, 45, 50, 25] #from DC email 3/9/21
         
     Ped_Injury_Exposure_Index_Weight:
-        [20, 20, 15, 30, 40]
+        [30, 20, 15, 10,  5] #from DC email 3/9/21
 
     

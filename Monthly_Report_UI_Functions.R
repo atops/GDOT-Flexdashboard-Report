@@ -2126,7 +2126,7 @@ get_monthly_maintenance_health_table <- function(data_) {
     ) %>%
         formatPercentage(percent_cols) %>%
         formatRound(rounded_cols, digits = 0) %>%
-	formatStyle("Percent Health", fontWeight = 'bold') %>%
+	    formatStyle("Percent Health", fontWeight = 'bold', fontSize = '20px') %>% #edit 5/7/21 - GDOT requested that % health "stand out more"
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2172,7 +2172,7 @@ get_monthly_operations_health_table <- function(data_) {
         formatRound(rounded0_cols, digits = 0) %>%
         formatRound(rounded1_cols, digits = 1) %>%
         formatRound(rounded2_cols, digits = 2) %>%
-	formatStyle("Percent Health", fontWeight = 'bold') %>%
+	    formatStyle("Percent Health", fontWeight = 'bold', fontSize = '20px') %>% #edit 5/7/21 - GDOT requested that % health "stand out more"
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
@@ -2218,7 +2218,7 @@ get_monthly_safety_health_table <- function(data_) {
         formatRound(rounded0_cols, digits = 0) %>%
         # formatRound(rounded1_cols, digits = 1) %>%
         formatRound(rounded2_cols, digits = 2) %>%
-	formatStyle("Percent Health", fontWeight = 'bold') %>%
+	    formatStyle("Percent Health", fontWeight = 'bold', fontSize = '20px') %>% #edit 5/7/21 - GDOT requested that % health "stand out more"
         formatStyle("Subcorridor",
                     target = "row",
                     backgroundColor = styleEqual("ALL", "lightgray"),
