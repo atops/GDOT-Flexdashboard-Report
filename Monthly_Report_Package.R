@@ -2569,7 +2569,6 @@ tryCatch(
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
                 select(-c(Name, ones)),
             
-            
             "cri" = sigify(readRDS("monthly_crash_rate_index.rds"), cor$mo$cri, corridors) %>%
                 select(Zone_Group, Corridor, Month, cri, delta),
             "kabco" = sigify(readRDS("monthly_kabco_index.rds"), cor$mo$kabco, corridors) %>%
@@ -2601,7 +2600,7 @@ descs <- corridors %>%
     ungroup()
 
 for (tab in c(
-    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi", "rsi", "csi", "kabco",
+    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi", "rsi", "cri", "kabco",
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot", "safety_plot"
 )) {
