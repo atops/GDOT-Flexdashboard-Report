@@ -115,7 +115,7 @@ get_summary_data <- function(df, current_month = NULL) {
         },
         # safety metrics - new 3/17/21
         rename(df$mo$kabco, kabco.delta = delta),
-        rename(df$mo$cri, crash.delta = delta),
+        rename(df$mo$cri, cri.delta = delta),
         if (!is.null(df$mo$rsi)) {
             rename(df$mo$rsi, rsi.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
