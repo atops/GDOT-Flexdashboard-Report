@@ -196,7 +196,7 @@ get_health_all <- function(df) {
             Flash_Events = ifelse(is.na(Flash_Events), 0, Flash_Events), # assuming we want this
             BI = pti - TTI,
             pti = NULL,
-            Crash_Rate_Index = ifelse(is.infinite(Crash_Rate_Index), NA, Crash_Rate_Index * 1000), #may need to be modified in future
+            Crash_Rate_Index = ifelse(is.infinite(Crash_Rate_Index), NA, Crash_Rate_Index),
             KABCO_Crash_Severity_Index = ifelse(is.infinite(KABCO_Crash_Severity_Index), NA, KABCO_Crash_Severity_Index),
             
             # maintenance
