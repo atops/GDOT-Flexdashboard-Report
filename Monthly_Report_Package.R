@@ -1864,7 +1864,6 @@ print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29]"))
 
 tryCatch(
     {
-        calcs_start_date <- "2020-01-01"
         date_range <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "month")
         
         sub_monthly_bpsi <- lapply(
@@ -1945,7 +1944,6 @@ print(glue("{Sys.time()} Relative Speed Index [25 of 29]"))
 
 tryCatch(
     {
-        calcs_start_date <- "2020-01-01"
         date_range <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "month")
         
         sub_monthly_rsi <- lapply(
@@ -2686,7 +2684,11 @@ source("write_sigops_to_db.R")
 # Update Aurora Nightly
 conn <- get_aurora_connection()
 # recreate_database(conn)
-# append_to_database(conn, cor, sub, sig)
+# append_to_database(
+#    conn, cor, sub, sig, 
+#    calcs_start_date = report_start_date, 
+#    report_start_date = report_start_date)
+
 append_to_database(
     conn, cor, sub, sig, 
     calcs_start_date, 
@@ -2696,12 +2698,16 @@ append_to_database(
 
 # Update DuckDB Once per Month for Staging/Main
 duckconn <- get_duckdb_connection("sigops.duckdb")
-# recreate_database(duckconn)
+recreate_database(duckconn)
 append_to_database(
     duckconn, cor, sub, sig, 
     calcs_start_date = report_start_date, 
-    report_start_date = report_start_date,
-    report_end_date = conf$production_report_end_date)
+    report_start_date = report_start_date)
+# append_to_database(
+#     duckconn, cor, sub, sig, 
+#     calcs_start_date = calcs_start_date, 
+#     report_start_date = report_start_date,
+#     report_end_date = conf$production_report_end_date)
 
 # Need to disconnect and reconnect to commit write-ahead long (wal)
 dbDisconnect(duckconn)

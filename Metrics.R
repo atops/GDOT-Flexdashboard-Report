@@ -224,11 +224,12 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     print("Pulling data...")
 
     ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-         usable_cores * 6
+         usable_cores * 3
     } else {
         1
     }
 
+    cat('.')
     de <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
        
         s3bucket = "gdot-spm-detections"
@@ -237,7 +238,6 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
         
         if (object_exists) {
-            cat('.')
             tryCatch({ 
                 s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
                 filter(Phase %in% c(3, 4, 7, 8)) %>%
@@ -255,6 +255,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         }
     }) %>% bind_rows() %>% convert_to_utc()
     
+    cat('.')
     cd <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
         
         s3bucket = "gdot-spm-cycles"
@@ -263,7 +264,6 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
         
         if (object_exists) {
-            cat('.')
             tryCatch({ 
                 s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
                 mutate(SignalID = factor(SignalID),
@@ -279,6 +279,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     }) %>% bind_rows() %>% convert_to_utc()
     
     
+    cat('.')
     dc <- get_det_config_sf(date_) %>%
         filter(SignalID %in% signals_list) %>%
         rename(Phase = CallPhase)
@@ -786,11 +787,10 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
         object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
 
         if (object_exists) {
-            cat('.')
             tryCatch({
                 # all 45/21/22/132 events
-                pe <- s3_read_parquet(bucket = s3bucket, object = s3object) %>%
-                    filter(EventCode %in% (c(45, 21, 22, 132))) %>%
+                s3_read_parquet(bucket = s3bucket, object = s3object) %>%
+                    filter(EventCode %in% c(45, 21, 22, 132)) %>%
                     select(-c(Date, DeviceID)) %>%
                     mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
                     arrange(Timestamp) %>%
@@ -809,15 +809,32 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
         1
     }
     
-    pe <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
-            get_ped_events_one_signal(signalid, date_, conf)
-        }) %>% bind_rows()
+    cat('.')
+    # pe <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
+    #     # get_ped_events_one_signal(signalid = signalid, date_ = date_, conf = conf)
+    # })
+    # pe <- pe %>% bind_rows()
 
-    
+    athena <- get_athena_connection(conf$athena)
+    pe <- tbl(athena, "atspm2") %>%
+        filter(date == date_, eventcode %in% c(45, 21, 22, 132)) %>%
+        select(signalid, timestamp, eventcode, eventparam) %>%
+        collect() %>%
+        transmute(SignalID = signalid,
+                  Timestamp = timestamp,
+                  EventCode = eventcode,
+                  EventParam = eventparam) %>%
+        mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+        arrange(Timestamp) %>%
+        tidyr::fill(CycleLength) %>%
+        rename(Phase = EventParam)
+
+    cat('.')
     coord.type <- group_by(pe, SignalID) %>%
         summarise(CL = max(CycleLength, na.rm = T), .groups = "drop") %>%
         mutate(Pattern = ifelse( (CL == 0 | !is.finite(CL)), "Free", "Coordinated"))
     
+    cat('.')
     pe <- inner_join(pe, coord.type, by = "SignalID") %>%
         filter(
             EventCode != 132,
@@ -841,6 +858,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
         filter(!(Pattern == "Coordinated" & Delay > CycleLength)) %>% #filter out events where max ped delay/cycle > CL
         filter(!(Pattern == "Free" & Delay > 300)) # filter out events where delay for uncoordinated signals is > 5 min (300 s)
     
+    cat('.')
     pe.free.summary <- filter(pe, Pattern == "Free") %>%
         group_by(SignalID) %>%
         summarise(
@@ -850,6 +868,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
             .groups = "drop"
         )
     
+    cat('.')
     pe.coordinated.summary.byphase <- filter(pe, Pattern == "Coordinated") %>%
         group_by(SignalID, Phase) %>%
         summarise(
@@ -859,6 +878,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
             .groups = "drop"
         )
     
+    cat('.')
     pe.coordinated.summary <- pe.coordinated.summary.byphase %>%
         group_by(SignalID) %>%
         summarise(
@@ -868,6 +888,7 @@ get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
             .groups = "drop"
         )
     
+    cat('.')
     pe.summary.overall <- bind_rows(pe.free.summary, pe.coordinated.summary) %>%
         mutate(Date = date_)
     

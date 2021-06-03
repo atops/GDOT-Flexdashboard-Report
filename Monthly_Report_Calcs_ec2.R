@@ -541,8 +541,9 @@ get_pd_date_range <- function(start_date, end_date) {
 
     lapply(date_range, function(date_) {
         print(date_)
+        run_parallel <- length(date_range) > 1
 
-        pd <- get_ped_delay(date_, conf, signals_list)
+        pd <- get_ped_delay(date_, conf, signals_list, parallel = run_parallel)
         if (nrow(pd) > 0) {
             s3_upload_parquet_date_split(
                 pd,
@@ -571,8 +572,9 @@ get_sf_date_range <- function(start_date, end_date) {
 
     lapply(date_range, function(date_) {
         print(date_)
+        run_parallel <- length(date_range) > 1
 
-        sf <- get_sf_utah(date_, conf$athena, signals_list)
+        sf <- get_sf_utah(date_, conf, signals_list, parallel = FALSE)
         s3_upload_parquet_date_split(
             sf,
             bucket = conf$bucket,
