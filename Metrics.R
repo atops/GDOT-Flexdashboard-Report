@@ -13,7 +13,6 @@ get_uptime <- function(df, start_date, end_time) {
     
     ts_sig <- ts_sig %>%
         transmute(SignalID = signalid, Timestamp = ymd_hms(timestamp)) %>%
-        
         bind_rows(., bookend1, bookend2) %>%
         distinct() %>%
         arrange(SignalID, Timestamp)
@@ -165,14 +164,14 @@ get_vpd <- function(counts, mainline_only = TRUE) {
 get_thruput <- function(counts) {
     
     counts %>%
-        mutate(Date = date(Timeperiod),
-               DOW = wday(Date), 
-               Week = week(Date)) %>%
+        mutate(
+            Date = date(Timeperiod),
+            DOW = wday(Date), 
+            Week = week(Date)) %>%
         group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
         summarize(vph = sum(vol, na.rm = TRUE), 
                   .groups = "drop_last") %>%
         
-        #summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4,
         summarize(vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
                   .groups = "drop") %>%
         
@@ -182,8 +181,6 @@ get_thruput <- function(counts) {
     
     # SignalID | CallPhase | Date | Week | DOW | vph
 }
-
-
 
 
 
@@ -478,7 +475,6 @@ get_qs <- function(detection_events) {
              cycles = .N), 
           by = .(Date, SignalID, Hour = floor_date(CycleStart, unit = 'hours'), CallPhase)] %>%
         # -- --------------------------- ---    
-        
         
         transmute(SignalID = factor(SignalID),
                   CallPhase = factor(CallPhase),

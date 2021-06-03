@@ -357,7 +357,8 @@ get_counts_based_measures <- function(month_abbrs) {
         filtered_counts_15min <- lapply(date_range_twr, function(date_) {
             date_ <- as.character(date_)
             print(date_)
-            s3_read_parquet_parallel("filtered_counts_15min", date_, date_, bucket = conf$bucket)
+            s3_read_parquet_parallel(
+                "filtered_counts_15min", date_, date_, bucket = conf$bucket)
         }) %>% bind_rows()
 
         if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {

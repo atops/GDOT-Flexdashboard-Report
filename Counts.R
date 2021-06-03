@@ -158,7 +158,6 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                               table_name = "filtered_counts_1hr", 
                               conf_athena = conf_athena)
             rm(counts_1hr)
-            
         }
         
         dbDisconnect(conn)
@@ -216,11 +215,12 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             get_filtered_counts_3stream(
                 counts_15min, 
                 interval = "15 min") %>%
-                s3_upload_parquet(date_,   # filtered_counts_15min, 
-                                  fn = filtered_counts_15min_fn, 
-                                  bucket = bucket,
-                                  table_name = "filtered_counts_15min", 
-                                  conf_athena = conf_athena)
+                s3_upload_parquet(
+                    date_,
+                    fn = filtered_counts_15min_fn, 
+                    bucket = bucket,
+                    table_name = "filtered_counts_15min", 
+                    conf_athena = conf_athena)
         }
     }
     #dbDisconnect(conn)
