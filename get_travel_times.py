@@ -6,7 +6,7 @@ Created on Mon Sep 24 20:42:51 2018
 """
 
 
-#import os
+import sys
 import pandas as pd
 import numpy as np
 import requests
@@ -22,12 +22,8 @@ import io
 import boto3
 import dask.dataframe as dd
 
-#os.environ['TZ'] = 'America/New_York'
-#time.tzset()
-
 s3 = boto3.client('s3')
 
-pd.options.display.max_columns = 10
 
 
 def is_success(response):
@@ -35,11 +31,10 @@ def is_success(response):
     if 'state' in x.keys() and x['state']=='SUCCEEDED':
         return True
     else:
-        # print(f"state: {x['state']} | progress: {x['progress']}")
         return False
 
 
-def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
+def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, initial_sleep_sec=0):
     
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
@@ -54,11 +49,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
           "start": start_date
         }
       ],
-      "dow": [
-        2,
-        3,
-        4
-      ],
+      "dow": dow,
       "dsFields": [
         {
           "columns": [
@@ -81,7 +72,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
       ],
       "granularity": {
         "type": "minutes",
-        "value": 60
+        "value": bin_minutes
       },
       "times": [
         {
@@ -97,7 +88,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     response = requests.post(uri.format('jobs/export'), 
                              params = {'key': key}, 
                              json = payload)
-    print('response status code:', response.status_code)
+    print('travel times response status code:', response.status_code)
     
     if response.status_code == 200: # Only if successful response
 
@@ -112,7 +103,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
 
         results = requests.get(uri.format('jobs/export/results'), 
                                params = {'key': key, 'uuid': payload['uuid']})
-        print('results received')
+        print('travel times results received')
         
         # Save results (binary zip file with one csv)
         with io.BytesIO() as f:
@@ -126,7 +117,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     else:
         df = pd.DataFrame()
 
-    print('{} records'.format(len(df)))
+    print('{} travel times records'.format(len(df)))
     
     return df
 
@@ -174,6 +165,9 @@ def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
 
 if __name__=='__main__':
 
+    with open(sys.argv[1]) as yaml_file:
+        tt_conf = yaml.load(yaml_file, Loader=yaml.Loader)
+
     with open('Monthly_Report_AWS.yaml') as yaml_file:
         cred = yaml.load(yaml_file, Loader=yaml.Loader)
 
@@ -192,10 +186,17 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = datetime.now(pytz.timezone('America/New_York')) - timedelta(days=1)
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+
+
+    suff = tt_conf['table_suffix']
+    cor_table = f'cor_travel_times_{suff}'
+    cor_metrics_table = f'cor_travel_time_metrics_{suff}'
+    sub_table = f'sub_travel_times_{suff}'
+    sub_metrics_table = f'sub_travel_time_metrics_{suff}'
     
    
-    tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
-                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']), engine='openpyxl')
+    tmc_df = (pd.read_excel(f"s3://{conf['bucket']}/{conf['corridors_TMCs_filename_s3']}", 
+                            engine='openpyxl')
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
     tmc_df = tmc_df[tmc_df.Corridor != 'None']
@@ -205,20 +206,21 @@ if __name__=='__main__':
     #start_date = '2019-11-01'
     #end_date = '2019-12-01'
 
-    print(start_date)
-    print(end_date)
-
-    # group_size = 1000
-    # tmc_groups = np.split(tmc_list, range(group_size, len(tmc_list), group_size))
+    print(f'travel times: {start_date} - {end_date}')
 
     try:
-        tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
-        # tt_df = pd.concat(
-        #     [get_tmc_data(start_date, end_date, list(tmc_group), cred['RITIS_KEY'], 1) for tmc_group in tmc_groups]
-        # )
+        tt_df = get_tmc_data(
+            start_date, 
+            end_date, 
+            tmc_list, 
+            cred['RITIS_KEY'], 
+            dow=tt_conf['dow'], 
+            bin_minutes=tt_conf['bin_minutes'], 
+            initial_sleep_sec=0
+        )
 
     except Exception as e:
-        print('ERROR retrieving records')
+        print('ERROR retrieving tmc records')
         print(e)
         tt_df = pd.DataFrame()
     
@@ -232,28 +234,27 @@ if __name__=='__main__':
                 .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
                         date = lambda x: x.measurement_tstamp.dt.date)
                 .rename(columns = {'measurement_tstamp': 'Hour'}))
-        #df.Hour = df.Hour.dt.tz_localize('America/New_York')
-        df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
+        df = df.drop_duplicates()
              
         get_corridor_travel_times(
-            df, ['Corridor'], conf['bucket'], 'cor_travel_times')
+            df, ['Corridor'], conf['bucket'], cor_table)
 
         get_corridor_travel_times(
-            df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_times')
+            df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_table)
             
        
         months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in (start_date, end_date)]))
         for yyyy_mm in months:
             try:
-                df = dd.read_parquet(f's3://gdot-spm/mark/cor_travel_times/date={yyyy_mm}-*/*').compute()
+                df = dd.read_parquet(f's3://gdot-spm/mark/{cor_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
                      get_corridor_travel_time_metrics(
-                         df, ['Corridor'], conf['bucket'], 'cor_travel_time_metrics')
+                         df, ['Corridor'], conf['bucket'], cor_metrics_table)
 
                 if not df.empty:
-                    df = dd.read_parquet(f's3://gdot-spm/mark/sub_travel_times/date={yyyy_mm}-*/*').compute()
+                    df = dd.read_parquet(f's3://gdot-spm/mark/{sub_table}/date={yyyy_mm}-*/*').compute()
                     get_corridor_travel_time_metrics(
-                        df, ['Corridor', 'Subcorridor'], conf['bucket'], 'sub_travel_time_metrics')
+                        df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_metrics_table)
             except IndexError:
                 print(f'No data for {yyyy_mm}')
 
