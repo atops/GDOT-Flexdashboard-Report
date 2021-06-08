@@ -225,34 +225,33 @@ get_counts_based_measures <- function(month_abbrs) {
         date_range <- seq(sd, ed, by = "1 day")
 
 
-        print("adjusted counts")
-        filtered_counts_1hr <- s3_read_parquet_parallel(
-            "filtered_counts_1hr",
-            as.character(sd),
-            as.character(ed),
-            bucket = conf$bucket
-        ) %>%
-            mutate(
-                Date = date(Date),
-                SignalID = factor(SignalID),
-                CallPhase = factor(CallPhase),
-                Detector = factor(Detector)
+        print("1hr adjusted counts")
+        prep_db_for_adjusted_counts("filtered_counts_1hr", conf, date_range)
+        conn <- get_adjusted_counts_duckdb("filtered_counts_1hr", "adjusted_counts_1hr", conf)
+        
+        # Loop through dates in adjusted counts and write to parquet
+        dates <- tbl(conn, "adjusted_counts_1hr") %>% distinct(date) %>% collect()
+        dates <- dates$date
+
+        lapply(dates, function(date_) {
+            print(date_)
+            adjusted_counts_1hr <- tbl(conn, "adjusted_counts_1hr") %>% filter(date == date_) %>% collect()
+            s3_upload_parquet_date_split(
+                adjusted_counts_1hr,
+                bucket = conf$bucket,
+                prefix = "adjusted_counts_1hr",
+                table_name = "adjusted_counts_1hr",
+                conf_athena = conf$athena, parallel = FALSE
             )
-        print("Read filtered_counts. Getting adjusted counts...")
-
-        adjusted_counts_1hr <- get_adjusted_counts_split(filtered_counts_1hr)
-
-        rm(filtered_counts_1hr)
-
-        s3_upload_parquet_date_split(
-            adjusted_counts_1hr,
-            bucket = conf$bucket,
-            prefix = "adjusted_counts_1hr",
-            table_name = "adjusted_counts_1hr",
-            conf_athena = conf$athena, parallel = FALSE
-        )
-        rm(adjusted_counts_1hr)
-        gc()
+        })
+        
+        if (file.exists("filtered_counts_1hr.duckdb")) {
+            file.remove("filtered_counts_1hr.duckdb")
+        }
+        if (file.exists("adjusted_counts_1hr.duckdb")) {
+            file.remove("adjusted_counts_1hr.duckdb")
+        }
+        
 
         lapply(date_range, function(x) {
             write_signal_details(x, conf$athena, signals_list)
@@ -350,86 +349,42 @@ get_counts_based_measures <- function(month_abbrs) {
         # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
 
-        doParallel::registerDoParallel(cores = usable_cores)
-
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
+        
+        prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range_twr)
+        conn <- get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
+        
+        # Loop through dates in adjusted counts and write to parquet
+        dates <- (tbl(conn, "adjusted_counts_15min") %>% distinct(date) %>% collect())$date
 
-        filtered_counts_15min <- lapply(date_range_twr, function(date_) {
-            date_ <- as.character(date_)
+        lapply(dates, function(date_) {
             print(date_)
-            s3_read_parquet_parallel(
-                "filtered_counts_15min", date_, date_, bucket = conf$bucket)
-        }) %>% bind_rows()
-
-        if (!is.null(filtered_counts_15min) && nrow(filtered_counts_15min)) {
-            filtered_counts_15min <- filtered_counts_15min %>%
-                transmute(
-                    SignalID = factor(SignalID),
-                    CallPhase = factor(CallPhase),
-                    Detector = factor(Detector),
-                    Date = date(Date),
-                    Timeperiod = Timeperiod,
-                    Month_Hour = Month_Hour,
-                    Hour = Hour,
-                    vol = vol,
-                    Good_Day = Good_Day,
-                    delta_vol = delta_vol,
-                    mean_abs_delta = mean_abs_delta
-                )
-            print("adjusted counts and throughput")
-
-            # clear partition files
-            lapply(as.character(seq(0, 9)), function(i) {
-                tryCatch(
-                    {
-                        file.remove(glue("fc{i}.fst"))
-                    },
-                    warning = function(w) {}
-                )
-            })
-
-            # split into 10 files, partitioned by signalid
-            lapply(as.character(seq(0, 9)), function(i) {
-                cat(c(i, ""))
-                filtered_counts_15min %>%
-                    filter(endsWith(as.character(SignalID), i)) %>%
-                    write_fst(glue("fc{i}.fst"))
-            })
-            cat("", end = "\n")
-            # clear memory of large dataframe
-            rm(filtered_counts_15min)
-            gc()
-            # get adjusted counts and throughput on each partition (file)
-            throughput <- lapply(as.character(seq(0, 9)), function(i) {
-                cat(c(i, ""))
-                read_fst(glue("fc{i}.fst")) %>%
-                    get_adjusted_counts(ends_with = i) %>%
-                    get_thruput()
-            }) %>%
-                bind_rows() %>%
-                mutate(
-                    SignalID = factor(SignalID),
-                    CalPhase = factor(CallPhase)
-                )
-            cat("", end = "\n")
-
+            adjusted_counts_15min <- tbl(conn, "adjusted_counts_15min") %>% filter(date == date_) %>% collect()
+            s3_upload_parquet_date_split(
+                adjusted_counts_15min,
+                bucket = conf$bucket,
+                prefix = "adjusted_counts_15min",
+                table_name = "adjusted_counts_15min",
+                conf_athena = conf$athena, parallel = FALSE
+            )
+            
+            throughput <- get_thruput(adjusted_counts_15min)
             s3_upload_parquet_date_split(
                 throughput,
                 bucket = conf$bucket,
                 prefix = "tp",
                 table_name = "throughput",
-                conf_athena = conf$athena
+                conf_athena = conf$athena, parallel = FALSE
             )
-
-            # clear partition files
-            lapply(as.character(seq(0, 9)), function(i) {
-                file.remove(glue("fc{i}.fst"))
-            })
-            rm(throughput)
+        })
+        
+        if (file.exists("filtered_counts_15min.duckdb")) {
+            file.remove("filtered_counts_15min.duckdb")
+        }
+        if (file.exists("adjusted_counts_15min.duckdb")) {
+            file.remove("adjusted_counts_15min.duckdb")
         }
 
-        registerDoSEQ()
-        gc()
 
 
 
