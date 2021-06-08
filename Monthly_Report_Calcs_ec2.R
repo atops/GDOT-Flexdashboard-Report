@@ -376,6 +376,18 @@ get_counts_based_measures <- function(month_abbrs) {
                 table_name = "throughput",
                 conf_athena = conf$athena, parallel = FALSE
             )
+            
+            # VP15
+            print(glue("vp15: {date_}"))
+            vp15 <- get_vph(adjusted_counts_15min, interval = "15 min")
+            s3_upload_parquet_date_split(
+                vph,
+                bucket = conf$bucket,
+                prefix = "vp15",
+                table_name = "vehicles_15min",
+                conf_athena = conf$athena
+            )
+            
         })
         
         if (file.exists("filtered_counts_15min.duckdb")) {
