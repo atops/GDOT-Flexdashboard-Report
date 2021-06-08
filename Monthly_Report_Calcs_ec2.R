@@ -156,7 +156,7 @@ print(glue("{Sys.time()} travel times [3 of 11]"))
 
 if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
-    system("~/miniconda3/bin/python get_travel_times.py", wait = FALSE)
+    system("~/miniconda3/bin/python get_travel_times.py travel_times_1hr.yaml", wait = FALSE)
 }
 
 # # COUNTS ####################################################################
@@ -331,7 +331,7 @@ get_counts_based_measures <- function(month_abbrs) {
 
                 # VPH
                 print(glue("vph: {date_}"))
-                vph <- get_vph(adjusted_counts_1hr)
+                vph <- get_vph(adjusted_counts_1hr, interval = "1 hour")
                 s3_upload_parquet_date_split(
                     vph,
                     bucket = conf$bucket,
@@ -416,13 +416,25 @@ get_counts_based_measures <- function(month_abbrs) {
 
             # PAPH - pedestrian activations per hour
             print("paph")
-            paph <- get_vph(counts_ped_1hr, mainline_only = FALSE) %>%
+            paph <- get_vph(counts_ped_1hr, interval = "1 hour", mainline_only = FALSE) %>%
                 rename(paph = vph)
             s3_upload_parquet_date_split(
                 paph,
                 bucket = conf$bucket,
                 prefix = "paph",
                 table_name = "ped_actuations_ph",
+                conf_athena = conf$athena
+            )
+            
+            # PA15 - pedestrian activations per 15min
+            print("pa15")
+            pa15 <- get_vph(counts_ped_15min, interval = "15 min", mainline_only = FALSE) %>%
+                rename(pa15 = vph)
+            s3_upload_parquet_date_split(
+                papd,
+                bucket = conf$bucket,
+                prefix = "pa15",
+                table_name = "ped_actuations_15min",
                 conf_athena = conf$athena
             )
         }

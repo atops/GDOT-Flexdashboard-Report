@@ -114,8 +114,10 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
     if (counts == TRUE) {
 
         counts_1hr_fn <- glue("counts_1hr_{date_}")
-        counts_ped_1hr_fn <- glue("counts_ped_1hr_{date_}")
         counts_15min_fn <- glue("counts_15min_TWR_{date_}")
+
+        counts_ped_1hr_fn <- glue("counts_ped_1hr_{date_}")
+        counts_ped_15min_fn <- glue("counts_ped_15min_{date_}")
         
         filtered_counts_1hr_fn <- glue("filtered_counts_1hr_{date_}")
         filtered_counts_15min_fn <- glue("filtered_counts_15min_{date_}")
@@ -161,8 +163,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         }
         
         dbDisconnect(conn)
-        
-        
+
         conn <- get_athena_connection(conf_athena)
         
         # get 1hr ped counts
@@ -185,7 +186,6 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           table_name = "counts_ped_1hr", 
                           conf_athena = conf_athena)
         rm(counts_ped_1hr)
-        
         
         conn <- get_athena_connection(conf_athena)
         
@@ -222,8 +222,30 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                     table_name = "filtered_counts_15min", 
                     conf_athena = conf_athena)
         }
+        
+        # get 15min ped counts
+        print("15-min pedestrian counts")
+        counts_ped_15min <- get_counts(
+            tbl(conn, atspm_query), 
+            ped_config, 
+            "15min", 
+            date_, 
+            event_code = 90, 
+            TWR_only = FALSE
+        ) %>% 
+            arrange(SignalID, Detector, Timeperiod)
+        
+        dbDisconnect(conn)
+        
+        s3_upload_parquet(counts_ped_15min, date_, 
+                          fn = counts_ped_15min_fn, 
+                          bucket = bucket,
+                          table_name = "counts_ped_15min", 
+                          conf_athena = conf_athena)
+        rm(counts_ped_15min)
+        
+        
     }
-    #dbDisconnect(conn)
 }
 
 

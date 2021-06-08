@@ -1303,7 +1303,7 @@ tryCatch(
 
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "cor_travel_time_metrics",
+            table_name = "cor_travel_time_metrics_1hr",
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
@@ -1355,7 +1355,7 @@ tryCatch(
 
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "sub_travel_time_metrics",
+            table_name = "sub_travel_time_metrics_1hr",
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
