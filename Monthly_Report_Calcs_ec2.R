@@ -359,11 +359,12 @@ get_counts_based_measures <- function(month_abbrs) {
         
         # Loop through dates in adjusted counts and write to parquet
         duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
-        dates <- (tbl(conn, "adjusted_counts_15min") %>% distinct(date) %>% collect())$date
+        dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(date) %>% collect())$date
 
         lapply(dates, function(date_) {
             print(date_)
-            adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% filter(date == date_) %>% collect()
+            adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% 
+		filter(Date == date_) %>% collect()
             s3_upload_parquet_date_split(
                 adjusted_counts_15min,
                 bucket = conf$bucket,
