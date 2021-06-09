@@ -227,15 +227,16 @@ get_counts_based_measures <- function(month_abbrs) {
 
         print("1hr adjusted counts")
         prep_db_for_adjusted_counts("filtered_counts_1hr", conf, date_range)
-        conn <- get_adjusted_counts_duckdb("filtered_counts_1hr", "adjusted_counts_1hr", conf)
+        get_adjusted_counts_duckdb("filtered_counts_1hr", "adjusted_counts_1hr", conf)
         
         # Loop through dates in adjusted counts and write to parquet
-        dates <- tbl(conn, "adjusted_counts_1hr") %>% distinct(date) %>% collect()
-        dates <- dates$date
+        duckconn <- get_duckdb_connection("adjusted_counts_1hr.duckdb", read_only=TRUE)
+	dates <- (tbl(duckconn, "adjusted_counts_1hr") %>% distinct(Date) %>% collect())$Date
 
         lapply(dates, function(date_) {
             print(date_)
-            adjusted_counts_1hr <- tbl(conn, "adjusted_counts_1hr") %>% filter(date == date_) %>% collect()
+            adjusted_counts_1hr <- tbl(duckconn, "adjusted_counts_1hr") %>% 
+		filter(Date == date_) %>% collect()
             s3_upload_parquet_date_split(
                 adjusted_counts_1hr,
                 bucket = conf$bucket,
@@ -244,6 +245,8 @@ get_counts_based_measures <- function(month_abbrs) {
                 conf_athena = conf$athena, parallel = FALSE
             )
         })
+
+	dbDisconnect(duckconn)
         
         if (file.exists("filtered_counts_1hr.duckdb")) {
             file.remove("filtered_counts_1hr.duckdb")
@@ -352,14 +355,15 @@ get_counts_based_measures <- function(month_abbrs) {
         date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
         
         prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range_twr)
-        conn <- get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
+        get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
         
         # Loop through dates in adjusted counts and write to parquet
+        duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
         dates <- (tbl(conn, "adjusted_counts_15min") %>% distinct(date) %>% collect())$date
 
         lapply(dates, function(date_) {
             print(date_)
-            adjusted_counts_15min <- tbl(conn, "adjusted_counts_15min") %>% filter(date == date_) %>% collect()
+            adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% filter(date == date_) %>% collect()
             s3_upload_parquet_date_split(
                 adjusted_counts_15min,
                 bucket = conf$bucket,
@@ -389,6 +393,8 @@ get_counts_based_measures <- function(month_abbrs) {
             )
             
         })
+	
+	dbDisconnect(duckconn)
         
         if (file.exists("filtered_counts_15min.duckdb")) {
             file.remove("filtered_counts_15min.duckdb")

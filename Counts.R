@@ -146,7 +146,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 
         conn <- get_athena_connection(conf_athena)
         
-        print("1-hr filtered counts")
+        print("1-hour filtered counts")
         if (nrow(counts_1hr) > 0) {
             filtered_counts_1hr <- get_filtered_counts_3stream(
                 counts_1hr, 
@@ -223,7 +223,9 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                     conf_athena = conf_athena)
         }
         
-        # get 15min ped counts
+        conn <- get_athena_connection(conf_athena)
+
+	# get 15min ped counts
         print("15-min pedestrian counts")
         counts_ped_15min <- get_counts(
             tbl(conn, atspm_query), 
@@ -559,5 +561,6 @@ get_adjusted_counts_duckdb <- function(fc_table, ac_table, conf, callback = func
         # For 15min data, split by date and calculate throughput for each signal
         dbWriteTable(conn_write, ac_table, ac, overwrite = FALSE, append = TRUE)
     })
-    conn <- get_duckdb_connection(ac_duckdb_fn)
+    dbDisconnect(conn_read)
+    dbDisconnect(conn_write)
 }
