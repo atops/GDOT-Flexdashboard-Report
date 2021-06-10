@@ -359,7 +359,7 @@ get_counts_based_measures <- function(month_abbrs) {
         
         # Loop through dates in adjusted counts and write to parquet
         duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
-        dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(date) %>% collect())$date
+        dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(Date) %>% collect())$Date
 
         lapply(dates, function(date_) {
             print(date_)
