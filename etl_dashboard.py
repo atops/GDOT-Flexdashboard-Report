@@ -7,7 +7,7 @@ Created on Mon Nov 27 16:27:29 2017
 import sys
 from datetime import datetime, timedelta
 #from multiprocessing.dummy import Pool
-from multiprocessing import Pool
+from multiprocessing import get_context
 import pandas as pd
 import sqlalchemy as sq
 from pyathenajdbc import connect
@@ -18,7 +18,6 @@ import itertools
 from spm_events import etl_main
 import boto3
 import yaml
-#import feather
 import io
 import re
 import psutil
@@ -78,12 +77,17 @@ def etl2(s, date_, det_config):
     
             if len(c) > 0 and len(d) > 0:
     
-                # print('writing to files...')
-    
-                # if not os.path.exists('../CycleData/' + date_str):
-                #     os.mkdir('../CycleData/' + date_str)
-                # if not os.path.exists('../DetectionEvents/' + date_str):
-                #     os.mkdir('../DetectionEvents/' + date_str)
+                if not os.path.exists(f'../cycles/date={date_str}'):
+                    os.mkdir(f'../cycles/date={date_str}')
+                if not os.path.exists(f'../cycles/date={date_str}/signal={s}'):
+                    os.mkdir(f'../cycles/date={date_str}/signal={s}')
+                c.to_parquet(f'../cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet',
+
+                if not os.path.exists(f'../detections/date={date_str}'):
+                    os.mkdir(f'../detections/date={date_str}')
+                if not os.path.exists(f'../detections/date={date_str}/signal={s}'):
+                    os.mkdir(f'../detections/date={date_str}/signal={s}')
+                d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet', 
     
     
                 c.to_parquet(f's3://gdot-spm-cycles/date={date_str}/cd_{s}_{date_str}.parquet',
@@ -92,8 +96,6 @@ def etl2(s, date_, det_config):
                 d.to_parquet(f's3://gdot-spm-detections/date={date_str}/de_{s}_{date_str}.parquet', 
                              allow_truncated_timestamps=True)
     
-    
-                #print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
             else:
                 print(f'{date_str} | {s} | No cycles')
         
@@ -162,12 +164,15 @@ def main(start_date, end_date):
             right = bad_detectors.set_index(['SignalID', 'Detector'])
 
 
-            det_config = left.join(right, how='left')\
-                .fillna(value={'Good_Day': 1})\
-                .query('Good_Day == 1')\
-                .groupby(['SignalID','Call Phase'])\
-                .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
-                .reset_index()
+            det_config = (left.join(right, how='left')
+                .fillna(value={'Good_Day': 1})
+                .query('Good_Day == 1')
+                .reset_index(level='Detector')
+                .set_index('Call Phase', append=True)
+                .assign(
+                    minCountPriority = lambda x: x.CountPriority.groupby(level=['SignalID', 'Call Phase']).min()))
+            det_config['CountDetector'] = det_config['CountPriority'] == det_config['minCountPriority']
+            det_config = det_config.drop(columns=['minCountPriority']).reset_index()
 
             print(det_config.head())
 
@@ -179,7 +184,7 @@ def main(start_date, end_date):
             nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=nthreads) as pool:
+            with get_context('spawn').Pool(processes=nthreads) as pool:
                 result = pool.starmap_async(
                     etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(nthreads-1)*4)
                 pool.close()
@@ -187,8 +192,6 @@ def main(start_date, end_date):
             #-----------------------------------------------------------------------------------------
         else:
             print('No good detectors. Skip this day.') 
-        
-    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         
     response_repair_cycledata = ath.start_query_execution(
                 QueryString='MSCK REPAIR TABLE cycledata', 
