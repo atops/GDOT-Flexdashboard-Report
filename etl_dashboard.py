@@ -10,17 +10,19 @@ from datetime import datetime, timedelta
 from multiprocessing import get_context
 import pandas as pd
 import sqlalchemy as sq
-from pyathenajdbc import connect
-import pyodbc
+import dask.dataframe as dd
+#from pyathenajdbc import connect
+#import pyodbc
 import time
 import os
 import itertools
-from spm_events import etl_main
 import boto3
 import yaml
 import io
 import re
 import psutil
+
+from spm_events import etl_main
 from parquet_lib import *
 
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
@@ -76,24 +78,28 @@ def etl2(s, date_, det_config):
             c, d = etl_main(df, det_config_good)
     
             if len(c) > 0 and len(d) > 0:
-    
+   
                 if not os.path.exists(f'../cycles/date={date_str}'):
                     os.mkdir(f'../cycles/date={date_str}')
                 if not os.path.exists(f'../cycles/date={date_str}/signal={s}'):
                     os.mkdir(f'../cycles/date={date_str}/signal={s}')
-                c.to_parquet(f'../cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet',
+                # c.to_parquet(f'../cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet')
+                # c_dd = dd.from_pandas(c.assign(Date=date_str), chunksize=1000)
+                # c_dd.to_parquet('../cycles', partition_on=['Date', 'SignalID', 'Phase'])
 
                 if not os.path.exists(f'../detections/date={date_str}'):
                     os.mkdir(f'../detections/date={date_str}')
                 if not os.path.exists(f'../detections/date={date_str}/signal={s}'):
                     os.mkdir(f'../detections/date={date_str}/signal={s}')
-                d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet', 
+                # d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet') 
+                # d_dd = dd.from_pandas(d.assign(Date=date_str), chunksize=1000)
+                # d_dd.to_parquet('../detections', partition_on=['Date', 'SignalID', 'Phase'])
     
     
-                c.to_parquet(f's3://gdot-spm-cycles/date={date_str}/cd_{s}_{date_str}.parquet',
+                c.to_parquet(f's3://gdot-spm/cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
     
-                d.to_parquet(f's3://gdot-spm-detections/date={date_str}/de_{s}_{date_str}.parquet', 
+                d.to_parquet(f's3://gdot-spm/detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet', 
                              allow_truncated_timestamps=True)
     
             else:
@@ -194,12 +200,12 @@ def main(start_date, end_date):
             print('No good detectors. Skip this day.') 
         
     response_repair_cycledata = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE cycledata', 
+                QueryString='MSCK REPAIR TABLE cycledata2', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
 
     response_repair_detection_events = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE detectionevents', 
+                QueryString='MSCK REPAIR TABLE detectionevents2', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         

@@ -218,78 +218,62 @@ get_daily_pr <- function(aog) {
 }
 
 
+get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, chunk_size = 1e6) {
+    df <- get_detection_events(date_, date_, conf$athena, signals_list)
+    signal_chunks <- get_signals_chunks(df, rows=chunk_size)
+    
+    lapply(signals_chunks, function(ss) {
+        get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red)
+    })
+}
+
+
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
-get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, parallel = FALSE) {
+get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5) {
     
     print("Pulling data...")
 
-    ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-         usable_cores * 3
-    } else {
-        1
-    }
-
-    cat('.')
-    de <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
-       
-        s3bucket = "gdot-spm-detections"
-        s3object = glue("date={date_}/de_{signalid}_{date_}.parquet")
-        
-        object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
-        
-        if (object_exists) {
-            tryCatch({ 
-                s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
-                filter(Phase %in% c(3, 4, 7, 8)) %>%
-                arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
-                transmute(SignalID = factor(SignalID),
-                          Phase = factor(Phase),
-                          Detector = factor(Detector), 
-                          CycleStart, PhaseStart, 
-                          DetOn = DetTimeStamp,
-                          DetOff = DetTimeStamp + seconds(DetDuration),
-                          Date = as_date(date_))
-            }, error = function(e) {
-                print(e)
-            })
-        }
-    }) %>% bind_rows() %>% convert_to_utc()
-    
-    cat('.')
-    cd <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
-        
-        s3bucket = "gdot-spm-cycles"
-        s3object = glue("date={date_}/cd_{signalid}_{date_}.parquet")
-
-        object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
-        
-        if (object_exists) {
-            tryCatch({ 
-                s3read_using(read_parquet, bucket = s3bucket, object = s3object) %>%
-                mutate(SignalID = factor(SignalID),
-                       Phase = factor(Phase),
-                       Date = as_date(date_)) %>%
-                filter(Phase %in% c(3, 4, 7, 8),
-                       EventCode %in% c(1, 9)) %>%
-                arrange(SignalID, Phase, CycleStart, PhaseStart)
-            }, error = function(e) {
-                print(e)
-            })
-        }
-    }) %>% bind_rows() %>% convert_to_utc()
-    
-    
-    cat('.')
     dc <- get_det_config_sf(date_) %>%
         filter(SignalID %in% signals_list) %>%
         rename(Phase = CallPhase)
-    
+
+    de <- get_detection_events(date_, date_, conf$athena, signals_list)
+    cd <- get_cycle_data(date_, date_, conf$athena, signals_list)
+    cat('.')
+
     de <- de %>%
+        arrange(signalid, phase, cyclestart, phasestart) %>%
+        collect() %>%
+        transmute(
+            SignalID = factor(signalid),
+            Phase = factor(phase),
+            Detector = factor(detector), 
+            CycleStart = cyclestart,
+            PhaseStart = phasestart,
+            DetOn = dettimestamp,
+            DetOff = dettimestamp + seconds(detduration),
+            Date = as_date(date_)) %>%
         left_join(dc, by = c("SignalID", "Phase", "Detector", "Date")) %>% 
         filter(!is.na(TimeFromStopBar)) %>%
         mutate(SignalID = factor(SignalID),
                Phase = factor(Phase),
                Detector = factor(Detector))
+
+    cat('.')
+        
+    cd <- cd %>%
+        filter(eventcode %in% c(1, 9)) %>%
+        arrange(signalid, phase, cyclestart, phasestart) %>%
+        collect() %>%
+        transmute(SignalID = factor(signalid),
+                  Phase = factor(phase),
+                  CycleStart = cyclestart,
+                  PhaseStart = phasestart,
+                  PhaseEnd = phaseend,
+                  EventCode = eventcode,
+                  Date = as_date(date_))
+    cat('.')
+
     
     grn_interval <- cd %>% 
         filter(EventCode == 1) %>%
@@ -395,11 +379,14 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                   sf_freq = sf_freq)
     
     sf
-    
-    # SignalID | CallPhase | Date_Hour | Date | Hour | sf_freq | cycles
 }
 
+# get_sf_utah(date_, conf, signals_list = c(1378, 1407, 7242), first_seconds_of_red = 5, parallel = FALSE)
 
+#    mclapply(get_signals_chunks(de, rows=chunk_size), mc.cores = 2, FUN = function(ss) {
+#        de <- de %>% filter(signalid %in% ss)
+#        cd <- cd %>% filter(signalid %in% ss)
+#
 get_peak_sf_utah <- function(msfh) {
     
     msfh %>%
@@ -433,39 +420,41 @@ get_sf <- function(df) {
 
 
 # SPM Queue Spillback - updated 2/20/2020
-get_qs <- function(detection_events) {
-    
-    qs <- detection_events %>% 
-        
-        # By Detector by cycle. Get 95th percentile duration as occupancy
-        group_by(date,
-                 signalid,
-                 cyclestart,
-                 callphase = phase,
-                 detector) %>%
-        summarize(occ = approx_percentile(detduration, 0.95), .groups = "drop") %>%
-        collect() %>%
-        transmute(Date = date(date),
-                  SignalID = factor(signalid), 
-                  CycleStart = ymd_hms(cyclestart), 
-                  CallPhase = factor(callphase),
-                  Detector = factor(detector), 
-                  occ)
-    
-    dates <- unique(qs$Date)
-    
+get_qs <- function(date_, conf, signals_list) {
+
+    print("Pulling data...")
+
+    cat('.')
     # Get detector config for queue spillback. 
-    # get_det_config_qs2 filters for Advanced Count and Advanced Speed detector types
+    # get_det_config_qs filters for Advanced Count and Advanced Speed detector types
     # It also filters out bad detectors
-    dc <- lapply(dates, get_det_config_qs) %>% 
-        bind_rows() %>% 
+    dc <- get_det_config_qs(date_) %>% 
         dplyr::select(Date, SignalID, CallPhase, Detector, TimeFromStopBar) %>%
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase))
-    
-    qs %>% left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
-        filter(!is.na(TimeFromStopBar)) %>%
+
+    cat('.')
+    qs <- get_detection_events(date_, date_, conf$athena, signals_list) %>% 
         
+        # By Detector by cycle. Get 95th percentile duration as occupancy
+        group_by(
+            date,
+            signalid,
+            cyclestart,
+            callphase = phase,
+            detector) %>%
+        summarize(occ = approx_percentile(detduration, 0.95), .groups = "drop") %>%
+        collect() %>%
+        transmute(
+            Date = date(date),
+            SignalID = factor(signalid), 
+            CycleStart = ymd_hms(cyclestart), 
+            CallPhase = factor(callphase),
+            Detector = factor(detector), 
+            occ) %>%
+        left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
+        filter(!is.na(TimeFromStopBar)) %>%
+            
         # Date | SignalID | CycleStart | CallPhase | Detector | occ
         
         # -- data.tables. This is faster ---
@@ -477,17 +466,16 @@ get_qs <- function(detection_events) {
           by = .(Date, SignalID, Hour = floor_date(CycleStart, unit = 'hours'), CallPhase)] %>%
         # -- --------------------------- ---    
         
-        transmute(SignalID = factor(SignalID),
-                  CallPhase = factor(CallPhase),
-                  Date = date(Date),
-                  Date_Hour = ymd_hms(Hour),
-                  DOW = wday(Date),
-                  Week = week(Date),
-                  qs = as.integer(qs),
-                  cycles = as.integer(cycles),
-                  qs_freq = as.double(qs)/as.double(cycles)) %>% as_tibble()
-    
-    # SignalID | CallPhase | Date | Date_Hour | DOW | Week | qs | cycles | qs_freq
+        transmute(
+            SignalID = factor(SignalID),
+            CallPhase = factor(CallPhase),
+            Date = date(Date),
+            Date_Hour = ymd_hms(Hour),
+            DOW = wday(Date),
+            Week = week(Date),
+            qs = as.integer(qs),
+            cycles = as.integer(cycles),
+            qs_freq = as.double(qs)/as.double(cycles)) %>% as_tibble()
 }
 
 
@@ -777,57 +765,30 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
 
 
 
-get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
-    
-    get_ped_events_one_signal <- function(signalid, date_, conf) {
-        
-        s3bucket = conf$bucket
-        s3object = glue("atspm/date={date_}/atspm_{signalid}_{date_}.parquet")
-        
-        object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
+get_ped_delay <- function(date_, conf, signals_list) {
 
-        if (object_exists) {
-            tryCatch({
-                # all 45/21/22/132 events
-                s3_read_parquet(bucket = s3bucket, object = s3object) %>%
-                    filter(EventCode %in% c(45, 21, 22, 132)) %>%
-                    select(-c(Date, DeviceID)) %>%
-                    mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
-                    arrange(Timestamp) %>%
-                    tidyr::fill(CycleLength) %>%
-                    rename(Phase = EventParam)
-            }, error = function(e) {
-                print(e)
-            })
-        }
-    }
-    
-    
-    ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-        usable_cores * 3
-    } else {
-        1
-    }
-    
-    cat('.')
-    # pe <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
-    #     # get_ped_events_one_signal(signalid = signalid, date_ = date_, conf = conf)
-    # })
-    # pe <- pe %>% bind_rows()
+    atspm_query <- sql(glue(paste(
+        "select distinct timestamp, signalid, eventcode, eventparam",
+        "from {conf_athena$database}.{conf_athena$atspm_table}",
+        "where date = '{date_}'")))
 
     athena <- get_athena_connection(conf$athena)
-    pe <- tbl(athena, "atspm2") %>%
-        filter(date == date_, eventcode %in% c(45, 21, 22, 132)) %>%
-        select(signalid, timestamp, eventcode, eventparam) %>%
+    pe <- tbl(athena, atspm_query) %>%
+        filter(
+	    eventcode %in% c(45, 21, 22, 132)) %>%
+        select(
+	    signalid, timestamp, eventcode, eventparam) %>%
         collect() %>%
         transmute(SignalID = signalid,
                   Timestamp = timestamp,
                   EventCode = eventcode,
                   EventParam = eventparam) %>%
-        mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+        mutate(
+	    CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
         arrange(Timestamp) %>%
         tidyr::fill(CycleLength) %>%
-        rename(Phase = EventParam)
+        rename(Phase = EventParam) %>%
+	    convert_to_utc()
 
     cat('.')
     coord.type <- group_by(pe, SignalID) %>%

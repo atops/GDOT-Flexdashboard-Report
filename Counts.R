@@ -514,26 +514,8 @@ prep_db_for_adjusted_counts <- function(table, conf, date_range) {
 
 
 
-get_adjusted_counts_duckdb <- function(fc_table, ac_table, conf, callback = function(x) {x}) { # callback would be for get_thruput
-    
-    chunk <- function(d, n) {
-        split(d, ceiling(seq_along(d)/n))
-    }
-    
-    get_signals_chunks <- function(fc, size = 1e6) {
-        records <- fc %>% count() %>% collect()
-        records <- records$n
-        
-        signals_list <- fc %>% distinct(SignalID) %>% arrange(SignalID) %>% collect()
-        signals_list <- signals_list$SignalID
-        
-        # keep this to about a million records per core
-        # based on the average number of records per signal.
-        # number of chunks will increase (chunk_length will decrease) with more days
-        # but memory usage should stay consistent per core
-        chunk_length <- round(size/(records/length(signals_list)))
-        chunk(signals_list, chunk_length)
-    }
+get_adjusted_counts_duckdb <- function(fc_table, ac_table, conf, callback = function(x) {x}) { 
+    # callback would be for get_thruput
     
     fc_duckdb_fn <- glue("{fc_table}.duckdb")
     conn_read <- get_duckdb_connection(fc_duckdb_fn, read_only = TRUE)

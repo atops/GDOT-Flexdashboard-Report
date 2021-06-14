@@ -246,7 +246,7 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         })
 
-	dbDisconnect(duckconn)
+	dbDisconnect(duckconn, shutdown=TRUE)
         
         if (file.exists("filtered_counts_1hr.duckdb")) {
             file.remove("filtered_counts_1hr.duckdb")
@@ -382,11 +382,11 @@ get_counts_based_measures <- function(month_abbrs) {
                 conf_athena = conf$athena, parallel = FALSE
             )
             
-            # VP15
+            # Vehicles per 15-minute timeperiod
             print(glue("vp15: {date_}"))
             vp15 <- get_vph(adjusted_counts_15min, interval = "15 min")
             s3_upload_parquet_date_split(
-                vph,
+                vp15,
                 bucket = conf$bucket,
                 prefix = "vp15",
                 table_name = "vehicles_15min",
@@ -395,7 +395,7 @@ get_counts_based_measures <- function(month_abbrs) {
             
         })
 	
-	dbDisconnect(duckconn)
+	dbDisconnect(duckconn, shutdown=TRUE)
         
         if (file.exists("filtered_counts_15min.duckdb")) {
             file.remove("filtered_counts_15min.duckdb")
@@ -444,13 +444,26 @@ get_counts_based_measures <- function(month_abbrs) {
                 table_name = "ped_actuations_ph",
                 conf_athena = conf$athena
             )
-            
+	}
+
+        #-----------------------------------------------
+        # 15-min pedestrian activation counts
+        print("15-min pedestrian activation counts")
+
+        counts_ped_15min <- s3_read_parquet_parallel(
+            "counts_ped_15min",
+            as.character(sd),
+            as.character(ed),
+            bucket = conf$bucket
+        )
+
+        if (!is.null(counts_ped_15min) && nrow(counts_ped_15min)) {
             # PA15 - pedestrian activations per 15min
             print("pa15")
             pa15 <- get_vph(counts_ped_15min, interval = "15 min", mainline_only = FALSE) %>%
                 rename(pa15 = vph)
             s3_upload_parquet_date_split(
-                papd,
+                pa15,
                 bucket = conf$bucket,
                 prefix = "pa15",
                 table_name = "ped_actuations_15min",
@@ -467,52 +480,55 @@ if (conf$run$counts_based_measures == TRUE) {
 print("--- Finished counts-based measures ---")
 
 
+print("--- Starting cycle-based measures ---")
 
-# -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
-print(glue("{Sys.time()} etl [7 of 11]"))
+date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+for (date_ in date_range) {
+    date_str = format(as_date(date_), "%F")
+    print(date_str)
 
-if (conf$run$etl == TRUE) {
+    # -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
+    print(glue("{Sys.time()} etl [7 of 11]"))
+    
+    if (conf$run$etl == TRUE) {
+        system2("./etl_dashboard.sh", args = c(date_str, date_str))
+    }
 
-    # run python script and wait for completion
-    system2("./etl_dashboard.sh", args = c(start_date, end_date))
-}
+    # # GET ARRIVALS ON GREEN #####################################################
+    print(glue("{Sys.time()} aog [8 of 11]"))
+    
+    if (conf$run$arrivals_on_green == TRUE) {
+        system2("./get_aog.sh", args = c(date_str, date_str))
+    }
 
-# --- ----------------------------- -----------
+    # # GET QUEUE SPILLBACK #######################################################
+    print(glue("{Sys.time()} queue spillback [9 of 11]"))
 
-# # GET ARRIVALS ON GREEN #####################################################
-print(glue("{Sys.time()} aog [8 of 11]"))
-
-if (conf$run$arrivals_on_green == TRUE) {
-
-    # run python script and wait for completion
-    system2("./get_aog.sh", args = c(start_date, end_date))
-}
-gc()
-
-# # GET QUEUE SPILLBACK #######################################################
-get_queue_spillback_date_range <- function(start_date, end_date) {
-    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-
-    lapply(date_range, function(date_) {
-        print(date_)
-
-        detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
-        if (nrow(collect(head(detection_events))) > 0) {
-            qs <- get_qs(detection_events)
+    if (conf$run$queue_spillback == TRUE) {
+        get_qs(date_str, conf, signals_list) %>%
             s3_upload_parquet_date_split(
-                qs,
                 bucket = conf$bucket,
                 prefix = "qs",
                 table_name = "queue_spillback",
                 conf_athena = conf$athena
             )
         }
-    })
-}
-print(glue("{Sys.time()} queue spillback [9 of 11]"))
+    }
 
-if (conf$run$queue_spillback == TRUE) {
-    get_queue_spillback_date_range(start_date, end_date)
+    # # GET SPLIT FAILURES ########################################################
+    print(glue("{Sys.time()} split failures [10 of 11]"))
+
+    if (conf$run$split_failures== TRUE) {
+        get_sf_utah(date_str, conf, signals_list) %>%
+            s3_upload_parquet_date_split(
+                bucket = conf$bucket,
+                prefix = "sf",
+                table_name = "split_failures",
+                conf_athena = conf$athena
+            )
+    }
+
+    cleanup_cycle_data(date_)
 }
 
 
@@ -520,7 +536,7 @@ if (conf$run$queue_spillback == TRUE) {
 # # GET PED DELAY ########################################################
 
 # Ped delay using ATSPM method, based on push button-start of walk durations
-print(glue("{Sys.time()} ped delay [10 of 11]"))
+print(glue("{Sys.time()} ped delay [11 of 11]"))
 
 get_pd_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
@@ -546,37 +562,6 @@ get_pd_date_range <- function(start_date, end_date) {
 if (conf$run$ped_delay == TRUE) {
     get_pd_date_range(start_date, end_date)
 }
-
-
-
-# # GET SPLIT FAILURES ########################################################
-
-print(glue("{Sys.time()} split failures [11 of 11]"))
-
-get_sf_date_range <- function(start_date, end_date) {
-    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-
-    lapply(date_range, function(date_) {
-        print(date_)
-        run_parallel <- length(date_range) > 1
-
-        sf <- get_sf_utah(date_, conf, signals_list, parallel = FALSE)
-        s3_upload_parquet_date_split(
-            sf,
-            bucket = conf$bucket,
-            prefix = "sf",
-            table_name = "split_failures",
-            conf_athena = conf$athena
-        )
-    })
-    gc()
-}
-
-if (conf$run$split_failures == TRUE) {
-    # Utah method, based on green, start-of-red occupancies
-    get_sf_date_range(start_date, end_date)
-}
-
 
 
 print("\n--------------------- End Monthly Report calcs -----------------------\n")

@@ -821,7 +821,7 @@ get_vph <- function(counts, interval = "1 hour", mainline_only = TRUE) {
         summarize(vph = sum(vol, na.rm = TRUE),
                   .groups = "drop")
     if (interval != "1 hour") {
-        df <- rename(df, Period = Hour)
+        df <- rename(df, Timeperiod = Hour)
     }
     df
 }
