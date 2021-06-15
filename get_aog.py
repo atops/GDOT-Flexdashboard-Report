@@ -50,20 +50,21 @@ def get_det_config(date_):
         dc = pd.read_feather(data)[['SignalID', 'Detector', 'DetectionTypeDesc']]
     dc.loc[dc.DetectionTypeDesc.isna(), 'DetectionTypeDesc'] = '[]'
 
-    df = pd.merge(dc, bd, how='outer', on=['SignalID','Detector']).fillna(value={'Good_Day': 1})
+    df = (pd.merge(dc, bd, how='outer', on=['SignalID','Detector'])
+          .fillna(value={'Good_Day': 1, 'date': date_str}))
     df = df.loc[df.Good_Day==1].drop(columns=['Good_Day'])
 
     return df
 
 
-def get_aog(signalid, date_, det_config):
+def get_aog(signalid, date_, det_config, interval='1H'):
     '''
     date_ [Timestamp]
     '''
     try:
         date_str = date_.strftime('%Y-%m-%d')
         
-        all_hours = pd.date_range(date_, periods=25, freq='H')
+        all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=interval)
 
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
@@ -86,7 +87,7 @@ def get_aog(signalid, date_, det_config):
             print('#', end='')
             return pd.DataFrame()
         else:
-            df_aog = (df.assign(Hour=lambda x: x.DetTimeStamp.dt.floor('H'))
+            df_aog = (df.assign(Hour=lambda x: x.DetTimeStamp.dt.floor(interval))
                       .rename(columns={'Detector': 'Arrivals',
                                        'EventCode': 'Interval'})
                       .groupby(['Hour', 'SignalID', 'Phase', 'Interval'])
@@ -120,7 +121,7 @@ def get_aog(signalid, date_, det_config):
                      .reset_index(level=['IntervalStart'])
                      .assign(IntervalEnd=lambda x: x.IntervalStart.shift(-1))
                      .assign(IntervalDuration=lambda x: (x.IntervalEnd - x.IntervalStart).dt.total_seconds())
-                     .assign(Hour=lambda x: x.IntervalStart.dt.floor('H'))
+                     .assign(Hour=lambda x: x.IntervalStart.dt.floor(interval))
                      .groupby(['Hour', 'SignalID', 'Phase', 'Interval']).sum())
 
             df_gc['Duration'] = df_gc.groupby(level=[0, 1, 2]).transform('sum')
@@ -141,7 +142,7 @@ def get_aog(signalid, date_, det_config):
         return pd.DataFrame()
 
 
-def main(start_date, end_date):
+def main(start_date, end_date, interval='1H'):
 
     dates = pd.date_range(start_date, end_date, freq='1D')
     #dates = pd.date_range('2020-02-01', '2020-02-16')
@@ -149,7 +150,8 @@ def main(start_date, end_date):
     for date_ in dates:
       try:
         t0 = time.time()
-        print(date_)
+        date_str = date_.strftime('%Y-%m-%d')
+        print(date_str)
     
         print('Getting detector configuration...', end='')
         det_config = get_det_config(date_)
@@ -161,7 +163,7 @@ def main(start_date, end_date):
         with get_context('spawn').Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
-                list(itertools.product(signalids, [date_], [det_config])))
+                list(itertools.product(signalids, [date_], [det_config], [interval])))
             pool.close()
             pool.join()
     
@@ -177,9 +179,13 @@ def main(start_date, end_date):
               .assign(SignalID=lambda x: x.SignalID.astype('str'),
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
-    
-        df.to_parquet('s3://gdot-spm/mark/arrivals_on_green/date={d}/aog_{d}.parquet'.format(
-            d=date_.strftime('%Y-%m-%d')))
+        
+        if interval == '1H':
+            table = 'arrivals_on_green'
+        else:
+            table = f'arrivals_on_green_{interval}'
+
+        df.to_parquet(f's3://gdot-spm/mark/{table}/date={date_str}/aog_{date_str}.parquet')
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'{num_signals} signals done in {t1} seconds.')
@@ -205,5 +211,6 @@ if __name__=='__main__':
     if end_date == 'yesterday': 
         end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
 
-    main(start_date, end_date)
+    main(start_date, end_date, interval='1H')
+    main(start_date, end_date, interval='15min')
 
