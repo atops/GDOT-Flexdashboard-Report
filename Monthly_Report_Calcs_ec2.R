@@ -264,6 +264,8 @@ get_counts_based_measures <- function(month_abbrs) {
         lapply(date_range, function(date_) {
             if (between(date_, start_date, end_date)) {
                 print(glue("filtered_counts_1hr: {date_}"))
+                # filtered_counts_1hr <- tbl(duckconn, "filtered_counts_1hr") %>% 
+		#     filter(Date == date_) %>% collect()
                 filtered_counts_1hr <- s3_read_parquet_parallel(
                     "filtered_counts_1hr",
                     as.character(date_),
@@ -305,6 +307,8 @@ get_counts_based_measures <- function(month_abbrs) {
             }
 
             print(glue("reading adjusted_counts_1hr: {date_}"))
+            # adjusted_counts_1hr <- tbl(duckconn, "adjusted_counts_1hr") %>% 
+            #     filter(Date == date_) %>% collect()
             adjusted_counts_1hr <- s3_read_parquet_parallel(
                 "adjusted_counts_1hr",
                 as.character(date_),
@@ -344,7 +348,6 @@ get_counts_based_measures <- function(month_abbrs) {
                 )
             }
         })
-        registerDoSEQ()
         gc()
 
         #-----------------------------------------------
@@ -352,9 +355,9 @@ get_counts_based_measures <- function(month_abbrs) {
         # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
 
-        date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
+        # date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
         
-        prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range_twr)
+        prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range) # _twr
         get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
         
         # Loop through dates in adjusted counts and write to parquet
@@ -362,7 +365,6 @@ get_counts_based_measures <- function(month_abbrs) {
         dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(Date) %>% collect())$Date
 
         lapply(dates, function(date_) {
-            print(date_)
             adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% 
 		filter(Date == date_) %>% collect()
             s3_upload_parquet_date_split(
@@ -505,7 +507,7 @@ for (date_ in date_range) {
     print(glue("{Sys.time()} queue spillback [9 of 11]"))
 
     if (conf$run$queue_spillback == TRUE) {
-        get_qs(date_str, conf, signals_list) %>%
+        get_qs_chunked(date_str, conf, signals_list) %>%
             s3_upload_parquet_date_split(
                 bucket = conf$bucket,
                 prefix = "qs",
@@ -519,7 +521,7 @@ for (date_ in date_range) {
     print(glue("{Sys.time()} split failures [10 of 11]"))
 
     if (conf$run$split_failures== TRUE) {
-        get_sf_utah(date_str, conf, signals_list) %>%
+        get_sf_utah_chunked(date_str, conf, signals_list) %>%
             s3_upload_parquet_date_split(
                 bucket = conf$bucket,
                 prefix = "sf",

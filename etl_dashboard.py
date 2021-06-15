@@ -83,7 +83,7 @@ def etl2(s, date_, det_config):
                     os.mkdir(f'../cycles/date={date_str}')
                 if not os.path.exists(f'../cycles/date={date_str}/signal={s}'):
                     os.mkdir(f'../cycles/date={date_str}/signal={s}')
-                # c.to_parquet(f'../cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet')
+                c.to_parquet(f'../cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet')
                 # c_dd = dd.from_pandas(c.assign(Date=date_str), chunksize=1000)
                 # c_dd.to_parquet('../cycles', partition_on=['Date', 'SignalID', 'Phase'])
 
@@ -91,15 +91,15 @@ def etl2(s, date_, det_config):
                     os.mkdir(f'../detections/date={date_str}')
                 if not os.path.exists(f'../detections/date={date_str}/signal={s}'):
                     os.mkdir(f'../detections/date={date_str}/signal={s}')
-                # d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet') 
+                d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet') 
                 # d_dd = dd.from_pandas(d.assign(Date=date_str), chunksize=1000)
                 # d_dd.to_parquet('../detections', partition_on=['Date', 'SignalID', 'Phase'])
     
     
-                c.to_parquet(f's3://gdot-spm/cycles/date={date_str}/signal={s}/cd_{s}_{date_str}.parquet',
+                c.to_parquet(f's3://gdot-spm/cycles/date={date_str}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
     
-                d.to_parquet(f's3://gdot-spm/detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet', 
+                d.to_parquet(f's3://gdot-spm/detections/date={date_str}/de_{s}_{date_str}.parquet', 
                              allow_truncated_timestamps=True)
     
             else:
