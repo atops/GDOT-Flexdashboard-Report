@@ -216,7 +216,7 @@ get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
     signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
-    mclapply(signals_chunks, mc.cores = usable_cores, FUN = function(ss) {
+    lapply(signals_chunks, FUN = function(ss) {
         get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red)
     }) %>% bind_rows()
 }
@@ -375,12 +375,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     sf
 }
 
-# get_sf_utah(date_, conf, signals_list = c(1378, 1407, 7242), first_seconds_of_red = 5, parallel = FALSE)
 
-#    mclapply(get_signals_chunks(de, rows=chunk_size), mc.cores = 2, FUN = function(ss) {
-#        de <- de %>% filter(signalid %in% ss)
-#        cd <- cd %>% filter(signalid %in% ss)
-#
 get_peak_sf_utah <- function(msfh) {
     
     msfh %>%
@@ -415,7 +410,7 @@ get_qs_chunked <- function(date_, conf, signals_list = NULL, chunk_size = 1e7) {
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
     signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
-    mclapply(signals_chunks, mc.cores = usable_cores, FUN = function(ss) {
+    lapply(signals_chunks, FUN = function(ss) {
         get_qs(date_, conf, signals_list = ss)
     }) %>% bind_rows()
 }
