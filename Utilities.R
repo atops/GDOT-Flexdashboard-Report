@@ -522,7 +522,7 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
 
 
 
-cleanup_cycledata <- function(date_) {
+cleanup_cycle_data <- function(date_) {
     print(glue("Removing local cycles and detections files for {date_}"))
     system(glue("rm -r -f ../cycles/date={date_}"))
     system(glue("rm -r -f ../detections/date={date_}"))
@@ -530,7 +530,7 @@ cleanup_cycledata <- function(date_) {
 
 
 
-# Get chnunks of size 'rows' from a data source that answers to 'collect()'
+# Get chunks of size 'rows' from a data source that answers to 'collect()'
 get_signals_chunks <- function(df, rows = 1e6) {
     
     chunk <- function(d, n) {
@@ -547,6 +547,27 @@ get_signals_chunks <- function(df, rows = 1e6) {
         signals_list <- df %>% distinct(signalid) %>% arrange(signalid) %>% collect()
         signals_list <- signals_list$signalid
     }
+
+    # keep this to about a million records per core
+    # based on the average number of records per signal.
+    # number of chunks will increase (chunk_length will decrease) with more days
+    # but memory usage should stay consistent per core
+    chunk_length <- round(rows/(records/length(signals_list)))
+    chunk(signals_list, chunk_length)
+}
+
+
+# Get chunks of size 'rows' from an arrow data source
+get_signals_chunks_arrow <- function(df, rows = 1e6) {
+    
+    chunk <- function(d, n) {
+        split(d, ceiling(seq_along(d)/n))
+    }
+    
+    extract <- df %>% select(SignalID) %>% collect()
+    records <- nrow(extract)
+
+    signals_list <- (extract %>% distinct(SignalID) %>% arrange(SignalID))$SignalID
 
     # keep this to about a million records per core
     # based on the average number of records per signal.

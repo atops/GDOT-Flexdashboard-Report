@@ -155,8 +155,6 @@ get_vpd <- function(counts, mainline_only = TRUE) {
                Date = date(Timeperiod)) %>% 
         group_by(SignalID, CallPhase, Week, DOW, Date) %>% 
         summarize(vpd = sum(vol, na.rm = TRUE), .groups = "drop")
-    
-    # SignalID | CallPhase | Week | DOW | Date | vpd
 }
 
 
@@ -178,8 +176,6 @@ get_thruput <- function(counts) {
         arrange(SignalID, Date) %>%
         mutate(CallPhase = 0) %>%
         dplyr::select(SignalID, CallPhase, Date, Week, DOW, vph)
-    
-    # SignalID | CallPhase | Date | Week | DOW | vph
 }
 
 
@@ -196,8 +192,6 @@ get_daily_aog <- function(aog) {
         summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
                   vol = sum(vol, na.rm = TRUE),
                   .groups = "drop")
-    
-    # SignalID | CallPhase | Date | Week | DOW | aog | vol
 }
 
 
@@ -218,13 +212,13 @@ get_daily_pr <- function(aog) {
 }
 
 
-get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, chunk_size = 1e6) {
+get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, chunk_size = 1e7) {
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
-    signal_chunks <- get_signals_chunks(df, rows=chunk_size)
+    signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
-    lapply(signals_chunks, function(ss) {
+    mclapply(signals_chunks, mc.cores = usable_cores, FUN = function(ss) {
         get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red)
-    })
+    }) %>% bind_rows()
 }
 
 
@@ -399,8 +393,6 @@ get_peak_sf_utah <- function(msfh) {
                   .groups = "drop") %>%
         select(-cycles) %>% 
         split(.$Peak)
-    
-    # SignalID | CallPhase | Date | Week | DOW | Peak | sf_freq | cycles
 }
 
 
@@ -416,6 +408,16 @@ get_sf <- function(df) {
         as_tibble()
     
     # SignalID | CallPhase | Date | Date_Hour | DOW | Week | sf | cycles | sf_freq
+}
+
+
+get_qs_chunked <- function(date_, conf, signals_list = NULL, chunk_size = 1e7) {
+    df <- get_detection_events(date_, date_, conf$athena, signals_list)
+    signals_chunks <- get_signals_chunks(df, rows = chunk_size)
+    
+    mclapply(signals_chunks, mc.cores = usable_cores, FUN = function(ss) {
+        get_qs(date_, conf, signals_list = ss)
+    }) %>% bind_rows()
 }
 
 
