@@ -507,11 +507,20 @@ for (date_ in date_range) {
     print(glue("{Sys.time()} queue spillback [9 of 11]"))
 
     if (conf$run$queue_spillback == TRUE) {
-        get_qs_chunked(date_str, conf, signals_list) %>%
+        get_qs_chunked(date_str, conf, signals_list, interval = "1 hour") %>%
             s3_upload_parquet_date_split(
                 bucket = conf$bucket,
                 prefix = "qs",
                 table_name = "queue_spillback",
+                conf_athena = conf$athena
+            )
+        }
+
+        get_qs_chunked(date_str, conf, signals_list, interval = "15 min") %>%
+            s3_upload_parquet_date_split(
+                bucket = conf$bucket,
+                prefix = "qs",
+                table_name = "queue_spillback_15min",
                 conf_athena = conf$athena
             )
         }
@@ -521,11 +530,19 @@ for (date_ in date_range) {
     print(glue("{Sys.time()} split failures [10 of 11]"))
 
     if (conf$run$split_failures== TRUE) {
-        get_sf_utah_chunked(date_str, conf, signals_list) %>%
+        get_sf_utah_chunked(date_str, conf, signals_list, interval = "1 hour") %>%
             s3_upload_parquet_date_split(
                 bucket = conf$bucket,
                 prefix = "sf",
                 table_name = "split_failures",
+                conf_athena = conf$athena
+            )
+
+        get_sf_utah_chunked(date_str, conf, signals_list, interval = "15 min") %>%
+            s3_upload_parquet_date_split(
+                bucket = conf$bucket,
+                prefix = "sf",
+                table_name = "split_failures_15min",
                 conf_athena = conf$athena
             )
     }
