@@ -229,7 +229,7 @@ get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_
 
 
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
-get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5) {
+get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, interval = "1 hour") {
     
     print("Pulling data...")
 
@@ -362,7 +362,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     sf <- bind_rows(df, df0) %>% 
         mutate(Phase = factor(Phase)) %>%
         
-        group_by(SignalID, Phase, hour = floor_date(CycleStart, unit = "hour")) %>% 
+        group_by(SignalID, Phase, hour = floor_date(CycleStart, unit = interval)) %>% 
         summarize(cycles = n(),
                   sf_freq = sum(sf, na.rm = TRUE)/cycles, 
                   sf = sum(sf, na.rm = TRUE),
@@ -420,7 +420,7 @@ get_sf <- function(df) {
 
 
 # SPM Queue Spillback - updated 2/20/2020
-get_qs <- function(date_, conf, signals_list) {
+get_qs <- function(date_, conf, signals_list, interval = "1 hour") {
 
     print("Pulling data...")
 
@@ -463,7 +463,7 @@ get_qs <- function(date_, conf, signals_list) {
           by = .(Date, SignalID, CallPhase, CycleStart)] %>%
         .[,.(qs = sum(occ > 3),
              cycles = .N), 
-          by = .(Date, SignalID, Hour = floor_date(CycleStart, unit = 'hours'), CallPhase)] %>%
+          by = .(Date, SignalID, Hour = floor_date(CycleStart, unit = interval), CallPhase)] %>%
         # -- --------------------------- ---    
         
         transmute(
