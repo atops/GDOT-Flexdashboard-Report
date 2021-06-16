@@ -766,7 +766,7 @@ get_ped_delay <- function(date_, conf, signals_list) {
 
     atspm_query <- sql(glue(paste(
         "select distinct timestamp, signalid, eventcode, eventparam",
-        "from {conf_athena$database}.{conf_athena$atspm_table}",
+        "from {conf$athena$database}.{conf$athena$atspm_table}",
         "where date = '{date_}'")))
 
     athena <- get_athena_connection(conf$athena)

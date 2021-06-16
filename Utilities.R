@@ -523,9 +523,14 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
 
 
 cleanup_cycle_data <- function(date_) {
-    print(glue("Removing local cycles and detections files for {date_}"))
-    system(glue("rm -r -f ../cycles/date={date_}"))
-    system(glue("rm -r -f ../detections/date={date_}"))
+    if (class(date_) == "date") {
+	date_str <- format(date_, "%F")
+    } else {
+	date_str <- date_
+    }
+    print(glue("Removing local cycles and detections files for {date_str}"))
+    system(glue("rm -r -f ../cycles/date={date_str}"))
+    system(glue("rm -r -f ../detections/date={date_str}"))
 }
 
 
