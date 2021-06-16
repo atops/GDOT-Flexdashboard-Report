@@ -212,12 +212,12 @@ get_daily_pr <- function(aog) {
 }
 
 
-get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, chunk_size = 1e7) {
+get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, chunk_size = 1e7, interval = "1 hour") {
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
     signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
     lapply(signals_chunks, FUN = function(ss) {
-        get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red)
+        get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red, interval)
     }) %>% bind_rows()
 }
 
@@ -406,12 +406,12 @@ get_sf <- function(df) {
 }
 
 
-get_qs_chunked <- function(date_, conf, signals_list = NULL, chunk_size = 1e7) {
+get_qs_chunked <- function(date_, conf, signals_list = NULL, chunk_size = 1e7, interval = "1 hour") {
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
     signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
     lapply(signals_chunks, FUN = function(ss) {
-        get_qs(date_, conf, signals_list = ss)
+        get_qs(date_, conf, signals_list = ss, interval)
     }) %>% bind_rows()
 }
 
