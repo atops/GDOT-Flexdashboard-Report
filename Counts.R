@@ -461,9 +461,9 @@ get_adjusted_counts <- function(df) {
 
 
 
-prep_db_for_adjusted_counts <- function(table, conf, date_range) {
+prep_db_for_adjusted_counts <- function(path, table, conf, date_range) {
 
-    duckdb_fn <- glue("{table}.duckdb")
+    duckdb_fn <- glue("{path}/{table}.duckdb")
     if (file.exists(duckdb_fn)) {
         file.remove(duckdb_fn)
     }
@@ -514,17 +514,17 @@ prep_db_for_adjusted_counts <- function(table, conf, date_range) {
 
 
 
-get_adjusted_counts_duckdb <- function(fc_table, ac_table, conf, callback = function(x) {x}) { 
+get_adjusted_counts_duckdb <- function(path, fc_table, ac_table, conf, callback = function(x) {x}) { 
     # callback would be for get_thruput
     
-    fc_duckdb_fn <- glue("{fc_table}.duckdb")
+    fc_duckdb_fn <- glue("{path}/{fc_table}.duckdb")
     conn_read <- get_duckdb_connection(fc_duckdb_fn, read_only = TRUE)
     
     fc <- tbl(conn_read, fc_table)
     det_config <- tbl(conn_read, "dc")
     fc <- left_join(fc, det_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
     
-    ac_duckdb_fn <- glue("{ac_table}.duckdb")
+    ac_duckdb_fn <- glue("{path}/{ac_table}.duckdb")
     if (file.exists(ac_duckdb_fn)) {
         file.remove(ac_duckdb_fn)
     }

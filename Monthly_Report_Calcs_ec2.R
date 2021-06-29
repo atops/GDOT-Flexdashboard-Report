@@ -157,6 +157,7 @@ print(glue("{Sys.time()} travel times [3 of 11]"))
 if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
     system("~/miniconda3/bin/python get_travel_times.py travel_times_1hr.yaml", wait = FALSE)
+    system("~/miniconda3/bin/python get_travel_times.py travel_times_15min.yaml", wait = FALSE)
 }
 
 # # COUNTS ####################################################################
@@ -226,11 +227,11 @@ get_counts_based_measures <- function(month_abbrs) {
 
 
         print("1hr adjusted counts")
-        prep_db_for_adjusted_counts("filtered_counts_1hr", conf, date_range)
-        get_adjusted_counts_duckdb("filtered_counts_1hr", "adjusted_counts_1hr", conf)
+        prep_db_for_adjusted_counts("/data", "filtered_counts_1hr", conf, date_range)
+        get_adjusted_counts_duckdb("/data", "filtered_counts_1hr", "adjusted_counts_1hr", conf)
         
         # Loop through dates in adjusted counts and write to parquet
-        duckconn <- get_duckdb_connection("adjusted_counts_1hr.duckdb", read_only=TRUE)
+        duckconn <- get_duckdb_connection("/data/adjusted_counts_1hr.duckdb", read_only=TRUE)
 	dates <- (tbl(duckconn, "adjusted_counts_1hr") %>% distinct(Date) %>% collect())$Date
 
         lapply(dates, function(date_) {
@@ -248,14 +249,15 @@ get_counts_based_measures <- function(month_abbrs) {
 
 	dbDisconnect(duckconn, shutdown=TRUE)
         
-        if (file.exists("filtered_counts_1hr.duckdb")) {
-            file.remove("filtered_counts_1hr.duckdb")
+        if (file.exists("/data/filtered_counts_1hr.duckdb")) {
+            file.remove("/data/filtered_counts_1hr.duckdb")
         }
-        if (file.exists("adjusted_counts_1hr.duckdb")) {
-            file.remove("adjusted_counts_1hr.duckdb")
+        if (file.exists("/data/adjusted_counts_1hr.duckdb")) {
+            file.remove("/data/adjusted_counts_1hr.duckdb")
         }
         
 
+        print("writing signal details")
         lapply(date_range, function(x) {
             write_signal_details(x, conf$athena, signals_list)
         })
@@ -357,8 +359,8 @@ get_counts_based_measures <- function(month_abbrs) {
 
         # date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
         
-        prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range) # _twr
-        get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
+        prep_db_for_adjusted_counts("/data", "filtered_counts_15min", conf, date_range) # _twr
+        get_adjusted_counts_duckdb("/data", "filtered_counts_15min", "adjusted_counts_15min", conf)
         
         # Loop through dates in adjusted counts and write to parquet
         duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
@@ -399,11 +401,11 @@ get_counts_based_measures <- function(month_abbrs) {
 	
 	dbDisconnect(duckconn, shutdown=TRUE)
         
-        if (file.exists("filtered_counts_15min.duckdb")) {
-            file.remove("filtered_counts_15min.duckdb")
+        if (file.exists("/data/filtered_counts_15min.duckdb")) {
+            file.remove("/data/filtered_counts_15min.duckdb")
         }
-        if (file.exists("adjusted_counts_15min.duckdb")) {
-            file.remove("adjusted_counts_15min.duckdb")
+        if (file.exists("/data/adjusted_counts_15min.duckdb")) {
+            file.remove("/data/adjusted_counts_15min.duckdb")
         }
 
 
@@ -551,7 +553,7 @@ for (date_ in date_range) {
             )
     }
 
-    cleanup_cycle_data(date_)
+    cleanup_cycle_data(date_str)
 }
 
 
