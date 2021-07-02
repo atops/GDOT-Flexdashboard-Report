@@ -363,10 +363,11 @@ get_counts_based_measures <- function(month_abbrs) {
         get_adjusted_counts_duckdb("/data", "filtered_counts_15min", "adjusted_counts_15min", conf)
         
         # Loop through dates in adjusted counts and write to parquet
-        duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
+        duckconn <- get_duckdb_connection("/data/adjusted_counts_15min.duckdb", read_only=TRUE)
         dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(Date) %>% collect())$Date
 
         lapply(dates, function(date_) {
+            print(date_) 
             adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% 
 		filter(Date == date_) %>% collect()
             s3_upload_parquet_date_split(
@@ -396,7 +397,6 @@ get_counts_based_measures <- function(month_abbrs) {
                 table_name = "vehicles_15min",
                 conf_athena = conf$athena
             )
-            
         })
 	
 	dbDisconnect(duckconn, shutdown=TRUE)

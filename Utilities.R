@@ -558,7 +558,9 @@ get_signals_chunks <- function(df, rows = 1e6) {
     # number of chunks will increase (chunk_length will decrease) with more days
     # but memory usage should stay consistent per core
     chunk_length <- round(rows/(records/length(signals_list)))
-    chunk(signals_list, chunk_length)
+    chunks <- chunk(signals_list, chunk_length)
+    print(glue("{length(chunks)} chunks of approx {chunk_length} signals each"))
+    chunks
 }
 
 

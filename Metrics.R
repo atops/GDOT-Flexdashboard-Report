@@ -170,7 +170,9 @@ get_thruput <- function(counts) {
         summarize(vph = sum(vol, na.rm = TRUE), 
                   .groups = "drop_last") %>%
         
-        summarize(vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
+		
+        summarize(# vph = quantile(vph, probs=c(0.95), na.rm = TRUE, names = FALSE) * 4,
+		  vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
                   .groups = "drop") %>%
         
         arrange(SignalID, Date) %>%
@@ -216,7 +218,7 @@ get_sf_utah_chunked <- function(date_, conf, signals_list = NULL, first_seconds_
     df <- get_detection_events(date_, date_, conf$athena, signals_list)
     signals_chunks <- get_signals_chunks(df, rows = chunk_size)
     
-    lapply(signals_chunks, FUN = function(ss) {
+    mclapply(signals_chunks, mc.cores = 2, FUN = function(ss) {
         get_sf_utah(date_, conf, signals_list = ss, first_seconds_of_red, interval)
     }) %>% bind_rows()
 }
@@ -231,43 +233,74 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         filter(SignalID %in% signals_list) %>%
         rename(Phase = CallPhase)
 
-    de <- get_detection_events(date_, date_, conf$athena, signals_list)
-    cd <- get_cycle_data(date_, date_, conf$athena, signals_list)
-    cat('.')
+    path <- glue("../detections/date={date_}/")
+    if (dir.exists(path)) {
+        print("local")
+        de <- arrow::open_dataset(path) %>%
+            filter(signal %in% signals_list) %>%
+            collect() %>% 
+            arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
+            transmute(
+	        SignalID = factor(SignalID),
+		Phase = factor(Phase),
+		Detector = factor(Detector),
+		CycleStart,
+		PhaseStart,
+		DetOn = DetTimeStamp,
+		DetOff = DetTimeStamp + seconds(DetDuration),
+	        Date = as_date(date_)) %>%
+            convert_to_utc()
+    } else {
+        print("S3")
+        de <- get_detection_events(date_, date_, conf$athena, signals_list) %>%
+            arrange(signalid, phase, cyclestart, phasestart) %>%
+            collect() %>%
+            transmute(
+                SignalID = factor(signalid),
+                Phase = factor(phase),
+                Detector = factor(detector), 
+                CycleStart = cyclestart,
+                PhaseStart = phasestart,
+                DetOn = dettimestamp,
+                DetOff = dettimestamp + seconds(detduration),
+                Date = as_date(date_)) %>%
+            left_join(dc, by = c("SignalID", "Phase", "Detector", "Date")) %>% 
+            filter(!is.na(TimeFromStopBar)) %>%
+            mutate(SignalID = factor(SignalID),
+                   Phase = factor(Phase),
+                   Detector = factor(Detector))
+    }
 
-    de <- de %>%
-        arrange(signalid, phase, cyclestart, phasestart) %>%
-        collect() %>%
-        transmute(
-            SignalID = factor(signalid),
-            Phase = factor(phase),
-            Detector = factor(detector), 
-            CycleStart = cyclestart,
-            PhaseStart = phasestart,
-            DetOn = dettimestamp,
-            DetOff = dettimestamp + seconds(detduration),
-            Date = as_date(date_)) %>%
-        left_join(dc, by = c("SignalID", "Phase", "Detector", "Date")) %>% 
-        filter(!is.na(TimeFromStopBar)) %>%
-        mutate(SignalID = factor(SignalID),
-               Phase = factor(Phase),
-               Detector = factor(Detector))
-
-    cat('.')
-        
-    cd <- cd %>%
-        filter(eventcode %in% c(1, 9)) %>%
-        arrange(signalid, phase, cyclestart, phasestart) %>%
-        collect() %>%
-        transmute(SignalID = factor(signalid),
+    path <- glue("../cycles/date={date_}/")
+    if (dir.exists(path)) {
+        print("local")
+        cd <- arrow::open_dataset(path) %>%
+            filter(
+                signal %in% signals_list,
+                EventCode %in% c(1, 9)) %>%
+            collect() %>%
+            arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
+            mutate(
+		SignalID = factor(SignalID),
+		Phase = factor(Phase),
+	        Date = as_date(date_)) %>%
+            convert_to_utc()
+    } else {
+        print("S3")
+        cd <- get_cycle_data(date_, date_, conf$athena, signals_list) %>%
+            filter(eventcode %in% c(1, 9)) %>%
+            arrange(signalid, phase, cyclestart, phasestart) %>%
+            collect() %>%
+            transmute(SignalID = factor(signalid),
                   Phase = factor(phase),
                   CycleStart = cyclestart,
                   PhaseStart = phasestart,
                   PhaseEnd = phaseend,
                   EventCode = eventcode,
                   Date = as_date(date_))
-    cat('.')
+    }
 
+    cat('.')
     
     grn_interval <- cd %>% 
         filter(EventCode == 1) %>%
@@ -427,33 +460,60 @@ get_qs <- function(date_, conf, signals_list, interval = "1 hour") {
     # It also filters out bad detectors
     dc <- get_det_config_qs(date_) %>% 
         dplyr::select(Date, SignalID, CallPhase, Detector, TimeFromStopBar) %>%
+	filter(SignalID %in% signals_list) %>%
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase))
 
     cat('.')
-    qs <- get_detection_events(date_, date_, conf$athena, signals_list) %>% 
-        
-        # By Detector by cycle. Get 95th percentile duration as occupancy
-        group_by(
-            date,
-            signalid,
-            cyclestart,
-            callphase = phase,
-            detector) %>%
-        summarize(occ = approx_percentile(detduration, 0.95), .groups = "drop") %>%
-        collect() %>%
-        transmute(
-            Date = date(date),
-            SignalID = factor(signalid), 
-            CycleStart = ymd_hms(cyclestart), 
-            CallPhase = factor(callphase),
-            Detector = factor(detector), 
-            occ) %>%
+
+
+    path <- glue("../detections/date={date_}/")
+    if (dir.exists(path)) {
+        print("local")
+        qs <- arrow::open_dataset(path) %>%
+            filter(signal %in% signals_list) %>%
+            collect() %>%
+            transmute(
+                Date = as_date(date_),
+                SignalID = factor(SignalID),
+                CycleStart,
+                CallPhase = factor(Phase),
+                Detector = factor(Detector),
+                DetDuration) %>%
+            convert_to_utc() %>%
+            group_by(Date, SignalID, CycleStart, CallPhase, Detector) %>%
+            summarize(
+		occ = quantile(DetDuration, probs=c(0.95), na.rm = TRUE, names = FALSE),
+                # occ = tdigest::tquantile(tdigest::tdigest(DetDuration), probs=c(0.95)), 
+                .groups = "drop")
+    } else {
+        print("S3")
+        qs <- get_detection_events(date_, date_, conf$athena, signals_list) %>%
+
+            # By Detector by cycle. Get 95th percentile duration as occupancy
+            group_by(
+                date,
+                signalid,
+                cyclestart,
+                callphase = phase,
+                detector) %>%
+            summarize(occ = approx_percentile(detduration, 0.95), .groups = "drop") %>%
+            collect() %>%
+            transmute(
+                Date = date(date),
+                SignalID = factor(signalid),
+                CycleStart = ymd_hms(cyclestart),
+                CallPhase = factor(callphase),
+                Detector = factor(detector),
+                occ)
+    }
+
+    cat('.')
+
+    qs <- qs %>% 
         left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
         filter(!is.na(TimeFromStopBar)) %>%
             
-        # Date | SignalID | CycleStart | CallPhase | Detector | occ
-        
         # -- data.tables. This is faster ---
         as.data.table %>%
         .[,.(occ = max(occ, na.rm = TRUE)), 
@@ -473,6 +533,7 @@ get_qs <- function(date_, conf, signals_list, interval = "1 hour") {
             qs = as.integer(qs),
             cycles = as.integer(cycles),
             qs_freq = as.double(qs)/as.double(cycles)) %>% as_tibble()
+    qs
 }
 
 
