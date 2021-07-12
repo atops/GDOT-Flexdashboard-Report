@@ -58,7 +58,6 @@ def etl2(s, date_, det_config):
     
     t0 = time.time()
     
-    #print('{} | {} Starting...'.format(s, date_str))
 
     try:
         key = f'atspm/date={date_str}/atspm_{s}_{date_str}.parquet'
@@ -74,27 +73,16 @@ def etl2(s, date_, det_config):
             
         if len(df) > 0 and len(det_config_good) > 0:
     
-            #print('|{} creating cycles and detection events...'.format(s))
             c, d = etl_main(df, det_config_good)
     
             if len(c) > 0 and len(d) > 0:
     
-                # print('writing to files...')
-    
-                # if not os.path.exists('../CycleData/' + date_str):
-                #     os.mkdir('../CycleData/' + date_str)
-                # if not os.path.exists('../DetectionEvents/' + date_str):
-                #     os.mkdir('../DetectionEvents/' + date_str)
-    
-    
-                c.to_parquet(f's3://gdot-spm-cycles/date={date_str}/cd_{s}_{date_str}.parquet',
+                c.to_parquet(f's3://gdot-spm/cycles/date={date_str}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
     
-                d.to_parquet(f's3://gdot-spm-detections/date={date_str}/de_{s}_{date_str}.parquet', 
+                d.to_parquet(f's3://gdot-spm/detections/date={date_str}/de_{s}_{date_str}.parquet', 
                              allow_truncated_timestamps=True)
     
-    
-                #print(f'{date_str} | {s} | {round(time.time()-t0, 1)} seconds')
             else:
                 print(f'{date_str} | {s} | No cycles')
         
@@ -179,7 +167,6 @@ def main(start_date, end_date):
             det_config = pd.DataFrame()
         
         if len(det_config) > 0:    
-            #ncores = os.cpu_count()
             nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
