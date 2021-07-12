@@ -226,7 +226,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         conn <- get_athena_connection(conf_athena)
 
 	# get 15min ped counts
-        print("15-min pedestrian counts")
+        print("15-minute pedestrian counts")
         counts_ped_15min <- get_counts(
             tbl(conn, atspm_query), 
             ped_config, 
