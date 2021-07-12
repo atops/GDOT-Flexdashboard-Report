@@ -33,7 +33,7 @@ run:
     split_failures: TRUE
 
 
-start_date: yesterday
+start_date: 2021-07-08
 end_date: yesterday
 
 report_start_date: 2020-02-01
