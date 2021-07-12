@@ -808,20 +808,22 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
 }
 
 
-get_vph <- function(counts, mainline_only = TRUE) {
+get_vph <- function(counts, interval = "1 hour", mainline_only = TRUE) {
     
     if (mainline_only == TRUE) {
         counts <- counts %>%
             filter(CallPhase %in% c(2,6)) # sum over Phases 2,6
     }
     df <- counts %>% 
-        mutate(Date_Hour = floor_date(Timeperiod, "1 hour"))
-    get_sum_by_hr(df, "vol") %>% 
+        mutate(Date_Hour = floor_date(Timeperiod, interval))
+    df <- get_sum_by_hr(df, "vol") %>% 
         group_by(SignalID, Week, DOW, Hour) %>% 
         summarize(vph = sum(vol, na.rm = TRUE),
                   .groups = "drop")
-    
-    # SignalID | CallPhase | Week | DOW | Hour | aog | vph
+    if (interval != "1 hour") {
+        df <- rename(df, Timeperiod = Hour)
+    }
+    df
 }
 
 

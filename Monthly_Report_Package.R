@@ -127,7 +127,7 @@ tryCatch(
             signals_list = signals_list,
             parallel = FALSE
         ) %>%
-            filter(!is.na(CallPhase)) %>% # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
+            filter(!is.na(CallPhase)) %>%   # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector),
@@ -176,7 +176,8 @@ tryCatch(
                 bucket = conf$bucket,
                 prefix = "bad_ped_detectors",
                 table_name = "bad_ped_detectors",
-                conf_athena = conf$athena, parallel = FALSE
+                conf_athena = conf$athena, 
+                parallel = FALSE
             )
 
         # Hack to make the aggregation functions work
@@ -1001,7 +1002,6 @@ print(glue("{Sys.time()} Daily Progression Ratio [13 of 29]"))
 
 tryCatch(
     {
-        # daily_pr <- get_daily_pr(aog)
         weekly_pr_by_day <- get_weekly_pr_by_day(aog)
         monthly_pr_by_day <- get_monthly_pr_by_day(aog)
 
@@ -1020,7 +1020,6 @@ tryCatch(
         addtoRDS(sub_weekly_pr_by_day, "sub_weekly_pr_by_day.rds", "pr", report_start_date, wk_calcs_start_date)
         addtoRDS(sub_monthly_pr_by_day, "sub_monthly_pr_by_day.rds", "pr", report_start_date, calcs_start_date)
 
-        # rm(daily_pr)
         rm(weekly_pr_by_day)
         rm(monthly_pr_by_day)
         rm(cor_weekly_pr_by_day)
@@ -1304,7 +1303,7 @@ tryCatch(
 
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "cor_travel_time_metrics",
+            table_name = "cor_travel_time_metrics_1hr",
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
@@ -1356,7 +1355,7 @@ tryCatch(
 
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "sub_travel_time_metrics",
+            table_name = "sub_travel_time_metrics_1hr",
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%

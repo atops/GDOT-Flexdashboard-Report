@@ -5,6 +5,7 @@ Created on Sat Feb 15 15:15:31 2020
 @author: Alan.Toppen
 """
 
+import os
 import yaml
 import time
 import sys
@@ -13,7 +14,7 @@ import boto3
 import pandas as pd
 import io
 import re
-from multiprocessing import Pool
+from multiprocessing import get_context
 import itertools
 
 def get_signalids(date_):
@@ -61,12 +62,17 @@ def get_aog(signalid, date_, det_config):
     '''
     try:
         date_str = date_.strftime('%Y-%m-%d')
-
-        de_fn = 's3://gdot-spm-detections/date={d}/de_{s}_{d}.parquet'.format(s=signalid, d=date_str)
-
+        
         all_hours = pd.date_range(date_, periods=25, freq='H')
 
-        detection_events = pd.read_parquet(de_fn).drop_duplicates()
+
+        de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
+        if os.path.exists(de_fn):
+            detection_events = pd.read_parquet(de_fn).drop_duplicates()
+        else:
+            de_fn = f's3://gdot-spm-detections/date={date_str}/de_{signalid}_{date_str}.parquet'
+            detection_events = pd.read_parquet(de_fn).drop_duplicates()
+
 
         df = (pd.merge(
                 detection_events,
@@ -151,8 +157,8 @@ def main(start_date, end_date):
         print('Getting signal...', end='')
         signalids = get_signalids(date_)
         print('done.')
-    
-        with Pool(24) as pool:
+
+        with get_context('spawn').Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
                 list(itertools.product(signalids, [date_], [det_config])))

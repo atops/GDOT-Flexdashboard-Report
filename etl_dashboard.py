@@ -7,21 +7,22 @@ Created on Mon Nov 27 16:27:29 2017
 import sys
 from datetime import datetime, timedelta
 #from multiprocessing.dummy import Pool
-from multiprocessing import Pool
+from multiprocessing import get_context
 import pandas as pd
 import sqlalchemy as sq
-from pyathenajdbc import connect
-import pyodbc
+import dask.dataframe as dd
+#from pyathenajdbc import connect
+#import pyodbc
 import time
 import os
 import itertools
-from spm_events import etl_main
 import boto3
 import yaml
-#import feather
 import io
 import re
 import psutil
+
+from spm_events import etl_main
 from parquet_lib import *
 
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
@@ -162,12 +163,15 @@ def main(start_date, end_date):
             right = bad_detectors.set_index(['SignalID', 'Detector'])
 
 
-            det_config = left.join(right, how='left')\
-                .fillna(value={'Good_Day': 1})\
-                .query('Good_Day == 1')\
-                .groupby(['SignalID','Call Phase'])\
-                .apply(lambda group: group.assign(CountDetector = group.CountPriority == group.CountPriority.min()))\
-                .reset_index()
+            det_config = (left.join(right, how='left')
+                .fillna(value={'Good_Day': 1})
+                .query('Good_Day == 1')
+                .reset_index(level='Detector')
+                .set_index('Call Phase', append=True)
+                .assign(
+                    minCountPriority = lambda x: x.CountPriority.groupby(level=['SignalID', 'Call Phase']).min()))
+            det_config['CountDetector'] = det_config['CountPriority'] == det_config['minCountPriority']
+            det_config = det_config.drop(columns=['minCountPriority']).reset_index()
 
             print(det_config.head())
 
@@ -179,7 +183,7 @@ def main(start_date, end_date):
             nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
-            with Pool(processes=nthreads) as pool:
+            with get_context('spawn').Pool(processes=nthreads) as pool:
                 result = pool.starmap_async(
                     etl2, list(itertools.product(signalids, [date_], [det_config])), chunksize=(nthreads-1)*4)
                 pool.close()
@@ -188,15 +192,13 @@ def main(start_date, end_date):
         else:
             print('No good detectors. Skip this day.') 
         
-    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
-        
     response_repair_cycledata = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE cycledata', 
+                QueryString='MSCK REPAIR TABLE cycledata2', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
 
     response_repair_detection_events = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE detectionevents', 
+                QueryString='MSCK REPAIR TABLE detectionevents2', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         

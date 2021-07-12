@@ -85,7 +85,7 @@ if (conf$calcs_start_date == "auto") {
 } else {
     calcs_start_date <- conf$calcs_start_date
 }
-# wk_calcs_start_date <- ymd(calcs_start_date) - wday(ymd(calcs_start_date)) + 3
+
 round_to_tuesday <- function(date_) {
     if (is.null(date_)) {
         return (NULL)
@@ -110,4 +110,3 @@ date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
 date_range_str <- paste0("{", paste0(as.character(date_range), collapse = ","), "}")
 
 #options(warn = 2) # Turn warnings into errors we can run a traceback on. For debugging only.
-

@@ -13,7 +13,6 @@ get_uptime <- function(df, start_date, end_time) {
     
     ts_sig <- ts_sig %>%
         transmute(SignalID = signalid, Timestamp = ymd_hms(timestamp)) %>%
-        
         bind_rows(., bookend1, bookend2) %>%
         distinct() %>%
         arrange(SignalID, Timestamp)
@@ -156,8 +155,6 @@ get_vpd <- function(counts, mainline_only = TRUE) {
                Date = date(Timeperiod)) %>% 
         group_by(SignalID, CallPhase, Week, DOW, Date) %>% 
         summarize(vpd = sum(vol, na.rm = TRUE), .groups = "drop")
-    
-    # SignalID | CallPhase | Week | DOW | Date | vpd
 }
 
 
@@ -165,25 +162,21 @@ get_vpd <- function(counts, mainline_only = TRUE) {
 get_thruput <- function(counts) {
     
     counts %>%
-        mutate(Date = date(Timeperiod),
-               DOW = wday(Date), 
-               Week = week(Date)) %>%
+        mutate(
+            Date = date(Timeperiod),
+            DOW = wday(Date), 
+            Week = week(Date)) %>%
         group_by(SignalID, Week, DOW, Date, Timeperiod) %>%
         summarize(vph = sum(vol, na.rm = TRUE), 
                   .groups = "drop_last") %>%
         
-        #summarize(vph = quantile(vph, probs=c(0.95), na.rm = TRUE) * 4,
         summarize(vph = tdigest::tquantile(tdigest::tdigest(vph), probs=c(0.95)) * 4,
                   .groups = "drop") %>%
         
         arrange(SignalID, Date) %>%
         mutate(CallPhase = 0) %>%
         dplyr::select(SignalID, CallPhase, Date, Week, DOW, vph)
-    
-    # SignalID | CallPhase | Date | Week | DOW | vph
 }
-
-
 
 
 
@@ -199,8 +192,6 @@ get_daily_aog <- function(aog) {
         summarize(aog = weighted.mean(aog, vol, na.rm = TRUE), 
                   vol = sum(vol, na.rm = TRUE),
                   .groups = "drop")
-    
-    # SignalID | CallPhase | Date | Week | DOW | aog | vol
 }
 
 
@@ -415,8 +406,6 @@ get_peak_sf_utah <- function(msfh) {
                   .groups = "drop") %>%
         select(-cycles) %>% 
         split(.$Peak)
-    
-    # SignalID | CallPhase | Date | Week | DOW | Peak | sf_freq | cycles
 }
 
 
@@ -781,57 +770,30 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
 
 
 
-get_ped_delay <- function(date_, conf, signals_list, parallel = FALSE) {
-    
-    get_ped_events_one_signal <- function(signalid, date_, conf) {
-        
-        s3bucket = conf$bucket
-        s3object = glue("atspm/date={date_}/atspm_{signalid}_{date_}.parquet")
-        
-        object_exists <- length(aws.s3::get_bucket(s3bucket, s3object))
+get_ped_delay <- function(date_, conf, signals_list) {
 
-        if (object_exists) {
-            tryCatch({
-                # all 45/21/22/132 events
-                s3_read_parquet(bucket = s3bucket, object = s3object) %>%
-                    filter(EventCode %in% c(45, 21, 22, 132)) %>%
-                    select(-c(Date, DeviceID)) %>%
-                    mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
-                    arrange(Timestamp) %>%
-                    tidyr::fill(CycleLength) %>%
-                    rename(Phase = EventParam)
-            }, error = function(e) {
-                print(e)
-            })
-        }
-    }
-    
-    
-    ncores <- if (parallel & Sys.info()["sysname"] != "Windows") {
-        usable_cores * 3
-    } else {
-        1
-    }
-    
-    cat('.')
-    # pe <- mclapply(signals_list, mc.cores = ncores, FUN = function(signalid) {
-    #     # get_ped_events_one_signal(signalid = signalid, date_ = date_, conf = conf)
-    # })
-    # pe <- pe %>% bind_rows()
+    atspm_query <- sql(glue(paste(
+        "select distinct timestamp, signalid, eventcode, eventparam",
+        "from {conf_athena$database}.{conf_athena$atspm_table}",
+        "where date = '{date_}'")))
 
     athena <- get_athena_connection(conf$athena)
-    pe <- tbl(athena, "atspm2") %>%
-        filter(date == date_, eventcode %in% c(45, 21, 22, 132)) %>%
-        select(signalid, timestamp, eventcode, eventparam) %>%
+    pe <- tbl(athena, atspm_query) %>%
+        filter(
+	    eventcode %in% c(45, 21, 22, 132)) %>%
+        select(
+	    signalid, timestamp, eventcode, eventparam) %>%
         collect() %>%
         transmute(SignalID = signalid,
                   Timestamp = timestamp,
                   EventCode = eventcode,
                   EventParam = eventparam) %>%
-        mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+        mutate(
+	    CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
         arrange(Timestamp) %>%
         tidyr::fill(CycleLength) %>%
-        rename(Phase = EventParam)
+        rename(Phase = EventParam) %>%
+	    convert_to_utc()
 
     cat('.')
     coord.type <- group_by(pe, SignalID) %>%
