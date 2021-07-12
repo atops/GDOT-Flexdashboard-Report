@@ -121,10 +121,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
         with io.BytesIO() as f:
             f.write(results.content)
             f.seek(0)
-            #df = pd.read_csv(f, compression='zip')       
             with ZipFile(f, 'r') as zf:
                 df = pd.read_csv(zf.open('Readings.csv'))
-                #tmci = pd.read_csv(zf.open('TMC_Identification.csv'))
 
     else:
         df = pd.DataFrame()
@@ -184,16 +182,16 @@ if __name__=='__main__':
     end_date = end_date.strftime('%Y-%m-%d')
     start_date = start_date.strftime('%Y-%m-%d')
     
-#    #pull in file that matches up corridors/subcorridors/TMCs from S3 - having certificate issue on AG end
-#    tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
-#                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']))
-#                .rename(columns={'length': 'miles'})
-#                .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
-    tmc_df = (pd.read_excel("Corridor_TMCs_Latest.xlsx") #AG update - don't have package to handle S3 files 
+    # Pull in file that matches up corridors/subcorridors/TMCs from S3
+    tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
+                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']))
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
-    tmc_df = tmc_df[tmc_df.Corridor != 'None'] #4500 rows
-    #tmc_df = tmc_df[(tmc_df.Corridor == "Peachtree St-Midtown") | (tmc_df.Corridor == "Peachtree St-Downtown")] #test - 95 rows
+#     tmc_df = (pd.read_excel("Corridor_TMCs_Latest.xlsx") #AG update - don't have package to handle S3 files 
+#                 .rename(columns={'length': 'miles'})
+#                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
+#     tmc_df = tmc_df[tmc_df.Corridor != 'None'] #4500 rows
+#     #tmc_df = tmc_df[(tmc_df.Corridor == "Peachtree St-Midtown") | (tmc_df.Corridor == "Peachtree St-Downtown")] #test - 95 rows
 
     tmc_list = list(set(tmc_df.tmc.values))
 
@@ -207,9 +205,6 @@ if __name__=='__main__':
     try:
         start_time = time.perf_counter()
         tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
-        # tt_df = pd.concat(
-        #     [get_tmc_data(start_date, end_date, list(tmc_group), cred['RITIS_KEY'], 1) for tmc_group in tmc_groups]
-        # )
         end_time = time.perf_counter()
         process_time = end_time - start_time
         print('Time to pull ', len(tmc_list), ' TMCs for ', number_of_days, ' days: ', round(process_time))
@@ -229,10 +224,7 @@ if __name__=='__main__':
                 .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
                         date = lambda x: x.measurement_tstamp.dt.date)
                 .rename(columns = {'measurement_tstamp': 'Minute'}))
-                #.rename(columns = {'measurement_tstamp': 'Hour'}))
-        #df.Hour = df.Hour.dt.tz_localize('America/New_York')
         df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
-        #df.to_csv('travel_times_1min_{}.csv'.format(date_string), sep = ',') #AG test
         
         #write 1-min monthly travel times/speed df to parquet on S3
         date_string = start_date
