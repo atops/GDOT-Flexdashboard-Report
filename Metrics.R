@@ -212,8 +212,48 @@ get_daily_pr <- function(aog) {
 }
 
 
+get_occupancy <- function(de_dt, int_dt, interval_) {
+    occdf <- foverlaps(de_dt, int_dt, type = "any") %>%
+        filter(!is.na(IntervalStart)) %>%
+
+        transmute(
+            SignalID = factor(SignalID),
+            Phase,
+            Detector = as.integer(as.character(Detector)),
+            CycleStart,
+            IntervalStart,
+            IntervalEnd,
+            int_int = lubridate::interval(IntervalStart, IntervalEnd),
+            occ_int = lubridate::interval(DetOn, DetOff),
+            occ_duration = as.duration(intersect(occ_int, int_int)),
+            int_duration = as.duration(int_int))
+
+    occdf <- full_join(interval_,
+                       occdf,
+                       by = c("SignalID", "Phase",
+                              "CycleStart", "IntervalStart", "IntervalEnd")) %>%
+        tidyr::replace_na(
+            list(Detector = 0, occ_duration = 0, int_duration = 1)) %>%
+        mutate(SignalID = factor(SignalID),
+               Detector = factor(Detector),
+               occ_duration = as.numeric(occ_duration),
+               int_duration = as.numeric(int_duration)) %>%
+
+        group_by(SignalID, Phase, CycleStart, Detector) %>%
+        summarize(occ = sum(occ_duration)/max(int_duration),
+                  .groups = "drop_last") %>%
+
+        summarize(occ = max(occ),
+                  .groups = "drop") %>%
+
+        mutate(SignalID = factor(SignalID),
+               Phase = factor(Phase))
+
+    occdf
+}
+
 # SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
-get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour") {
+get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour")) {
 
     print("Pulling data...")
 
@@ -222,20 +262,22 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     plan(sequential)
     plan(multisession)
 
-    s3bucket = "gdot-spm/detections"
+    s3bucket = "gdot-spm-detections"
     s3prefix = glue("date={date_}")
 
-    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
+    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
+    if (nrow(objs_df) == 0) {
+        stop(glue("No objects at {s3bucket}/{s3prefix}"))
+    }
+    objs_df <- objs_df %>%
         mutate(SignalID = str_extract(Key, "(?<=de_)(\\d+)")) %>%
         filter(SignalID %in% signals_list)
     keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/100))
+    keys_chunks <- split(keys, ceiling(seq_along(keys)/200))
 
-    de <- lapply(keys_chunks, function(keys) {
-        future_lapply(keys, function(key) {
-            s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-                filter(Phase %in% c(3, 4, 7, 8))
-        }) %>% bind_rows()
+    de <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
+        s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
+            filter(Phase %in% c(3, 4, 7, 8))
     }) %>%
         bind_rows() %>%
         convert_to_utc() %>%
@@ -255,21 +297,19 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     plan(sequential)
     plan(multisession)
 
-    s3bucket = "gdot-spm/cycles"
+    s3bucket = "gdot-spm-cycles"
     s3prefix = glue("date={date_}")
 
     objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
         mutate(SignalID = str_extract(Key, "(?<=cd_)(\\d+)")) %>%
         filter(SignalID %in% signals_list)
     keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/100))
+    keys_chunks <- split(keys, ceiling(seq_along(keys)/200))
 
-    cd <- lapply(keys_chunks, function(keys) {
-        future_lapply(keys, function(key) {
-            s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-                filter(Phase %in% c(3, 4, 7, 8),
-                EventCode %in% c(1, 9))
-        }) %>% bind_rows()
+    cd <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
+        s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
+            filter(Phase %in% c(3, 4, 7, 8),
+            EventCode %in% c(1, 9))
     }) %>%
         bind_rows() %>%
         convert_to_utc() %>%
@@ -278,7 +318,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                Date = as_date(date_)) %>%
         arrange(SignalID, Phase, CycleStart, PhaseStart)
 
-    cat('')
+    cat('\n')
     print("Running calcs")
 
     dc <- get_det_config_sf(date_) %>%
@@ -320,46 +360,6 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
 
     ## ---
 
-    get_occupancy <- function(de_dt, int_dt, interval_) {
-        occdf <- foverlaps(de_dt, int_dt, type = "any") %>%
-            filter(!is.na(IntervalStart)) %>%
-
-            transmute(
-                SignalID = factor(SignalID),
-                Phase,
-                Detector = as.integer(as.character(Detector)),
-                CycleStart,
-                IntervalStart,
-                IntervalEnd,
-                int_int = lubridate::interval(IntervalStart, IntervalEnd),
-                occ_int = lubridate::interval(DetOn, DetOff),
-                occ_duration = as.duration(intersect(occ_int, int_int)),
-                int_duration = as.duration(int_int))
-
-        occdf <- full_join(interval_,
-                           occdf,
-                           by = c("SignalID", "Phase",
-                                  "CycleStart", "IntervalStart", "IntervalEnd")) %>%
-            tidyr::replace_na(
-                list(Detector = 0, occ_duration = 0, int_duration = 1)) %>%
-            mutate(SignalID = factor(SignalID),
-                   Detector = factor(Detector),
-                   occ_duration = as.numeric(occ_duration),
-                   int_duration = as.numeric(int_duration)) %>%
-
-            group_by(SignalID, Phase, CycleStart, Detector) %>%
-            summarize(occ = sum(occ_duration)/max(int_duration),
-                      .groups = "drop_last") %>%
-
-            summarize(occ = max(occ),
-                      .groups = "drop") %>%
-
-            mutate(SignalID = factor(SignalID),
-                   Phase = factor(Phase))
-
-        occdf
-    }
-
     grn_occ <- get_occupancy(de_dt, gr_dt, grn_interval) %>%
         rename(gr_occ = occ)
     cat('.')
@@ -367,21 +367,29 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         rename(sr_occ = occ)
     cat('.\n')
 
+    qs::qsave(grn_occ, "grn_occ.qs")
+    qs::qsave(sor_occ, "sor_occ.qs")
 
-
-    df <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
+    sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
+        replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
 
+    rm(grn_occ)
+    rm(sor_occ)
+    
+    qs::qsave(sf, "sf.qs")
+
     # if a split failure on any phase
-    df0 <- df %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%
+    sf0 <- sf %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%
         summarize(sf = max(sf), .groups = "drop")
 
-    sf <- bind_rows(df, df0) %>%
-        mutate(Phase = factor(Phase)) %>%
+    sf <- bind_rows(sf, sf0) %>%
+        mutate(Phase = factor(Phase))
 
-    return_list <- lapply(intervals, function(sf, interval) {
-        sf %>%
-            group_by(SignalID, Phase, hour = floor_date(CycleStart, unit = interval) %>%
+    return_list <- list()
+    for (interval in intervals) {
+        return_list[[interval]] <- sf %>%
+            group_by(SignalID, Phase, hour = floor_date(CycleStart, unit = interval)) %>%
             summarize(cycles = n(),
                       sf_freq = sum(sf, na.rm = TRUE)/cycles,
                       sf = sum(sf, na.rm = TRUE),
@@ -396,8 +404,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                       sf = as.integer(sf),
                       cycles = cycles,
                       sf_freq = sf_freq)
-    })
-    names(return_list) <- intervals
+    }
     return_list
 }
 
@@ -427,15 +434,14 @@ get_sf <- function(df) {
                   Week = week(Date)) %>%
         dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, sf, cycles, sf_freq) %>%
         as_tibble()
-
-    # SignalID | CallPhase | Date | Date_Hour | DOW | Week | sf | cycles | sf_freq
 }
 
 
 # SPM Queue Spillback - updated 2/20/2020
-get_qs <- function(detection_events, intervals = c("hour") {
+get_qs <- function(detection_events, intervals = c("hour")) {
 
-    qs <- detection_events %>%
+    cat('.')
+    qs_df <- detection_events %>%
 
         # By Detector by cycle. Get 95th percentile duration as occupancy
         group_by(date,
@@ -452,7 +458,9 @@ get_qs <- function(detection_events, intervals = c("hour") {
                   Detector = factor(detector),
                   occ)
 
-    dates <- unique(qs$Date)
+    dates <- unique(qs_df$Date)
+
+    cat('.')
 
     # Get detector config for queue spillback.
     # get_det_config_qs2 filters for Advanced Count and Advanced Speed detector types
@@ -463,18 +471,24 @@ get_qs <- function(detection_events, intervals = c("hour") {
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase))
 
-    qs %>% left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
+    qs_df <- qs_df %>% 
+        left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
         filter(!is.na(TimeFromStopBar)) %>%
         # -- data.tables. This is faster ---
         as.data.table
 
-    qs[, occ := max(occ, na.rm = TRUE),
-       by = .(Date, SignalID, CallPhase, CycleStart)]
+    qs_df <- qs_df[, .(occ = max(occ, na.rm = TRUE)),
+       by = c("Date", "SignalID", "CallPhase", "CycleStart")]
 
-    return_list <- lapply(intervals, function(qs, interval) {
-        df <- qs
-        df[, `:=`(qs = sum(occ > 3), cycles = .N),
-           by = .(Date, SignalID, Hour = floor_date(CycleStart, unit = 'hours'), CallPhase)] %>%
+    cat('.\n')
+
+    return_list <- lapply(intervals, function(interval, df=qs_df) {
+        print(interval)
+
+        df[, Hour := floor_date(CycleStart, unit = interval)] 
+        df <- df[, .(qs = sum(occ > 3), cycles = .N), 
+           by = c("Date", "SignalID", "Hour", "CallPhase")]
+        df %>%
             transmute(
                 SignalID = factor(SignalID),
                 CallPhase = factor(CallPhase),
@@ -485,7 +499,7 @@ get_qs <- function(detection_events, intervals = c("hour") {
                 qs = as.integer(qs),
                 cycles = as.integer(cycles),
                 qs_freq = as.double(qs)/as.double(cycles)) %>% as_tibble()
-
+    })
     names(return_list) <- intervals
     return_list
 }
@@ -786,8 +800,8 @@ get_ped_delay <- function(date_, conf, signals_list) {
     plan(sequential)
     plan(multisession)
 
-    s3bucket = "gdot-spm/atspm"
-    s3prefix = glue("date={date_}")
+    s3bucket = "gdot-spm"
+    s3prefix = glue("atspm/date={date_}")
 
     objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
         mutate(SignalID = str_extract(Key, "(?<=atspm_)(\\d+)")) %>%
@@ -801,7 +815,7 @@ get_ped_delay <- function(date_, conf, signals_list) {
                 filter(
 	            EventCode %in% c(45, 21, 22, 132)) %>%
                 select(
-	            SignalID, Timestamp, EventCode, EventParam) %>%
+	            SignalID, Timestamp, EventCode, EventParam)
         }) %>% bind_rows()
     }) %>%
         bind_rows() %>%
