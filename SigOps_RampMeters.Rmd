@@ -1,0 +1,353 @@
+---
+# ------------------------------
+title: "SigOps Ramp Meter Metrics"
+# ------------------------------
+resource_files:
+- all_Corridors_Latest.qs
+- MaxViewASCEventCodes.qs
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    logo: GDOTLogo.svg
+    favicon: GDOTLogo.svg
+    css: style.css
+runtime: shiny
+---
+
+
+```{r global, cache = FALSE, include = FALSE, warning = FALSE}
+source("Monthly_Report_Functions.R", local = TRUE)
+source("new_aes.R", local = TRUE)
+library("future.apply")
+
+
+FIG_WIDTH = 14
+FIG_HEIGHT = 7
+
+TODS <- c("AM", "PM", "AM/PM")
+
+corridors <- s3read_using(qread, bucket = conf$bucket, object = "RampMeter_Corridors.qs")
+
+# corridors: static file
+# mps: static file. trimmed down version of corridors
+# input$date: date from dateInput
+# input$corridor: corridor from selectInput
+# signals(): reactive list of signals from corridors, input$corridor
+# signals_data(): reactive data frame from corridors, input$corridor
+```
+
+
+```{r, eval = FALSE}
+read_excel(
+    "c:/Users/alan.toppen/OneDrive - KH/015664402 GDOT SPM/MaxViewASCEventCodes_20190430.xlsx"
+) %>%
+    transmute(
+        EventCode = as.integer(`Event Code`), 
+        Name, 
+        EventParam = `Event Parameter`) %>%
+    s3write_using(qsave, bucket = conf$bucket, object = "MaxViewASCEventCodes.qs")
+    
+corridors <- s3read_using(qread, bucket = conf$bucket, object = "Corridors_Latest.qs") %>% 
+    filter(Zone_Group == "Ramp Meters") %>%
+    mutate(
+        SignalID = factor(SignalID),
+        Corridor = factor(Corridor)) %>%
+    arrange(Corridor, Milepost)
+
+# Hack to shift two ramps at same mp (246A, 246B) so they appear side-by-side on the graph
+corridors[corridors$Name == "I-75 NB @ C246A- Fulton St. NB", "Milepost"] <- 245
+# TODO: More hacks like this.
+
+s3write_using(corridors, qsave, bucket = conf$bucket, object = "RampMeter_Corridors.qs")
+    
+```
+
+
+
+
+
+
+Inputs {.sidebar}
+=====================================
+
+Ramp Meter Metrics (beta)
+
+
+```{r sidebar, warning = FALSE, cache = FALSE}
+
+dateInput(
+    "date", "Date:",
+    value = Sys.Date() - days(1),
+    min = Sys.Date() - days(90),
+    max = Sys.Date() - days(1))
+
+selectInput(
+    "tod", "Time of Day:",
+    choices = TODS,
+    selected = "AM/PM"
+)
+
+selectInput(
+    "corridor", "Corridor:",
+    choices = corridors$Corridor,  # c("I-75 NB", "I-75 SB"),  #
+    selected = corridors$Corridor[1])  # "I-75 NB")
+
+
+signals <- reactive({
+    as.integer(as.character(filter(corridors, Corridor == input$corridor)$SignalID))
+})
+
+
+signals_data <- reactive({
+    corridors %>% 
+        select(Corridor, SignalID, Milepost, Name) %>%
+        filter(Corridor == input$corridor)
+})
+
+
+events <- reactive({
+    
+    future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
+        try({
+            aws.s3::s3read_using(
+                arrow::read_parquet, 
+                bucket = conf$bucket,
+                object = glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")) %>% 
+            select(SignalID, Timestamp, EventCode, EventParam) %>% 
+            filter(EventCode >= 1000)
+        })
+    }) %>% 
+        bind_rows() %>%
+        arrange(SignalID, Timestamp) %>%
+        mutate(
+            SignalID = factor(SignalID),
+            Timestamp = as_datetime(Timestamp),
+            per = if_else(hour(Timestamp) < 12, "AM", "PM"),
+            EventCode = factor(EventCode),
+            EventParam = as.integer(EventParam),
+            date = input$date) %>%
+        convert_to_utc()
+})
+
+flush_events <- reactive({
+    events() %>% 
+        filter(
+            EventCode == 1058, EventParam == 0,
+            per %in% setdiff(TODS, input$tod)) %>% 
+        select(SignalID, date, Timestamp, per) %>% 
+        right_join(signals_data(), by = c("SignalID"))
+})
+
+
+metering_rates <- reactive({
+    events()  %>% 
+        filter(
+            EventCode == 1058 | (EventCode == 1013 & EventParam == 1),
+            per %in% setdiff(TODS, input$tod)) %>% 
+        select(SignalID, date, Timestamp, per, EventCode, rate = EventParam) %>% 
+        group_by(SignalID, date) %>% 
+        mutate(Timestamp2 = lead(Timestamp)) %>% 
+        ungroup() %>% 
+        filter(EventCode == 1058, rate > 0) %>% 
+        right_join(signals_data(), by = c("SignalID"))
+})
+
+
+traffic <- reactive({
+    events() %>% 
+        filter(
+            per %in% setdiff(TODS, input$tod)) %>%
+        select(SignalID, date, Timestamp, per, EventCode, value = EventParam) %>% 
+        pivot_wider(
+            id_cols = c(SignalID, date, Timestamp, per), 
+            names_from = EventCode, 
+            values_from = value,
+            values_fn = min) %>% 
+        rename(vol = `1371`, occ = `1372`, spd = `1373`) %>%
+        select(SignalID, date, Timestamp, per, vol, occ, spd) %>%
+        # filter(!is.na(vol)) %>%
+        right_join(signals_data(), by = c("SignalID"))
+})
+
+speed <- reactive({
+    traffic() %>%
+        filter(!is.na(spd)) %>%
+        group_by(SignalID, date) %>% 
+        mutate(Timestamp2 = lead(Timestamp)) %>% 
+        ungroup()
+})
+
+volume <- reactive({
+    traffic() %>%
+        filter(!is.na(vol)) %>%
+        group_by(SignalID, date) %>% 
+        mutate(Timestamp2 = lead(Timestamp)) %>% 
+        ungroup()
+})
+
+occupancy <- reactive({
+    traffic() %>%
+        filter(!is.na(occ)) %>%
+        group_by(SignalID, date) %>% 
+        mutate(Timestamp2 = lead(Timestamp)) %>% 
+        ungroup()
+})
+
+observe({try(qsave(traffic(), "traffic.qs"))})
+
+```
+
+
+
+
+
+Debugging
+=====================================
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+
+### events
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(events())
+```
+
+### flush_events
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(flush_events())
+```
+
+### metering_rates
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(metering_rates())
+```
+
+### traffic
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(traffic())
+```
+
+### speed
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(speed())
+```
+
+### volume
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(volume())
+```
+
+### occupancy
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+DT::renderDT(occupancy())
+```
+
+
+
+
+
+Performance
+=====================================
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Flush Events
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+renderPlotly({
+    p <- ggplot() +
+        geom_point(
+            data = flush_events(), 
+            mapping = aes(x = Timestamp, y = Milepost),
+            alpha = 0.2) +
+        scale_y_continuous(
+            breaks = signals_data()$Milepost, 
+            labels = signals_data()$Name) +
+        ggtitle(glue("Flush events on {input$date}: {input$corridor}"))
+
+    ggplotly(p)
+})
+```
+
+
+
+### Metering Rates + Flush Events
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+renderPlotly({
+    p <- ggplot() + 
+        geom_segment(
+            data = filter(metering_rates(), date == input$date),
+            mapping = aes(
+                x = Timestamp, 
+                y = Milepost, 
+                xend = Timestamp2, 
+                yend = Milepost, 
+                color = rate), 
+            size = 3) + 
+        scale_colour_distiller(direction = 1) +
+        geom_point(
+            data = filter(flush_events(), date == input$date), 
+            mapping = aes(x = Timestamp, y = Milepost)) +
+        scale_y_continuous(
+            breaks = signals_data()$Milepost, 
+            labels = signals_data()$Name) +
+        ggtitle(glue("Metering Rates and Flush Events on {input$date}: {input$corridor}"))
+    
+    ggplotly(p)
+})
+```
+
+
+### Metering Rates + Flush Event + Occupancy
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+renderPlot({
+    ggplot() + 
+    geom_segment(
+        data = filter(occupancy(), date == input$date), 
+        mapping = aes(
+            x = Timestamp, 
+            y = Milepost, 
+            xend = Timestamp2, 
+            yend = Milepost, 
+            color = occ), 
+        size = 3) + 
+    scale_color_distiller(palette = "Reds", direction = 1) +
+    
+    new_scale("color") +
+
+    geom_segment(
+        data = filter(metering_rates(), date == input$date),
+        mapping = aes(
+            x = Timestamp,
+            y = Milepost + 0.2,
+            xend = Timestamp2,
+            yend = Milepost + 0.2,
+            color = rate),
+        size = 3) +
+    scale_color_distiller(palette = "Blues", direction = 1) +
+    geom_point(
+        data = filter(flush_events(), date == input$date), 
+        mapping = aes(x = Timestamp, y = Milepost + 0.2)) +
+    scale_y_continuous(
+        breaks = signals_data()$Milepost, 
+        labels = signals_data()$Name) +
+    ggtitle(glue("Metering Rates and Flush Events on {input$date}: {input$corridor}"))
+})
+```
