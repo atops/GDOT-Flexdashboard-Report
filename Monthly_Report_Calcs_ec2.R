@@ -483,7 +483,7 @@ print("--- Finished counts-based measures ---")
 
 
 
-# -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
+# -- Run etl_dashboard (Python): cycledata, detectionevents to S4/Athena --
 print(glue("{Sys.time()} etl [7 of 11]"))
 
 if (conf$run$etl == TRUE) {
@@ -541,16 +541,47 @@ if (conf$run$queue_spillback == TRUE) {
 
 
 
+# # GET PED DELAY ########################################################
+
+# Ped delay using ATSPM method, based on push button-start of walk durations
+print(glue("{Sys.time()} ped delay [10 of 11]"))
+
+get_pd_date_range <- function(start_date, end_date) {
+    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
+
+    lapply(date_range, function(date_) {
+        print(date_)
+        run_parallel <- length(date_range) > 1
+
+        pd <- get_ped_delay(date_, conf, signals_list)
+        if (nrow(pd) > 0) {
+            s3_upload_parquet_date_split(
+                pd,
+                bucket = conf$bucket,
+                prefix = "pd",
+                table_name = "ped_delay",
+                conf_athena = conf$athena
+            )
+        }
+    })
+    gc()
+}
+
+if (conf$run$ped_delay == TRUE) {
+    get_pd_date_range(start_date, end_date)
+}
+
+
+
 # # GET SPLIT FAILURES ########################################################
 
-print(glue("{Sys.time()} split failures [10 of 11]"))
+print(glue("{Sys.time()} split failures [11 of 11]"))
 
 get_sf_date_range <- function(start_date, end_date) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
 
     lapply(date_range, function(date_) {
         print(date_)
-        run_parallel <- length(date_range) > 1
 
         sf <- get_sf_utah(date_, conf, signals_list, intervals = c("hour", "15min"))
         
@@ -568,45 +599,14 @@ get_sf_date_range <- function(start_date, end_date) {
             table_name = "split_failures_15min",
             conf_athena = conf$athena
         )
+        NULL
     })
-    gc()
+    NULL
 }
 
 if (conf$run$split_failures == TRUE) {
     # Utah method, based on green, start-of-red occupancies
     get_sf_date_range(start_date, end_date)
-}
-
-
-
-# # GET PED DELAY ########################################################
-
-# Ped delay using ATSPM method, based on push button-start of walk durations
-print(glue("{Sys.time()} ped delay [11 of 11]"))
-
-get_pd_date_range <- function(start_date, end_date) {
-    date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
-
-    lapply(date_range, function(date_) {
-        print(date_)
-        run_parallel <- length(date_range) > 1
-
-        pd <- get_ped_delay(date_, conf, signals_list, parallel = run_parallel)
-        if (nrow(pd) > 0) {
-            s3_upload_parquet_date_split(
-                pd,
-                bucket = conf$bucket,
-                prefix = "pd",
-                table_name = "ped_delay",
-                conf_athena = conf$athena
-            )
-        }
-    })
-    gc()
-}
-
-if (conf$run$ped_delay == TRUE) {
-    get_pd_date_range(start_date, end_date)
 }
 
 

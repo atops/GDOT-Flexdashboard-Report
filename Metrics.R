@@ -212,7 +212,7 @@ get_daily_pr <- function(aog) {
 }
 
 
-get_occupancy <- function(de_dt, int_dt, interval_) {
+get_occupancy <- function(de_dt, int_dt) {
     occdf <- foverlaps(de_dt, int_dt, type = "any") %>%
         filter(!is.na(IntervalStart)) %>%
 
@@ -228,7 +228,7 @@ get_occupancy <- function(de_dt, int_dt, interval_) {
             occ_duration = as.duration(intersect(occ_int, int_int)),
             int_duration = as.duration(int_int))
 
-    occdf <- full_join(interval_,
+    occdf <- full_join(int_dt,
                        occdf,
                        by = c("SignalID", "Phase",
                               "CycleStart", "IntervalStart", "IntervalEnd")) %>%
@@ -273,7 +273,6 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         mutate(SignalID = str_extract(Key, "(?<=de_)(\\d+)")) %>%
         filter(SignalID %in% signals_list)
     keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/200))
 
     de <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
         s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
@@ -294,17 +293,18 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
 
     cat('.')
 
-    plan(sequential)
-    plan(multisession)
 
     s3bucket = "gdot-spm-cycles"
     s3prefix = glue("date={date_}")
 
-    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
+    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
+    if (nrow(objs_df) == 0) {
+        stop(glue("No objects at {s3bucket}/{s3prefix}"))
+    }
+    objs_df <- objs_df %>%
         mutate(SignalID = str_extract(Key, "(?<=cd_)(\\d+)")) %>%
         filter(SignalID %in% signals_list)
     keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/200))
 
     cd <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
         s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
@@ -344,26 +344,27 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                IntervalEnd = ymd_hms(IntervalStart) + seconds(first_seconds_of_red)) %>%
         select(-EventCode)
 
-    rm(cd)
-
-    de_dt <- data.table(de)
-    rm(de)
+    # de_dt <- data.table(de)
+    de <- data.table(de)
 
     cat('.')
 
-    gr_dt <- data.table(grn_interval)
-    sr_dt <- data.table(sor_interval)
+    # gr_dt <- data.table(grn_interval)
+    # sr_dt <- data.table(sor_interval)
 
-    setkey(de_dt, SignalID, Phase, DetOn, DetOff)
-    setkey(gr_dt, SignalID, Phase, IntervalStart, IntervalEnd)
-    setkey(sr_dt, SignalID, Phase, IntervalStart, IntervalEnd)
+    grn_interval <- setDT(grn_interval)
+    sor_interval <- setDT(sor_interval)
+
+    setkey(de, SignalID, Phase, DetOn, DetOff)
+    setkey(grn_interval, SignalID, Phase, IntervalStart, IntervalEnd)
+    setkey(sor_interval, SignalID, Phase, IntervalStart, IntervalEnd)
 
     ## ---
 
-    grn_occ <- get_occupancy(de_dt, gr_dt, grn_interval) %>%
+    grn_occ <- get_occupancy(de, grn_interval) %>%
         rename(gr_occ = occ)
     cat('.')
-    sor_occ <- get_occupancy(de_dt, sr_dt, sor_interval) %>%
+    sor_occ <- get_occupancy(de, sor_interval) %>%
         rename(sr_occ = occ)
     cat('.\n')
 
@@ -374,9 +375,6 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
 
-    rm(grn_occ)
-    rm(sor_occ)
-    
     qs::qsave(sf, "sf.qs")
 
     # if a split failure on any phase
@@ -807,7 +805,7 @@ get_ped_delay <- function(date_, conf, signals_list) {
         mutate(SignalID = str_extract(Key, "(?<=atspm_)(\\d+)")) %>%
         filter(SignalID %in% signals_list)
     keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/100))
+    keys_chunks <- split(keys, ceiling(seq_along(keys)/101))
 
     pe <- lapply(keys_chunks, function(keys) {
         future_lapply(keys, function(key) {
