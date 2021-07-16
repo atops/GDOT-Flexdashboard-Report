@@ -8,7 +8,7 @@ resource_files:
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
-    vertical_layout: scroll
+    vertical_layout: fill
     logo: GDOTLogo.svg
     favicon: GDOTLogo.svg
     css: style.css
@@ -28,6 +28,95 @@ FIG_HEIGHT = 7
 TODS <- c("AM", "PM", "AM/PM")
 
 corridors <- s3read_using(qread, bucket = conf$bucket, object = "RampMeter_Corridors.qs")
+codes <- s3read_using(qread, bucket = conf$bucket, object = "MaxViewASCEventCodes.qs")
+
+
+metering_rates_overlay_plot <- function(
+    overlay_data, 
+    metering_rates_,
+    flush_events_,
+    signals_data_,
+    input_date, 
+    input_corridor,
+    overlay_variable, 
+    overlay_palette, 
+    plot_title
+){
+    ggplot() + 
+    geom_segment(
+        data = filter(overlay_data, date == input_date), 
+        mapping = aes(
+            x = Timestamp, 
+            y = Milepost, 
+            xend = Timestamp2, 
+            yend = Milepost, 
+            color = !!as.name(overlay_variable)), 
+        size = 3) + 
+    scale_color_distiller(palette = overlay_palette, direction = 1) +
+    
+    new_scale("color") +
+
+    geom_segment(
+        data = filter(metering_rates_, date == input_date),
+        mapping = aes(
+            x = Timestamp,
+            y = Milepost + 0.2,
+            xend = Timestamp2,
+            yend = Milepost + 0.2,
+            color = rate),
+        size = 3) +
+    scale_color_distiller(palette = "Blues", direction = 1) +
+    geom_point(
+        data = filter(flush_events_, date == input_date), 
+        mapping = aes(x = Timestamp, y = Milepost + 0.2)) +
+    scale_y_continuous(
+        breaks = signals_data_$Milepost, 
+        labels = signals_data_$Name) +
+    ggtitle(glue("{plot_title} on {input_date}: {input_corridor}"))
+}
+
+
+time_series_plot <- function(df, x_variable, y_variable, color_variable) {
+    ggplot(
+        data = df, 
+        mapping = aes(
+            x = !!as.name(x_variable), 
+            y = !!as.name(y_variable), 
+            color = !!as.name(color_variable))
+        ) + 
+        geom_path(size = 1) +  # color = "gray") + 
+        geom_point(size = 3) +
+        scale_color_viridis_c(direction = -1) +
+        theme_minimal() + 
+        theme(
+            legend.position = "bottom", 
+            legend.key.width = grid::unit(0.1, units = "npc")
+        )
+}
+
+
+merge_asof <- function(left, right, left_on, right_on, roll_val) {
+    lo <- as.name(left_on)
+    left <- mutate(left, dummy = !!lo)
+    lt <- data.table(left)
+    setkey(lt, dummy)
+
+    rt <- data.table(right)
+    setkeyv(rt, right_on)
+
+    rt[lt, roll = roll_val] %>% as_tibble()
+}
+
+
+filter_tod <- function(df, ampm) {
+    if (ampm == "AM") {
+        comp <- `<`
+    } else if (ampm == "PM") {
+        comp <- `>=`
+    }
+    filter(df, comp(hour(Timestamp), 12))
+}
+
 
 # corridors: static file
 # mps: static file. trimmed down version of corridors
@@ -38,14 +127,13 @@ corridors <- s3read_using(qread, bucket = conf$bucket, object = "RampMeter_Corri
 ```
 
 
-```{r, eval = FALSE}
+```{r eventcodes etl, eval = FALSE}
 read_excel(
     "c:/Users/alan.toppen/OneDrive - KH/015664402 GDOT SPM/MaxViewASCEventCodes_20190430.xlsx"
 ) %>%
     transmute(
-        EventCode = as.integer(`Event Code`), 
-        Name, 
-        EventParam = `Event Parameter`) %>%
+        EventCode = factor(`Event Code`), 
+        Name = factor(Name)) %>%
     s3write_using(qsave, bucket = conf$bucket, object = "MaxViewASCEventCodes.qs")
     
 corridors <- s3read_using(qread, bucket = conf$bucket, object = "Corridors_Latest.qs") %>% 
@@ -60,44 +148,28 @@ corridors[corridors$Name == "I-75 NB @ C246A- Fulton St. NB", "Milepost"] <- 245
 # TODO: More hacks like this.
 
 s3write_using(corridors, qsave, bucket = conf$bucket, object = "RampMeter_Corridors.qs")
-    
 ```
 
 
 
-
-
-
-Inputs {.sidebar}
-=====================================
-
-Ramp Meter Metrics (beta)
-
-
-```{r sidebar, warning = FALSE, cache = FALSE}
-
-dateInput(
-    "date", "Date:",
-    value = Sys.Date() - days(1),
-    min = Sys.Date() - days(90),
-    max = Sys.Date() - days(1))
-
-selectInput(
-    "tod", "Time of Day:",
-    choices = TODS,
-    selected = "AM/PM"
-)
-
-selectInput(
-    "corridor", "Corridor:",
-    choices = ""
-)
+```{r reactives, include = FALSE}
 
 updateSelectInput(
     session, "corridor",
     choices = corridors$Corridor,
     selected = corridors$Corridor[1]
 )
+
+
+observe(invisible({
+    shiny::validate(need(input$corridor, ""))
+    updateSelectInput(
+        session, "signal",
+        choices = filter(corridors, Corridor == input$corridor)$SignalID,
+        selected = NULL  # filter(corridors, input$corridor)$SignalID[[1]]
+    )
+}))
+
 
 signals <- reactive({
     as.integer(as.character(filter(corridors, Corridor == input$corridor)$SignalID))
@@ -111,8 +183,15 @@ signals_data <- reactive({
 })
 
 
+# rmc_det_config <- reactive({
+#     get_det_config(input$date) %>% 
+#         mutate(SignalID = factor(SignalID)) %>%
+#         filter(SignalID %in% corridors$SignalID) %>% 
+#         select(SignalID, Detector, ApproachDesc, LaneNumber)
+# })
+
+
 events <- reactive({
-    
     future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
         try({
             aws.s3::s3read_using(
@@ -134,6 +213,7 @@ events <- reactive({
             date = input$date) %>%
         convert_to_utc()
 })
+
 
 flush_events <- reactive({
     events() %>% 
@@ -176,6 +256,7 @@ traffic <- reactive({
         right_join(signals_data(), by = c("SignalID"))
 })
 
+
 speed <- reactive({
     traffic() %>%
         filter(!is.na(spd)) %>%
@@ -183,6 +264,7 @@ speed <- reactive({
         mutate(Timestamp2 = lead(Timestamp)) %>% 
         ungroup()
 })
+
 
 volume <- reactive({
     traffic() %>%
@@ -192,6 +274,7 @@ volume <- reactive({
         ungroup()
 })
 
+
 occupancy <- reactive({
     traffic() %>%
         filter(!is.na(occ)) %>%
@@ -199,70 +282,48 @@ occupancy <- reactive({
         mutate(Timestamp2 = lead(Timestamp)) %>% 
         ungroup()
 })
-
-observe({try(qsave(traffic(), "traffic.qs"))})
-
 ```
 
 
 
 
 
-Debugging
+Inputs {.sidebar}
 =====================================
 
-
-Row {.tabset .tabset-fade}
--------------------------------------
+Ramp Meter Metrics (beta)
 
 
-### events
+```{r sidebar, warning = FALSE, cache = FALSE}
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(events())
-```
+dateInput(
+    "date", "Date:",
+    value = Sys.Date() - days(1),
+    min = Sys.Date() - days(90),
+    max = Sys.Date() - days(1))
 
-### flush_events
+selectInput(
+    "tod", "Time of Day:",
+    choices = TODS,
+    selected = "AM/PM"
+)
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(flush_events())
-```
+selectInput(
+    "corridor", "Corridor:",
+    choices = ""
+)
 
-### metering_rates
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(metering_rates())
-```
-
-### traffic
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(traffic())
-```
-
-### speed
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(speed())
-```
-
-### volume
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(volume())
-```
-
-### occupancy
-
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
-DT::renderDT(occupancy())
+selectInput(
+    "signal", "Signal:",
+    choices = ""
+)
 ```
 
 
 
 
 
-Performance
+Ramp Meter Corridors
 =====================================
 
 
@@ -271,7 +332,7 @@ Row {.tabset .tabset-fade}
 
 ### Flush Events
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+```{r flush events, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 
 renderPlotly({
     p <- ggplot() +
@@ -292,7 +353,7 @@ renderPlotly({
 
 ### Metering Rates + Flush Events
 
-```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+```{r metering rates, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 
 renderPlotly({
     p <- ggplot() + 
@@ -319,41 +380,221 @@ renderPlotly({
 ```
 
 
+
 ### Metering Rates + Flush Event + Occupancy
 
 ```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
 
 renderPlot({
-    ggplot() + 
-    geom_segment(
-        data = filter(occupancy(), date == input$date), 
-        mapping = aes(
-            x = Timestamp, 
-            y = Milepost, 
-            xend = Timestamp2, 
-            yend = Milepost, 
-            color = occ), 
-        size = 3) + 
-    scale_color_distiller(palette = "Reds", direction = 1) +
-    
-    new_scale("color") +
+    metering_rates_overlay_plot(
+        occupancy(), 
+        metering_rates(),
+        flush_events(),
+        signals_data(),
+        input$date,
+        input$corridor,
+        "occ", 
+        "Reds", 
+        "Metering Rates and Flush Events")
+})
+```
 
-    geom_segment(
-        data = filter(metering_rates(), date == input$date),
-        mapping = aes(
-            x = Timestamp,
-            y = Milepost + 0.2,
-            xend = Timestamp2,
-            yend = Milepost + 0.2,
-            color = rate),
-        size = 3) +
-    scale_color_distiller(palette = "Blues", direction = 1) +
-    geom_point(
-        data = filter(flush_events(), date == input$date), 
-        mapping = aes(x = Timestamp, y = Milepost + 0.2)) +
-    scale_y_continuous(
-        breaks = signals_data()$Milepost, 
-        labels = signals_data()$Name) +
-    ggtitle(glue("Metering Rates and Flush Events on {input$date}: {input$corridor}"))
+
+
+### Metering Rates + Flush Event + Speed
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+renderPlot({
+    metering_rates_overlay_plot(
+        speed(), 
+        metering_rates(),
+        flush_events(),
+        signals_data(),
+        input$date,
+        input$corridor,
+        "spd", 
+        "Greens", 
+        "Metering Rates and Flush Events")
+    })
+```
+
+
+
+### Metering Rates + Flush Event + Volume
+
+```{r, fig.width = FIG_WIDTH, fig.height = FIG_HEIGHT, warning = FALSE}
+
+renderPlot({
+    metering_rates_overlay_plot(
+        volume(), 
+        metering_rates(),
+        flush_events(),
+        signals_data(),
+        input$date,
+        input$corridor,
+        "vol", 
+        "Oranges", 
+        "Metering Rates and Flush Events")
+    })
+```
+
+
+
+
+
+Ramp Meters Time Series
+=====================================
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Occupancy/Volume
+
+```{r, eval = TRUE}
+
+events_one <- reactive({
+    events() %>% filter(
+        SignalID == input$signal,
+        per %in% str_split(input$tod, "/")[[1]]) %>%
+        left_join(codes, by = "EventCode")
+})
+    
+    
+df_scatter <- reactive({
+    filter(events_one(), Name %in% c("Avg Occ", "Avg Flow Rate", "Avg Speed")) %>% 
+    pivot_wider(
+        id_cols = c(SignalID, Timestamp), 
+        names_from = Name, 
+        values_from = EventParam)
+})
+
+
+rates <- reactive({
+    filter(events_one(), Name == "Lane 1 Active Meter Rate") %>% 
+    select(Timestamp, `Metering Rate` = EventParam)
+})
+
+
+df_scatter2 <- reactive({
+    merge_asof(df_scatter(), rates(), "Timestamp", "Timestamp", roll_val = Inf) %>% 
+    mutate(hr = (as.numeric(Timestamp) - min(as.numeric(Timestamp)))/3600) %>%
+    arrange(Timestamp)
+})
+
+
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Occ") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Speed/Volume
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Metering Rate")# %>%
+        # ggplotly ()
+})
+```
+
+
+### Occupancy/Speed
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Occ", "Avg Speed") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Occupancy/Metering Rate
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Occ", "Metering Rate") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Speed/Occupancy
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Speed", "Avg Occ") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Speed/Metering Rate
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Timestamp", "Avg Speed", "Metering Rate") # %>%
+        # ggplotly ()
+})
+```
+
+
+
+
+Ramp Meters Scatter Plots
+=====================================
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Occupancy vs. Volume & Time
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "hr") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Occupancy vs. Volume & Rate
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "Metering Rate") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Occupancy vs. Speed & Time
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Avg Occ", "Avg Speed", "hr") # %>%
+        # ggplotly ()
+})
+```
+
+
+### Occupancy vs. Speed & Rate
+
+```{r, eval = TRUE}
+renderPlot({
+    shiny::validate(need(input$signal, ""))
+    time_series_plot(df_scatter2(), "Avg Occ", "Avg Speed", "Metering Rate") # %>%
+        # ggplotly ()
 })
 ```
