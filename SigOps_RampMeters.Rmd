@@ -22,7 +22,7 @@ source("new_aes.R", local = TRUE)
 library("future.apply")
 
 
-FIG_WIDTH = 14
+FIG_WIDTH = 18
 FIG_HEIGHT = 7
 
 TODS <- c("AM", "PM", "AM/PM")
@@ -90,9 +90,14 @@ selectInput(
 
 selectInput(
     "corridor", "Corridor:",
-    choices = corridors$Corridor,  # c("I-75 NB", "I-75 SB"),  #
-    selected = corridors$Corridor[1])  # "I-75 NB")
+    choices = ""
+)
 
+updateSelectInput(
+    session, "corridor",
+    choices = corridors$Corridor,
+    selected = corridors$Corridor[1]
+)
 
 signals <- reactive({
     as.integer(as.character(filter(corridors, Corridor == input$corridor)$SignalID))
@@ -134,7 +139,7 @@ flush_events <- reactive({
     events() %>% 
         filter(
             EventCode == 1058, EventParam == 0,
-            per %in% setdiff(TODS, input$tod)) %>% 
+            per %in% str_split(input$tod, "/")[[1]]) %>%
         select(SignalID, date, Timestamp, per) %>% 
         right_join(signals_data(), by = c("SignalID"))
 })
@@ -144,7 +149,7 @@ metering_rates <- reactive({
     events()  %>% 
         filter(
             EventCode == 1058 | (EventCode == 1013 & EventParam == 1),
-            per %in% setdiff(TODS, input$tod)) %>% 
+            per %in% str_split(input$tod, "/")[[1]]) %>%
         select(SignalID, date, Timestamp, per, EventCode, rate = EventParam) %>% 
         group_by(SignalID, date) %>% 
         mutate(Timestamp2 = lead(Timestamp)) %>% 
@@ -157,7 +162,8 @@ metering_rates <- reactive({
 traffic <- reactive({
     events() %>% 
         filter(
-            per %in% setdiff(TODS, input$tod)) %>%
+            per %in% str_split(input$tod, "/")[[1]], 
+            EventCode %in% c(1371, 1372, 1373)) %>%
         select(SignalID, date, Timestamp, per, EventCode, value = EventParam) %>% 
         pivot_wider(
             id_cols = c(SignalID, date, Timestamp, per), 
