@@ -140,10 +140,15 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     
 
     # Merge Tables and apply Utah's split failure condition
-    df <- merge(grn, sor, suffixes = c("_grn", "_sor"))
-    df[, sf := 0]
-    df[(occ_grn>0.8) & (occ_sor>0.8), sf := 1]
+    sf_df <- merge(grn, sor, suffixes = c("_grn", "_sor"))
+    sf_df[, sf := 0]
+    sf_df[is.na(gr_occ), gr_occ := 0]
+    sf_df[is.na(sr_occ), sr_occ := 0]
+    sf_df[(occ_grn>0.8) & (occ_sor>0.8), sf := 1]
     
-    data.table(df)
+    sf0 <- sf[, .(sf = max(sf), by = c("SignalID", "CycleStart")]
+    sf0[, Phase := 0]
+    
+    data.table(sf_df)
 }
 
