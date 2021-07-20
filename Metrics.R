@@ -810,17 +810,13 @@ get_ped_delay <- function(date_, conf, signals_list) {
     pe <- lapply(keys_chunks, function(keys) {
         future_lapply(keys, function(key) {
             s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-                filter(
-	            EventCode %in% c(45, 21, 22, 132)) %>%
-                select(
-	            SignalID, Timestamp, EventCode, EventParam)
+                filter(EventCode %in% c(45, 21, 22, 132)) %>%
+                select(SignalID, Timestamp, EventCode, EventParam)
         }) %>% bind_rows()
     }) %>%
         bind_rows() %>%
         convert_to_utc() %>%
-
-        mutate(
-	    CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+        mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
         arrange(SignalID, Timestamp) %>%
         rename(Phase = EventParam) %>%
 	    convert_to_utc()
