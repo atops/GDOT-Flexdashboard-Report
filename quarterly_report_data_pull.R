@@ -1,5 +1,6 @@
 
 source("Monthly_Report_Functions.R")
+source("classes.R")
 
 # vpd <- structure(metrics[["daily_traffic_volume"]], class = "metric")
 # throughput <- structure(metrics[["throughput"]], class = "metric")
