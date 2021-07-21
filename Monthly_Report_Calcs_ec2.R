@@ -157,6 +157,13 @@ print(glue("{Sys.time()} travel times [3 of 11]"))
 if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
     system("~/miniconda3/bin/python get_travel_times.py travel_times_1hr.yaml", wait = FALSE)
+    
+    system("~/miniconda3/bin/python get_travel_times.py travel_times_15min.yaml", wait = FALSE)
+
+    # Run once per month for health metrics. Runs on previous month.
+    if (day(Sys.Date()) == 1) {
+        system("~/miniconda3/bin/python get_travel_times_1min.py", wait = FALSE)
+    }
 }
 
 # # COUNTS ####################################################################

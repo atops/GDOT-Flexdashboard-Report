@@ -29,8 +29,6 @@ s3 = boto3.client('s3')
 
 pd.options.display.max_columns = 10
 
-# working directory to get the corridor and TMC spreadsheets - will need to update this - AG update
-os.chdir('C:\\Users\\Anthony.Gallo\\OneDrive - KH\\ATSPM\\Health Metrics Dashboard\\GDOT-Flexdashboard-Report-master_2020-11-30')
 
 
 def is_success(response):
@@ -84,7 +82,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
       ],
       "granularity": {
         "type": "minutes",
-        "value": 1 #AG update
+        "value": 1
       },
       "times": [ #pulling all 24 hours
         {
@@ -129,7 +127,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     else:
         df = pd.DataFrame()
 
-    print('{} records'.format(len(df)))
+    print(f'{len(df)} records')
     
     return df
 
@@ -171,7 +169,7 @@ def get_serious_injury_pct(df, df_reference, corridor_grouping):
 
 if __name__=='__main__':
 
-    with open('Monthly_Report_AWS.yaml') as yaml_file: #AG - this was not in the latest GDOT-flexdashboard-report folder - had to copy in
+    with open('Monthly_Report_AWS.yaml') as yaml_file:
         cred = yaml.load(yaml_file, Loader=yaml.Loader)
 
     with open('Monthly_Report.yaml') as yaml_file:
@@ -180,39 +178,37 @@ if __name__=='__main__':
     #start/end dates should be first and last days of previous month
     end_date = date.today().replace(day=1) - timedelta(days=1)
     start_date = end_date.replace(day=1)
+
+    # start_date = datetime(2021, 3, 1)
+    # end_date = datetime(2021, 3, 31)
     
     end_date = end_date.strftime('%Y-%m-%d')
     start_date = start_date.strftime('%Y-%m-%d')
     
-#    #pull in file that matches up corridors/subcorridors/TMCs from S3 - having certificate issue on AG end
-#    tmc_df = (pd.read_excel('s3://{b}/{f}'.format(
-#                    b=conf['bucket'], f=conf['corridors_TMCs_filename_s3']))
-#                .rename(columns={'length': 'miles'})
-#                .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
-    tmc_df = (pd.read_excel("Corridor_TMCs_Latest.xlsx") #AG update - don't have package to handle S3 files 
+    bucket = conf['bucket']
+
+    # pull in file that matches up corridors/subcorridors/TMCs from S3
+    tmc_df = (pd.read_excel(f"s3://{bucket}/{conf['corridors_TMCs_filename_s3']}")
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
     tmc_df = tmc_df[tmc_df.Corridor != 'None'] #4500 rows
-    #tmc_df = tmc_df[(tmc_df.Corridor == "Peachtree St-Midtown") | (tmc_df.Corridor == "Peachtree St-Downtown")] #test - 95 rows
+
+    # test - 95 rows
+    # tmc_df = tmc_df[(tmc_df.Corridor == "Peachtree St-Midtown") | (tmc_df.Corridor == "Peachtree St-Downtown")]
 
     tmc_list = list(set(tmc_df.tmc.values))
 
     print(start_date)
     print(end_date)
-    number_of_days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days #AG add
+    number_of_days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days
 
-    # group_size = 1000
-    # tmc_groups = np.split(tmc_list, range(group_size, len(tmc_list), group_size))
 
     try:
         start_time = time.perf_counter()
         tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
-        # tt_df = pd.concat(
-        #     [get_tmc_data(start_date, end_date, list(tmc_group), cred['RITIS_KEY'], 1) for tmc_group in tmc_groups]
-        # )
         end_time = time.perf_counter()
         process_time = end_time - start_time
-        print('Time to pull ', len(tmc_list), ' TMCs for ', number_of_days, ' days: ', round(process_time))
+        print(f'Time to pull {len(tmc_list)} TMCs for {number_of_days} days: {round(process_time/60)} minutes')
 
     except Exception as e:
         print('ERROR retrieving records')
@@ -229,44 +225,41 @@ if __name__=='__main__':
                 .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
                         date = lambda x: x.measurement_tstamp.dt.date)
                 .rename(columns = {'measurement_tstamp': 'Minute'}))
-                #.rename(columns = {'measurement_tstamp': 'Hour'}))
-        #df.Hour = df.Hour.dt.tz_localize('America/New_York')
-        df = df.drop_duplicates() # Shouldn't be needed anymore since we're using list(set(tmc_df.tmc.values))
-        #df.to_csv('travel_times_1min_{}.csv'.format(date_string), sep = ',') #AG test
+        df = df.drop_duplicates()
+
         
         #write 1-min monthly travel times/speed df to parquet on S3
         date_string = start_date
-        bucket = conf['bucket']
         table_name = 'travel_times_1min'
-        filename = 'travel_times_1min_{}.parquet'.format(date_string)
+        filename = f'travel_times_1min_{date_string}.parquet'
         df.drop(columns=['date'])\
-            .to_parquet('s3://{b}/mark/{t}/{f}'.format(
-                    b=bucket, t=table_name, f=filename))
+            .to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
         
         #############################################
         # relative speed index for month
         #############################################
-        os.chdir('C:\\Users\\Anthony.Gallo\\OneDrive - KH\\ATSPM\\Health Metrics Dashboard') #update to read from somewhere on S3
-        df_speed_limits = pd.read_excel("Corridors_Latest.xlsx", sheet_name="Contexts")
+        df_speed_limits = pd.read_excel(
+            f"s3://{bucket}/{conf['corridors_filename_s3']}", 
+            sheet_name='Contexts')
+
 
         df_rsi_sub = get_rsi(df, df_speed_limits, ['Corridor','Subcorridor'])
         df_rsi_cor = get_rsi(df, df_speed_limits[df_speed_limits['Subcorridor'].isnull()], ['Corridor'])
 
         #do we need to add a column to this that has month? right now is just grouping/RSI
         table_name = 'relative_speed_index'
-        filename = 'rsi_sub_{}.parquet'.format(date_string)
-        df_rsi_sub.to_parquet('s3://{b}/mark/{t}/{f}'.format(b=bucket, t=table_name, f=filename))
-        filename = 'rsi_cor_{}.parquet'.format(date_string)
-        df_rsi_cor.to_parquet('s3://{b}/mark/{t}/{f}'.format(b=bucket, t=table_name, f=filename))
+        filename = f'rsi_sub_{date_string}.parquet'
+        df_rsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+        filename = f'rsi_cor_{date_string}.parquet'
+        df_rsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
 
-        df_rsi_sub.to_csv('rsi_sub_{}.csv'.format(date_string), index=False)
-        df_rsi_cor.to_csv('rsi_cor_{}.csv'.format(date_string), index=False)
+        df_rsi_sub.to_csv(f'rsi_sub_{date_string}.csv', index=False)
+        df_rsi_cor.to_csv(f'rsi_cor_{date_string}.csv', index=False)
         
         #############################################
         # bike-ped safety index for month
         #############################################
-        os.chdir('C:\\Users\\Anthony.Gallo\\OneDrive - KH\\ATSPM\\Health Metrics Dashboard\\Ped Bike Safety Index') #update to read from somewhere on S3
-        df_reference = pd.read_csv("serious_injury_pct.csv") #update to read from somewhere on S3
+        df_reference = pd.read_csv(f's3://{bucket}/serious_injury_pct.csv')
         
         df_bpsi = clean_up_tt_df_for_bpsi(df)
         
@@ -275,13 +268,13 @@ if __name__=='__main__':
         
         #do we need to add a column to this that has month? right now is just grouping/serious injury %
         table_name = 'bike_ped_safety_index'
-        filename = 'bpsi_sub_{}.parquet'.format(date_string)
-        df_bpsi_sub.to_parquet('s3://{b}/mark/{t}/{f}'.format(b=bucket, t=table_name, f=filename))
-        filename = 'bpsi_cor_{}.parquet'.format(date_string)
-        df_bpsi_cor.to_parquet('s3://{b}/mark/{t}/{f}'.format(b=bucket, t=table_name, f=filename))
+        filename = f'bpsi_sub_{date_string}.parquet'
+        df_bpsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+        filename = f'bpsi_cor_{date_string}.parquet'
+        df_bpsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
         
-        df_bpsi_sub.to_csv('bpsi_sub_{}.csv'.format(date_string), index=False)
-        df_bpsi_cor.to_csv('bpsi_cor_{}.csv'.format(date_string), index=False)
+        df_bpsi_sub.to_csv(f'bpsi_sub_{date_string}.csv', index=False)
+        df_bpsi_cor.to_csv(f'bpsi_cor_{date_string}.csv', index=False)
 
     else:
         print('No records returned.')
