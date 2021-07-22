@@ -118,50 +118,65 @@ filter_tod <- function(df, ampm) {
 }
 
 
-timeseries_plot <- function(df, x_variable, y_variable, color_variable) {
-    plot_ly() %>%
+timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
+    
+    df <- df %>% rename(
+        Timestamp = !!as.name(t_variable),
+        y_var = !!as.name(y_variable),
+        color_var = !!as.name(color_variable))
+    
+    p <- plot_ly() %>%
         add_trace(
             data = df,
             type = "scatter", 
             mode = "lines", 
-            x = ~Timestamp, 
-            y = ~`Avg Flow Rate`, 
+            x = ~Timestamp,
+            y = ~y_var, 
             line = list(
                 color = "lightgray")) %>%
         add_trace(
-            data = filter(df, is.na(`Metering Rate`)),
+            data = filter(df, is.na(color_var)),
             name = "",
             type = "scatter", 
             mode = "markers", 
             x = ~Timestamp, 
-            y = ~`Avg Flow Rate`, 
+            y = ~y_var, 
             marker = list(
                 color = "lightgray"),
             customdata = ~glue(paste(
                 "<br><b>Timestamp:</b> {Timestamp}",
-                "<br><b>Avg Flow Rate:</b> {`Avg Flow Rate`}",
-                "<br><b>Metering Rate:</b> {`Metering Rate`}")),
+                "<br><b>{y_variable}:</b> {y_var}",
+                "<br><b>{color_variable}:</b> {color_var}")),
             hovertemplate = "%{customdata}",
-            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-        add_trace(
-            data = filter(df, !is.na(`Metering Rate`)),
-            name = "",
-            type = "scatter", 
-            mode = "markers", 
-            x = ~Timestamp, 
-            y = ~`Avg Flow Rate`, 
-            marker = list(
-                color = ~`Metering Rate`, 
-                colorscale = "YlOrRd",  # Viridis
-                colorbar = list(title = "Rate")),
-            customdata = ~glue(paste(
-                "<br><b>Timestamp:</b> {Timestamp}",
-                "<br><b>Avg Flow Rate:</b> {`Avg Flow Rate`}",
-                "<br><b>Metering Rate:</b> {`Metering Rate`}")),
-            hovertemplate = "%{customdata}",
-            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
-        layout(showlegend = FALSE)
+            hoverlabel = list(font = list(family = "Source Sans Pro")))
+    
+    if (nrow(filter(df, !is.na(color_var))) > 0) {
+        p <- p %>%
+            add_trace(
+                data = filter(df, !is.na(color_var)),
+                name = "",
+                type = "scatter", 
+                mode = "markers", 
+                x = ~Timestamp, 
+                y = ~y_var, 
+                marker = list(
+                    color = ~color_var, 
+                    colorscale = "YlOrRd",  # Viridis
+                    colorbar = list(title = color_variable)),
+                customdata = ~glue(paste(
+                    "<br><b>Timestamp:</b> {Timestamp}",
+                    "<br><b>{y_variable}:</b> {y_var}",
+                    "<br><b>{color_variable}:</b> {color_var}")),
+                hovertemplate = "%{customdata}",
+                hoverlabel = list(font = list(family = "Source Sans Pro"))) 
+    }
+    p %>% 
+        layout(
+            showlegend = FALSE,
+            xaxis = list(title = t_variable),
+            yaxis = list(title = y_variable))
 }
+
 
 # corridors: static file
 # mps: static file. trimmed down version of corridors
@@ -185,7 +200,8 @@ corridors <- s3read_using(qread, bucket = conf$bucket, object = "Corridors_Lates
     filter(Zone_Group == "Ramp Meters") %>%
     mutate(
         SignalID = factor(SignalID),
-        Corridor = factor(Corridor)) %>%
+        Corridor = factor(Corridor),
+        short_name = stringr::str_extract(Name, "(?<= @ )(.*)")) %>%
     arrange(Corridor, Milepost)
 
 # Hack to shift two ramps at same mp (246A, 246B) so they appear side-by-side on the graph
@@ -209,9 +225,9 @@ updateSelectInput(
 observe(invisible({
     req(input$corridor)
     updateSelectInput(
-        session, "signal",
-        choices = filter(corridors, Corridor == input$corridor)$SignalID,
-        selected = NULL  # filter(corridors, input$corridor)$SignalID[[1]]
+        session, "meter_name",
+        choices = filter(corridors, Corridor == input$corridor)$short_name,
+        selected = NULL
     )
 }))
 
@@ -362,7 +378,7 @@ selectInput(
 )
 
 selectInput(
-    "signal", "Signal:",
+    "meter_name", "Ramp Meter:",
     choices = ""
 )
 ```
@@ -498,13 +514,13 @@ Ramp Meters Time Series
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-### Volume/Occupancy
 
-```{r, eval = TRUE}
+```{r, eval = TRUE, inclue = FALSE}
 
 events_one <- reactive({
+    req(input$meter_name)
     events() %>% filter(
-        SignalID == input$signal,
+        SignalID == as.character(corridors[corridors$short_name == input$meter_name, ]$SignalID),
         per %in% str_split(input$tod, "/")[[1]]) %>%
         left_join(codes, by = "EventCode")
 })
@@ -534,32 +550,14 @@ df_scatter2 <- reactive({
 
 observe({write_parquet(df_scatter2(), "df_scatter2.parquet")})
 
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Occ") # %>%
-        # ggplotly ()
-})
 ```
 
 
 ### Volume/Metering Rate
 
 ```{r, eval = TRUE}
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Metering Rate")# %>%
-        # ggplotly ()
-})
-```
-
-
-### Occupancy/Speed
-
-```{r, eval = TRUE}
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Occ", "Avg Speed") # %>%
-        # ggplotly ()
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Metering Rate")
 })
 ```
 
@@ -567,21 +565,8 @@ renderPlot({
 ### Occupancy/Metering Rate
 
 ```{r, eval = TRUE}
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Occ", "Metering Rate") # %>%
-        # ggplotly ()
-})
-```
-
-
-### Speed/Occupancy
-
-```{r, eval = TRUE}
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Speed", "Avg Occ") # %>%
-        # ggplotly ()
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Occ", "Metering Rate")
 })
 ```
 
@@ -589,12 +574,40 @@ renderPlot({
 ### Speed/Metering Rate
 
 ```{r, eval = TRUE}
-renderPlot({
-    shiny::validate(need(input$signal, ""))
-    traffic_plot(df_scatter2(), "Timestamp", "Avg Speed", "Metering Rate") # %>%
-        # ggplotly ()
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Speed", "Metering Rate")
 })
 ```
+
+
+
+### Volume/Occupancy
+
+```{r, eval = TRUE}
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Occ")
+})
+```
+
+
+### Occupancy/Speed
+
+```{r, eval = TRUE}
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Occ", "Avg Speed")
+})
+```
+
+
+### Volume/Speed
+
+```{r, eval = TRUE}
+renderPlotly({
+    timeseries_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Speed")
+})
+```
+
+
 
 
 
@@ -610,7 +623,7 @@ Row {.tabset .tabset-fade}
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$signal, ""))
+    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "hr") +
         lims(x = c(0, 500), y = c(0, 2200))
 })
@@ -621,7 +634,7 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$signal, ""))
+    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "Metering Rate") +
         lims(x = c(0, 500), y = c(0, 2200))
 })
@@ -632,7 +645,7 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$signal, ""))
+    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "hr") +
         lims(x = c(0, 500), y = c(0, 150))
 })
@@ -643,7 +656,7 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$signal, ""))
+    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "Metering Rate") +
         lims(x = c(0, 500), y = c(0, 150))
 })
