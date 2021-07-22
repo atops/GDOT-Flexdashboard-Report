@@ -66,7 +66,6 @@ def get_aog(signalid, date_, det_config, interval='1H'):
         
         all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=interval)
 
-
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
         if os.path.exists(de_fn):
             detection_events = pd.read_parquet(de_fn).drop_duplicates()

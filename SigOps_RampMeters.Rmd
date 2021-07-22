@@ -76,7 +76,7 @@ metering_rates_overlay_plot <- function(
 }
 
 
-time_series_plot <- function(df, x_variable, y_variable, color_variable) {
+traffic_plot <- function(df, x_variable, y_variable, color_variable) {
     ggplot(
         data = df, 
         mapping = aes(
@@ -486,7 +486,7 @@ df_scatter2 <- reactive({
 
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Occ") # %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Avg Occ") # %>%
         # ggplotly ()
 })
 ```
@@ -497,7 +497,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Metering Rate")# %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Flow Rate", "Metering Rate")# %>%
         # ggplotly ()
 })
 ```
@@ -508,7 +508,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Occ", "Avg Speed") # %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Occ", "Avg Speed") # %>%
         # ggplotly ()
 })
 ```
@@ -519,7 +519,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Occ", "Metering Rate") # %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Occ", "Metering Rate") # %>%
         # ggplotly ()
 })
 ```
@@ -530,7 +530,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Speed", "Avg Occ") # %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Speed", "Avg Occ") # %>%
         # ggplotly ()
 })
 ```
@@ -541,7 +541,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Timestamp", "Avg Speed", "Metering Rate") # %>%
+    traffic_plot(df_scatter2(), "Timestamp", "Avg Speed", "Metering Rate") # %>%
         # ggplotly ()
 })
 ```
@@ -561,8 +561,8 @@ Row {.tabset .tabset-fade}
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "hr") # %>%
-        # ggplotly ()
+    traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "hr") +
+        lims(x = c(0, 500), y = c(0, 2200))
 })
 ```
 
@@ -572,8 +572,8 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "Metering Rate") # %>%
-        # ggplotly ()
+    traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "Metering Rate") +
+        lims(x = c(0, 500), y = c(0, 2200))
 })
 ```
 
@@ -583,8 +583,8 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Avg Occ", "Avg Speed", "hr") # %>%
-        # ggplotly ()
+    traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "hr") +
+        lims(x = c(0, 500), y = c(0, 150))
 })
 ```
 
@@ -594,7 +594,7 @@ renderPlot({
 ```{r, eval = TRUE}
 renderPlot({
     shiny::validate(need(input$signal, ""))
-    time_series_plot(df_scatter2(), "Avg Occ", "Avg Speed", "Metering Rate") # %>%
-        # ggplotly ()
+    traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "Metering Rate") +
+        lims(x = c(0, 500), y = c(0, 150))
 })
 ```

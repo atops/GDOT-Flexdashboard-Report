@@ -29,8 +29,8 @@ run:
     etl: TRUE
     arrivals_on_green: TRUE
     queue_spillback: TRUE
-    ped_delay: TRUE
     split_failures: TRUE
+    ped_delay: TRUE
 
 
 start_date: yesterday

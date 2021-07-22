@@ -58,7 +58,6 @@ def etl2(s, date_, det_config):
     
     t0 = time.time()
     
-    #print('{} | {} Starting...'.format(s, date_str))
 
     try:
         key = f'atspm/date={date_str}/atspm_{s}_{date_str}.parquet'
@@ -74,7 +73,6 @@ def etl2(s, date_, det_config):
             
         if len(df) > 0 and len(det_config_good) > 0:
     
-            #print('|{} creating cycles and detection events...'.format(s))
             c, d = etl_main(df, det_config_good)
     
             if len(c) > 0 and len(d) > 0:
@@ -94,7 +92,6 @@ def etl2(s, date_, det_config):
                 d.to_parquet(f'../detections/date={date_str}/signal={s}/de_{s}_{date_str}.parquet') 
                 # d_dd = dd.from_pandas(d.assign(Date=date_str), chunksize=1000)
                 # d_dd.to_parquet('../detections', partition_on=['Date', 'SignalID', 'Phase'])
-    
     
                 c.to_parquet(f's3://gdot-spm/cycles/date={date_str}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
@@ -186,7 +183,6 @@ def main(start_date, end_date):
             det_config = pd.DataFrame()
         
         if len(det_config) > 0:    
-            #ncores = os.cpu_count()
             nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
