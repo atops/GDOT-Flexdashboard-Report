@@ -118,6 +118,51 @@ filter_tod <- function(df, ampm) {
 }
 
 
+timeseries_plot <- function(df, x_variable, y_variable, color_variable) {
+    plot_ly() %>%
+        add_trace(
+            data = df,
+            type = "scatter", 
+            mode = "lines", 
+            x = ~Timestamp, 
+            y = ~`Avg Flow Rate`, 
+            line = list(
+                color = "lightgray")) %>%
+        add_trace(
+            data = filter(df, is.na(`Metering Rate`)),
+            name = "",
+            type = "scatter", 
+            mode = "markers", 
+            x = ~Timestamp, 
+            y = ~`Avg Flow Rate`, 
+            marker = list(
+                color = "lightgray"),
+            customdata = ~glue(paste(
+                "<br><b>Timestamp:</b> {Timestamp}",
+                "<br><b>Avg Flow Rate:</b> {`Avg Flow Rate`}",
+                "<br><b>Metering Rate:</b> {`Metering Rate`}")),
+            hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        add_trace(
+            data = filter(df, !is.na(`Metering Rate`)),
+            name = "",
+            type = "scatter", 
+            mode = "markers", 
+            x = ~Timestamp, 
+            y = ~`Avg Flow Rate`, 
+            marker = list(
+                color = ~`Metering Rate`, 
+                colorscale = "YlOrRd",  # Viridis
+                colorbar = list(title = "Rate")),
+            customdata = ~glue(paste(
+                "<br><b>Timestamp:</b> {Timestamp}",
+                "<br><b>Avg Flow Rate:</b> {`Avg Flow Rate`}",
+                "<br><b>Metering Rate:</b> {`Metering Rate`}")),
+            hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
+        layout(showlegend = FALSE)
+}
+
 # corridors: static file
 # mps: static file. trimmed down version of corridors
 # input$date: date from dateInput
@@ -162,7 +207,7 @@ updateSelectInput(
 
 
 observe(invisible({
-    shiny::validate(need(input$corridor, ""))
+    req(input$corridor)
     updateSelectInput(
         session, "signal",
         choices = filter(corridors, Corridor == input$corridor)$SignalID,
@@ -172,6 +217,7 @@ observe(invisible({
 
 
 signals <- reactive({
+    req(input$corridor)
     as.integer(as.character(filter(corridors, Corridor == input$corridor)$SignalID))
 })
 
@@ -214,6 +260,7 @@ events <- reactive({
         convert_to_utc()
 })
 
+observe({write_parquet(events(), "events.parquet")})
 
 flush_events <- reactive({
     events() %>% 
@@ -256,6 +303,7 @@ traffic <- reactive({
         right_join(signals_data(), by = c("SignalID"))
 })
 
+observe({write_parquet(traffic(), "traffic.parquet")})
 
 speed <- reactive({
     traffic() %>%
@@ -450,7 +498,7 @@ Ramp Meters Time Series
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-### Occupancy/Volume
+### Volume/Occupancy
 
 ```{r, eval = TRUE}
 
@@ -480,9 +528,11 @@ rates <- reactive({
 df_scatter2 <- reactive({
     merge_asof(df_scatter(), rates(), "Timestamp", "Timestamp", roll_val = Inf) %>% 
     mutate(hr = (as.numeric(Timestamp) - min(as.numeric(Timestamp)))/3600) %>%
-    arrange(Timestamp)
+    arrange(Timestamp) %>%
+    mutate(`Metering Rate` = ifelse(`Metering Rate`==0, NA, `Metering Rate`))
 })
 
+observe({write_parquet(df_scatter2(), "df_scatter2.parquet")})
 
 renderPlot({
     shiny::validate(need(input$signal, ""))
@@ -492,7 +542,7 @@ renderPlot({
 ```
 
 
-### Speed/Volume
+### Volume/Metering Rate
 
 ```{r, eval = TRUE}
 renderPlot({
