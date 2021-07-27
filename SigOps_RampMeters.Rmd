@@ -41,7 +41,7 @@ metering_rates_overlay_plot <- function(
     overlay_variable, 
     overlay_palette, 
     plot_title
-){
+) {
     ggplot() + 
     geom_segment(
         data = filter(overlay_data, date == input_date), 
@@ -77,6 +77,9 @@ metering_rates_overlay_plot <- function(
 
 
 traffic_plot <- function(df, x_variable, y_variable, color_variable) {
+
+    req(nrow(df) > 0)
+
     ggplot(
         data = df, 
         mapping = aes(
@@ -119,6 +122,8 @@ filter_tod <- function(df, ampm) {
 
 
 timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
+    
+    req(nrow(df) > 0)
     
     df <- df %>% rename(
         Timestamp = !!as.name(t_variable),
@@ -176,6 +181,7 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
             xaxis = list(title = t_variable),
             yaxis = list(title = y_variable))
 }
+
 
 
 # corridors: static file
@@ -316,6 +322,9 @@ traffic <- reactive({
         rename(vol = `1371`, occ = `1372`, spd = `1373`) %>%
         select(SignalID, date, Timestamp, per, vol, occ, spd) %>%
         filter(!is.na(vol), spd > 0) %>%
+        mutate(
+            spd = as.numeric(spd)/1.609344,
+            occ = as.numeric(occ)/10) %>%
         right_join(signals_data(), by = c("SignalID"))
 })
 
@@ -528,10 +537,23 @@ events_one <- reactive({
     
 df_scatter <- reactive({
     filter(events_one(), Name %in% c("Avg Occ", "Avg Flow Rate", "Avg Speed")) %>% 
+    mutate(
+        EventParam = if_else(
+            Name=="Avg Speed", 
+            as.numeric(EventParam)/1.609344, 
+            as.numeric(EventParam)),
+        EventParam = if_else(
+            Name=="Avg Occ", 
+            as.numeric(EventParam)/10, 
+            as.numeric(EventParam)),
+        EventParam = ifelse(
+            Name=="Avg Speed" & EventParam==0, 
+            NA, 
+            EventParam)) %>%
     pivot_wider(
         id_cols = c(SignalID, Timestamp), 
         names_from = Name, 
-        values_from = EventParam)
+        values_from = EventParam) 
 })
 
 
@@ -623,9 +645,8 @@ Row {.tabset .tabset-fade}
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "hr") +
-        lims(x = c(0, 500), y = c(0, 2200))
+        lims(x = c(0, 50), y = c(0, 2200))
 })
 ```
 
@@ -634,9 +655,8 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Flow Rate", "Metering Rate") +
-        lims(x = c(0, 500), y = c(0, 2200))
+        lims(x = c(0, 50), y = c(0, 2200))
 })
 ```
 
@@ -645,9 +665,8 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "hr") +
-        lims(x = c(0, 500), y = c(0, 150))
+        lims(x = c(0, 50), y = c(0, 100))
 })
 ```
 
@@ -656,8 +675,7 @@ renderPlot({
 
 ```{r, eval = TRUE}
 renderPlot({
-    shiny::validate(need(input$meter_name, ""))
     traffic_plot(df_scatter2(), "Avg Occ", "Avg Speed", "Metering Rate") +
-        lims(x = c(0, 500), y = c(0, 150))
+        lims(x = c(0, 50), y = c(0, 100))
 })
 ```
