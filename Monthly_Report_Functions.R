@@ -18,7 +18,6 @@ suppressMessages({
     library(parallel)
     library(doParallel)
     library(future)
-    #library(multidplyr)
     library(pool)
     library(httr)
     library(aws.s3)
@@ -29,7 +28,6 @@ suppressMessages({
     library(rjson)
     library(plotly)
     library(crosstalk)
-    #library(reticulate)
     library(runner)
     library(fitdistrplus)
     library(foreach)
@@ -37,7 +35,7 @@ suppressMessages({
     # https://arrow.apache.org/install/
     library(qs)
     library(sp)
-    #library(tictoc)
+    library(future.apply)
 })
 
 

@@ -262,8 +262,8 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     plan(sequential)
     plan(multisession)
 
-    s3bucket = "gdot-spm-detections"
-    s3prefix = glue("date={date_}")
+    s3bucket = "gdot-spm"
+    s3prefix = glue("detections/date={date_}")
 
     objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
     if (nrow(objs_df) == 0) {
@@ -294,8 +294,8 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     cat('.')
 
 
-    s3bucket = "gdot-spm-cycles"
-    s3prefix = glue("date={date_}")
+    s3bucket = "gdot-spm"
+    s3prefix = glue("cycles/date={date_}")
 
     objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
     if (nrow(objs_df) == 0) {
