@@ -19,8 +19,8 @@ import itertools
 
 def get_signalids(date_):
 
-    bucket = 'gdot-spm-detections'
-    prefix = 'date={d}'.format(d=date_.strftime('%Y-%m-%d'))
+    bucket = 'gdot-spm'
+    prefix = 'detections/date={d}'.format(d=date_.strftime('%Y-%m-%d'))
 
     objs = boto3.resource('s3').Bucket(bucket).objects.filter(Prefix=prefix)
     for page in objs.pages():
@@ -70,7 +70,7 @@ def get_aog(signalid, date_, det_config, per):
         if os.path.exists(de_fn):
             detection_events = pd.read_parquet(de_fn).drop_duplicates()
         else:
-            de_fn = f's3://gdot-spm-detections/date={date_str}/de_{signalid}_{date_str}.parquet'
+            de_fn = f's3://gdot-spm/detections/date={date_str}/de_{signalid}_{date_str}.parquet'
             detection_events = pd.read_parquet(de_fn).drop_duplicates()
 
 
