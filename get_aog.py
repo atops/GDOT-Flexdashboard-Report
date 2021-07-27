@@ -56,14 +56,14 @@ def get_det_config(date_):
     return df
 
 
-def get_aog(signalid, date_, det_config):
+def get_aog(signalid, date_, det_config, per):
     '''
     date_ [Timestamp]
     '''
     try:
         date_str = date_.strftime('%Y-%m-%d')
         
-        all_hours = pd.date_range(date_, periods=25, freq='H')
+        all_hours = pd.date_range(date_, periods=25, freq=per)
 
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
@@ -86,7 +86,7 @@ def get_aog(signalid, date_, det_config):
             print('#', end='')
             return pd.DataFrame()
         else:
-            df_aog = (df.assign(Hour=lambda x: x.DetTimeStamp.dt.floor('H'))
+            df_aog = (df.assign(Hour=lambda x: x.DetTimeStamp.dt.floor(per))
                       .rename(columns={'Detector': 'Arrivals',
                                        'EventCode': 'Interval'})
                       .groupby(['Hour', 'SignalID', 'Phase', 'Interval'])
@@ -120,7 +120,7 @@ def get_aog(signalid, date_, det_config):
                      .reset_index(level=['IntervalStart'])
                      .assign(IntervalEnd=lambda x: x.IntervalStart.shift(-1))
                      .assign(IntervalDuration=lambda x: (x.IntervalEnd - x.IntervalStart).dt.total_seconds())
-                     .assign(Hour=lambda x: x.IntervalStart.dt.floor('H'))
+                     .assign(Hour=lambda x: x.IntervalStart.dt.floor(per))
                      .groupby(['Hour', 'SignalID', 'Phase', 'Interval']).sum())
 
             df_gc['Duration'] = df_gc.groupby(level=[0, 1, 2]).transform('sum')
@@ -148,6 +148,7 @@ def main(start_date, end_date):
 
     for date_ in dates:
       try:
+
         t0 = time.time()
         print(date_)
     
@@ -158,10 +159,11 @@ def main(start_date, end_date):
         signalids = get_signalids(date_)
         print('done.')
 
+        print('1 hour')
         with get_context('spawn').Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
-                list(itertools.product(signalids, [date_], [det_config])))
+                list(itertools.product(signalids, [date_], [det_config], ['H'])))
             pool.close()
             pool.join()
     
@@ -183,6 +185,36 @@ def main(start_date, end_date):
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'{num_signals} signals done in {t1} seconds.')
+
+
+        print('\n15 minutes')
+        with get_context('spawn').Pool(24) as pool:
+            results = pool.starmap_async(
+                get_aog,
+                list(itertools.product(signalids, [date_], [det_config], ['15min'])))
+            pool.close()
+            pool.join()
+    
+        dfs = results.get()
+        df = (pd.concat(dfs)
+              .reset_index()[['SignalID', 'Phase', 'Timeperiod', 'AOG', 'pr', 'All_Arrivals']]
+              .rename(columns={'Phase': 'CallPhase',
+                               'Hour': 'Date_Timeperiod',
+                               'AOG': 'aog',
+                               'All_Arrivals': 'vol'})
+              .sort_values(['SignalID', 'Date_Timeperiod', 'CallPhase'])
+              .fillna(value={'vol': 0})
+              .assign(SignalID=lambda x: x.SignalID.astype('str'),
+                      CallPhase=lambda x: x.CallPhase.astype('str'),
+                      vol=lambda x: x.vol.astype('int32')))
+    
+        df.to_parquet('s3://gdot-spm/mark/arrivals_on_green_15min/date={d}/aog_{d}.parquet'.format(
+            d=date_.strftime('%Y-%m-%d')))
+        num_signals = len(list(set(df.SignalID.values)))
+        t1 = round(time.time() - t0, 1)
+        print(f'{num_signals} signals done in {t1} seconds.')
+
+
       except Exception as e:
         print(f'{date_}: Error: {e}')
 
