@@ -67,7 +67,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
 get_cam_config <- function(object, bucket, corridors) {
     
     cam_config0 <- aws.s3::s3read_using(
-        function(x) read_excel(x, range = "A1:M3280"), 
+        read_excel,
         object = object, 
         bucket = bucket) %>%
         filter(Include == TRUE) %>%
