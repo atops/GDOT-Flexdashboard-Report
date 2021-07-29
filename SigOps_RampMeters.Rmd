@@ -210,9 +210,32 @@ corridors <- s3read_using(qread, bucket = conf$bucket, object = "Corridors_Lates
         short_name = stringr::str_extract(Name, "(?<= @ )(.*)")) %>%
     arrange(Corridor, Milepost)
 
-# Hack to shift two ramps at same mp (246A, 246B) so they appear side-by-side on the graph
-corridors[corridors$Name == "I-75 NB @ C246A- Fulton St. NB", "Milepost"] <- 245
-# TODO: More hacks like this.
+
+# Hack to shift two ramps at same mp (246A, 246B) so they don't overlap on the graph
+adjustments <- list(
+        list("9868: I-20 EB @ A54A- Langhorn St. EB", 53),
+        list("9871: I-20 EB @ A55B- Lee St. EB", 56),
+        list("9873: I-20 EB @ A57B- Capitol Ave. EB", 58),
+        list("9874: I-20 EB @ A58- Hill St. EB", 59),
+        list("9883: I-20 WB @ B56B- Windsor St. WB", 57),
+        list("9884: I-20 WB @ B57- Pryor St. WB", 58),
+        list("9840: I-285 CW @ G60N- Riverdale Rd. WB", 59),
+        list("9808: I-75 SB @ D245C- Pulliam St. SB", 243),
+        list("9809: I-75 SB @ D245B- RDA Blvd. SB", 244),
+        list("9810: I-75 SB @ D245A- University Ave. SB", 245),
+        list("9812: I-75 NB @ C246A- Fulton St. NB", 245),
+        list("9804: I-75 SB @ D247C- Ellis St. SB", 246),
+        list("9806: I-75 SB @ D247A- Edgewood Ave. SB", 248),
+        list("9803: I-75 SB @ D248- Williams St SB", 249),
+        list("9807: I-75 SB @ D249- 10th St. SB", 250),
+        list("9944: I-85 SB @ F103B- Pleasant Hill Rd. SB", 104)
+    )
+
+for (adj in adjustments) {
+    description = adj[[1]]
+    milepost = adj[[2]]
+    corridors[corridors$Description == description, "Milepost"] <- milepost
+}
 
 s3write_using(corridors, qsave, bucket = conf$bucket, object = "RampMeter_Corridors.qs")
 ```
