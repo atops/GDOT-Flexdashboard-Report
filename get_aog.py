@@ -17,6 +17,7 @@ import re
 from multiprocessing import get_context
 import itertools
 
+
 def get_signalids(date_):
 
     bucket = 'gdot-spm'
@@ -144,7 +145,6 @@ def get_aog(signalid, date_, det_config, per):
 def main(start_date, end_date):
 
     dates = pd.date_range(start_date, end_date, freq='1D')
-    #dates = pd.date_range('2020-02-01', '2020-02-16')
 
     for date_ in dates:
       try:
@@ -155,7 +155,7 @@ def main(start_date, end_date):
         print('Getting detector configuration...', end='')
         det_config = get_det_config(date_)
         print('done.')
-        print('Getting signal...', end='')
+        print('Getting signals...', end='')
         signalids = get_signalids(date_)
         print('done.')
 
@@ -184,10 +184,14 @@ def main(start_date, end_date):
             d=date_.strftime('%Y-%m-%d')))
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
-        print(f'{num_signals} signals done in {t1} seconds.')
+        print(f'\n{num_signals} signals done in {t1} seconds.')
 
 
+        print('Getting signals...', end='')
+        signalids = get_signalids(date_)
+        print('done.')
         print('\n15 minutes')
+        
         with get_context('spawn').Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
@@ -197,12 +201,12 @@ def main(start_date, end_date):
     
         dfs = results.get()
         df = (pd.concat(dfs)
-              .reset_index()[['SignalID', 'Phase', 'Timeperiod', 'AOG', 'pr', 'All_Arrivals']]
+              .reset_index()[['SignalID', 'Phase', 'Hour', 'AOG', 'pr', 'All_Arrivals']]
               .rename(columns={'Phase': 'CallPhase',
-                               'Hour': 'Date_Timeperiod',
+                               'Hour': 'Date_Period',
                                'AOG': 'aog',
                                'All_Arrivals': 'vol'})
-              .sort_values(['SignalID', 'Date_Timeperiod', 'CallPhase'])
+              .sort_values(['SignalID', 'Date_Period', 'CallPhase'])
               .fillna(value={'vol': 0})
               .assign(SignalID=lambda x: x.SignalID.astype('str'),
                       CallPhase=lambda x: x.CallPhase.astype('str'),
@@ -212,11 +216,12 @@ def main(start_date, end_date):
             d=date_.strftime('%Y-%m-%d')))
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
-        print(f'{num_signals} signals done in {t1} seconds.')
+        print(f'\n{num_signals} signals done in {t1} seconds.')
 
 
       except Exception as e:
         print(f'{date_}: Error: {e}')
+
 
 
 if __name__=='__main__':

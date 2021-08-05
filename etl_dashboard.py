@@ -180,12 +180,12 @@ def main(start_date, end_date):
             print('No good detectors. Skip this day.') 
         
     response_repair_cycledata = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE cycledata2', 
+                QueryString='MSCK REPAIR TABLE cycledata', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
 
     response_repair_detection_events = ath.start_query_execution(
-                QueryString='MSCK REPAIR TABLE detectionevents2', 
+                QueryString='MSCK REPAIR TABLE detectionevents', 
                 QueryExecutionContext={'Database': 'gdot_spm'},
                 ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
         

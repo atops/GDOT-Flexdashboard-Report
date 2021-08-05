@@ -219,13 +219,6 @@ def get_udc_data(start_date,
     # dfs = results.get()
     # dfz = pd.concat(dfs).reset_index()
 
-    df0.to_csv('df0.csv')
-    df1.to_csv('df1.csv')
-    try:
-        df0.to_feather('df0.feather')
-        df1.to_feather('df1.feather')
-    except Exception as e:
-        print(e)
     df = pd.concat([df0, df1])
 
     print(f'{len(df)} records')

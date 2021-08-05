@@ -368,14 +368,9 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         rename(sr_occ = occ)
     cat('.\n')
 
-    qs::qsave(grn_occ, "grn_occ.qs")
-    qs::qsave(sor_occ, "sor_occ.qs")
-
     sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
-
-    qs::qsave(sf, "sf.qs")
 
     # if a split failure on any phase
     sf0 <- sf %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%

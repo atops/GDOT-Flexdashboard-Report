@@ -546,3 +546,37 @@ get_adjusted_counts_duckdb <- function(fc_table, ac_table, conf, callback = func
     dbDisconnect(conn_read)
     dbDisconnect(conn_write)
 }
+
+get_adjusted_counts_duckdb2 <- function(fc_table, ac_table, conf, callback = function(x) {x}) { 
+    # callback would be for get_thruput
+
+    fc_duckdb_fn <- glue("{fc_table}.duckdb")
+    conn_read <- get_duckdb_connection(fc_duckdb_fn, read_only = TRUE)
+    
+    fc <- tbl(conn_read, fc_table)
+    det_config <- tbl(conn_read, "dc")
+    fc <- left_join(fc, det_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
+    
+    if (dir.exists(ac_table) {
+        dir.remove(ac_table)
+    }
+    dir.create(ac_table)
+
+    mclapply(get_signals_chunks(fc), mc.cores = usable_cores(), FUN = function(ss) {
+        ac <- fc %>% 
+            filter(SignalID %in% ss) %>%
+            collect() %>%
+            get_adjusted_counts() %>%
+            mutate(Date = as_date(Timeperiod)) %>%
+            callback()
+        lapply(ac$Date, function(date_) {
+            date_str <- format(date_, "%F")
+            filename <- tempfile(
+		tmpdir = glue("{ac_table}/date={date_str}", 
+	        pattern = "ac", 
+		fileext = ".parquet")
+            ac %>% filter(Date == date_) %>% write_parquet(filename))
+	})
+    })
+    dbDisconnect(conn_read)
+}
