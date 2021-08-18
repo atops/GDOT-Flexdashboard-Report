@@ -345,8 +345,8 @@ tryCatch(
 
         s3write_using(
             bad_det,
-            FUN = write_fst,
-            object = "mark/watchdog/bad_detectors.fst",
+            FUN = write_parquet,
+            object = "mark/watchdog/bad_detectors.parquet",
             bucket = conf$bucket,
             opts = list(multipart = TRUE)
         )
@@ -391,8 +391,8 @@ tryCatch(
 
         s3write_using(
             bad_ped,
-            FUN = write_fst,
-            object = "mark/watchdog/bad_ped_pushbuttons.fst",
+            FUN = write_parquet,
+            object = "mark/watchdog/bad_ped_pushbuttons.parquet",
             bucket = conf$bucket
         )
         rm(bad_ped)
@@ -432,8 +432,8 @@ tryCatch(
 
         s3write_using(
             bad_cam,
-            FUN = write_fst,
-            object = "mark/watchdog/bad_cameras.fst",
+            FUN = write_parquet,
+            object = "mark/watchdog/bad_cameras.parquet",
             bucket = conf$bucket
         )
         rm(bad_cam)
@@ -1658,7 +1658,8 @@ tryCatch(
             current_tasks_key = "mark/teams/tasks.csv.zip"
         )
         teams <- tidy_teams_tasks(
-            teams, 
+            teams,
+            bucket = conf$bucket, 
             teams_locations_key = "mark/teams/teams_locations.feather",
             corridors, replicate = TRUE
         )

@@ -557,7 +557,7 @@ get_adjusted_counts_duckdb2 <- function(fc_table, ac_table, conf, callback = fun
     det_config <- tbl(conn_read, "dc")
     fc <- left_join(fc, det_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
     
-    if (dir.exists(ac_table) {
+    if (dir.exists(ac_table)) {
         dir.remove(ac_table)
     }
     dir.create(ac_table)
@@ -572,10 +572,10 @@ get_adjusted_counts_duckdb2 <- function(fc_table, ac_table, conf, callback = fun
         lapply(ac$Date, function(date_) {
             date_str <- format(date_, "%F")
             filename <- tempfile(
-		tmpdir = glue("{ac_table}/date={date_str}", 
+		tmpdir = glue("{ac_table}/date={date_str}"), 
 	        pattern = "ac", 
 		fileext = ".parquet")
-            ac %>% filter(Date == date_) %>% write_parquet(filename))
+            ac %>% filter(Date == date_) %>% write_parquet(filename)
 	})
     })
     dbDisconnect(conn_read)
