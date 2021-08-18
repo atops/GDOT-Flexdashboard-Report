@@ -16,13 +16,13 @@ from datetime import date, timedelta
 from dateutil.relativedelta import *
 import time
 from multiprocessing import Pool
+from multiprocessing import get_context
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena', region_name='us-east-1')
 
 
 def parse_cctvlog_encoders(key):
-    #print(key)
     key_date = re.search('\d{4}-\d{2}-\d{2}', key).group()
     try:
         df = (
@@ -39,7 +39,7 @@ def parse_cctvlog_encoders(key):
                 ).dt.tz_localize('UTC').dt.tz_convert(
                     'America/New_York').dt.tz_localize(None)).assign(
                         Date=pd.Timestamp(
-                            key_date).date())  #lambda x: x.Timestamp.dt.date)
+                            key_date).date())
             .drop_duplicates())
     except:
         print('Problem reading {}'.format(key))
@@ -70,16 +70,10 @@ if __name__ == '__main__':
 
             if len(keys) > 0:
 
-                with Pool() as pool:
+                with get_context('spawn').Pool() as pool:
                     dfs = pool.map_async(parse_cctvlog_encoders, keys)
                     pool.close()
                     pool.join()
-
-                #            results = []
-                #            for key in keys:
-                #                x = delayed(parse_cctvlog_encoders)(key)
-                #                results.append(x)
-                #            dfs = compute(*results)
 
                 df = pd.concat(dfs.get()).drop_duplicates()
 

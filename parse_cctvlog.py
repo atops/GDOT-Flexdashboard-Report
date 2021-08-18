@@ -20,10 +20,10 @@ ath = boto3.client('athena', region_name='us-east-1')
 
 from dask import delayed, compute
 from multiprocessing import Pool
+from multiprocessing import get_context
 
 
 def parse_cctvlog(key):
-    #print(key)
     key_date = re.search('\d{4}-\d{2}-\d{2}', key).group()
     try:
         df = (
@@ -37,10 +37,9 @@ def parse_cctvlog(key):
                     }).assign(
                         Timestamp=lambda x: pd.to_datetime(
                             x.Timestamp, format='%a, %d %b %Y %H:%M:%S %Z')
-                        #                                .dt.tz_localize('UTC')
                         .dt.tz_convert('America/New_York').dt.tz_localize(None)
                     ).assign(Date=pd.Timestamp(
-                        key_date).date())  #lambda x: x.Timestamp.dt.date)
+                        key_date).date())
             .drop_duplicates())
     except:
         print('Problem reading {}'.format(key))
@@ -69,13 +68,7 @@ if __name__ == '__main__':
         print(len(keys))
 
         if len(keys) > 0:
-            #results = []
-            #for key in keys:
-            #    x = delayed(parse_cctvlog)(key)
-            #    results.append(x)
-            #dfs = compute(*results)
-
-            with Pool() as pool:
+            with get_context('spawn').Pool() as pool:
                 results = pool.map_async(parse_cctvlog, keys)
                 pool.close()
                 pool.join()

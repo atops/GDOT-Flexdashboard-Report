@@ -344,13 +344,9 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                IntervalEnd = ymd_hms(IntervalStart) + seconds(first_seconds_of_red)) %>%
         select(-EventCode)
 
-    # de_dt <- data.table(de)
     de <- data.table(de)
 
     cat('.')
-
-    # gr_dt <- data.table(grn_interval)
-    # sr_dt <- data.table(sor_interval)
 
     grn_interval <- setDT(grn_interval)
     sor_interval <- setDT(sor_interval)

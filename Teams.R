@@ -62,7 +62,7 @@ get_teams_locations <- function(locs, conf) {
 
 
 
-tidy_teams_tasks <- function(tasks, teams_locations_key, corridors, replicate = FALSE) {
+tidy_teams_tasks <- function(tasks, bucket, teams_locations_key, corridors, replicate = FALSE) {
     
     
     # Teams Locations
