@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta  #needed for 1 year subtraction
 import boto3
 import json
+import re
 from multiprocessing.dummy import Pool
 
 os.environ['TZ'] = 'America/New_York'
@@ -136,6 +137,12 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
             dfDailyValues.insert(0, 'corridor', corridor, True)
             dfDailyValues.insert(0, 'zone', zone, True)
 
+            udc_path = f'user_delay_costs/{start_date}'
+            if not os.path.exists(udc_path):
+                os.makedirs(udc_path)
+            fn = re.sub(pattern=r'[^A-Za-z0-9_\-\\]', repl='_', string=corridor)
+            dfDailyValues.to_parquet(os.path.join(udc_path, fn))
+
             print(f'{month}: {zone}, {corridor} - SUCCESS')
             return dfDailyValues
 
@@ -209,16 +216,6 @@ def get_udc_data(start_date,
     dfs = results.get()
     df1 = pd.concat(dfs).reset_index()
 
-    # dfz = pd.concat([zcdf0, zcdf1])
-    # with Pool(20) as pool:
-    #     results = pool.starmap_async(
-    #         get_udc_response,
-    #         [list(row.values()) for row in dfz.to_dict(orient='records')])
-    #     pool.close()
-    #     pool.join()
-    # dfs = results.get()
-    # dfz = pd.concat(dfs).reset_index()
-
     df = pd.concat([df0, df1])
 
     print(f'{len(df)} records')
@@ -247,8 +244,8 @@ if __name__ == '__main__':
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    # start_date = '2021-02-01'
-    # end_date = '2021-02-28'
+    start_date = '2021-06-01'
+    end_date = '2021-06-30'
     #---
 
     with io.BytesIO() as data:

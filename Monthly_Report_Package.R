@@ -279,7 +279,7 @@ tryCatch(
         # -- Alerts: detector downtime --
 
         bad_det <- lapply(
-            seq(today() - days(90), today() - days(1), by = "1 day"),
+            seq(today() %m-% days(90), today() %m-% days(1), by = "1 day"),
             function(date_) {
                 key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
                 tryCatch(
@@ -338,7 +338,10 @@ tryCatch(
                 Date,
                 Alert = factor("Bad Vehicle Detection"),
                 Name = factor(if_else(Corridor == "Ramp Meter", sub("@", "-", Name), Name)),
-                ApproachDesc = if_else(is.na(ApproachDesc), "", as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
+                ApproachDesc = if_else(
+		    is.na(ApproachDesc), 
+		    "", 
+		    as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
             )
 
         # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
@@ -356,7 +359,7 @@ tryCatch(
         # -- Alerts: pedestrian detector downtime --
 
         bad_ped <- lapply(
-            seq(today() - days(90), today() - days(1), by = "1 day"),
+            seq(today() %m-% days(90), today() %m-% days(1), by = "1 day"),
             function(date_) {
                 key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
                 tryCatch(
@@ -400,7 +403,7 @@ tryCatch(
         # -- Alerts: CCTV downtime --
 
         bad_cam <- lapply(
-            seq(floor_date(today() - months(6), "month"), today() - days(1), by = "1 month"),
+            seq(floor_date(today() %m-% months(6), "month"), today() %m-% days(1), by = "1 month"),
             function(date_) {
                 key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
                 # print(key)
@@ -555,16 +558,10 @@ print(glue("{Sys.time()} Pedestrian Delay [6 of 29]"))
 tryCatch(
     {
         cb <- function(x) {
-            x <- if ("Avg.Max.Ped.Delay" %in% names(x)) {
-                x %>%
-                    rename(
-                        pd = Avg.Max.Ped.Delay
-                    ) %>%
-                    mutate(
-                        CallPhase = factor(0)
-                    )
-            } else {
-                x
+            if ("Avg.Max.Ped.Delay" %in% names(x)) {
+                x <- x %>%
+                    rename(pd = Avg.Max.Ped.Delay) %>%
+                    mutate(CallPhase = factor(0))
             }
             x %>%
                 mutate(
@@ -1575,68 +1572,62 @@ tryCatch(
 
 # # RSU UPTIME
 
-tryCatch(
-    {
-        daily_rsu_uptime <- get_rsu_uptime(wk_calcs_start_date)
+if (FALSE) {
+    daily_rsu_uptime <- get_rsu_uptime(wk_calcs_start_date)
 
-        # Find the days where uptime across the board is very low (close to 0)
-        #  This is symptomatic of a problem with the acquisition rather than the rsus themselves
-        bad_days <- daily_rsu_uptime %>%
-            group_by(Date) %>%
-            summarize(suptime = weighted.mean(uptime, total, na.rm = TRUE), .groups = "drop") %>%
-            filter(suptime < 0.2)
+    # Find the days where uptime across the board is very low (close to 0)
+    #  This is symptomatic of a problem with the acquisition rather than the rsus themselves
+    bad_days <- daily_rsu_uptime %>%
+        group_by(Date) %>%
+        summarize(suptime = weighted.mean(uptime, total, na.rm = TRUE), .groups = "drop") %>%
+        filter(suptime < 0.2)
 
-        # Filter out bad days, i.e., those with systemic issues
-        daily_rsu_uptime <- daily_rsu_uptime %>%
-            filter(!Date %in% bad_days$Date)
+    # Filter out bad days, i.e., those with systemic issues
+    daily_rsu_uptime <- daily_rsu_uptime %>%
+        filter(!Date %in% bad_days$Date)
 
-        cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
-            daily_rsu_uptime, corridors, "uptime"
-        )
-        sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
-            daily_rsu_uptime, subcorridors, "uptime"
-        )
+    cor_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
+        daily_rsu_uptime, corridors, "uptime"
+    )
+    sub_daily_rsu_uptime <- get_cor_weekly_avg_by_day(
+        daily_rsu_uptime, subcorridors, "uptime"
+    )
 
-        weekly_rsu_uptime <- get_weekly_avg_by_day(
-            mutate(daily_rsu_uptime, CallPhase = 0, Week = week(Date)), "uptime",
-            peak_only = FALSE
-        )
-        cor_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
-            weekly_rsu_uptime, corridors, "uptime"
-        )
-        sub_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
-            weekly_rsu_uptime, subcorridors, "uptime"
-        )
+    weekly_rsu_uptime <- get_weekly_avg_by_day(
+        mutate(daily_rsu_uptime, CallPhase = 0, Week = week(Date)), "uptime",
+        peak_only = FALSE
+    )
+    cor_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
+        weekly_rsu_uptime, corridors, "uptime"
+    )
+    sub_weekly_rsu_uptime <- get_cor_weekly_avg_by_day(
+        weekly_rsu_uptime, subcorridors, "uptime"
+    )
 
-        monthly_rsu_uptime <- get_monthly_avg_by_day(
-            mutate(daily_rsu_uptime, CallPhase = 0), "uptime",
-            peak_only = FALSE
-        )
-        cor_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
-            monthly_rsu_uptime, corridors, "uptime"
-        )
-        sub_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
-            monthly_rsu_uptime, subcorridors, "uptime"
-        )
+    monthly_rsu_uptime <- get_monthly_avg_by_day(
+        mutate(daily_rsu_uptime, CallPhase = 0), "uptime",
+        peak_only = FALSE
+    )
+    cor_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
+        monthly_rsu_uptime, corridors, "uptime"
+    )
+    sub_monthly_rsu_uptime <- get_cor_monthly_avg_by_day(
+        monthly_rsu_uptime, subcorridors, "uptime"
+    )
 
 
-        addtoRDS(daily_rsu_uptime, "daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
-        addtoRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
-        addtoRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(daily_rsu_uptime, "daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(weekly_rsu_uptime, "weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(monthly_rsu_uptime, "monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
 
-        addtoRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
-        addtoRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
-        addtoRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_daily_rsu_uptime, "cor_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(cor_weekly_rsu_uptime, "cor_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(cor_monthly_rsu_uptime, "cor_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
 
-        addtoRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
-        addtoRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
-        addtoRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
+    addtoRDS(sub_daily_rsu_uptime, "sub_daily_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+    addtoRDS(sub_weekly_rsu_uptime, "sub_weekly_rsu_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
+    addtoRDS(sub_monthly_rsu_uptime, "sub_monthly_rsu_uptime.rds", "uptime", report_start_date, calcs_start_date)
+}
 
 
 
@@ -2185,7 +2176,6 @@ tryCatch(
             "cu" = readRDS("cor_daily_comm_uptime.rds"),
             "pau" = readRDS("cor_daily_pa_uptime.rds"),
             "cctv" = readRDS("cor_daily_cctv_uptime.rds"),
-            "ru" = readRDS("cor_daily_rsu_uptime.rds"),
             "ttyp" = readRDS("tasks_by_type.rds")$cor_daily,
             "tsub" = readRDS("tasks_by_subtype.rds")$cor_daily,
             "tpri" = readRDS("tasks_by_priority.rds")$cor_daily,
@@ -2215,8 +2205,7 @@ tryCatch(
             "du" = readRDS("cor_weekly_detector_uptime.rds"),
             "cu" = readRDS("cor_weekly_comm_uptime.rds"),
             "pau" = readRDS("cor_weekly_pa_uptime.rds"),
-            "cctv" = readRDS("cor_weekly_cctv_uptime.rds"),
-            "ru" = readRDS("cor_weekly_rsu_uptime.rds")
+            "cctv" = readRDS("cor_weekly_cctv_uptime.rds")
         )
         cor$mo <- list(
             "vpd" = readRDS("cor_monthly_vpd.rds"),
@@ -2248,11 +2237,6 @@ tryCatch(
             "cu" = readRDS("cor_monthly_comm_uptime.rds"),
             "pau" = readRDS("cor_monthly_pa_uptime.rds"),
             "cctv" = readRDS("cor_monthly_cctv_uptime.rds"),
-            "ru" = readRDS("cor_monthly_rsu_uptime.rds") %>%
-                complete(
-                    nesting(Corridor, Zone_Group),
-                    Month = dates
-                ),
             # "events" = readRDS("cor_monthly_events.rds"),
             "ttyp" = readRDS("tasks_by_type.rds")$cor_monthly,
             "tsub" = readRDS("tasks_by_subtype.rds")$cor_monthly,
@@ -2334,8 +2318,6 @@ tryCatch(
             "pau" = readRDS("sub_daily_pa_uptime.rds") %>%
                 select(Zone_Group, Corridor, Date, uptime),
             "cctv" = readRDS("sub_daily_cctv_uptime.rds") %>%
-                select(Zone_Group, Corridor, Date, uptime),
-            "ru" = readRDS("sub_daily_rsu_uptime.rds") %>%
                 select(Zone_Group, Corridor, Date, uptime)
         )
         sub$wk <- list(
@@ -2369,8 +2351,6 @@ tryCatch(
             "pau" = readRDS("sub_weekly_pa_uptime.rds") %>%
                 select(Zone_Group, Corridor, Date, uptime),
             "cctv" = readRDS("sub_weekly_cctv_uptime.rds") %>%
-                select(Zone_Group, Corridor, Date, uptime),
-            "ru" = readRDS("sub_weekly_rsu_uptime.rds") %>%
                 select(Zone_Group, Corridor, Date, uptime)
         )
         sub$mo <- list(
@@ -2403,11 +2383,6 @@ tryCatch(
             "cu" = readRDS("sub_monthly_comm_uptime.rds"),
             "pau" = readRDS("sub_monthly_pa_uptime.rds"),
             "cctv" = readRDS("sub_monthly_cctv_uptime.rds"),
-            "ru" = readRDS("sub_monthly_rsu_uptime.rds") %>%
-                complete(
-                    nesting(Corridor, Zone_Group),
-                    Month = dates
-                ),
             "flash" = readRDS("sub_monthly_flash.rds"),
             "bpsi" = readRDS("sub_monthly_bpsi.rds"),
             "rsi" = readRDS("sub_monthly_rsi.rds"),
@@ -2455,8 +2430,7 @@ tryCatch(
                 mutate(
                     Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                     Description = factor(Description)
-                ),
-            "ru" = sigify(readRDS("daily_rsu_uptime.rds"), cor$dy$ru, corridors)
+                )
         )
         sig$wk <- list(
             "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
@@ -2493,8 +2467,7 @@ tryCatch(
                 mutate(
                     Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                     Description = factor(Description)
-                ),
-            "ru" = sigify(readRDS("weekly_rsu_uptime.rds"), cor$wk$ru, corridors)
+                )
         )
         sig$mo <- list(
             "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
@@ -2544,9 +2517,7 @@ tryCatch(
                 mutate(
                     Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                     Description = factor(Description)
-                ),
-            "ru" = sigify(readRDS("monthly_rsu_uptime.rds"), cor$mo$ru, corridors) %>%
-                select(Zone_Group, Corridor, Month, uptime, delta),
+                )
             "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
