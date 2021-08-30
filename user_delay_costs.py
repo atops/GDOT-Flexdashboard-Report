@@ -27,10 +27,14 @@ s3 = boto3.client('s3')
 pd.options.display.max_columns = 10
 
 
+# modify corridor string so it can be a filename
+def get_filename(corridor):
+    return re.sub(pattern=r'[^A-Za-z0-9_\-\\]', repl='_', string=corridor) + '.parquet'
+
+
 # run query, return hourly UDC totals for the month/corridor/zone
 def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                      key):
-    #uri = 'http://kestrel.ritis.org:8080/{}'
     uri = 'http://pda-api.ritis.org:8080/{}'
 
     month = (datetime.strptime(start_date,
@@ -177,8 +181,7 @@ def get_udc_data(start_date,
     zcdf = zone_corridor_tmc_df.groupby(
         ['Zone', 'Corridor']).apply(lambda x: x.tmc.values.tolist())
     zcdf = zcdf.reset_index().rename(columns={0: 'tmcs'})
-    zcdf = zcdf[zcdf.Zone.str.startswith(
-        'Zone')]  # RTOP only. Takes too long to run otherwise.
+    zcdf = zcdf[zcdf.Zone.str.startswith('Zone')]  # RTOP only. Takes too long to run otherwise.
     zcdf['threshold'] = threshold
     zcdf['key'] = key
 
@@ -244,8 +247,8 @@ if __name__ == '__main__':
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    start_date = '2021-06-01'
-    end_date = '2021-06-30'
+    # start_date = '2021-05-01'
+    # end_date = '2021-05-31'
     #---
 
     with io.BytesIO() as data:
@@ -265,6 +268,13 @@ if __name__ == '__main__':
                                     tmc_df[['tmc', 'Corridor']],
                                     on='Corridor')
 
+    zone_corridor_tmc_df.to_parquet('zct.parquet')
+    zone_corridor_tmc_df = zone_corridor_tmc_df[~zone_corridor_tmc_df.Corridor.isna()]
+    corrs = list(set(zone_corridor_tmc_df.Corridor))
+    corridors_to_run = [corr for corr in corrs if not os.path.exists(f'user_delay_costs/{start_date}/{get_filename(corr)}')]
+
+    zone_corridor_tmc_df = zone_corridor_tmc_df[zone_corridor_tmc_df.Corridor.isin(corridors_to_run)]
+
     #--- test w/ just one zone and 2 corridors - takes a while to run
     #zone_test = 'Zone 1'
     #corridors_test = ['SR 237', 'SR 141S']
@@ -280,6 +290,11 @@ if __name__ == '__main__':
         print('error retrieving records')
         print(e)
         udc_df = pd.DataFrame()
+
+    udc_df = pd.read_parquet(f'user_delay_costs/{start_date}')
+    start_date0 = (pd.Timestamp(start_date) - pd.DateOffset(years=1)).strftime('%F')
+    udc_df0 = pd.read_parquet(f'user_delay_costs/{start_date0}')
+    udc_df = pd.concat([udc_df, udc_df0])
 
     if len(udc_df) > 0:
         #need to do any manipulation? Or just write to parquet and upload to S3?
