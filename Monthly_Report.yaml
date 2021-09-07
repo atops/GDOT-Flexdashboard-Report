@@ -22,7 +22,7 @@ atspm:
 # Sections of Monthly_Report_Calcs_ec2 to run
 run:
     cctv: TRUE
-    rsus: TRUE
+    rsus: FALSE
     travel_times: TRUE
     counts: TRUE
     counts_based_measures: TRUE
