@@ -104,14 +104,12 @@ get_summary_data <- function(df, current_month = NULL) {
         if (nrow(df$mo$tti) > 0) {
             rename(df$mo$tti, tti.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
-            rename(select(df$mo$pd, 1:6), tti = pd, tti.delta = delta) %>%
-                mutate(tti = NA, tti.delta = NA, Events = NA)
+            rename(df$mo$vpd[0,], tti = vpd, tti.delta = delta)
         },
         if (nrow(df$mo$pti) > 0) {
             rename(df$mo$pti, pti.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
-            rename(select(df$mo$pd, 1:6), pti = pd, pti.delta = delta) %>%
-                mutate(pti = NA, pti.delta = NA)
+            rename(df$mo$vpd[0,], pti = vpd, pti.delta = delta)
         },
         # safety metrics - new 3/17/21
         rename(df$mo$kabco, kabco.delta = delta),
@@ -119,14 +117,12 @@ get_summary_data <- function(df, current_month = NULL) {
         if (!is.null(df$mo$rsi)) {
             rename(df$mo$rsi, rsi.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
-            rename(df$mo$vpd, rsi = vpd, rsi.delta = delta) %>%
-                mutate(rsi = NA, rsi.delta = NA)
+            rename(df$mo$vpd[0,], rsi = vpd, rsi.delta = delta)
         },
         if (!is.null(df$mo$bpsi)) {
             rename(df$mo$bpsi, bpsi.delta = delta)
         } else { # if dealing with signals data - copy another df, rename, and set columns to NA
-            rename(df$mo$vpd, bpsi = vpd, bpsi.delta = delta) %>%
-                mutate(bpsi = NA, bpsi.delta = NA)
+            rename(df$mo$vpd[0,], bpsi = vpd, bpsi.delta = delta)
         }
     ) %>%
         reduce(full_join, by = c("Zone_Group", "Corridor", "Month")) %>%
@@ -136,8 +132,8 @@ get_summary_data <- function(df, current_month = NULL) {
         select(
             -uptime.sb,
             -uptime.pr,
-            -Duration,
-            -Events,
+            #-Duration,
+            # -Events,
             #-num,
             -starts_with("Description"),
             -starts_with("ones"),
@@ -486,7 +482,8 @@ if (TRUE) {
         left_join(
             select(cam_config, SignalID, CameraID), 
             by = c("Corridor" = "CameraID")) %>% 
-        mutate(Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
+        mutate(
+	    Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
         select(-SignalID) %>% 
         filter(!grepl("CAM", Corridor)) %>% 
         group_by(Corridor, Zone_Group, Month) %>% 
@@ -513,10 +510,14 @@ if (TRUE) {
             SignalID = Corridor,
             Corridor = Zone_Group
         ) %>%
-        left_join(select(corridors, Corridor, SignalID, Subcorridor), by = c("Corridor", "SignalID")) %>%
+        left_join(
+	    select(corridors, Corridor, SignalID, Subcorridor), 
+	    by = c("Corridor", "SignalID")) %>%
         inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
         #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
-        left_join(select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), by = c("Corridor", "Subcorridor", "Month")) %>%
+        left_join(
+	    select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), 
+	    by = c("Corridor", "Subcorridor", "Month")) %>%
         mutate(
             tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
             pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
