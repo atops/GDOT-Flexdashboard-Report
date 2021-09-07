@@ -577,3 +577,14 @@ get_signals_chunks_arrow <- function(df, rows = 1e6) {
     chunk(signals_list, chunk_length)
 }
 
+
+show_largest_objects <- function(n=20) {
+
+    df <- sapply(
+        ls(envir = globalenv()),
+        function(x) { object.size(get(x)) }
+        ) %>% as.data.frame()
+    names(df) <- c('Size')
+    df %>% arrange(desc(Size)) %>% head(n)
+}
+

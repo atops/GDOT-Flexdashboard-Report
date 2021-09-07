@@ -141,7 +141,9 @@ get_summary_data <- function(df, current_month = NULL) {
             -starts_with("pct"),
             -starts_with("vol"),
             -starts_with("num"),
-        )
+        ) %>%
+	distinct()
+
     if ("mttr" %in% names(df$mo)) { # cor, not sub
         data <- data %>%
             arrange(Month, Zone_Group, Corridor)

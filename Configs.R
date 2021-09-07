@@ -62,66 +62,29 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
 
 
 
-# New version on 4/5. To join with MaxView ID
-# Updated on 4/14 to add 'Include' flag
 get_cam_config <- function(object, bucket, corridors) {
     
     cam_config0 <- aws.s3::s3read_using(
         read_excel,
         object = object, 
-        bucket = bucket) %>%
+        bucket = bucket
+	    ) %>%
         filter(Include == TRUE) %>%
-        #filter(!is.na(Corridor)) %>%
         transmute(
             CameraID = factor(CameraID), 
             Location, 
-            Zone_Group, 
-            Zone,
-            Corridor = factor(Corridor), 
             SignalID = factor(`MaxView ID`),
             As_of_Date = date(As_of_Date)) %>%
         distinct()
     
     corrs <- corridors %>%
         select(SignalID, Zone_Group, Zone, Corridor, Subcorridor)
-    
-    cams <- cam_config0 %>% 
-        left_join(corrs, by=c("SignalID")) %>% 
-        filter(!(is.na(Zone.x) & is.na(Zone.y)))
-    
-    cams1 <- cams %>% filter(is.na(Zone.y)) %>% 
-        transmute(
-            CameraID,
-            SignalID,
-            Location,
-            Zone_Group = Zone_Group.x,
-            Zone = Zone.x,
-            Corridor = Corridor.x,
-            Subcorridor,
-            As_of_Date)
-    
-    cams2 <- cams %>% filter(!is.na(Zone.y)) %>% 
-        transmute(
-            CameraID,
-            SignalID,
-            Location,
-            Zone_Group = Zone_Group.y,
-            Zone = Zone.y,
-            Corridor = Corridor.y,
-            Subcorridor,
-            As_of_Date)
-    
-    bind_rows(cams1, cams2) %>%
-        mutate(
-            Description = paste(CameraID, Location, sep = ": "),
-            CameraID = factor(CameraID),
-            SignalID = factor(SignalID),
-            Zone_Group = factor(Zone_Group),
-            Zone = factor(Zone),
-            Corridor = factor(Corridor),
-            Subcorridor = factor(Subcorridor)) %>%
+
+
+    left_join(corrs, cam_config0) %>% 
+        filter(!is.na(CameraID)) %>%
+	mutate(Description = paste(CameraID, Location, sep = ": ")) %>%
         arrange(Zone_Group, Zone, Corridor, CameraID)
-    
 }
 
 
