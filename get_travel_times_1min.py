@@ -33,8 +33,12 @@ pd.options.display.max_columns = 10
 
 def is_success(response):
     x = json.loads(response.content.decode('utf-8'))
-    if 'state' in x.keys() and x['state']=='SUCCEEDED':
+    if type(x) == dict and 'state' in x.keys() and x['state']=='SUCCEEDED':
         return True
+    elif type(x) == str:
+        print(x)
+        time.sleep(60)
+        return False
     else:
         # print(f"state: {x['state']} | progress: {x['progress']}")
         return False
@@ -179,8 +183,8 @@ if __name__=='__main__':
     end_date = date.today().replace(day=1) - timedelta(days=1)
     start_date = end_date.replace(day=1)
 
-    # start_date = datetime(2021, 3, 1)
-    # end_date = datetime(2021, 3, 31)
+    # start_date = datetime(2021, 8, 1)
+    # end_date = datetime(2021, 8, 30)
     
     end_date = end_date.strftime('%Y-%m-%d')
     start_date = start_date.strftime('%Y-%m-%d')
@@ -215,46 +219,66 @@ if __name__=='__main__':
         print(e)
         tt_df = pd.DataFrame()
     
+
     if len(tt_df) > 0:
-        df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], tt_df, left_on=['tmc'], right_on=['tmc_code'])
-                .drop(columns=['tmc'])
-                .sort_values(['Corridor', 'tmc_code', 'measurement_tstamp']))
+        tt_df['measurement_tstamp'] = pd.to_datetime(tt_df.measurement_tstamp)
+        tt_df['date'] = tt_df.measurement_tstamp.dt.date
 
-        df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
-        df = (df.reset_index(drop=True)
-                .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
-                        date = lambda x: x.measurement_tstamp.dt.date)
-                .rename(columns = {'measurement_tstamp': 'Minute'}))
-        df = df.drop_duplicates()
-
+        dates = list(set(tt_df.date))
         
-        #write 1-min monthly travel times/speed df to parquet on S3
-        date_string = start_date
-        table_name = 'travel_times_1min'
-        filename = f'travel_times_1min_{date_string}.parquet'
-        df.drop(columns=['date'])\
-            .to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+        for d in dates:
+            date_str = d.strftime('%F')
+            tt_df[tt_df.date == d].to_parquet(f'one_min_travel_times_{date_str}.parquet')
+        del tt_df
+        
+        for d in dates:
+            date_str = d.strftime('%F')
+            print(date_str)
+            
+            df = pd.read_parquet(f'one_min_travel_times_{date_str}.parquet')
+            os.remove(f'one_min_travel_times_{date_str}.parquet')
+
+            df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], 
+                           df, 
+                           left_on=['tmc'], 
+                           right_on=['tmc_code'])
+                    .drop(columns=['tmc'])
+                    .sort_values(['Corridor', 'tmc_code', 'measurement_tstamp']))
+    
+            df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
+            df = (df.reset_index(drop=True)
+                    .rename(columns = {'measurement_tstamp': 'Minute'}))
+            df = df.drop_duplicates()
+        
+            #write 1-min monthly travel times/speed df to parquet on S3
+            table_name = 'travel_times_1min'
+            filename = f'travel_times_1min_{date_str}.parquet'
+            df.drop(columns=['date'])\
+                .to_parquet(f's3://{bucket}/mark/{table_name}/date={start_date}/{filename}')
+
         
         #############################################
         # relative speed index for month
         #############################################
+        fn = conf['corridors_filename_s3']
         df_speed_limits = pd.read_excel(
-            f"s3://{bucket}/{conf['corridors_filename_s3']}", 
+            f's3://{bucket}/{fn}', 
             sheet_name='Contexts')
 
+        df = pd.read_parquet(f's3://gdot-spm/mark/travel_times_1min/date={start_date}')
 
         df_rsi_sub = get_rsi(df, df_speed_limits, ['Corridor','Subcorridor'])
         df_rsi_cor = get_rsi(df, df_speed_limits[df_speed_limits['Subcorridor'].isnull()], ['Corridor'])
 
         #do we need to add a column to this that has month? right now is just grouping/RSI
         table_name = 'relative_speed_index'
-        filename = f'rsi_sub_{date_string}.parquet'
+        filename = f'rsi_sub_{start_date}.parquet'
         df_rsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-        filename = f'rsi_cor_{date_string}.parquet'
+        filename = f'rsi_cor_{start_date}.parquet'
         df_rsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
 
-        df_rsi_sub.to_csv(f'rsi_sub_{date_string}.csv', index=False)
-        df_rsi_cor.to_csv(f'rsi_cor_{date_string}.csv', index=False)
+        df_rsi_sub.to_csv(f'rsi_sub_{start_date}.csv', index=False)
+        df_rsi_cor.to_csv(f'rsi_cor_{start_date}.csv', index=False)
         
         #############################################
         # bike-ped safety index for month
@@ -268,13 +292,13 @@ if __name__=='__main__':
         
         #do we need to add a column to this that has month? right now is just grouping/serious injury %
         table_name = 'bike_ped_safety_index'
-        filename = f'bpsi_sub_{date_string}.parquet'
+        filename = f'bpsi_sub_{start_date}.parquet'
         df_bpsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-        filename = f'bpsi_cor_{date_string}.parquet'
+        filename = f'bpsi_cor_{start_date}.parquet'
         df_bpsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
         
-        df_bpsi_sub.to_csv(f'bpsi_sub_{date_string}.csv', index=False)
-        df_bpsi_cor.to_csv(f'bpsi_cor_{date_string}.csv', index=False)
+        df_bpsi_sub.to_csv(f'bpsi_sub_{start_date}.csv', index=False)
+        df_bpsi_cor.to_csv(f'bpsi_cor_{start_date}.csv', index=False)
 
     else:
         print('No records returned.')
