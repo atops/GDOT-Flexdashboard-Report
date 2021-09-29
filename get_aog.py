@@ -64,8 +64,7 @@ def get_aog(signalid, date_, det_config, per):
     try:
         date_str = date_.strftime('%Y-%m-%d')
         
-        all_hours = pd.date_range(date_, periods=25, freq=per)
-
+        all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=per, closed='left')
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
         if os.path.exists(de_fn):
@@ -156,8 +155,9 @@ def main(start_date, end_date):
         det_config = get_det_config(date_)
         print('done.')
         print('Getting signals...', end='')
-        signalids = get_signalids(date_)
+        signalids = list(get_signalids(date_))
         print('done.')
+
 
         print('1 hour')
         with get_context('spawn').Pool(24) as pool:
@@ -185,11 +185,8 @@ def main(start_date, end_date):
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')
+        
 
-
-        print('Getting signals...', end='')
-        signalids = get_signalids(date_)
-        print('done.')
         print('\n15 minutes')
         
         with get_context('spawn').Pool(24) as pool:
