@@ -2286,7 +2286,6 @@ tryCatch(
             "cu" = get_quarterly(cor$mo$cu, "uptime"),
             "pau" = get_quarterly(cor$mo$pau, "uptime"),
             "cctv" = get_quarterly(cor$mo$cctv, "uptime", "num"),
-            "ru" = get_quarterly(cor$mo$ru, "uptime"),
             "reported" = get_quarterly(cor$mo$tasks, "Reported"),
             "resolved" = get_quarterly(cor$mo$tasks, "Resolved"),
             "outstanding" = get_quarterly(cor$mo$tasks, "Outstanding", operation = "latest"),
@@ -2403,8 +2402,7 @@ tryCatch(
             "du" = get_quarterly(sub$mo$du, "uptime"),
             "cu" = get_quarterly(sub$mo$cu, "uptime"),
             "pau" = get_quarterly(sub$mo$pau, "uptime"),
-            "cctv" = get_quarterly(sub$mo$cctv, "uptime"),
-            "ru" = get_quarterly(sub$mo$ru, "uptime")
+            "cctv" = get_quarterly(sub$mo$cctv, "uptime")
         )
     },
     error = function(e) {
@@ -2517,7 +2515,7 @@ tryCatch(
                 mutate(
                     Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
                     Description = factor(Description)
-                )
+                ),
             "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
@@ -2572,7 +2570,7 @@ descs <- corridors %>%
 for (tab in c(
     "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi", "rsi", "cri", "kabco",
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
-    "du", "cu", "pau", "cctv", "ru", "maint_plot", "ops_plot", "safety_plot"
+    "du", "cu", "pau", "cctv", "maint_plot", "ops_plot", "safety_plot"
 )) {
     print(tab)
     if (tab %in% names(sig$mo) & tab != "cctv") {
@@ -2608,7 +2606,7 @@ for (tab in c(
     }
 }
 
-for (tab in c("du", "cu", "ru", "pau")) {
+for (tab in c("du", "cu", "pau")) {
     print(tab)
     sig$dy[[tab]] <- sig$dy[[tab]] %>%
         left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
