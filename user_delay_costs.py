@@ -144,8 +144,7 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
             udc_path = f'user_delay_costs/{start_date}'
             if not os.path.exists(udc_path):
                 os.makedirs(udc_path)
-            fn = re.sub(pattern=r'[^A-Za-z0-9_\-\\]', repl='_', string=corridor)
-            dfDailyValues.to_parquet(os.path.join(udc_path, fn))
+            dfDailyValues.to_parquet(os.path.join(udc_path, get_filename(corridor)))
 
             print(f'{month}: {zone}, {corridor} - SUCCESS')
             return dfDailyValues
@@ -193,6 +192,14 @@ def get_udc_data(start_date,
         'key'
     ]]
 
+    zcdf0.to_parquet('zcdf0.parquet')
+    corridors_to_run = list(filter(
+        lambda x: not os.path.exists(f'user_delay_costs/{start_date}/{get_filename(x)}'),
+        zcdf0.Corridor))
+    print(len(corridors_to_run))
+    zcdf0 = zcdf0[zcdf0.Corridor.isin(corridors_to_run)]
+
+
     zcdf1 = zcdf.copy()
     zcdf1['start_date'] = start_date_1yr
     zcdf1['end_date'] = end_date_1yr
@@ -200,24 +207,37 @@ def get_udc_data(start_date,
         'start_date', 'end_date', 'threshold', 'Zone', 'Corridor', 'tmcs',
         'key'
     ]]
+    
+    zcdf1.to_parquet('zcdf1.parquet')
+    corridors_to_run = list(filter(
+        lambda x: not os.path.exists(f'user_delay_costs/{start_date_1yr}/{get_filename(x)}'),
+        zcdf1.Corridor)) 
+    print(len(corridors_to_run))
+    zcdf1 = zcdf1[zcdf1.Corridor.isin(corridors_to_run)]
 
-    with Pool(2) as pool:
-        results = pool.starmap_async(
-            get_udc_response,
-            [list(row.values()) for row in zcdf0.to_dict(orient='records')])
-        pool.close()
-        pool.join()
-    dfs = results.get()
-    df0 = pd.concat(dfs).reset_index()
+    if len(zcdf0):
+        with Pool(2) as pool:
+            results = pool.starmap_async(
+                get_udc_response,
+                [list(row.values()) for row in zcdf0.to_dict(orient='records')])
+            pool.close()
+            pool.join()
+        dfs = results.get()
+        df0 = pd.concat(dfs).reset_index()
+    else:
+        df0 = pd.DataFrame()
 
-    with Pool(2) as pool:
-        results = pool.starmap_async(
-            get_udc_response,
-            [list(row.values()) for row in zcdf1.to_dict(orient='records')])
-        pool.close()
-        pool.join()
-    dfs = results.get()
-    df1 = pd.concat(dfs).reset_index()
+    if len(zcdf1):
+        with Pool(2) as pool:
+            results = pool.starmap_async(
+                get_udc_response,
+                [list(row.values()) for row in zcdf1.to_dict(orient='records')])
+            pool.close()
+            pool.join()
+        dfs = results.get()
+        df1 = pd.concat(dfs).reset_index()
+    else:
+        df1 = pd.DataFrame()
 
     df = pd.concat([df0, df1])
 
@@ -247,8 +267,8 @@ if __name__ == '__main__':
     end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    # start_date = '2021-05-01'
-    # end_date = '2021-05-31'
+    # start_date = '2021-08-01'
+    # end_date = '2021-08-30'
     #---
 
     with io.BytesIO() as data:
@@ -267,13 +287,8 @@ if __name__ == '__main__':
     zone_corridor_tmc_df = pd.merge(zone_corridor_df,
                                     tmc_df[['tmc', 'Corridor']],
                                     on='Corridor')
-
-    zone_corridor_tmc_df.to_parquet('zct.parquet')
     zone_corridor_tmc_df = zone_corridor_tmc_df[~zone_corridor_tmc_df.Corridor.isna()]
-    corrs = list(set(zone_corridor_tmc_df.Corridor))
-    corridors_to_run = [corr for corr in corrs if not os.path.exists(f'user_delay_costs/{start_date}/{get_filename(corr)}')]
 
-    zone_corridor_tmc_df = zone_corridor_tmc_df[zone_corridor_tmc_df.Corridor.isin(corridors_to_run)]
 
     #--- test w/ just one zone and 2 corridors - takes a while to run
     #zone_test = 'Zone 1'
