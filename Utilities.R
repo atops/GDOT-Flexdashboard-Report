@@ -225,8 +225,11 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
     
     combine_dfs <- function(df0, df, delta_var, rsd, csd) {
         
+        if (class(rsd) == "character") rsd <- as_date(rsd)
+        if (class(csd) == "character") csd <- as_date(csd)
+
         # Extract aggregation period from the data fields
-        periods <- intersect(c("Month", "Date", "Hour"), names(df0))
+        periods <- intersect(c("Month", "Date", "Hour", "Timeperiod"), names(df0))
         per_ <- as.name(periods)
         
         # Remove everything after calcs_start_date (csd) in original df
@@ -353,7 +356,7 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
             }
 
             if (src %in% c("main", "staging")) {
-                date_column <- intersect(names(dfp), c("Quarter", "Month", "Date", "Hour"))
+                date_column <- intersect(names(dfp), c("Quarter", "Month", "Date", "Hour", "Timeperiod"))
                 if (date_column == "Quarter") {
                     dfp <- filter(dfp, Quarter <= lubridate::quarter(conf$production_report_end_date, with_year = TRUE))
                     print(max(dfp$Quarter))
@@ -366,9 +369,12 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
                 } else if (date_column == "Hour") {
                     dfp <- filter(dfp, Hour < ymd(conf$production_report_end_date) + months(1))
                     print(max(dfp$Hour))
+                } else if (date_column == "Timeperiod") {
+                    dfp <- filter(dfp, Timeperiod < ymd(conf$production_report_end_date) + months(1))
+                    print(max(dfp$Timeperiod))
                 }
             }
-        
+
     	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
     	    #readr::write_csv(dfp, paste0(name, ".csv"))
         
