@@ -344,8 +344,9 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
         mutate(Date = date(Hour)) %>%
         get_Tuesdays()
     
-    df_ <- left_join(df, Tuesdays) %>%
-        filter(!is.na(Date))
+    df_ <- df %>% 
+        select(-Date) %>% 
+        left_join(Tuesdays, by = c("Week"))
     year(df_$Hour) <- year(df_$Date)
     month(df_$Hour) <- month(df_$Date)
     day(df_$Hour) <- day(df_$Date)
