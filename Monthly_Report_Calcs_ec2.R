@@ -230,20 +230,21 @@ get_counts_based_measures <- function(month_abbrs) {
         ed <- sd + months(1) - days(1)
         ed <- min(ed, ymd(end_date))
         date_range <- seq(sd, ed, by = "1 day")
-
-
-        print("1-hour adjusted counts")
-        prep_db_for_adjusted_counts("filtered_counts_1hr", conf, date_range)
-        get_adjusted_counts_duckdb("filtered_counts_1hr", "adjusted_counts_1hr", conf)
         
-        # Loop through dates in adjusted counts and write to parquet
-        duckconn <- get_duckdb_connection("adjusted_counts_1hr.duckdb", read_only=TRUE)
-	dates <- (tbl(duckconn, "adjusted_counts_1hr") %>% distinct(Date) %>% collect())$Date
-
-        lapply(dates, function(date_) {
-            print(date_)
-            adjusted_counts_1hr <- tbl(duckconn, "adjusted_counts_1hr") %>% 
-		filter(Date == date_) %>% collect()
+        
+        print("1-hour adjusted counts")
+        prep_db_for_adjusted_counts_arrow("filtered_counts_1hr", conf, date_range)
+        get_adjusted_counts_arrow("filtered_counts_1hr", "adjusted_counts_1hr", conf)
+        
+        fc_ds <- arrow::open_dataset(sources = "filtered_counts_1hr/")
+        ac_ds <- arrow::open_dataset(sources = "adjusted_counts_1hr/")
+        
+        lapply(date_range, function(date_) {
+            # print(date_)
+            adjusted_counts_1hr <- ac_ds %>% 
+                filter(Date == date_) %>% 
+                select(-c(Date, date)) %>% 
+                collect()
             s3_upload_parquet_date_split(
                 adjusted_counts_1hr,
                 bucket = conf$bucket,
@@ -252,33 +253,21 @@ get_counts_based_measures <- function(month_abbrs) {
                 conf_athena = conf$athena, parallel = FALSE
             )
         })
-
-	dbDisconnect(duckconn, shutdown=TRUE)
         
-        if (file.exists("filtered_counts_1hr.duckdb")) {
-            file.remove("filtered_counts_1hr.duckdb")
-        }
-        if (file.exists("adjusted_counts_1hr.duckdb")) {
-            file.remove("adjusted_counts_1hr.duckdb")
-        }
-        
-
-        lapply(date_range, function(x) {
+        mclapply(date_range, mc.cores = usable_cores, FUN = function(x) {
             write_signal_details(x, conf$athena, signals_list)
         })
 
 
-        lapply(date_range, function(date_) {
+        mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
+            date_str <- format(date_, "%F")
             if (between(date_, start_date, end_date)) {
-                print(glue("filtered_counts_1hr: {date_}"))
-                # filtered_counts_1hr <- tbl(duckconn, "filtered_counts_1hr") %>% 
-		#     filter(Date == date_) %>% collect()
-                filtered_counts_1hr <- s3_read_parquet_parallel(
-                    "filtered_counts_1hr",
-                    as.character(date_),
-                    as.character(date_),
-                    bucket = conf$bucket
-                )
+                print(glue("filtered_counts_1hr: {date_str}"))
+                filtered_counts_1hr <- fc_ds %>%
+                    filter(date == date_str) %>%
+                    select(-date) %>%
+                    collect()
+
                 if (!is.null(filtered_counts_1hr) && nrow(filtered_counts_1hr)) {
                     filtered_counts_1hr <- filtered_counts_1hr %>%
                         mutate(
@@ -313,16 +302,12 @@ get_counts_based_measures <- function(month_abbrs) {
                 }
             }
 
-            print(glue("reading adjusted_counts_1hr: {date_}"))
-            # adjusted_counts_1hr <- tbl(duckconn, "adjusted_counts_1hr") %>% 
-            #     filter(Date == date_) %>% collect()
-            adjusted_counts_1hr <- s3_read_parquet_parallel(
-                "adjusted_counts_1hr",
-                as.character(date_),
-                as.character(date_),
-                bucket = conf$bucket
-            )
-
+            print(glue("reading adjusted_counts_1hr: {date_str}"))
+            adjusted_counts_1hr <- ac_ds %>% 
+                filter(date == date_str) %>% 
+                select(-date) %>% 
+                collect()
+            
             if (!is.null(adjusted_counts_1hr) && nrow(adjusted_counts_1hr)) {
                 adjusted_counts_1hr <- adjusted_counts_1hr %>%
                     mutate(
@@ -355,25 +340,33 @@ get_counts_based_measures <- function(month_abbrs) {
                 )
             }
         })
-        gc()
+        if (dir.exists("filtered_counts_1hr")) {
+            unlink("filtered_counts_1hr", recursive = TRUE)
+        }
+        if (dir.exists("adjusted_counts_1hr")) {
+            unlink("adjusted_counts_1hr", recursive = TRUE)
+        }
+
+
 
         #-----------------------------------------------
         # 15-minute counts and throughput
         # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
 
-        # date_range_twr <- date_range[lubridate::wday(date_range, label = TRUE) %in% c("Tue", "Wed", "Thu")]
+        print("15-minute adjusted counts")
+        prep_db_for_adjusted_counts_arrow("filtered_counts_15min", conf, date_range)
+        get_adjusted_counts_arrow("filtered_counts_15min", "adjusted_counts_15min", conf)
         
-        prep_db_for_adjusted_counts("filtered_counts_15min", conf, date_range) # _twr
-        get_adjusted_counts_duckdb("filtered_counts_15min", "adjusted_counts_15min", conf)
+        fc_ds <- arrow::open_dataset(sources = "filtered_counts_15min/")
+        ac_ds <- arrow::open_dataset(sources = "adjusted_counts_15min/")
         
-        # Loop through dates in adjusted counts and write to parquet
-        duckconn <- get_duckdb_connection("adjusted_counts_15min.duckdb", read_only=TRUE)
-        dates <- (tbl(duckconn, "adjusted_counts_15min") %>% distinct(Date) %>% collect())$Date
-
-        lapply(dates, function(date_) {
-            adjusted_counts_15min <- tbl(duckconn, "adjusted_counts_15min") %>% 
-		filter(Date == date_) %>% collect()
+        lapply(date_range, function(date_) {
+            print(date_)
+            adjusted_counts_15min <- ac_ds %>% 
+                filter(Date == date_) %>% 
+                select(-c(Date, date)) %>% 
+                collect()
             s3_upload_parquet_date_split(
                 adjusted_counts_15min,
                 bucket = conf$bucket,
@@ -381,7 +374,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 table_name = "adjusted_counts_15min",
                 conf_athena = conf$athena, parallel = FALSE
             )
-            
+
             throughput <- get_thruput(adjusted_counts_15min)
             s3_upload_parquet_date_split(
                 throughput,
@@ -401,21 +394,17 @@ get_counts_based_measures <- function(month_abbrs) {
                 table_name = "vehicles_15min",
                 conf_athena = conf$athena
             )
-            
         })
-	
-	dbDisconnect(duckconn, shutdown=TRUE)
         
-        if (file.exists("filtered_counts_15min.duckdb")) {
-            file.remove("filtered_counts_15min.duckdb")
+        if (dir.exists("filtered_counts_15min")) {
+            unlink("filtered_counts_15min", recursive = TRUE)
         }
-        if (file.exists("adjusted_counts_15min.duckdb")) {
-            file.remove("adjusted_counts_15min.duckdb")
+        if (dir.exists("adjusted_counts_15min")) {
+            unlink("adjusted_counts_15min", recursive = TRUE)
         }
 
-
-
-
+        
+        
         #-----------------------------------------------
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")

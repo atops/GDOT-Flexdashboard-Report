@@ -460,6 +460,91 @@ get_adjusted_counts <- function(df) {
 
 
 
+# ==============================================================================
+# Arrow implementation on local drive
+
+prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
+    
+    fc_ds <- arrow::open_dataset(sources = glue("s3://gdot-spm/mark/{table}/")) %>%
+        filter(date %in% format(date_range, "%F"))
+    chunks <- get_signals_chunks_arrow(fc_ds)
+    groups <- tibble(group = names(chunks), SignalID = chunks) %>% 
+        unnest(SignalID) %>%
+        mutate(SignalID = as.integer(SignalID))
+    
+    if (dir.exists(table)) unlink(table, recursive = TRUE)
+    dir.create(table)
+    
+    mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
+        date_str <- format(date_, "%F")
+        cat('.')
+        
+        fc <- s3_read_parquet_parallel(table, date_, date_, bucket = conf$bucket) %>%
+            transmute(
+                SignalID = as.integer(as.character(SignalID)),
+                Date, Timeperiod, Month_Hour,
+                Detector = as.integer(as.character(Detector)),
+                CallPhase = as.integer(as.character(CallPhase)),
+                Good_Day,
+                vol)
+        dc <- get_det_config_vol(date_) %>%
+            transmute(
+                SignalID = as.integer(as.character(SignalID)),
+                Date,
+                Detector = as.integer(as.character(Detector)),
+                CallPhase = as.integer(as.character(CallPhase)),
+                CountPriority) %>%
+            filter(!is.na(CountPriority))
+        
+        fc <- left_join(fc, dc, by = c("SignalID", "Detector", "CallPhase", "Date"))
+        fc <- left_join(fc, groups, by = c("SignalID"))
+        lapply(names(chunks), function(grp) {
+            folder_location <- glue("{table}/group={grp}/date={date_str}")
+            if (!dir.exists(folder_location)) dir.create(folder_location, recursive = TRUE)
+            fc %>% filter(group == grp) %>% select(-group) %>%
+                write_parquet(glue("{folder_location}/{table}.parquet"))
+        })
+    })
+    cat('\n')
+    return (TRUE)
+}
+
+
+
+
+get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = function(x) {x}) { 
+    # callback would be for get_thruput
+    
+    fc_ds <- arrow::open_dataset(fc_table)
+    
+    if (dir.exists(ac_table)) unlink(ac_table, recursive = TRUE)
+    dir.create(ac_table)
+
+    groups <- (fc_ds %>% select(group) %>% collect() %>% distinct())$group
+    
+    mclapply(groups, mc.cores = usable_cores, FUN = function(grp) {
+        ac <- fc_ds %>% 
+            filter(group == grp) %>%
+            collect() %>%
+            get_adjusted_counts() %>%
+            mutate(Date = as_date(Timeperiod)) %>%
+            callback()
+        lapply(unique(ac$Date), function(date_) {
+            date_str <- format(date_, "%F")
+            ac_dir <- glue("{ac_table}/date={date_str}")
+            if (!dir.exists(ac_dir)) dir.create(ac_dir)
+            filename <- tempfile(
+                tmpdir = ac_dir, 
+                pattern = "ac_", 
+                fileext = ".parquet")
+            ac %>% filter(Date == date_) %>% write_parquet(filename)
+        })
+    })
+}
+
+# ==============================================================================
+
+
 
 prep_db_for_adjusted_counts <- function(table, conf, date_range) {
 
@@ -470,6 +555,10 @@ prep_db_for_adjusted_counts <- function(table, conf, date_range) {
     
     
     conn <- get_duckdb_connection(duckdb_fn)
+
+    # conn <- get_aurora_connection()
+    # dbExecute(conn, glue("DELETE FROM {table}"))
+    
     # Read in filtered_counts_15 and write to db
     lapply(date_range, function(date_) {
         date_ <- as.character(date_)
@@ -558,25 +647,29 @@ get_adjusted_counts_duckdb2 <- function(fc_table, ac_table, conf, callback = fun
     fc <- left_join(fc, det_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
     
     if (dir.exists(ac_table)) {
-        dir.remove(ac_table)
+        unlink(ac_table, recursive = TRUE)
     }
     dir.create(ac_table)
 
-    mclapply(get_signals_chunks(fc), mc.cores = usable_cores(), FUN = function(ss) {
+    mclapply(get_signals_chunks(fc), mc.cores = usable_cores, FUN = function(ss) {
         ac <- fc %>% 
             filter(SignalID %in% ss) %>%
             collect() %>%
             get_adjusted_counts() %>%
             mutate(Date = as_date(Timeperiod)) %>%
             callback()
-        lapply(ac$Date, function(date_) {
+        lapply(unique(ac$Date), function(date_) {
             date_str <- format(date_, "%F")
+            ac_dir <- glue("{ac_table}/date={date_str}")
+            if (!dir.exists(ac_dir)) {
+                dir.create(ac_dir)
+            }
             filename <- tempfile(
-		tmpdir = glue("{ac_table}/date={date_str}"), 
-	        pattern = "ac", 
-		fileext = ".parquet")
+                tmpdir = ac_dir, 
+                pattern = "ac_", 
+                fileext = ".parquet")
             ac %>% filter(Date == date_) %>% write_parquet(filename)
-	})
+        })
     })
     dbDisconnect(conn_read)
 }
