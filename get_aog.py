@@ -117,11 +117,11 @@ def get_aog(signalid, date_, det_config, per):
             df_gc = (pd.concat([df_gc, x])
                      .sort_index()
                      .ffill() # fill forward missing Intervals for on the hour rows
-                     .reset_index(level=['IntervalStart'])
-                     .assign(IntervalEnd=lambda x: x.IntervalStart.shift(-1))
-                     .assign(IntervalDuration=lambda x: (x.IntervalEnd - x.IntervalStart).dt.total_seconds())
-                     .assign(Hour=lambda x: x.IntervalStart.dt.floor(per))
-                     .groupby(['Hour', 'SignalID', 'Phase', 'Interval']).sum())
+                     .reset_index(level=['IntervalStart']))
+            df_gc['IntervalEnd'] = df_gc.groupby(level=['SignalID','Phase']).shift(-1)['IntervalStart']
+            df_gc['IntervalDuration'] = (df_gc.IntervalEnd - df_gc.IntervalStart).dt.total_seconds()
+            df_gc['Hour'] = df_gc.IntervalStart.dt.floor(per)
+            df_gc = df_gc.groupby(['Hour', 'SignalID', 'Phase', 'Interval']).sum()
 
             df_gc['Duration'] = df_gc.groupby(level=[0, 1, 2]).transform('sum')
             df_gc['gC'] = df_gc['IntervalDuration']/df_gc['Duration']
@@ -131,7 +131,8 @@ def get_aog(signalid, date_, det_config, per):
                   .rename(columns={'IntervalDuration': 'Green_Duration'}))
 
             aog = pd.concat([aog, gC], axis=1).assign(pr=lambda x: x.AOG/x.gC)
-
+            aog = aog[aog.Green_Arrivals.isna()]
+            
             print('.', end='')
 
             return aog
