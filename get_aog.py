@@ -131,7 +131,7 @@ def get_aog(signalid, date_, det_config, per):
                   .rename(columns={'IntervalDuration': 'Green_Duration'}))
 
             aog = pd.concat([aog, gC], axis=1).assign(pr=lambda x: x.AOG/x.gC)
-            aog = aog[aog.Green_Arrivals.isna()]
+            aog = aog[~aog.Green_Arrivals.isna()]
             
             print('.', end='')
 
