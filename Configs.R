@@ -125,8 +125,8 @@ get_ped_config <- function(date_) {
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 
 # This is a "function factory" 
-# It is meant to be used to create a get <- det <- config function that takes only the date:
-# like: get <- det <- config <- get <- det <- config <- (conf$bucket, "atspm <- det <- config <- good")
+# It is meant to be used to create a get_det_config function that takes only the date:
+# like: get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
 get_det_config_  <- function(bucket, folder) { 
     
     function(date_) {

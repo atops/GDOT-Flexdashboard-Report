@@ -185,10 +185,9 @@ get_daily_aog <- function(aog) {
     aog %>%
         ungroup() %>%
         mutate(DOW = wday(Date),
-               Week = week(Date),
-               CallPhase = factor(CallPhase)) %>%
-        filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        group_by(SignalID, CallPhase, Date, Week, DOW) %>%
+               Week = week(Date)) %>%
+        # filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
+        group_by(SignalID, Date, Week, DOW) %>%
         summarize(aog = weighted.mean(aog, vol, na.rm = TRUE),
                   vol = sum(vol, na.rm = TRUE),
                   .groups = "drop")
@@ -200,15 +199,14 @@ get_daily_pr <- function(aog) {
     aog %>%
         ungroup() %>%
         mutate(DOW = wday(Date),
-               Week = week(Date),
-               CallPhase = factor(CallPhase)) %>%
-        #filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        group_by(SignalID, CallPhase, Date, Week, DOW) %>%
+               Week = week(Date)) %>%
+        # filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
+        group_by(SignalID, Date, Week, DOW) %>%
         summarize(pr = weighted.mean(pr, vol, na.rm = TRUE),
                   vol = sum(vol, na.rm = TRUE),
                   .groups = "drop")
 
-    # SignalID | CallPhase | Date | Week | DOW | pr | vol
+    # SignalID | Date | Week | DOW | pr | vol
 }
 
 
@@ -252,33 +250,27 @@ get_occupancy <- function(de_dt, int_dt) {
     occdf
 }
 
-# SPM Arrivals on Green using Utah method -- modified for use with dbplyr on AWS Athena
+
+
 get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour")) {
+    
 
+    plan(multisession)
     print("Pulling data...")
-
+    
+    cat('.')
+    
+    dc <- get_det_config_sf(date_) %>%
+        filter(SignalID %in% signals_list) %>%
+        rename(Phase = CallPhase)
+    
     cat('.')
 
-    plan(sequential)
-    plan(multisession)
-
-    s3bucket = "gdot-spm"
-    s3prefix = glue("detections/date={date_}")
-
-    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
-    if (nrow(objs_df) == 0) {
-        stop(glue("No objects at {s3bucket}/{s3prefix}"))
-    }
-    objs_df <- objs_df %>%
-        mutate(SignalID = str_extract(Key, "(?<=de_)(\\d+)")) %>%
-        filter(SignalID %in% signals_list)
-    keys <- objs_df$Key
-
-    de <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
-        s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-            filter(Phase %in% c(3, 4, 7, 8))
-    }) %>%
-        bind_rows() %>%
+    ds_de <- arrow::open_dataset(glue("s3://{conf$bucket}/detections/date={date_}"))
+    de <- ds_de %>%
+        filter(SignalID %in% signals_list,
+               Phase %in% c(3, 4, 7, 8)) %>% 
+        collect() %>%
         convert_to_utc() %>%
         arrange(
             SignalID, Phase, CycleStart, PhaseStart) %>%
@@ -289,92 +281,73 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
             CycleStart, PhaseStart,
             DetOn = DetTimeStamp,
             DetOff = DetTimeStamp + seconds(DetDuration),
-            Date = as_date(date_))
+            Date = as_date(date_)) %>%
 
-    cat('.')
-
-
-    s3bucket = "gdot-spm"
-    s3prefix = glue("cycles/date={date_}")
-
-    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf)
-    if (nrow(objs_df) == 0) {
-        stop(glue("No objects at {s3bucket}/{s3prefix}"))
-    }
-    objs_df <- objs_df %>%
-        mutate(SignalID = str_extract(Key, "(?<=cd_)(\\d+)")) %>%
-        filter(SignalID %in% signals_list)
-    keys <- objs_df$Key
-
-    cd <- future_lapply(keys, future.chunk.size = 100, FUN = function(key) {
-        s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-            filter(Phase %in% c(3, 4, 7, 8),
-            EventCode %in% c(1, 9))
-    }) %>%
-        bind_rows() %>%
-        convert_to_utc() %>%
-        mutate(SignalID = factor(SignalID),
-               Phase = factor(Phase),
-               Date = as_date(date_)) %>%
-        arrange(SignalID, Phase, CycleStart, PhaseStart)
-
-    cat('\n')
-    print("Running calcs")
-
-    dc <- get_det_config_sf(date_) %>%
-        filter(SignalID %in% signals_list) %>%
-        rename(Phase = CallPhase)
-
-    de <- de %>%
         left_join(dc, by = c("SignalID", "Phase", "Detector", "Date")) %>%
         filter(!is.na(TimeFromStopBar)) %>%
         mutate(SignalID = factor(SignalID),
                Phase = factor(Phase),
-               Detector = factor(Detector))
+               Detector = factor(Detector)) %>%
+        data.table()
+    
+    cat('.')
 
+    ds_cd <- arrow::open_dataset(glue("s3://{conf$bucket}/cycles/date={date_}"))
+    cd <- ds_cd %>%
+        filter(SignalID %in% signals_list,
+               Phase %in% c(3, 4, 7, 8),
+               EventCode %in% c(1, 9)) %>%
+        collect() %>%
+        convert_to_utc() %>%
+        arrange(SignalID, Phase, CycleStart, PhaseStart) %>%
+        mutate(SignalID = factor(SignalID),
+               Phase = factor(Phase),
+               Date = as_date(date_))
+
+    cat('\n')
+    print("Running calcs")
+    
     grn_interval <- cd %>%
         filter(EventCode == 1) %>%
         mutate(IntervalStart = PhaseStart,
                IntervalEnd = PhaseEnd) %>%
         select(-EventCode)
-
+    
     sor_interval <- cd %>%
         filter(EventCode == 9) %>%
         mutate(IntervalStart = ymd_hms(PhaseStart),
                IntervalEnd = ymd_hms(IntervalStart) + seconds(first_seconds_of_red)) %>%
         select(-EventCode)
 
-    de <- data.table(de)
-
     cat('.')
-
+    
     grn_interval <- setDT(grn_interval)
     sor_interval <- setDT(sor_interval)
-
+    
     setkey(de, SignalID, Phase, DetOn, DetOff)
     setkey(grn_interval, SignalID, Phase, IntervalStart, IntervalEnd)
     setkey(sor_interval, SignalID, Phase, IntervalStart, IntervalEnd)
-
+    
     ## ---
-
+    
     grn_occ <- get_occupancy(de, grn_interval) %>%
         rename(gr_occ = occ)
     cat('.')
     sor_occ <- get_occupancy(de, sor_interval) %>%
         rename(sr_occ = occ)
     cat('.\n')
-
+    
     sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
-
+    
     # if a split failure on any phase
     sf0 <- sf %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%
         summarize(sf = max(sf), .groups = "drop")
-
+    
     sf <- bind_rows(sf, sf0) %>%
         mutate(Phase = factor(Phase))
-
+    
     return_list <- list()
     for (interval in intervals) {
         return_list[[interval]] <- sf %>%
@@ -383,7 +356,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                       sf_freq = sum(sf, na.rm = TRUE)/cycles,
                       sf = sum(sf, na.rm = TRUE),
                       .groups = "drop") %>%
-    
+            
             transmute(SignalID,
                       CallPhase = Phase,
                       Date_Hour = ymd_hms(hour),
@@ -664,7 +637,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
     # would be expected based on the distribution of daily presses
     # (the probability of that many consecutive zero days is < 0.01)
     #  - or -
-    # the number of acutations is more than 100 times the 80% percentile
+    # the number of actuations is more than 100 times the 80% percentile
     # number of daily presses for that pushbutton input
     # (i.e., it's a [high] outlier for that input)
     # - or -
@@ -673,8 +646,9 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
     # (i.e., it is an outlier based on what would be expected
     # for any input in the early morning hours)
 
-    too_high <- get_pau_high(paph, 200, wk_calcs_start_date)
-    gc()
+    # too_high <- get_pau_high(paph, 200, wk_calcs_start_date)
+    too_high <- get_pau_high_(paph, wk_calcs_start_date)
+    
 
     begin_date <- min(papd$Date)
 

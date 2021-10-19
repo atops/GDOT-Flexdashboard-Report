@@ -6,7 +6,8 @@ Created on Mon Sep 24 20:42:51 2018
 """
 
 
-import os #AG update
+import sys
+import os
 import pandas as pd
 import numpy as np
 import requests
@@ -49,7 +50,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
-    uri = 'http://kestrel.ritis.org:8080/{}'
+    uri = 'http://pda-api.ritis.org:8080/{}'
    
     #----------------------------------------------------------  
     payload = {
@@ -112,7 +113,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
         polling.poll(
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
             check_success = is_success,
-            step=10,
+            step=20,
             timeout=3600) #changed to allow for up to 1 hour to be safe
 
         results = requests.get(uri.format('jobs/export/results'), 
@@ -123,10 +124,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
         with io.BytesIO() as f:
             f.write(results.content)
             f.seek(0)
-            #df = pd.read_csv(f, compression='zip')       
             with ZipFile(f, 'r') as zf:
                 df = pd.read_csv(zf.open('Readings.csv'))
-                #tmci = pd.read_csv(zf.open('TMC_Identification.csv'))
 
     else:
         df = pd.DataFrame()
@@ -137,19 +136,18 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
 
 
 def get_rsi(df, df_speed_limits, corridor_grouping): #relative speed index = 90th % speed / speed limit
-    df_rsi = df.groupby(corridor_grouping).speed.quantile(0.90).reset_index()
+    df_rsi = df.compute().groupby(corridor_grouping).speed.quantile(0.90).reset_index()
     df_rsi = pd.merge(df_rsi, df_speed_limits[corridor_grouping + ['Speed Limit']])
-    rsi = df_rsi['speed'] / df_rsi['Speed Limit']
-    df_rsi['rsi'] = rsi
+    df_rsi['rsi'] = df_rsi['speed'] / df_rsi['Speed Limit']
     return df_rsi
 
 
 def clean_up_tt_df_for_bpsi(df):
     df = df[['tmc_code', 'Corridor', 'Subcorridor', 'Minute', 'speed']]
-    df = df[df.speed >= 20]
-    df = df.assign(hr = lambda x: x.Minute.dt.hour) #takes a while - put after filter
-    df = df[df.hr.between(9,10) | df.hr.between(19,20)] #only take rows w/ speed > 20 and between 9-11 AM/7-9 PM
-    return df
+    # df = df[df.speed >= 20]
+    df['hr'] = df.Minute.dt.hour  # takes a while - put after filter
+    df = df[(df.speed >= 20) & (df.hr.between(9,10) | df.hr.between(19,20))]  # only take rows w/ speed > 20 and between 9-11 AM/7-9 PM
+    return df.compute()
 
 
 def get_serious_injury_pct(df, df_reference, corridor_grouping):
@@ -179,15 +177,20 @@ if __name__=='__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    #start/end dates should be first and last days of previous month
-    end_date = date.today().replace(day=1) - timedelta(days=1)
-    start_date = end_date.replace(day=1)
-
-    # start_date = datetime(2021, 8, 1)
-    # end_date = datetime(2021, 8, 30)
+    if len(sys.argv) > 1:
+        start_date = sys.argv[1]
+        end_date = sys.argv[2]
+    else:
+        start_date = conf['start_date']
+        end_date = conf['end_date']
     
-    end_date = end_date.strftime('%Y-%m-%d')
-    start_date = start_date.strftime('%Y-%m-%d')
+    if start_date == 'yesterday':
+        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    if end_date == 'yesterday':
+        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+    # start_date = datetime(2021, 8, 1).strftime('%Y-%m-%d')
+    # end_date = datetime(2021, 8, 30).strftime('%Y-%m-%d')
     
     bucket = conf['bucket']
 
@@ -204,42 +207,34 @@ if __name__=='__main__':
 
     print(start_date)
     print(end_date)
-    number_of_days = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days
+    dates = pd.date_range(start_date, end_date)
+    number_of_days = len(dates)
 
+    for date_ in dates:
 
-    try:
-        start_time = time.perf_counter()
-        tt_df = get_tmc_data(start_date, end_date, tmc_list, cred['RITIS_KEY'], 0)
-        end_time = time.perf_counter()
-        process_time = end_time - start_time
-        print(f'Time to pull {len(tmc_list)} TMCs for {number_of_days} days: {round(process_time/60)} minutes')
+        date_str = date_.strftime('%F')
+        ed_str = (date_ + timedelta(days=1)).strftime('%F')
+        print(date_str, ed_str)
 
-    except Exception as e:
-        print('ERROR retrieving records')
-        print(e)
-        tt_df = pd.DataFrame()
+        try:
+            start_time = time.perf_counter()
+            tt_df = get_tmc_data(date_str, ed_str, tmc_list, cred['RITIS_KEY'], 0)
+            end_time = time.perf_counter()
+            process_time = end_time - start_time
+            print(f'Time to pull {len(tmc_list)} TMCs for 1 day: {round(process_time/60)} minutes')
+
+        except Exception as e:
+            print('ERROR retrieving records')
+            print(e)
+            tt_df = pd.DataFrame()
     
 
-    if len(tt_df) > 0:
-        tt_df['measurement_tstamp'] = pd.to_datetime(tt_df.measurement_tstamp)
-        tt_df['date'] = tt_df.measurement_tstamp.dt.date
-
-        dates = list(set(tt_df.date))
+        if len(tt_df) > 0:
+            tt_df['measurement_tstamp'] = pd.to_datetime(tt_df.measurement_tstamp)
+            tt_df['date'] = tt_df.measurement_tstamp.dt.date
         
-        for d in dates:
-            date_str = d.strftime('%F')
-            tt_df[tt_df.date == d].to_parquet(f'one_min_travel_times_{date_str}.parquet')
-        del tt_df
-        
-        for d in dates:
-            date_str = d.strftime('%F')
-            print(date_str)
-            
-            df = pd.read_parquet(f'one_min_travel_times_{date_str}.parquet')
-            os.remove(f'one_min_travel_times_{date_str}.parquet')
-
             df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], 
-                           df, 
+                           tt_df, 
                            left_on=['tmc'], 
                            right_on=['tmc_code'])
                     .drop(columns=['tmc'])
@@ -254,31 +249,41 @@ if __name__=='__main__':
             table_name = 'travel_times_1min'
             filename = f'travel_times_1min_{date_str}.parquet'
             df.drop(columns=['date'])\
-                .to_parquet(f's3://{bucket}/mark/{table_name}/date={start_date}/{filename}')
+                .to_parquet(f's3://{bucket}/mark/{table_name}/date={date_str}/{filename}')
+        else:
+            print('No records returned.')
 
-        
+
+    fn = conf['corridors_filename_s3']
+    df_speed_limits = pd.read_excel(
+        f's3://{bucket}/{fn}', 
+        sheet_name='Contexts')
+
+    months = [d.strftime('%Y-%m') for d in dates]
+    months = list(set(months))
+    
+    for yyyy_mm in months:
+    
         #############################################
         # relative speed index for month
         #############################################
-        fn = conf['corridors_filename_s3']
-        df_speed_limits = pd.read_excel(
-            f's3://{bucket}/{fn}', 
-            sheet_name='Contexts')
-
-        df = pd.read_parquet(f's3://gdot-spm/mark/travel_times_1min/date={start_date}')
+    
+        df = dd.read_parquet(f's3://gdot-spm/mark/travel_times_1min/date={yyyy_mm}*/*.parquet')
 
         df_rsi_sub = get_rsi(df, df_speed_limits, ['Corridor','Subcorridor'])
         df_rsi_cor = get_rsi(df, df_speed_limits[df_speed_limits['Subcorridor'].isnull()], ['Corridor'])
 
         #do we need to add a column to this that has month? right now is just grouping/RSI
         table_name = 'relative_speed_index'
-        filename = f'rsi_sub_{start_date}.parquet'
+        
+        filename = f'rsi_sub_{yyyy_mm}-01.parquet'
         df_rsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-        filename = f'rsi_cor_{start_date}.parquet'
+        
+        filename = f'rsi_cor_{yyyy_mm}-01.parquet'
         df_rsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
 
-        df_rsi_sub.to_csv(f'rsi_sub_{start_date}.csv', index=False)
-        df_rsi_cor.to_csv(f'rsi_cor_{start_date}.csv', index=False)
+        df_rsi_sub.to_csv(f'rsi_sub_{yyyy_mm}-01.csv', index=False)
+        df_rsi_cor.to_csv(f'rsi_cor_{yyyy_mm}-01.csv', index=False)
         
         #############################################
         # bike-ped safety index for month
@@ -292,13 +297,10 @@ if __name__=='__main__':
         
         #do we need to add a column to this that has month? right now is just grouping/serious injury %
         table_name = 'bike_ped_safety_index'
-        filename = f'bpsi_sub_{start_date}.parquet'
+        filename = f'bpsi_sub_{yyyy_mm}-01.parquet'
         df_bpsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-        filename = f'bpsi_cor_{start_date}.parquet'
+        filename = f'bpsi_cor_{yyyy_mm}-01.parquet'
         df_bpsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
         
-        df_bpsi_sub.to_csv(f'bpsi_sub_{start_date}.csv', index=False)
-        df_bpsi_cor.to_csv(f'bpsi_cor_{start_date}.csv', index=False)
-
-    else:
-        print('No records returned.')
+        df_bpsi_sub.to_csv(f'bpsi_sub_{yyyy_mm}-01.csv', index=False)
+        df_bpsi_cor.to_csv(f'bpsi_cor_{yyyy_mm}-01.csv', index=False)

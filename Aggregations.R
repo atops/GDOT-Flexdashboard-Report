@@ -43,8 +43,9 @@ group_corridor_by_ <- function(df, per_, var_, wt_, corr_grp) {
 
 
 group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
-    
+
     per_ <- as.name(per_)
+
     
     # Get average for each Zone or District, according to corridors$Zone
     df_ <- df %>% 
@@ -82,6 +83,55 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
         distinct() %>%
         mutate(Zone_Group = factor(Zone_Group),
                Corridor = factor(Corridor))
+}
+
+
+
+get_hourly <- function(df, var_, corridors) {
+    full_join(df, corridors, by = "SignalID") %>%
+        filter(!is.na(Corridor)) %>%
+        group_by(SignalID) %>%
+        mutate(lag_ = lag(!!as.name(var_)),
+               delta = ((!!as.name(var_)) - lag_)/lag_) %>%
+        ungroup() %>%
+        select(SignalID, Hour, !!as.name(var_), delta, Zone_Group, Zone, Corridor, Subcorridor)
+}
+
+
+get_period_avg <- function(df, var_, per_, wt_ = "ones") {
+
+    if (wt_ == "ones") {
+        wt_ <- as.name(wt_)
+        df <- mutate(df, !!wt_ := 1)
+    } else {
+        wt_ <- as.name(wt_)
+    }
+    var_ <- as.name(var_)
+    per_ <- as.name(per_)
+    
+    df %>% group_by(SignalID, !!per_) %>%
+        summarize(!!var_ := weighted.mean(!!var_, !!wt_, na.rm = TRUE), # Mean of phases
+                  !!wt_ := sum(!!wt_, na.rm = TRUE),
+                  .groups = "drop_last") %>%
+        mutate(lag_ = lag(!!var_),
+               delta = ((!!var_) - lag_)/lag_) %>%
+        ungroup() %>%
+        select(SignalID, !!per_, !!var_, !!wt_, delta)
+}
+
+
+get_period_sum <- function(df, var_, per_) {
+    
+    var_ <- as.name(var_)
+    per_ <- as.name(per_)
+    
+    df %>% group_by(SignalID, !!per_) %>%
+        summarize(!!var_ := sum(!!var_, na.rm = TRUE), # Sum of phases
+                  .groups = "drop_last") %>%
+        mutate(lag_ = lag(!!var_),
+               delta = ((!!var_) - lag_)/lag_) %>%
+        ungroup() %>%
+        select(SignalID, !!per_, !!var_, delta)
 }
 
 
@@ -133,20 +183,24 @@ get_daily_avg_cctv <- function(df, var_ = "uptime", wt_ = "num", peak_only = FAL
 }
 
 
-get_daily_sum <- function(df, var_, per_) {
+get_daily_sum <- function(df, var_) {
     
     var_ <- as.name(var_)
+    # leave this in for possible generalization in the future
+    # to different time periods besides daily
+    per_ <- "Date"
     per_ <- as.name(per_)
     
     
     df %>%
-        complete(nesting(SignalID, CallPhase), !!var_ := full_seq(!!var_, 1)) %>%
         group_by(SignalID, !!per_) %>% 
         summarize(!!var_ := sum(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
+        complete(SignalID, !!per_ := full_seq(!!per_, 1)) %>%
+        mutate(!!var_ := ifelse(is.na(!!var_), 0, !!var_)) %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
 
@@ -244,6 +298,46 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
     
     # SignalID | Date | vpd
 }
+
+
+
+
+get_cor_weekly_avg_by_period <- function(df, corridors, var_, per_, wt_ = "ones") {
+    
+    if (wt_ == "ones") {
+        wt_ <- as.name(wt_)
+        df <- mutate(df, !!wt_ := 1)
+    } else {
+        wt_ <- as.name(wt_)
+    }
+    var_ <- as.name(var_)
+    per_ <- as.name(per_)
+    
+    cor_df_out <- weighted_mean_by_corridor_(df, "Date", corridors, var_, wt_) %>%
+        filter(!is.nan(!!var_))
+    
+    group_corridors_(cor_df_out, "Date", var_, wt_) %>%
+        mutate(Week = week(Date))
+}
+
+get_cor_monthly_avg_by_period <- function(df, corridors, var_, per_, wt_="ones") {
+    
+    if (wt_ == "ones") {
+        wt_ <- as.name(wt_)
+        df <- mutate(df, !!wt_ := 1)
+    } else {
+        wt_ <- as.name(wt_)
+    }
+    var_ <- as.name(var_)
+    #per_ <- as.name(per_)
+    
+    cor_df_out <- weighted_mean_by_corridor_(df, per_, corridors, var_, wt_) %>%
+        filter(!is.nan(!!var_))
+    
+    group_corridors_(cor_df_out, per_, var_, wt_)
+}
+
+
 
 
 get_cor_weekly_avg_by_day <- function(df, corridors, var_, wt_ = "ones") {
@@ -396,25 +490,22 @@ get_cor_weekly_avg_by_hr <- function(df, corridors, var_, wt_="ones") {
 }
 
 
-get_sum_by_hr <- function(df, var_) {
+get_sum_by_period <- function(df, var_, interval) {
     
     var_ <- as.name(var_)
     
     df %>%  
         mutate(DOW = wday(Timeperiod),
                Week = week(date(Timeperiod)),
-               Hour = floor_date(Timeperiod, unit = '1 hour')) %>%
-        group_by(SignalID, CallPhase, Week, DOW, Hour) %>%
+               Timeperiod = floor_date(Timeperiod, unit = interval)) %>%
+        group_by(SignalID, CallPhase, Week, DOW, Timeperiod) %>%
         summarize(!!var_ := sum(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>%
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
         dplyr::select(-lag_)
-    
-    # SignalID | CallPhase | Week | DOW | Hour | var_ | delta
-    
-} ## unused. untested
+}
 
 
 get_avg_by_hr <- function(df, var_, wt_ = NULL) {
@@ -815,14 +906,20 @@ get_vph <- function(counts, interval = "1 hour", mainline_only = TRUE) {
         counts <- counts %>%
             filter(CallPhase %in% c(2,6)) # sum over Phases 2,6
     }
-    df <- counts %>% 
-        mutate(Date_Hour = floor_date(Timeperiod, interval))
-    df <- get_sum_by_hr(df, "vol") %>% 
-        group_by(SignalID, Week, DOW, Hour) %>% 
+    # Determine the Timeperiod column by its data type (POSIXct)
+    # for force it to be named Timeperiod
+    per_col <- names(Filter(function(x) "POSIXct" %in% x, sapply(counts, class)))[1]
+    if (per_col != "Timeperiod") {
+        df <- rename(counts, Timeperiod = !!as.name(per_col))
+    } else {
+        df <- counts
+    }
+    df <- get_sum_by_period(df, "vol", interval) %>% 
+        group_by(SignalID, Week, DOW, Timeperiod) %>% 
         summarize(vph = sum(vol, na.rm = TRUE),
                   .groups = "drop")
-    if (interval != "1 hour") {
-        df <- rename(df, Timeperiod = Hour)
+    if (interval == "1 hour") {
+        df <- rename(df, Hour = Timeperiod)
     }
     df
 }
@@ -953,6 +1050,32 @@ get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
 }
 
 
+get_cor_weekly_ti <- function(ti, cor_weekly_vph, corridors) {
+    
+    tuesdays <- get_Tuesdays(mutate(cor_weekly_vph, Date = as_date(Hour)))
+    cor_weekly_vph <- cor_weekly_vph %>% mutate(Week = week(as_date(Hour))) %>% left_join(tuesdays, by = "Week")
+    
+    # Get share of volume (as pct) by hour over the day, for whole dataset
+    day_dist <- cor_weekly_vph %>% 
+        group_by(Zone_Group, Zone, Corridor, Date) %>% 
+        mutate(pct = vph/sum(vph, na.rm = TRUE)) %>% 
+        group_by(Zone_Group, Zone, Corridor, hr = hour(Hour)) %>% 
+        summarize(pct = mean(pct, na.rm = TRUE),
+                  .groups = "drop_last")
+    
+    # this is problematic because we aggregate the travel time metrics by month
+    # in python when we pull the data
+    
+    left_join(ti, 
+              distinct(corridors, Zone_Group, Zone, Corridor), 
+              by = c("Zone_Group", "Zone", "Corridor")) %>%
+        mutate(hr = hour(Hour)) %>%
+        left_join(day_dist) %>%
+        ungroup() %>%
+        tidyr::replace_na(list(pct = 1))
+}
+
+
 get_cor_monthly_ti_by_hr <- function(ti, cor_monthly_vph, corridors) {
     
     df <- get_cor_monthly_ti(ti, cor_monthly_vph, corridors)
@@ -992,6 +1115,28 @@ get_cor_monthly_ti_by_day <- function(ti, cor_monthly_vph, corridors) {
     df %>% 
         mutate(Month = as_date(Hour)) %>%
         get_cor_monthly_avg_by_day(corridors, tindx, "pct")
+}
+
+
+get_cor_weekly_ti_by_day <- function(ti, cor_weekly_vph, corridors) {
+    
+    df <- get_cor_weekly_ti(ti, cor_weekly_vph, corridors)
+    
+    if ("tti" %in% colnames(ti)) {
+        tindx = "tti"
+    } else if ("pti" %in% colnames(ti)) {
+        tindx = "pti"
+    } else if ("bi" %in% colnames(ti)) {
+        tindx = "bi"
+    } else if ("speed_mph" %in% colnames(ti)) {
+        tindx = "speed_mph"
+    } else {
+        tindx = "oops"
+    }
+    
+    df %>% 
+        mutate(Date = as_date(Hour)) %>%
+        get_cor_weekly_avg_by_day(corridors, tindx, "pct")
 }
 
 
@@ -1092,7 +1237,8 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
         summarize(up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
-                  .groups = "drop")
+                  .groups = "drop") %>%
+	filter(!is.na(Corridor))
 }
 
 
@@ -1104,7 +1250,8 @@ get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
         summarize(up = sum(up, na.rm = TRUE),
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
-                  .groups = "drop")
+                  .groups = "drop") %>%
+	filter(!is.na(Corridor))
 }
 
 

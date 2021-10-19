@@ -148,11 +148,7 @@ tryCatch(
         rm(counts_ped_daily)
         rm(counts_ped_hourly)
 
-        qsave(papd, "papd.qs")
-        qsave(paph, "paph.qs")
-
         pau <- get_pau_gamma(papd, paph, corridors, wk_calcs_start_date, pau_start_date)
-        qsave(pau, "pau.qs")
 
         # Remove and replace papd for bad days, similar to filtered_counts.
         # Replace papd with papd averaged over all days in the date range
@@ -166,6 +162,8 @@ tryCatch(
             ungroup() %>%
             select(SignalID, Detector, CallPhase, Date, DOW, Week, papd, uptime, all)
 
+        qsave(papd, "papd.qs")
+        
         # We have do to this here rather than in Monthly_Report_Calcs
         # because we need a longer time series to calculate ped detector uptime
         # based on the exponential distribution method (as least 6 months)
@@ -715,9 +713,9 @@ tryCatch(
         weekly_vpd <- get_weekly_vpd(vpd)
 
         # Group into corridors --------------------------------------------------------
-        cor_weekly_vpd %<-% get_cor_weekly_vpd(weekly_vpd, corridors)
+        cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
         # Subcorridors
-        sub_weekly_vpd %<-%
+        sub_weekly_vpd <-
             (get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
                 filter(!is.na(Corridor)))
 
@@ -725,9 +723,9 @@ tryCatch(
         monthly_vpd <- get_monthly_vpd(vpd)
 
         # Group into corridors
-        cor_monthly_vpd %<-% get_cor_monthly_vpd(monthly_vpd, corridors)
+        cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
         # Subcorridors
-        sub_monthly_vpd %<-%
+        sub_monthly_vpd <-
             (get_cor_monthly_vpd(monthly_vpd, subcorridors) %>%
                 filter(!is.na(Corridor)))
 
@@ -862,8 +860,8 @@ tryCatch(
                 Date = date(Date)
             )
 
-        weekly_throughput %<-% get_weekly_thruput(throughput)
-        monthly_throughput %<-% get_monthly_thruput(throughput)
+        weekly_throughput <- get_weekly_thruput(throughput)
+        monthly_throughput <- get_monthly_thruput(throughput)
 
         # Weekly throughput - Group into corridors ---------------------------------
         cor_weekly_throughput <- get_cor_weekly_thruput(weekly_throughput, corridors)
@@ -2660,26 +2658,34 @@ conn <- get_aurora_connection()
 #    report_start_date = report_start_date)
 
 append_to_database(
-    conn, cor, sub, sig, 
-    calcs_start_date, 
-    report_start_date = report_start_date,
-    report_end_date = NULL)
+    conn, cor, "cor",
+    calcs_start_date, report_start_date, report_end_date = NULL)
+append_to_database(
+    conn, sub, "sub",
+    calcs_start_date, report_start_date, report_end_date = NULL)
+append_to_database(
+    conn, sig, "sig",
+    calcs_start_date, report_start_date, report_end_date = NULL)
 
 
 # Update DuckDB Once per Month for Staging/Main
 duckconn <- get_duckdb_connection("sigops.duckdb")
-recreate_database(duckconn)
+recreate_database(duckconn, cor, "cor")
+recreate_database(duckconn, sub, "sub")
+recreate_database(duckconn, sig, "sig")
 append_to_database(
-    duckconn, cor, sub, sig, 
-    calcs_start_date = report_start_date, 
-    report_start_date = report_start_date)
-# append_to_database(
-#     duckconn, cor, sub, sig, 
-#     calcs_start_date = calcs_start_date, 
-#     report_start_date = report_start_date,
-#     report_end_date = conf$production_report_end_date)
+    duckconn, cor, "cor",
+    report_start_date, report_start_date, report_end_date = NULL)
+append_to_database(
+    duckconn, sub, "sub",
+    report_start_date, report_start_date, report_end_date = NULL)
+append_to_database(
+    duckconn, sig, "sig",
+    report_start_date, report_start_date, report_end_date = NULL)
+# Optional for production API
+#                                         report_end_date = conf$production_report_end_date)
 
-# Need to disconnect and reconnect to commit write-ahead long (wal)
+# Need to disconnect and reconnect to commit write-ahead log (wal)
 dbDisconnect(duckconn)
 duckconn <- get_duckdb_connection("sigops.duckdb")
 dbDisconnect(duckconn)

@@ -578,7 +578,7 @@ get_sf_date_range <- function(start_date, end_date) {
 
     lapply(date_range, function(date_) {
         print(date_)
-
+        
         sf <- get_sf_utah(date_, conf, signals_list, intervals = c("hour", "15min"))
         
         s3_upload_parquet_date_split(
@@ -595,9 +595,7 @@ get_sf_date_range <- function(start_date, end_date) {
             table_name = "split_failures_15min",
             conf_athena = conf$athena
         )
-        NULL
     })
-    NULL
 }
 
 if (conf$run$split_failures == TRUE) {
