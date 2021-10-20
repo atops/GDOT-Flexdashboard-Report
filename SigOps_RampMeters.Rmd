@@ -231,8 +231,6 @@ adjustments <- list(
         list("9889: I-20 WB @ B61- Glenwood Ave. WB", 62),
         list("9890: I-20 WB @ B62- Flat Shoals Rd. WB", 63),
         list("9891: I-20 WB @ B63- Gresham Rd. WB", 64),
-        # list("9883: I-20 WB @ B56B- Windsor St. WB", 57),
-        # list("9884: I-20 WB @ B57- Pryor St. WB", 58),
         list("9840: I-285 CW @ G60N- Riverdale Rd. WB", 59),
         list("9808: I-75 SB @ D245C- Pulliam St. SB", 243),
         list("9809: I-75 SB @ D245B- RDA Blvd. SB", 244),
@@ -288,14 +286,6 @@ signals_data <- reactive({
 })
 
 
-# rmc_det_config <- reactive({
-#     get_det_config(input$date) %>% 
-#         mutate(SignalID = factor(SignalID)) %>%
-#         filter(SignalID %in% corridors$SignalID) %>% 
-#         select(SignalID, Detector, ApproachDesc, LaneNumber)
-# })
-
-
 events <- reactive({
     future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
         key <- glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")
@@ -320,7 +310,6 @@ events <- reactive({
         convert_to_utc()
 })
 
-observe({write_parquet(events(), "events.parquet")})
 
 flush_events <- reactive({
     events() %>% 
@@ -366,7 +355,6 @@ traffic <- reactive({
         right_join(signals_data(), by = c("SignalID"))
 })
 
-# observe({write_parquet(traffic(), "traffic.parquet")})
 
 speed <- reactive({
     traffic() %>%
@@ -609,8 +597,6 @@ df_scatter2 <- reactive({
     arrange(Timestamp) %>%
     mutate(`Metering Rate` = ifelse(`Metering Rate`==0, NA, `Metering Rate`))
 })
-
-# observe({write_parquet(df_scatter2(), "df_scatter2.parquet")})
 ```
 
 
