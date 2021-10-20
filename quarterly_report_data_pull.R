@@ -26,7 +26,11 @@ source("classes.R")
 
 cor <- get_cor()
 
-aws.s3::save_object(bucket = "gdot-spm", object = "code/sigops.duckdb", file = "sigops.duckdb")
+aws.s3::save_object(
+    bucket = "gdot-spm", 
+    object = "code/sigops2.duckdb", 
+    file = "sigops.duckdb", 
+    show_progress = TRUE)
 conn <- get_duckdb_connection("sigops.duckdb")
 
 qdata <- lapply(
