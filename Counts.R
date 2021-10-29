@@ -496,7 +496,8 @@ prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
                 CountPriority) %>%
             filter(!is.na(CountPriority))
         
-        fc <- left_join(fc, dc, by = c("SignalID", "Detector", "CallPhase", "Date"))
+        fc <- left_join(fc, dc, by = c("SignalID", "Detector", "CallPhase", "Date")) %>% 
+            filter(!is.na(CountPriority))
         fc <- left_join(fc, groups, by = c("SignalID"))
         lapply(names(chunks), function(grp) {
             folder_location <- glue("{table}/group={grp}/date={date_str}")
