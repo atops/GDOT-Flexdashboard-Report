@@ -71,7 +71,8 @@ metering_rates_overlay_plot <- function(
         mapping = aes(x = Timestamp, y = Milepost + 0.2)) +
     scale_y_continuous(
         breaks = signals_data_$Milepost, 
-        labels = signals_data_$Name) +
+        labels = signals_data_$Name,
+        limits = range(signals_data_$Milepost)) +
     ggtitle(glue("{plot_title} on {input_date}: {input_corridor}"))
 }
 
@@ -194,6 +195,10 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
 
 
 ```{r eventcodes etl, eval = FALSE}
+
+# Run this code when the ramp meter list changes. 
+# Run Monthly_Report_ec2.R to create Corridors_Latest.qs first.
+
 read_excel(
     "c:/Users/alan.toppen/OneDrive - KH/015664402 GDOT SPM/MaxViewASCEventCodes_20190430.xlsx"
 ) %>%
@@ -217,8 +222,15 @@ adjustments <- list(
         list("9871: I-20 EB @ A55B- Lee St. EB", 56),
         list("9873: I-20 EB @ A57B- Capitol Ave. EB", 58),
         list("9874: I-20 EB @ A58- Hill St. EB", 59),
-        list("9883: I-20 WB @ B56B- Windsor St. WB", 57),
-        list("9884: I-20 WB @ B57- Pryor St. WB", 58),
+        list("9880: I-20 WB @ B54- MLK Jr. Dr. WB", 53),
+        list("9881: I-20 WB @ B55- Lowery Blvd. WB", 54),
+        list("9882: I-20 WB @ B56A- McDaniel St. WB", 55),
+        list("9885: I-20 WB @ B58- Boulevard WB", 58),
+        list("9887: I-20 WB @ B59B- Moreland Ave N WB Loop", 60),
+        list("9888: I-20 WB @ B60- Maynard Terrace WB", 61),
+        list("9889: I-20 WB @ B61- Glenwood Ave. WB", 62),
+        list("9890: I-20 WB @ B62- Flat Shoals Rd. WB", 63),
+        list("9891: I-20 WB @ B63- Gresham Rd. WB", 64),
         list("9840: I-285 CW @ G60N- Riverdale Rd. WB", 59),
         list("9808: I-75 SB @ D245C- Pulliam St. SB", 243),
         list("9809: I-75 SB @ D245B- RDA Blvd. SB", 244),
@@ -274,24 +286,17 @@ signals_data <- reactive({
 })
 
 
-# rmc_det_config <- reactive({
-#     get_det_config(input$date) %>% 
-#         mutate(SignalID = factor(SignalID)) %>%
-#         filter(SignalID %in% corridors$SignalID) %>% 
-#         select(SignalID, Detector, ApproachDesc, LaneNumber)
-# })
-
-
 events <- reactive({
     future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
-        try({
+        key <- glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")
+        if (length(aws.s3::get_bucket(bucket = conf$bucket, prefix = key)) > 0) {
             aws.s3::s3read_using(
                 arrow::read_parquet, 
                 bucket = conf$bucket,
-                object = glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")) %>% 
+                object = key) %>% 
             select(SignalID, Timestamp, EventCode, EventParam) %>% 
             filter(EventCode >= 1000)
-        })
+        }
     }) %>% 
         bind_rows() %>%
         arrange(SignalID, Timestamp) %>%
@@ -305,7 +310,6 @@ events <- reactive({
         convert_to_utc()
 })
 
-observe({write_parquet(events(), "events.parquet")})
 
 flush_events <- reactive({
     events() %>% 
@@ -351,7 +355,6 @@ traffic <- reactive({
         right_join(signals_data(), by = c("SignalID"))
 })
 
-observe({write_parquet(traffic(), "traffic.parquet")})
 
 speed <- reactive({
     traffic() %>%
@@ -438,7 +441,8 @@ renderPlotly({
             alpha = 0.2) +
         scale_y_continuous(
             breaks = signals_data()$Milepost, 
-            labels = signals_data()$Name) +
+            labels = signals_data()$Name,
+            limits = range(signals_data()$Milepost)) +
         ggtitle(glue("Flush events on {input$date}: {input$corridor}"))
 
     ggplotly(p)
@@ -468,7 +472,8 @@ renderPlotly({
             mapping = aes(x = Timestamp, y = Milepost)) +
         scale_y_continuous(
             breaks = signals_data()$Milepost, 
-            labels = signals_data()$Name) +
+            labels = signals_data()$Name,
+            limits = range(signals_data()$Milepost)) +
         ggtitle(glue("Metering Rates and Flush Events on {input$date}: {input$corridor}"))
     
     ggplotly(p)
@@ -592,9 +597,6 @@ df_scatter2 <- reactive({
     arrange(Timestamp) %>%
     mutate(`Metering Rate` = ifelse(`Metering Rate`==0, NA, `Metering Rate`))
 })
-
-observe({write_parquet(df_scatter2(), "df_scatter2.parquet")})
-
 ```
 
 
