@@ -259,7 +259,6 @@ tryCatch(
         rm(sub_daily_pa_uptime)
         rm(sub_weekly_pa_uptime)
         rm(sub_monthly_pa_uptime)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -497,7 +496,6 @@ tryCatch(
         rm(cor_monthly_papd)
         rm(sub_weekly_papd)
         rm(sub_monthly_papd)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -845,8 +843,6 @@ print(glue("{Sys.time()} Daily Throughput [10 of 29]"))
 
 tryCatch(
     {
-        # throughput <- f("tp_", month_abbrs)
-
         throughput <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "throughput",
@@ -945,7 +941,6 @@ tryCatch(
         rm(cor_monthly_aog_by_day)
         rm(sub_weekly_aog_by_day)
         rm(sub_monthly_aog_by_day)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -975,7 +970,6 @@ tryCatch(
         addtoRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds", "aog", report_start_date, calcs_start_date)
         addtoRDS(sub_monthly_aog_by_hr, "sub_monthly_aog_by_hr.rds", "aog", report_start_date, calcs_start_date)
 
-        # rm(aog)
         rm(aog_by_hr)
         # rm(cor_monthly_aog_peak)
         rm(monthly_aog_by_hr)
@@ -1021,7 +1015,6 @@ tryCatch(
         rm(cor_monthly_pr_by_day)
         rm(sub_weekly_pr_by_day)
         rm(sub_monthly_pr_by_day)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1158,8 +1151,6 @@ tryCatch(
         rm(cor_monthly_sfo_by_day)
         rm(sub_weekly_sfo_by_day)
         rm(sub_monthly_sfo_by_day)
-
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -2519,22 +2510,18 @@ tryCatch(
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
             "tsou" = readRDS("tasks_by_source.rds")$sig_monthly,
             "tasks" = readRDS("tasks_all.rds")$sig_monthly,
-            
             "reported" = readRDS("tasks_all.rds")$sig_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Reported, delta = delta.rep),
             "resolved" = readRDS("tasks_all.rds")$sig_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Resolved, delta = delta.res),
             "outstanding" = readRDS("tasks_all.rds")$sig_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Outstanding, delta = delta.out),
-            
             "over45" = readRDS("sig_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("sig_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
             "flash" = sigify(readRDS("monthly_flash.rds"), cor$mo$flash, corridors) %>%
                 select(-c(Name, ones)),
-            
-            
             "cri" = sigify(readRDS("monthly_crash_rate_index.rds"), cor$mo$cri, corridors) %>%
                 select(Zone_Group, Corridor, Month, cri, delta),
             "kabco" = sigify(readRDS("monthly_kabco_index.rds"), cor$mo$kabco, corridors) %>%
