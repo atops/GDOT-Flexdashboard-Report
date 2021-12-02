@@ -359,7 +359,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
             
             transmute(SignalID,
                       CallPhase = Phase,
-                      Date_Hour = ymd_hms(hour),
+                      Date_Hour = as_datetime(hour),
                       Date = date(Date_Hour),
                       DOW = wday(Date),
                       Week = week(Date),
@@ -390,7 +390,7 @@ get_peak_sf_utah <- function(msfh) {
 get_sf <- function(df) {
     df %>% mutate(SignalID = factor(SignalID),
                   CallPhase = factor(Phase),
-                  Date_Hour = lubridate::ymd_hms(Hour),
+                  Date_Hour = as_datetime(Hour),
                   Date = date(Date_Hour),
                   DOW = wday(Date),
                   Week = week(Date)) %>%
@@ -415,7 +415,7 @@ get_qs <- function(detection_events, intervals = c("hour")) {
         collect() %>%
         transmute(Date = date(date),
                   SignalID = factor(signalid),
-                  CycleStart = ymd_hms(cyclestart),
+                  CycleStart = as_datetime(cyclestart),
                   CallPhase = factor(callphase),
                   Detector = factor(detector),
                   occ)
@@ -455,7 +455,7 @@ get_qs <- function(detection_events, intervals = c("hour")) {
                 SignalID = factor(SignalID),
                 CallPhase = factor(CallPhase),
                 Date = date(Date),
-                Date_Hour = ymd_hms(Hour),
+                Date_Hour = as_datetime(Hour),
                 DOW = wday(Date),
                 Week = week(Date),
                 qs = as.integer(qs),
