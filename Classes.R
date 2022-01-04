@@ -940,7 +940,7 @@ individual_cctvs_plot <- function(zone_group, month) {
             type = "heatmap",
             ygap = 1,
             showscale = FALSE,
-            customdata = apply(apply(apply(m, 2, status), 2, bind_description), 1, as.list),
+            customdata = apply(apply(as.matrix(apply(m, 2, status)), 2, bind_description), 1, as.list),
             hovertemplate="<br>%{customdata}<br>%{x}<extra></extra>",
             hoverlabel = list(font = list(family = "Source Sans Pro"))) %>% 
         layout(yaxis = list(type = "category",
