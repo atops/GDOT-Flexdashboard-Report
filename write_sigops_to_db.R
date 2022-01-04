@@ -65,7 +65,7 @@ write_sigops_to_db <- function(
                     print(n)
                     df_$group <- rep(1:n, length.out = nrow(df_), each = ceiling(nrow(df_)/n))
                     for (grp in 1:n) {
-                        dbWriteTable(
+			DBI::dbWriteTable(
                             conn, 
                             table_name, 
                             filter(df_, group == grp ) %>% select(-group), 
@@ -115,7 +115,7 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
             if (!is.null(report_end_date) & length(datefield) == 1) {
                 df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
             }
-            dbWriteTable(
+	    DBI::dbWriteTable(
                 conn,
                 table_name,
                 df,

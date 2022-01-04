@@ -182,8 +182,6 @@ tryCatch(
         pau <- pau %>%
             mutate(CallPhase = Detector)
         
-        qsave(papd, "papd.qs")
-
         daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
         weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
         monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)

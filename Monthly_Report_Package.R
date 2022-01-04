@@ -162,8 +162,6 @@ tryCatch(
             ungroup() %>%
             select(SignalID, Detector, CallPhase, Date, DOW, Week, papd, uptime, all)
 
-        qsave(papd, "papd.qs")
-        
         # We have do to this here rather than in Monthly_Report_Calcs
         # because we need a longer time series to calculate ped detector uptime
         # based on the exponential distribution method (as least 6 months)
@@ -2637,7 +2635,8 @@ print(glue("{Sys.time()} Write to Database [29 of 29]"))
 source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
-conn <- get_aurora_connection()
+#conn <- get_aurora_connection()
+conn <- keep_trying(get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
 # append_to_database(
 #    conn, cor, sub, sig, 
@@ -2656,6 +2655,7 @@ append_to_database(
 
 
 # Update DuckDB Once per Month for Staging/Main
+if (file.exists("sigops.duckdb")) file.remove("sigops.duckdb")
 duckconn <- get_duckdb_connection("sigops.duckdb")
 recreate_database(duckconn, cor, "cor")
 recreate_database(duckconn, sub, "sub")
@@ -2672,9 +2672,8 @@ append_to_database(
 # Optional for production API
 #                                         report_end_date = conf$production_report_end_date)
 
-# Need to disconnect and reconnect to commit write-ahead log (wal)
-dbDisconnect(duckconn)
-duckconn <- get_duckdb_connection("sigops.duckdb")
+# Need to execute checkpoint to commit write-ahead log (wal)
+DBI::dbExecute(duckconn, "CHECKPOINT")
 dbDisconnect(duckconn)
 
 aws.s3::put_object(

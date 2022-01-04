@@ -158,6 +158,7 @@ if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
     system("~/miniconda3/bin/python get_travel_times.py travel_times_1hr.yaml", wait = FALSE)
     system("~/miniconda3/bin/python get_travel_times.py travel_times_15min.yaml", wait = FALSE)
+    system("~/miniconda3/bin/python get_travel_times_1min.py", wait = FALSE)
 }
 
 # # COUNTS ####################################################################
@@ -473,7 +474,7 @@ print("--- Finished counts-based measures ---")
 
 
 
-# -- Run etl_dashboard (Python): cycledata, detectionevents to S4/Athena --
+# -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
 print(glue("{Sys.time()} etl [7 of 11]"))
 
 if (conf$run$etl == TRUE) {
