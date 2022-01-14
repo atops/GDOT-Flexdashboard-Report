@@ -3,9 +3,23 @@ library(aws.s3)
 library(qs)
 
 
+load_bulk_data <- function(conn, table_name, df_) {
+    filename <- tempfile(pattern = table_name, fileext = ".csv")
+    data.table::fwrite(df_, filename)
+    
+    if (class(conn) == "MySQLConnection" | class(conn)[[1]] == "MariaDBConnection") { # Aurora
+        dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
+    } else if (class(conn) == "duckdb_connection") {
+        dbExecute(conn, glue("COPY {table_name} FROM '{filename}'"))
+    }
+    
+    file.remove(filename)
+}
+
+
 write_sigops_to_db <- function(
     conn, df, dfname, recreate = FALSE, 
-    	calcs_start_date = NULL, 
+        calcs_start_date = NULL, 
         report_start_date = NULL,
         report_end_date = NULL) {
     
@@ -28,10 +42,10 @@ write_sigops_to_db <- function(
                 start_date <- calcs_start_date
             }
             
-            print(glue("Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
             
             tryCatch({
                 if (recreate) {
+                    print(glue("Writing {table_name} | 3 | recreate = {recreate}"))
                     # Overwrite to create initial data types
                     DBI::dbWriteTable(
                         conn, 
@@ -60,27 +74,9 @@ write_sigops_to_db <- function(
                     if (!is.null(report_end_date) & length(datefield) == 1) {
                         df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
                     }
-    
-                    n <- nrow(df_) / 1e6
-                    print(n)
-                    df_$group <- rep(1:n, length.out = nrow(df_), each = ceiling(nrow(df_)/n))
-                    for (grp in 1:n) {
-			DBI::dbWriteTable(
-                            conn, 
-                            table_name, 
-                            filter(df_, group == grp ) %>% select(-group), 
-                            overwrite = FALSE,
-                            append = TRUE,
-                            row.names = FALSE)
-                    }
-
-                    # dbWriteTable(
-                    #     conn, 
-                    #     table_name, 
-                    #     df_,
-                    #     overwrite = FALSE,
-                    #     append = TRUE,
-                    #     row.names = FALSE)
+                    
+                    print(glue("Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
+                    load_bulk_data(conn, table_name, df_)
                 }
                 
             }, error = function(e) {
@@ -96,10 +92,10 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
     table_name <- dfname
     datefield <- intersect(names(df), c("Month", "Date", "Hour", "Timeperiod"))
     start_date <- calcs_start_date
-    print(glue("Writing {table_name} | {scales::comma_format()(nrow(df))} | recreate = {recreate}"))
     
     tryCatch({
         if (recreate) {
+            print(glue("Writing {table_name} | 3 | recreate = {recreate}"))
             DBI::dbWriteTable(conn,
                          table_name,
                          head(df, 3),
@@ -107,7 +103,7 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
                          row.names = FALSE)
         } else {
             # Clear Prior to Append
-            dbSendQuery(conn, glue("DELETE from {table_name}"))
+            dbSendQuery(conn, glue("TRUNCATE TABLE {table_name}"))
             # Filter Dates and Append
             if (!is.null(start_date) & length(datefield) == 1) {
                 df <- filter(df, !!as.name(datefield) >= start_date)
@@ -115,7 +111,11 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
             if (!is.null(report_end_date) & length(datefield) == 1) {
                 df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
             }
-	    DBI::dbWriteTable(
+           
+            print(glue("Writing {table_name} | {scales::comma_format()(nrow(df))} | recreate = {recreate}"))
+            # load_bulk_data(conn, table_name, df)
+       
+            DBI::dbWriteTable(
                 conn,
                 table_name,
                 df,
@@ -150,7 +150,7 @@ set_index_duckdb <- function(conn, table_name) {
             
         })
     } else {
-	print(glue("Won't create index: table {table_name} does not exist."))
+        print(glue("Won't create index: table {table_name} does not exist."))
     }
 }
 
