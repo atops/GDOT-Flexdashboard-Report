@@ -25,13 +25,8 @@ source("Classes.R")
 
 get_quarterly_data <- function() {
 
-    aws.s3::save_object(
-        bucket = "gdot-spm", 
-        object = "code/sigops.duckdb", 
-        file = "sigops.duckdb", 
-        show_progress = TRUE)
-    conn <- get_duckdb_connection("sigops.duckdb")
-
+    conn <- get_aurora_connection()
+    
     lapply(
         list(vpd,
              am_peak_vph,
