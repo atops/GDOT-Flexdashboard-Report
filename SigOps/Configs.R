@@ -99,8 +99,8 @@ get_ped_config <- function(date_) {
     s3bucket <- "gdot-devices"
     
     if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
-        col_spec <- cols(
-            .default = col_character(),
+        col_spec <- cols_only(
+            # .default = col_character(),
             SignalID = col_character(),
             IP = col_character(),
             PrimaryName = col_character(),
@@ -108,7 +108,7 @@ get_ped_config <- function(date_) {
             Detector = col_character(),
             CallPhase = col_character())
         
-        s3read_using(function(x) read_csv(x, col_types = col_spec), 
+        s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(), 
                      object = s3key, 
                      bucket = s3bucket) %>%
             transmute(SignalID = factor(SignalID), 
@@ -127,8 +127,8 @@ get_ped_config <- function(date_) {
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 
 # This is a "function factory" 
-# It is meant to be used to create a get <- det <- config function that takes only the date:
-# like: get <- det <- config <- get <- det <- config <- (conf$bucket, "atspm <- det <- config <- good")
+# It is meant to be used to create a get_det_config function that takes only the date:
+# like: get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
 get_det_config_  <- function(bucket, folder) { 
     
     function(date_) {
