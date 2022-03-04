@@ -398,8 +398,7 @@ get_counts_based_measures <- function(month_abbrs) {
             unlink("adjusted_counts_15min", recursive = TRUE)
         }
 
-        
-        
+
         #-----------------------------------------------
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")
