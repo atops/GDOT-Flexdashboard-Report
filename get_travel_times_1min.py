@@ -267,7 +267,7 @@ if __name__=='__main__':
         print(yyyy_mm)
 
         try:
-            df = dd.read_parquet(f's3://gdot-spm/mark/travel_times_1min/date={yyyy_mm}*/*.parquet')
+            df = dd.read_parquet(f's3://{bucket}/mark/travel_times_1min/date={yyyy_mm}*/*.parquet')
         except IndexError:
             df = pd.DataFrame()
             print(f'No data for {yyyy_mm}')

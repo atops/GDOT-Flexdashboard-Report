@@ -18,9 +18,9 @@ from multiprocessing import get_context
 import itertools
 
 
-def get_signalids(date_):
+def get_signalids(s3, date_, conf):
 
-    bucket = 'gdot-spm'
+    bucket = conf['bucket']
     prefix = 'detections/date={d}'.format(d=date_.strftime('%Y-%m-%d'))
 
     objs = boto3.resource('s3').Bucket(bucket).objects.filter(Prefix=prefix)
@@ -33,13 +33,15 @@ def get_signalids(date_):
                 pass
 
 
-def get_det_config(date_):
+def get_det_config(date_, conf):
     '''
     date_ [Timestamp]
     '''
     date_str = date_.strftime('%Y-%m-%d')
+
+    bucket = conf['bucket']
     
-    bd_key = 's3://gdot-spm/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'
+    bd_key = 's3://{bucket}/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'
     bd = pd.read_parquet(bd_key.format(d=date_str)).assign(
             SignalID = lambda x: x.SignalID.astype('int64'),
             Detector = lambda x: x.Detector.astype('int64'))
@@ -57,20 +59,22 @@ def get_det_config(date_):
     return df
 
 
-def get_aog(signalid, date_, det_config, per):
+def get_aog(signalid, date_, det_config, conf, per='H'):
     '''
     date_ [Timestamp]
     '''
     try:
         date_str = date_.strftime('%Y-%m-%d')
         
+        bucket = conf['bucket']
+                
         all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=per, closed='left')
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
         if os.path.exists(de_fn):
             detection_events = pd.read_parquet(de_fn).drop_duplicates()
         else:
-            de_fn = f's3://gdot-spm/detections/date={date_str}/de_{signalid}_{date_str}.parquet'
+            de_fn = f's3://{bucket}/detections/date={date_str}/de_{signalid}_{date_str}.parquet'
             detection_events = pd.read_parquet(de_fn).drop_duplicates()
 
 
@@ -144,6 +148,8 @@ def get_aog(signalid, date_, det_config, per):
 
 def main(start_date, end_date):
 
+    with open('Monthly_Report.yaml') as yaml_file:
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
     dates = pd.date_range(start_date, end_date, freq='1D')
 
     for date_ in dates:
@@ -153,10 +159,10 @@ def main(start_date, end_date):
         print(date_)
     
         print('Getting detector configuration...', end='')
-        det_config = get_det_config(date_)
+        det_config = get_det_config(date_, conf)
         print('done.')
         print('Getting signals...', end='')
-        signalids = list(get_signalids(date_))
+        signalids = list(get_signalids(date_), conf)
         print('done.')
 
 
@@ -164,7 +170,7 @@ def main(start_date, end_date):
         with get_context('spawn').Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
-                list(itertools.product(signalids, [date_], [det_config], ['H'])))
+                list(itertools.product(signalids, [date_], [det_config], [conf], ['H'])))
             pool.close()
             pool.join()
     
@@ -181,8 +187,8 @@ def main(start_date, end_date):
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
     
-        df.to_parquet('s3://gdot-spm/mark/arrivals_on_green/date={d}/aog_{d}.parquet'.format(
-            d=date_.strftime('%Y-%m-%d')))
+        df.to_parquet('s3://{b}/mark/arrivals_on_green/date={d}/aog_{d}.parquet'.format(
+            b=conf['bucket'], d=date_.strftime('%Y-%m-%d')))
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')
@@ -210,8 +216,8 @@ def main(start_date, end_date):
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
     
-        df.to_parquet('s3://gdot-spm/mark/arrivals_on_green_15min/date={d}/aog_{d}.parquet'.format(
-            d=date_.strftime('%Y-%m-%d')))
+        df.to_parquet('s3://{b}/mark/arrivals_on_green_15min/date={d}/aog_{d}.parquet'.format(
+            b=conf['bucket'], d=date_.strftime('%Y-%m-%d')))
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')

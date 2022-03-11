@@ -275,12 +275,12 @@ if __name__ == '__main__':
     print(end_date)
 
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket='gdot-spm',
+        s3.download_fileobj(Bucket=conf['bucket'],
                             Key='Corridor_TMCs_Latest.xlsx',
                             Fileobj=data)
         tmc_df = pd.read_excel(data)
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket='gdot-spm',
+        s3.download_fileobj(Bucket=conf['bucket'],
                             Key='Corridors_Latest.xlsx',
                             Fileobj=data)
         corridors_zones_df = pd.read_excel(data)
@@ -321,8 +321,9 @@ if __name__ == '__main__':
         df = udc_df.sort_values(by=['zone', 'corridor',
                                     'date'])  # 'hour_current'])
 
+        bucket = conf['bucket']
         df.to_parquet(
-            f's3://gdot-spm/mark/user_delay_costs/date={start_date}/{filename}'
+            f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}'
         )
 
     else:
