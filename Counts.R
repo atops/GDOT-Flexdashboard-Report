@@ -475,7 +475,7 @@ prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
     if (dir.exists(table)) unlink(table, recursive = TRUE)
     dir.create(table)
     
-    mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
+    mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
         date_str <- format(date_, "%F")
         cat('.')
         
@@ -523,7 +523,7 @@ get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = funct
 
     groups <- (fc_ds %>% select(group) %>% collect() %>% distinct())$group
     
-    mclapply(groups, mc.cores = usable_cores, FUN = function(grp) {
+    mclapply(groups, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(grp) {
         ac <- fc_ds %>% 
             filter(group == grp) %>%
             collect() %>%
@@ -652,7 +652,7 @@ get_adjusted_counts_duckdb2 <- function(fc_table, ac_table, conf, callback = fun
     }
     dir.create(ac_table)
 
-    mclapply(get_signals_chunks(fc), mc.cores = usable_cores, FUN = function(ss) {
+    mclapply(get_signals_chunks(fc), mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(ss) {
         ac <- fc %>% 
             filter(SignalID %in% ss) %>%
             collect() %>%

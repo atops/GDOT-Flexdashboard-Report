@@ -15,6 +15,7 @@ if (interactive()) {
     plan(multicore)
 }
 usable_cores <- get_usable_cores()
+# usable_cores <- 1
 doParallel::registerDoParallel(cores = usable_cores)
 
 
@@ -244,12 +245,12 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         })
         
-        mclapply(date_range, mc.cores = usable_cores, FUN = function(x) {
+        mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(x) {
             write_signal_details(x, conf$athena, signals_list)
         })
 
 
-        mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
+        mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
             date_str <- format(date_, "%F")
             if (between(date_, start_date, end_date)) {
                 print(glue("filtered_counts_1hr: {date_str}"))
@@ -393,7 +394,8 @@ get_counts_based_measures <- function(month_abbrs) {
             unlink("adjusted_counts_15min", recursive = TRUE)
         }
 
-
+        
+        
         #-----------------------------------------------
         # 1-hour pedestrian activation counts
         print("1-hour pedestrian activation counts")

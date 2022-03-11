@@ -766,20 +766,12 @@ get_ped_delay <- function(date_, conf, signals_list) {
     s3bucket = conf$bucket
     s3prefix = glue("atspm/date={date_}")
 
-    objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
-        mutate(SignalID = str_extract(Key, "(?<=atspm_)(\\d+)")) %>%
-        filter(SignalID %in% signals_list)
-    keys <- objs_df$Key
-    keys_chunks <- split(keys, ceiling(seq_along(keys)/101))
+    ds <- arrow::open_dataset(glue("s3://{s3bucket}/{s3prefix}"))
 
-    pe <- lapply(keys_chunks, function(keys) {
-        future_lapply(keys, function(key) {
-            s3read_using(read_parquet, bucket = s3bucket, object = key) %>%
-                filter(EventCode %in% c(45, 21, 22, 132)) %>%
-                select(SignalID, Timestamp, EventCode, EventParam)
-        }) %>% bind_rows()
-    }) %>%
-        bind_rows() %>%
+    pe <- ds %>% 
+        filter(EventCode %in% c(45, 21, 22, 132)) %>% 
+        select(SignalID, Timestamp, EventCode, EventParam) %>%
+        collect() %>%
         convert_to_utc() %>%
         mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
         arrange(SignalID, Timestamp) %>%
