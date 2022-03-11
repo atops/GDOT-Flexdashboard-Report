@@ -83,8 +83,8 @@ source("Monthly_Report_Package_init.R")
 # sub_mo_pdc <- get_cor_monthly_avg_by_day(pdc, subcorridors, "Avg.Max.Ped.Delay")
 # sub_mo_pdf <- get_cor_monthly_avg_by_day(pdf, subcorridors, "Avg.Max.Ped.Delay")
 
-sub <- s3read_using(qs::qread, bucket = "gdot-spm", object = "sub_ec2.qs")
-cor <- s3read_using(qs::qread, bucket = "gdot-spm", object = "cor_ec2.qs")
+sub <- s3read_using(qs::qread, bucket = conf$bucket, object = "sub_ec2.qs")
+cor <- s3read_using(qs::qread, bucket = conf$bucket, object = "cor_ec2.qs")
 
 # sub$mo$pdc <- sub_mo_pdc
 # sub$mo$pdf <- sub_mo_pdf

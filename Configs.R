@@ -207,7 +207,7 @@ get_det_config_qs <- function(date_) {
     # Bad detectors
     bd <- s3read_using(
         read_parquet,
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         object = glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")) %>%
         transmute(SignalID = factor(SignalID),
                   Detector = factor(Detector),

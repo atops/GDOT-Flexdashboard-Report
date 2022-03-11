@@ -279,7 +279,7 @@ tryCatch(
                 key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             select(SignalID, Detector) %>%
                             mutate(Date = date_)
                     },
@@ -359,7 +359,7 @@ tryCatch(
                 key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             mutate(Date = date_)
                     },
                     error = function(e) {
@@ -401,10 +401,9 @@ tryCatch(
             seq(floor_date(today() %m-% months(6), "month"), today() %m-% days(1), by = "1 month"),
             function(date_) {
                 key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
-                # print(key)
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             filter(Size == 0)
                     },
                     error = function(e) {
@@ -1795,7 +1794,7 @@ tryCatch(
     {
         fe <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "flash_events", # s3://gdot-spm/mark/flash_events/date=yyyy-mm-dd/filename.parquet
+            table_name = "flash_events",
             start_date = wk_calcs_start_date,
             end_date = report_end_date,
             signals_list = signals_list
@@ -2543,6 +2542,7 @@ source("Health_Metrics.R")
 
 
 # Assign Descriptions for hover text
+print(glue("{Sys.time()} Assigning descriptions to tables"))
 
 descs <- corridors %>%
     select(SignalID, Corridor, Description) %>%
@@ -2555,7 +2555,6 @@ for (tab in c(
     "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
     "du", "cu", "pau", "cctv", "maint_plot", "ops_plot", "safety_plot"
 )) {
-    print(tab)
     if (tab %in% names(sig$mo) & tab != "cctv") {
         sig$mo[[tab]] <- sig$mo[[tab]] %>%
             left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
@@ -2590,7 +2589,6 @@ for (tab in c(
 }
 
 for (tab in c("du", "cu", "pau")) {
-    print(tab)
     sig$dy[[tab]] <- sig$dy[[tab]] %>%
         left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
         mutate(
@@ -2635,7 +2633,6 @@ print(glue("{Sys.time()} Write to Database [29 of 29]"))
 source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
-#conn <- get_aurora_connection()
 conn <- keep_trying(get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
 # append_to_database(

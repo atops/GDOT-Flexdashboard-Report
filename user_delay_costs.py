@@ -196,7 +196,7 @@ def get_udc_data(start_date,
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date}/{get_filename(x)}'),
         zcdf0.Corridor))
-    print(len(corridors_to_run))
+    print(f'{len(corridors_to_run)} corridors to run')
     zcdf0 = zcdf0[zcdf0.Corridor.isin(corridors_to_run)]
 
 
@@ -212,7 +212,7 @@ def get_udc_data(start_date,
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date_1yr}/{get_filename(x)}'),
         zcdf1.Corridor)) 
-    print(len(corridors_to_run))
+    print(f'{len(corridors_to_run)} corridors to run')
     zcdf1 = zcdf1[zcdf1.Corridor.isin(corridors_to_run)]
 
     if len(zcdf0):
@@ -270,6 +270,9 @@ if __name__ == '__main__':
     # start_date = '2021-08-01'
     # end_date = '2021-08-30'
     #---
+
+    print(start_date)
+    print(end_date)
 
     with io.BytesIO() as data:
         s3.download_fileobj(Bucket='gdot-spm',

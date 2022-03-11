@@ -60,7 +60,6 @@ cam_config <- get_cam_config(
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-# system("aws s3 sync s3://gdot-spm/mark MARK --exclude *counts_*")
 
 # # ###########################################################################
 

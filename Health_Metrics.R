@@ -458,24 +458,6 @@ get_percent_health_subtotals <- function(df) {
 
 
 
-if (FALSE) { # TRUE
-
-
-    ############################################################################
-    ### COMPILE RAW DATA FROM VARIOUS SOURCES
-    ############################################################################
-    cor <- s3read_using(qread, bucket = "gdot-spm", object = "cor_ec2.qs")
-    sub <- s3read_using(qread, bucket = "gdot-spm", object = "sub_ec2.qs")
-    sig <- s3read_using(qread, bucket = "gdot-spm", object = "sig_ec2.qs")
-
-    # these are called within the Monthly_Report_s3 file
-    # cor <- qs::qread("cor_ec2.qs")
-    # sub <- qs::qread("sub_ec2.qs")
-    # sig <- qs::qread("sig_ec2.qs")
-    # corridors <- s3read_using(qread, bucket = "gdot-spm", object = "all_Corridors_Latest.qs")
-}
-
-
 if (TRUE) {
  
     csd <- get_summary_data(sub)

@@ -4,13 +4,15 @@ library(qs)
 
 
 load_bulk_data <- function(conn, table_name, df_) {
-    filename <- tempfile(pattern = table_name, fileext = ".csv")
-    data.table::fwrite(df_, filename)
     
     if (class(conn) == "MySQLConnection" | class(conn)[[1]] == "MariaDBConnection") { # Aurora
+        filename <- tempfile(pattern = table_name, fileext = ".csv")
+        data.table::fwrite(df_, filename)
         dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
     } else if (class(conn) == "duckdb_connection") {
-        dbExecute(conn, glue("COPY {table_name} FROM '{filename}'"))
+        filename <- tempfile(pattern = table_name, fileext = ".parquet")
+        arrow::write_parquet(df_, filename)
+        dbExecute(conn, glue("INSERT INTO {table_name} SELECT * FROM parquet_scan('{filename}');"))
     }
     
     file.remove(filename)
@@ -45,7 +47,7 @@ write_sigops_to_db <- function(
             
             tryCatch({
                 if (recreate) {
-                    print(glue("Writing {table_name} | 3 | recreate = {recreate}"))
+                    print(glue("{Sys.time()} Writing {table_name} | 3 | recreate = {recreate}"))
                     # Overwrite to create initial data types
                     DBI::dbWriteTable(
                         conn, 
@@ -53,38 +55,40 @@ write_sigops_to_db <- function(
                         head(df_, 3), 
                         overwrite = TRUE,
                         row.names = FALSE)
-                    dbExecute(conn, glue("DELETE from {table_name}"))
+                    dbExecute(conn, glue("DELETE FROM {table_name}"))
                 } else {
-                    # Clear head of table prior to report start date
-                    if (!is.null(report_start_date) & length(datefield) == 1) {
-                        dbExecute(conn, glue(paste(
-                            "DELETE from {table_name} WHERE {datefield} < '{report_start_date}'")))
+                    if (table_name %in% dbListTables(conn)) {
+                        # Clear head of table prior to report start date
+                        if (!is.null(report_start_date) & length(datefield) == 1) {
+                            dbExecute(conn, glue(paste(
+                                "DELETE from {table_name} WHERE {datefield} < '{report_start_date}'")))
+                        }
+                        # Clear Tail Prior to Append
+                        if (!is.null(start_date) & length(datefield) == 1) {
+                            dbExecute(conn, glue(paste(
+                                "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
+                        } else {
+                            dbSendQuery(conn, glue("DELETE from {table_name}"))
+                        }
+                        # Filter Dates and Append
+                        if (!is.null(start_date) & length(datefield) == 1) {
+                            df_ <- filter(df_, !!as.name(datefield) >= start_date)
+                        }
+                        if (!is.null(report_end_date) & length(datefield) == 1) {
+                            df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
+                        }
+                        
+                        print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
+                        load_bulk_data(conn, table_name, df_)
                     }
-                    # Clear Tail Prior to Append
-                    if (!is.null(start_date) & length(datefield) == 1) {
-                        dbExecute(conn, glue(paste(
-                            "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
-                    } else {
-                        dbSendQuery(conn, glue("DELETE from {table_name}"))
-                    }
-                    # Filter Dates and Append
-                    if (!is.null(start_date) & length(datefield) == 1) {
-                        df_ <- filter(df_, !!as.name(datefield) >= start_date)
-                    }
-                    if (!is.null(report_end_date) & length(datefield) == 1) {
-                        df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
-                    }
-                    
-                    print(glue("Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
-                    load_bulk_data(conn, table_name, df_)
                 }
                 
             }, error = function(e) {
-                print(e)
+                print(glue("{Sys.time()} {e}"))
             })
         }
     }
-    return(table_names)
+    invisible(table_names)
 }
 
 write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start_date = NULL, report_end_date = NULL) {
@@ -95,38 +99,40 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
     
     tryCatch({
         if (recreate) {
-            print(glue("Writing {table_name} | 3 | recreate = {recreate}"))
+            print(glue("{Sys.time()} Writing {table_name} | 3 | recreate = {recreate}"))
             DBI::dbWriteTable(conn,
                          table_name,
                          head(df, 3),
                          overwrite = TRUE,
                          row.names = FALSE)
         } else {
-            # Clear Prior to Append
-            dbSendQuery(conn, glue("TRUNCATE TABLE {table_name}"))
-            # Filter Dates and Append
-            if (!is.null(start_date) & length(datefield) == 1) {
-                df <- filter(df, !!as.name(datefield) >= start_date)
-            }
-            if (!is.null(report_end_date) & length(datefield) == 1) {
-                df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
-            }
+            if (table_name %in% dbListTables(conn)) {
+                # Clear Prior to Append
+                dbSendQuery(conn, glue("DELETE FROM {table_name}")) # duckdb doesn't support TRUNCATE statement
+                # Filter Dates and Append
+                if (!is.null(start_date) & length(datefield) == 1) {
+                    df <- filter(df, !!as.name(datefield) >= start_date)
+                }
+                if (!is.null(report_end_date) & length(datefield) == 1) {
+                    df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
+                }
+               
+                print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df))} | recreate = {recreate}"))
+                # load_bulk_data(conn, table_name, df)
            
-            print(glue("Writing {table_name} | {scales::comma_format()(nrow(df))} | recreate = {recreate}"))
-            # load_bulk_data(conn, table_name, df)
-       
-            DBI::dbWriteTable(
-                conn,
-                table_name,
-                df,
-                overwrite = FALSE,
-                append = TRUE,
-                row.names = FALSE
-            )
+                DBI::dbWriteTable(
+                    conn,
+                    table_name,
+                    df,
+                    overwrite = FALSE,
+                    append = TRUE,
+                    row.names = FALSE
+                )
+            }
         }
         
     }, error = function(e) {
-        print(e)
+        print(glue("{Sys.time()} {e}"))
     })
 }
 
@@ -146,7 +152,7 @@ set_index_duckdb <- function(conn, table_name) {
                 "on {table_name} (Zone_Group, {period})")))
             
         }, error = function(e) {
-            print(e)
+            print(glue("{Sys.time()} {e}"))
             
         })
     } else {
@@ -234,7 +240,7 @@ recreate_database <- function(conn, df, dfname) {
     }
     
     if (class(conn) == "MySQLConnection" | class(conn)[[1]] == "MariaDBConnection") { # Aurora
-        print("Aurora Database Connection")
+        print(glue("{Sys.time()} Aurora Database Connection"))
         
         # Get CREATE TABLE Statements for each Table
         create_dfs <- lapply(
@@ -275,16 +281,13 @@ recreate_database <- function(conn, df, dfname) {
         
         # Delete and recreate with proper data types
         lapply(create_statements$Table, function(x) {
-            print(x)
             dbRemoveTable(conn, x)
         })
         lapply(create_statements[["Create Table"]], function(x) {
-            print(x)
             dbSendStatement(conn, x)
         })
         # Create Indexes
         lapply(create_statements$Table, function(x) {
-            print(x)
             try(
                 set_index_aurora(conn, x)
             )
@@ -296,7 +299,6 @@ recreate_database <- function(conn, df, dfname) {
         
         # Create Indexes
         lapply(table_names, function(x) {
-            print(x)
             set_index_duckdb(conn, x)
         })
     }

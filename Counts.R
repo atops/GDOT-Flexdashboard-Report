@@ -465,7 +465,7 @@ get_adjusted_counts <- function(df) {
 
 prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
     
-    fc_ds <- arrow::open_dataset(sources = glue("s3://gdot-spm/mark/{table}/")) %>%
+    fc_ds <- arrow::open_dataset(sources = glue("s3://{conf$bucket}/mark/{table}/")) %>%
         filter(date %in% format(date_range, "%F"))
     chunks <- get_signals_chunks_arrow(fc_ds)
     groups <- tibble(group = names(chunks), SignalID = chunks) %>% 

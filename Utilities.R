@@ -1,13 +1,13 @@
 
 
 get_cor <- function() {
-    s3read_using(qs::qread, bucket = "gdot-spm", object = "cor_ec2.qs")
+    s3read_using(qs::qread, bucket = conf$bucket, object = "cor_ec2.qs")
 }
 get_sub <- function() {
-    s3read_using(qs::qread, bucket = "gdot-spm", object = "sub_ec2.qs")
+    s3read_using(qs::qread, bucket = conf$bucket, object = "sub_ec2.qs")
 }
 get_sig <- function() {
-    s3read_using(qs::qread, bucket = "gdot-spm", object = "sig_ec2.qs")
+    s3read_using(qs::qread, bucket = conf$bucket, object = "sig_ec2.qs")
 }
 
 sizeof <- function(x) {
@@ -22,6 +22,16 @@ get_most_recent_monday <- function(date_) {
     date_ + days(1 - lubridate::wday(date_, week_start = 1))
 }
 
+get_date_from_string <- function(x) {
+    if (x == "yesterday") {
+        format(today() - days(1), "%Y-%m-%d")
+    } else if (!is.na(str_extract(x, "\\d+(?= days ago)"))) {
+        d <- str_extract(x, "\\d+(?= days ago)")
+        format(today() - days(d), "%Y-%m-%d")
+    } else {
+        x
+    }
+}
 
 get_usable_cores <- function() {
     # Usable cores is one per 8 GB of RAM. 
@@ -375,7 +385,7 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
                 }
             }
 
-    	    aws.s3::s3write_using(dfp, qsave, bucket = "gdot-spm", object = glue("{src}/{name}.qs"))
+    	    aws.s3::s3write_using(dfp, qsave, bucket = conf$bucket, object = glue("{src}/{name}.qs"))
     	    #readr::write_csv(dfp, paste0(name, ".csv"))
         
     	}

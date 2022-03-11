@@ -497,11 +497,11 @@ get_daily_cctv_uptime <- function(table, cam_config, start_date) {
 }
 
 
-get_rsu_uptime <- function(start_date) {
+get_rsu_uptime <- function(conf, start_date) {
 
     rsu_config <- s3read_using(
         read_excel,
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         object = "GDOT_RSU.xlsx"
     ) %>%
         filter(`Powered ON` == "X")
@@ -763,7 +763,7 @@ get_ped_delay <- function(date_, conf, signals_list) {
     plan(sequential)
     plan(multisession)
 
-    s3bucket = "gdot-spm"
+    s3bucket = conf$bucket
     s3prefix = glue("atspm/date={date_}")
 
     objs_df <- aws.s3::get_bucket_df(bucket = s3bucket, prefix = s3prefix, max = Inf) %>%
@@ -852,54 +852,3 @@ get_ped_delay <- function(date_, conf, signals_list) {
 
     pe.summary.overall
 }
-
-
-# Not used. All the work is done in Python.
-get_flash_events <- function(start_date, end_date) {
-
-    flash_events <- s3_read_parquet_parallel(
-        "flash_events", start_date, end_date, bucket = "gdot-spm", parallel = TRUE)
-
-    flashes <- if (nrow(flash_events)) {
-        flash_events %>%
-            rename(Timestamp = TimeStamp) %>%
-            arrange(SignalID, Timestamp) %>%
-            group_by(SignalID) %>%
-            mutate(
-                FlashDuration_s = as.numeric(Timestamp - lag(Timestamp)),
-                EndParam = lead(EventParam)) %>%
-            ungroup() %>%
-            filter(!EventParam %in% c(2)) %>%
-            transmute(
-                SignalID,
-                Timestamp,
-                FlashMode = case_when(
-                    EventParam == 1 ~ "other(1)",
-                    EventParam == 2 ~ "notFlash(2)",
-                    EventParam == 3 ~ "automatic(3)",
-                    EventParam == 4 ~ "localManual(4)",
-                    EventParam == 5 ~ "faultMonitor(5)",
-                    EventParam == 6 ~ "mmu(6)",
-                    EventParam == 7 ~ "startup(7)",
-                    EventParam == 8 ~ "preempt (8)"),
-                EndFlashMode = case_when(
-                    EndParam == 1 ~ "other(1)",
-                    EndParam == 2 ~ "notFlash(2)",
-                    EndParam == 3 ~ "automatic(3)",
-                    EndParam == 4 ~ "localManual(4)",
-                    EndParam == 5 ~ "faultMonitor(5)",
-                    EndParam == 6 ~ "mmu(6)",
-                    EndParam == 7 ~ "startup(7)",
-                    EndParam == 8 ~ "preempt (8)"),
-                FlashDuration_s,
-                Date) %>%
-            arrange(SignalID, Timestamp)
-    } else {
-        data.frame()
-    }
-    flashes
-}
-
-
-
-

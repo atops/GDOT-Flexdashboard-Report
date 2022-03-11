@@ -22,14 +22,9 @@ doParallel::registerDoParallel(cores = usable_cores)
 # aurora <- get_aurora_connection()
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
-start_date <- ifelse(conf$start_date == "yesterday",
-    format(today() - days(1), "%Y-%m-%d"),
-    conf$start_date
-)
-end_date <- ifelse(conf$end_date == "yesterday",
-    format(today() - days(1), "%Y-%m-%d"),
-    conf$end_date
-)
+
+start_date <- get_date_from_string(conf$start_date) 
+end_date <- get_date_from_string(conf$end_date) 
 
 # Manual overrides
 # start_date <- "2020-01-04"

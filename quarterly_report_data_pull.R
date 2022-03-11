@@ -23,10 +23,10 @@ source("Classes.R")
 # [x] No Peak Period Volumes
 # [ ] Make a place on S3 for images
 
-get_quarterly_data <- function() {
+get_quarterly_data <- function(conf) {
 
     aws.s3::save_object(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket,
         object = "code/sigops.duckdb", 
         file = "sigops.duckdb", 
         show_progress = TRUE)
@@ -79,17 +79,17 @@ write_quarterly_data <- function(qdata, filename = "quarterly_data.csv") {
 
 #---------- Bottlenecks -----------
 
-get_quarterly_bottlenecks <- function() {
+get_quarterly_bottlenecks <- function(conf) {
     tmcs <- s3read_using(
         read_excel,
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         object = "Corridor_TMCs_Latest.xlsx"
     )
     
     bottlenecks <- lapply(c("2020-10-01", "2020-11-01", "2020-12-01"), function(x) {
         s3read_using(
             read_parquet, 
-            bucket = "gdot-spm", 
+            bucket = conf$bucket,
             object = glue("mark/bottlenecks/date={x}/bottleneck_rankings_{x}.parquet"))
     }) %>% bind_rows()
     

@@ -142,9 +142,8 @@ get_signals_sp <- function(corridors) {
 }
 
 
-#tls <- s3readRDS(bucket = "gdot-spm", object = "teams_locations_shp.rds")
 
-get_map_data <- function() {
+get_map_data <- function(conf) {
     
     BLACK <- "#000000"
     WHITE <- "#FFFFFF"
@@ -157,7 +156,7 @@ get_map_data <- function() {
     
     corridors <- s3read_using(
         read_feather,
-        bucket = "gdot-spm",
+        bucket = conf$bucket,
         object = "all_Corridors_Latest.feather")
     
     rtop_corridors <- corridors %>% 
