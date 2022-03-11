@@ -39,8 +39,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
-    uri = 'http://kestrel.ritis.org:8080/{}'
-   
+    uri = 'http://pda-api.ritis.org:8080/{}'   
+    
     #----------------------------------------------------------  
     payload = {
       "dates": [

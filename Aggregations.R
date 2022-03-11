@@ -216,7 +216,6 @@ get_weekly_sum_by_day <- function(df, var_) {
         summarize(!!var_ := mean(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>% # Mean over 3 days in the week
         
-        #group_by(SignalID, Week) %>% 
         summarize(!!var_ := sum(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>% # Sum of phases 2,6
         
@@ -225,8 +224,6 @@ get_weekly_sum_by_day <- function(df, var_) {
         ungroup() %>%
         left_join(Tuesdays) %>%
         dplyr::select(SignalID, Date, Week, !!var_, delta)
-    
-    # SignalID | Date | var_
 }
 
 
@@ -265,8 +262,6 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
         left_join(Tuesdays) %>%
         dplyr::select(SignalID, Date, Week, !!var_, !!wt_, delta) %>%
         ungroup()
-    
-    # SignalID | Date | vpd
 }
 
 
@@ -295,8 +290,6 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
         left_join(Tuesdays) %>%
         dplyr::select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, 
                       Description, Date, Week, !!var_, !!wt_, delta)
-    
-    # SignalID | Date | vpd
 }
 
 
@@ -329,8 +322,7 @@ get_cor_monthly_avg_by_period <- function(df, corridors, var_, per_, wt_="ones")
         wt_ <- as.name(wt_)
     }
     var_ <- as.name(var_)
-    #per_ <- as.name(per_)
-    
+
     cor_df_out <- weighted_mean_by_corridor_(df, per_, corridors, var_, wt_) %>%
         filter(!is.nan(!!var_))
     
@@ -556,8 +548,6 @@ get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
         dplyr::select(-lag_)
-    
-    # SignalID | CallPhase | Hour | vph
 }
 
 

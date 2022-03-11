@@ -94,6 +94,7 @@ round_to_tuesday <- function(date_) {
     }
     date_ - wday(date_) + 3
 }
+
 wk_calcs_start_date <- round_to_tuesday(calcs_start_date)
 
 dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
