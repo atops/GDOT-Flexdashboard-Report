@@ -432,7 +432,8 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
     df_ <- df %>% 
         select(-Date) %>% 
-        left_join(Tuesdays, by = c("Week"))
+        left_join(Tuesdays, by = c("Week")) %>%
+        filter(!is.na(Date))
     year(df_$Hour) <- year(df_$Date)
     month(df_$Hour) <- month(df_$Date)
     day(df_$Hour) <- day(df_$Date)
@@ -766,13 +767,6 @@ get_monthly_vpd <- function(vpd) {
 
 
 get_monthly_flashevent <- function(flash) {
-    #flash <- filter(flash, DOW %in% c(TUE,WED,THU)) 
-    
-    #ignore EventParam, FlashDuration, Endparam, FlashMode etc. for now
-    # select
-    # filter
-    # arrange
-    # mutate
     flash <- flash %>%
         select(SignalID, Date)
 
@@ -781,8 +775,6 @@ get_monthly_flashevent <- function(flash) {
     flash <- flash %>%
         group_by(SignalID, Date) %>%
         summarize(flash = n(), .groups = "drop")
-        # summarise (flash = n()) %>%
-        # ungroup
     
     flash$CallPhase = 0 # set the dummy, 'CallPhase' is used in get_monthly_avg_by_day() function
     get_monthly_avg_by_day(flash, "flash", peak_only = FALSE)

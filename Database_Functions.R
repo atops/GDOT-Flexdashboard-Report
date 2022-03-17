@@ -329,7 +329,7 @@ dbWriteTable <- function(conn, name, value, ...) {
             glue("LOAD DATA LOCAL INFILE '{fn}' into table {name} fields terminated by ',' IGNORE 1 LINES"))
         file.remove(fn)
     } else {
-	DBI::dbWriteTable(conn, name, value, ...)
+        DBI::dbWriteTable(conn, name, value, ...)
     }
     toc()
 }

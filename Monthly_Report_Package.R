@@ -334,9 +334,10 @@ tryCatch(
                 Alert = factor("Bad Vehicle Detection"),
                 Name = factor(if_else(Corridor == "Ramp Meter", sub("@", "-", Name), Name)),
                 ApproachDesc = if_else(
-		    is.na(ApproachDesc), 
-		    "", 
-		    as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
+                	is.na(ApproachDesc), 
+                	"", 
+                	as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}"))
+                )
             )
 
         # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name

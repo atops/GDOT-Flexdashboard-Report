@@ -136,7 +136,7 @@ read_zipped_feather <- function(x) {
 
 
 
-keep_trying = function(func, n_tries, ...){
+keep_trying <- function(func, n_tries, ...){
     
     possibly_func = purrr::possibly(func, otherwise = NULL)
     

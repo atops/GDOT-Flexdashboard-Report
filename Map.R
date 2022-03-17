@@ -168,8 +168,6 @@ get_map_data <- function(conf) {
     corridor_colors <- rtop_corridors %>% 
         mutate(
             color = rep(corridor_palette, ceiling(num_corridors/8))[1:num_corridors]) %>%
-        #color = rep(RColorBrewer::brewer.pal(7, "Dark2"),
-        #            ceiling(num_corridors/7))[1:num_corridors]) %>%
         bind_rows(data.frame(Corridor = c("None"), color = GRAY)) %>%
         mutate(Corridor = factor(Corridor))
     
