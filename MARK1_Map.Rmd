@@ -30,6 +30,9 @@ library(glue)
 library(forcats)
 library(qs)
 
+
+source("Monthly_Report_Functions.R")
+
 BLACK <- "#000000"
 WHITE <- "#FFFFFF"
 GRAY <- "#D0D0D0"
@@ -134,10 +137,10 @@ get_geom_coords <- function(coords_string) {
 ```{r Read MARK1 Data, echo=FALSE, eval=FALSE}
 
 # This is the source of the signal performance data
-sig <- s3read_using(qread, bucket = "gdot-spm", object = "sig_ec2.qs")
+sig <- s3read_using(qread, bucket = conf$bucket, object = "sig_ec2.qs")
 
 # This is the corridor-based data
-cor <- s3read_using(qread, bucket = "gdot-spm", object = "cor_ec2.qs")
+cor <- s3read_using(qread, bucket = conf$bucket, object = "cor_ec2.qs")
 ```
 
 
@@ -151,7 +154,7 @@ corridor_palette <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
 
 corridors <- s3read_using(
     qread,
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     object = "all_Corridors_Latest.qs")
 
 rtop_corridors <- corridors %>% 
@@ -229,7 +232,7 @@ Encoding(signals_sp$Description) <- "utf-8"
 
 
 ```{r TEAMS, echo=FALSE, eval=FALSE}
-tls <- s3readRDS(bucket = "gdot-spm", object = "teams_locations_shp.rds")
+tls <- s3readRDS(bucket = conf$bucket, object = "teams_locations_shp.rds")
 ```
 
 
@@ -237,7 +240,7 @@ tls <- s3readRDS(bucket = "gdot-spm", object = "teams_locations_shp.rds")
 ```{r TMC Segments from s3 xlsx 2, echo=FALSE, eval=FALSE}
 tmcs <- s3read_using(
     read_excel,
-    bucket = "gdot-spm",
+    bucket = conf$bucket,
     object = "Corridor_TMCs_Latest.xlsx"
 ) %>%
     left_join(corridor_colors, by = "Corridor") %>%
@@ -249,11 +252,11 @@ tmcs <- s3read_using(
 ```{r Bottlenecks SpatialDataFrames, echo=FALSE, eval=FALSE}
 # bottlenecks <- s3read_using(
 #     read_parquet,
-#     bucket = "gdot-spm",
+#     bucket = conf$bucket,
 #     object = "mark/bottlenecks/date=2020-03-01/bottleneck_rankings_2020-03-01.parquet"
 # )
 bottlenecks <- s3readRDS(
-        bucket = "gdot-spm", 
+        bucket = conf$bucket, 
         object = "mark/bottlenecks/date=2020-02-01/bottleneck_rankings_2020-02-01.rds"
     ) %>%
     #select(-X1) %>% 
@@ -343,12 +346,12 @@ map_data <- list(
 # == Save locally and to S3 == ==
 qsave(map_data, "map_data.qs")
 put_object("map_data.qs",
-           bucket = "gdot-spm",
+           bucket = conf$bucket,
            object = "map_data.qs",
            multipart = TRUE)
 # s3write_using(qsave, 
 #               map_data, 
-#               bucket = "gdot-spm",
+#               bucket = conf$bucket,
 #               object = "map_data.qs")
 # == == == ==
 ```
@@ -473,7 +476,7 @@ leaflet(width = "100%", height = 1000) %>%
         fillOpacity = 1,
         opacity = 1,
         weight = 3)
-#s3saveRDS(map, bucket = "gdot-spm", object = "mark1_leaflet_map.rds")
+#s3saveRDS(map, bucket = conf$bucket, object = "mark1_leaflet_map.rds")
 ```
 
 

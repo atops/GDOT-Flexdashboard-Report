@@ -34,4 +34,4 @@ future_lapply(tables, function(tabl) {
     pivot_wider(names_from = "Date", values_from = "Records") %>%
     write_csv("sigops_data.csv")
 
-aws.s3::put_object("sigops_data.csv", bucket = "gdot-spm", object = "code/sigops_data.csv")
+aws.s3::put_object("sigops_data.csv", bucket = conf$bucket, object = "code/sigops_data.csv")

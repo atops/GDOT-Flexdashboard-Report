@@ -20,6 +20,7 @@ import yaml
 import feather
 import io
 import zipfile
+from config import get_date_from_string
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
@@ -117,7 +118,7 @@ def pull_raw_atspm_data(s, date_):
                     #feather.write_dataframe(df, feather_filename)
                     
                     s3.upload_file(Filename = parquet_filename, 
-                                   Bucket = 'gdot-spm', 
+                                   Bucket = conf['bucket'],
                                    Key = 'atspm/date={}/atspm_{}_{}.parquet'.format(date_str, s, date_str))
                     
                     os.remove(parquet_filename)
@@ -185,12 +186,11 @@ if __name__=='__main__':
         conf = yaml.load(yaml_file)
 
     start_date = conf['start_date']
-    if start_date == 'yesterday': 
-        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     end_date = conf['end_date']
-    if end_date == 'yesterday': 
-        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
     
+    start_date = get_date_from_string(start_date)
+    end_date = get_date_from_string(end_date)
+
     # Placeholder for manual override of start/end dates
     #start_date = '2019-02-01'
     #end_date = '2019-02-03'
@@ -218,12 +218,12 @@ if __name__=='__main__':
     
         os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         
-        partition_query = '''ALTER TABLE atspm2 add partition (date="{0}") 
-                             location "s3://gdot-spm/atspm/date={0}/"'''.format(date_.date())
+        partition_query = '''ALTER TABLE atspm2 add partition (date="{d}") 
+                             location "s3://{b}/atspm/date={d}/"'''.format(b=conf['bucket'], d=date_.date())
         
         response = ath.start_query_execution(QueryString = partition_query, 
-                                             QueryExecutionContext={'Database': 'gdot_spm'},
-                                             ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+                                             QueryExecutionContext={'Database': conf['bucket']},
+                                             ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
         print(response)
         
     print('\n{} signals in {} days. Done in {} minutes'.format(len(signalids), len([date_]), int((time.time()-t0)/60)))

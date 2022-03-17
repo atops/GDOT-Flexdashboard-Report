@@ -19,6 +19,7 @@ import boto3
 import json
 import re
 from multiprocessing.dummy import Pool
+from config import get_date_from_string
 
 os.environ['TZ'] = 'America/New_York'
 
@@ -50,13 +51,15 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                 "2018": 100.49,
                 "2019": 100.49,
                 "2020": 100.49,
-                "2021": 100.49
+                "2021": 100.49,
+                "2022": 100.49
             },
             "catt.inrix.udc.passenger": {
                 "2018": 17.91,
                 "2019": 17.91,
                 "2020": 17.91,
-                "2021": 17.91
+                "2021": 17.91,
+                "2022": 17.91
             }
         },
         "dataSource": "vpp_here",
@@ -109,7 +112,7 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                 print(f'jobid: {jobid} | status code: {x.status_code}',
                       end=' | ')
                 if x.status_code == 429:  # this code means too many requests. wait longer.
-                    time.sleep(random.uniform(30, 60))
+                    time.sleep(random.uniform(90, 120))
                 elif x.status_code == 200:
                     print(
                         f"state: {json.loads(x.content.decode('utf-8'))['state']}"
@@ -118,9 +121,9 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                             x.content.decode('utf-8'))['state'] == 'SUCCEEDED':
                         break
                     else:
-                        time.sleep(random.uniform(5, 10))
+                        time.sleep(random.uniform(30, 60))
                 else:
-                    time.sleep(5)
+                    time.sleep(30)
 
             results = requests.get(uri.format('jobs/udc/results'),
                                    params={
@@ -253,22 +256,23 @@ if __name__ == '__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    # start_date is either the given day or the first day of the month
     start_date = conf['start_date']
-    if start_date == 'yesterday':
-        start_date = datetime.today() - timedelta(days=1)
-    start_date = (start_date - timedelta(days=(start_date.day - 1))).strftime('%Y-%m-%d')
+    end_date = conf['end_date']
 
+    start_date = get_date_from_string(start_date)
+    end_date = get_date_from_string(end_date)
+
+    # start_date is the first day of the month
+    start_date = datetime.fromisoformat(start_date).strftime('%Y-%m-01')
+ 
     # end date is either the given date + 1 or today.
     # end_date is not included in the query results
-    end_date = conf['end_date']
-    if end_date == 'yesterday':
-        end_date = datetime.today() - timedelta(days=1)
-    end_date = (end_date + timedelta(days=1)).strftime('%Y-%m-%d')
+    ed = datetime.fromisoformat(end_date)
+    end_date = min(ed + timedelta(days=1), datetime.today()).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    # start_date = '2021-08-01'
-    # end_date = '2021-08-30'
+    #start_date = '2021-11-01'
+    #end_date = '2021-11-30'
     #---
 
     print(start_date)

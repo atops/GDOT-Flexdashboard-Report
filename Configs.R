@@ -68,7 +68,7 @@ get_cam_config <- function(object, bucket, corridors) {
         read_excel,
         object = object, 
         bucket = bucket
-	    ) %>%
+	) %>%
         filter(Include == TRUE) %>%
         transmute(
             CameraID = factor(CameraID), 
@@ -89,12 +89,12 @@ get_cam_config <- function(object, bucket, corridors) {
 
 
 
-get_ped_config <- function(date_) {
+get_ped_config <- function(conf, date_) {
     
     date_ <- max(date_, ymd("2019-01-01"))
     
-    s3key <- glue("maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
-    s3bucket <- "gdot-devices"
+    s3key <- glue("config/maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
+    s3bucket <- conf$bucket
     
     if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
         col_spec <- cols_only(
@@ -164,7 +164,7 @@ get_det_config_  <- function(bucket, folder) {
     }
 }
 
-get_det_config <- get_det_config_("gdot-devices", "atspm_det_config_good")
+get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
 
 
 get_det_config_aog <- function(date_) {
@@ -253,18 +253,18 @@ get_det_config_vol <- function(date_) {
 
 
 
-get_latest_det_config <- function() {
+get_latest_det_config <- function(conf) {
     
     date_ <- today(tzone = "America/New_York")
     
     # Get most recent detector config file, start with today() and work backward
     while (TRUE) {
         x <- aws.s3::get_bucket(
-            bucket = "gdot-devices", 
-            prefix = glue("atspm_det_config_good/date={format(date_, '%F')}"))
+            bucket = conf$bucket,
+            prefix = glue("config/atspm_det_config_good/date={format(date_, '%F')}"))
         if (length(x)) {
             det_config <- s3read_using(arrow::read_feather, 
-                                       bucket = "gdot-devices", 
+                                       bucket = conf$bucket,
                                        object = x$Contents$Key)
             break
         } else {

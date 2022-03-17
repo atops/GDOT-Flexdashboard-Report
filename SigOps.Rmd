@@ -52,7 +52,7 @@ Past month reports can be viewed back to `r format(first_month, "%B %Y")`.
 
 
 Statewide Traffic Signal Concept of Operations can be found
-`r tags$a(href = "https://s3.amazonaws.com/gdot-spm/GDOT_STORM-COO.pdf",
+`r tags$a(href = glue("https://s3.amazonaws.com/{conf$bucket}/GDOT_STORM-COO.pdf"),
            target = "_blank",
            "here")`
 

@@ -21,6 +21,7 @@ import psutil
 
 from spm_events import etl_main
 from parquet_lib import read_parquet_file
+from config import get_date_from_string
 
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
@@ -125,8 +126,6 @@ def main(start_date, end_date):
 
         date_str = date_.strftime('%Y-%m-%d')
 
-        print(date_str)
-
         with io.BytesIO() as data:
             s3.download_fileobj(
                 Bucket=bucket,
@@ -157,8 +156,6 @@ def main(start_date, end_date):
                     minCountPriority = lambda x: x.CountPriority.groupby(level=['SignalID', 'Call Phase']).min()))
             det_config['CountDetector'] = det_config['CountPriority'] == det_config['minCountPriority']
             det_config = det_config.drop(columns=['minCountPriority']).reset_index()
-
-            print(det_config.head())
 
         except FileNotFoundError:
             det_config = pd.DataFrame()
@@ -226,10 +223,9 @@ if __name__=='__main__':
         start_date = conf['start_date']
         end_date = conf['end_date']
 
-    if start_date == 'yesterday':
-        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    if end_date == 'yesterday':
-        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+    start_date = get_date_from_string(start_date)
+    end_date = get_date_from_string(end_date)
+
 
     main(start_date, end_date)
 

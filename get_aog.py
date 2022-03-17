@@ -16,6 +16,7 @@ import io
 import re
 from multiprocessing import get_context
 import itertools
+from config import get_date_from_string
 
 
 def get_signalids(s3, date_, conf):
@@ -240,11 +241,10 @@ if __name__=='__main__':
     else:
         start_date = conf['start_date']
         end_date = conf['end_date']
+
+    start_date = get_date_from_string(start_date)
+    end_date = get_date_from_string(end_date)
     
-    if start_date == 'yesterday': 
-        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    if end_date == 'yesterday': 
-        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     main(start_date, end_date)
 

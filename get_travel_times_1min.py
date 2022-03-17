@@ -22,14 +22,9 @@ import json
 import io
 import boto3
 import dask.dataframe as dd
-
-#os.environ['TZ'] = 'America/New_York'
-#time.tzset()
+from config import get_date_from_string
 
 s3 = boto3.client('s3')
-
-pd.options.display.max_columns = 10
-
 
 
 def is_success(response):
@@ -46,12 +41,12 @@ def is_success(response):
 
 
 def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
-
+    
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
     uri = 'http://pda-api.ritis.org:8080/{}'
-
+   
     #----------------------------------------------------------  
     payload = {
       "dates": [
@@ -104,7 +99,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
                              params = {'key': key}, 
                              json = payload)
     print('response status code:', response.status_code)
-
+    
     if response.status_code == 200: # Only if successful response
 
         # retry at intervals of 'step' until results return (status code = 200)
@@ -113,13 +108,13 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
         polling.poll(
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
             check_success = is_success,
-            step=20,
+            step=60,
             timeout=3600) #changed to allow for up to 1 hour to be safe
 
         results = requests.get(uri.format('jobs/export/results'), 
                                params = {'key': key, 'uuid': payload['uuid']})
         print('results received')
-
+        
         # Save results (binary zip file with one csv)
         with io.BytesIO() as f:
             f.write(results.content)
@@ -130,8 +125,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
     else:
         df = pd.DataFrame()
 
-    print(f'{len(df)} records')
-
+    print(f'{len(df)} travel times records')
+        
     return df
 
 
@@ -154,13 +149,13 @@ def get_serious_injury_pct(df, df_reference, corridor_grouping):
     #get count of each grouping for calculating percentages, merge back into overall df
     df_totals = df.groupby(corridor_grouping).size().reset_index(name='totals')
     df = pd.merge(df, df_totals)
-
+    
     #get count for each speed bin by grouping, calculating the % out of the total for that grouping, and again merge back into overall df
     df_count = (df[corridor_grouping + ['speed','totals']].groupby(corridor_grouping + ['speed']).agg(['count','mean'])).reset_index()
     count_pct = df_count['totals']['count'] / df_count['totals']['mean']
     df_count['count_pct'] = count_pct
     df_summary = df_count[corridor_grouping + ['speed','count_pct']].droplevel(1, axis = 1)
-
+    
     #merge w/ reference_df and calculate overall serious injury %
     df_summary = pd.merge(df_summary, df_reference, left_on=['speed'], right_on=['mph_bin'])
     overall_pct = df_summary['count_pct'] * df_summary['pct']
@@ -183,15 +178,11 @@ if __name__=='__main__':
     else:
         start_date = conf['start_date']
         end_date = conf['end_date']
+    
+    start_date = get_date_from_string(start_date)
+    end_date = get_date_from_string(end_date)
 
-    if start_date == 'yesterday':
-        start_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-    if end_date == 'yesterday':
-        end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-
-    # start_date = datetime(2021, 8, 1).strftime('%Y-%m-%d')
-    # end_date = datetime(2021, 8, 30).strftime('%Y-%m-%d')
-
+    
     bucket = conf['bucket']
 
     # pull in file that matches up corridors/subcorridors/TMCs from S3
@@ -227,24 +218,24 @@ if __name__=='__main__':
             print('ERROR retrieving records')
             print(e)
             tt_df = pd.DataFrame()
-
+    
 
         if len(tt_df) > 0:
             tt_df['measurement_tstamp'] = pd.to_datetime(tt_df.measurement_tstamp)
             tt_df['date'] = tt_df.measurement_tstamp.dt.date
-
+        
             df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], 
                            tt_df, 
                            left_on=['tmc'], 
                            right_on=['tmc_code'])
                     .drop(columns=['tmc'])
                     .sort_values(['Corridor', 'tmc_code', 'measurement_tstamp']))
-
+    
             df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
             df = (df.reset_index(drop=True)
                     .rename(columns = {'measurement_tstamp': 'Minute'}))
             df = df.drop_duplicates()
-
+        
             #write 1-min monthly travel times/speed df to parquet on S3
             table_name = 'travel_times_1min'
             filename = f'travel_times_1min_{date_str}.parquet'
@@ -261,9 +252,9 @@ if __name__=='__main__':
 
     months = [d.strftime('%Y-%m') for d in dates]
     months = list(set(months))
-
+    
     for yyyy_mm in months:
-
+   
         print(yyyy_mm)
 
         try:
@@ -271,42 +262,42 @@ if __name__=='__main__':
         except IndexError:
             df = pd.DataFrame()
             print(f'No data for {yyyy_mm}')
-
+        
         if len(df.columns) > 0:
 
             # relative speed index for month
-
+    
             df_rsi_sub = get_rsi(df, df_speed_limits, ['Corridor','Subcorridor'])
             df_rsi_cor = get_rsi(df, df_speed_limits[df_speed_limits['Subcorridor'].isnull()], ['Corridor'])
-
+    
             table_name = 'relative_speed_index'
-
+            
             filename = f'rsi_sub_{yyyy_mm}-01.parquet'
             df_rsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-
+            
             filename = f'rsi_cor_{yyyy_mm}-01.parquet'
             df_rsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-
+    
             df_rsi_sub.to_csv(f'rsi_sub_{yyyy_mm}-01.csv', index=False)
             df_rsi_cor.to_csv(f'rsi_cor_{yyyy_mm}-01.csv', index=False)
-
+            
             # bike-ped safety index for month
-
+            
             df_reference = pd.read_csv(f's3://{bucket}/serious_injury_pct.csv')
-
+            
             df_bpsi = clean_up_tt_df_for_bpsi(df)
-
+            
             df_bpsi_sub = get_serious_injury_pct(df_bpsi, df_reference, ['Corridor','Subcorridor'])
             df_bpsi_cor = get_serious_injury_pct(df_bpsi, df_reference, ['Corridor'])
-
+            
             #do we need to add a column to this that has month? right now is just grouping/serious injury %
             table_name = 'bike_ped_safety_index'
-
+           
             filename = f'bpsi_sub_{yyyy_mm}-01.parquet'
             df_bpsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-
+           
             filename = f'bpsi_cor_{yyyy_mm}-01.parquet'
             df_bpsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
-
+            
             df_bpsi_sub.to_csv(f'bpsi_sub_{yyyy_mm}-01.csv', index=False)
             df_bpsi_cor.to_csv(f'bpsi_cor_{yyyy_mm}-01.csv', index=False)

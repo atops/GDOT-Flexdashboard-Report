@@ -4,6 +4,7 @@ Created on Tue Feb 20 11:10:19 2018
 
 @author: V0010894
 """
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -23,12 +24,12 @@ from multiprocessing import Pool
 from multiprocessing import get_context
 
 
-def parse_cctvlog(key):
+def parse_cctvlog(bucket, key):
     key_date = re.search('\d{4}-\d{2}-\d{2}', key).group()
     try:
         df = (
             pd.read_parquet(
-                's3://gdot-spm/{}'.format(key),
+                f's3://{bucket}/{key}',
                 columns=['ID', 'Last-Modified', 'Content-Length']).rename(
                     columns={
                         'ID': 'CameraID',
@@ -49,6 +50,12 @@ def parse_cctvlog(key):
 
 
 if __name__ == '__main__':
+
+    with open('Monthly_Report.yaml') as yaml_file:
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)    
+   
+    bucket = conf['bucket']
+ 
     td = date.today()
     som = td - timedelta(td.day - 1)
     sopm = som - relativedelta(months=1)
@@ -56,7 +63,7 @@ if __name__ == '__main__':
 
     for mo in months:
         print(mo.strftime('%Y-%m-%d'))
-        objs = s3.list_objects(Bucket='gdot-spm',
+        objs = s3.list_objects(Bucket=conf['bucket'],
                                Prefix='mark/cctvlogs/date={}'.format(
                                    mo.strftime('%Y-%m')))
 
@@ -69,7 +76,7 @@ if __name__ == '__main__':
 
         if len(keys) > 0:
             with get_context('spawn').Pool() as pool:
-                results = pool.map_async(parse_cctvlog, keys)
+                results = pool.map_async(parse_cctvlog, [bucket], keys)
                 pool.close()
                 pool.join()
             dfs = results.get()
@@ -79,20 +86,20 @@ if __name__ == '__main__':
             # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
             summ = df.groupby(['CameraID', 'Date']).agg(np.std).fillna(0)
 
-            s3key = 's3://gdot-spm/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
-                d=mo.strftime('%Y-%m-%d'))
+            s3key = f's3://{b}/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
+                b=conf['bucket'], d=mo.strftime('%Y-%m-%d'))
             summ.reset_index().to_parquet(s3key)
 
         os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
         response_repair = ath.start_query_execution(
             QueryString='MSCK REPAIR TABLE cctv_uptime',
-            QueryExecutionContext={'Database': 'gdot_spm'},
-            ResultConfiguration={'OutputLocation': 's3://gdot-spm-athena'})
+            QueryExecutionContext={'Database': conf['bucket']},
+            ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
 
         while True:
             response = s3.list_objects(
-                Bucket='gdot-spm-athena',
+                Bucket=confconf['athena']['staging_dir'],
                 Prefix=response_repair['QueryExecutionId'])
             if 'Contents' in response:
                 break
