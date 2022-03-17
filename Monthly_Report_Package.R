@@ -1426,10 +1426,10 @@ print(glue("{Sys.time()} CCTV Uptimes [20 of 29]"))
 tryCatch(
     {
         daily_cctv_uptime_511 <- get_daily_cctv_uptime(
-            "cctv_uptime", cam_config, wk_calcs_start_date
+            conf$athena$database, "cctv_uptime", cam_config, wk_calcs_start_date
         )
         daily_cctv_uptime_encoders <- get_daily_cctv_uptime(
-            "cctv_uptime_encoders", cam_config, wk_calcs_start_date
+            conf$athena$database, "cctv_uptime_encoders", cam_config, wk_calcs_start_date
         )
 
         # up:

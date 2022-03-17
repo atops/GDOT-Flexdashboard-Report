@@ -47,9 +47,9 @@ def get_det_config(date_, conf):
             SignalID = lambda x: x.SignalID.astype('int64'),
             Detector = lambda x: x.Detector.astype('int64'))
 
-    dc_key = 'atspm_det_config_good/date={d}/ATSPM_Det_Config_Good.feather'
+    dc_key = 'config/atspm_det_config_good/date={d}/ATSPM_Det_Config_Good.feather'
     with io.BytesIO() as data:
-        boto3.resource('s3').Bucket('gdot-devices').download_fileobj(
+        boto3.resource('s3').Bucket(conf['bucket']).download_fileobj(
                 Key=dc_key.format(d=date_str), Fileobj=data)
         dc = pd.read_feather(data)[['SignalID', 'Detector', 'DetectionTypeDesc']]
     dc.loc[dc.DetectionTypeDesc.isna(), 'DetectionTypeDesc'] = '[]'

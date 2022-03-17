@@ -466,10 +466,9 @@ get_qs <- function(detection_events, intervals = c("hour")) {
     return_list
 }
 
-
-get_daily_cctv_uptime <- function(table, cam_config, start_date) {
+get_daily_cctv_uptime <- function(db, table, cam_config, start_date) {
     tbl(conn, sql(glue(paste(
-            "select cameraid, date  from gdot_spm.{table}",
+            "select cameraid, date  from {db}.{table}",
             "where size > 0")))) %>%
         filter(date >= date_parse(start_date, "%Y-%m-%d")) %>% # start_date) %>%  #
         collect() %>%
@@ -506,7 +505,7 @@ get_rsu_uptime <- function(conf, start_date) {
     ) %>%
         filter(`Powered ON` == "X")
 
-    rsu <- tbl(conn, sql("select signalid, date, uptime, count from gdot_spm.rsu_uptime")) %>%
+    rsu <- tbl(conn, sql("select signalid, date, uptime, count from {conf$athena$database}.rsu_uptime")) %>%
         filter(date >= date_parse(start_date, "%Y-%m-%d")) %>% # start_date) %>%  #
         collect() %>%
         filter(signalid %in% rsu_config$SignalID)
