@@ -9,19 +9,18 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from glob import glob
+import yaml
 import re
 import os
 import boto3
 from datetime import date, timedelta
 from dateutil.relativedelta import *
 import time
+import itertools
+from multiprocessing import Pool
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena', region_name='us-east-1')
-
-from dask import delayed, compute
-from multiprocessing import Pool
-from multiprocessing import get_context
 
 
 def parse_cctvlog(bucket, key):
@@ -67,41 +66,44 @@ if __name__ == '__main__':
                                Prefix='mark/cctvlogs/date={}'.format(
                                    mo.strftime('%Y-%m')))
 
-        keys = [contents['Key'] for contents in objs['Contents']]
-        keys = [
-            key for key in keys
-            if re.search(td.strftime('%Y-%m-%d'), key) == None
-        ]
-        print(len(keys))
+        if 'Contents' in objs.keys():
+            keys = [contents['Key'] for contents in objs['Contents']]
+            keys = [
+                key for key in keys
+                if re.search(td.strftime('%Y-%m-%d'), key) == None
+            ]
+            print(len(keys))
 
-        if len(keys) > 0:
-            with get_context('spawn').Pool() as pool:
-                results = pool.map_async(parse_cctvlog, [bucket], keys)
-                pool.close()
-                pool.join()
-            dfs = results.get()
+            if len(keys) > 0:
+                with Pool() as pool:
+                    results = pool.starmap_async(parse_cctvlog, list(itertools.product([bucket], keys)))
+                    pool.close()
+                    pool.join()
+                dfs = results.get()
 
-            df = pd.concat(dfs).drop_duplicates()
+                df = pd.concat(dfs).drop_duplicates()
 
-            # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
-            summ = df.groupby(['CameraID', 'Date']).agg(np.std).fillna(0)
+                # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
+                summ = df.groupby(['CameraID', 'Date']).agg(np.std).fillna(0)
 
-            s3key = f's3://{b}/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
-                b=conf['bucket'], d=mo.strftime('%Y-%m-%d'))
-            summ.reset_index().to_parquet(s3key)
+                s3key = 's3://{b}/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
+                    b=bucket, d=mo.strftime('%Y-%m-%d'))
+                summ.reset_index().to_parquet(s3key)
 
-        os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+            os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
-        response_repair = ath.start_query_execution(
-            QueryString='MSCK REPAIR TABLE cctv_uptime',
-            QueryExecutionContext={'Database': conf['bucket']},
-            ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
+            response_repair = ath.start_query_execution(
+                QueryString='MSCK REPAIR TABLE cctv_uptime',
+                QueryExecutionContext={'Database': conf['bucket']},
+                ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
 
-        while True:
-            response = s3.list_objects(
-                Bucket=confconf['athena']['staging_dir'],
-                Prefix=response_repair['QueryExecutionId'])
-            if 'Contents' in response:
-                break
-            else:
-                time.sleep(2)
+            while True:
+                response = s3.list_objects(
+                    Bucket=conf['athena']['staging_dir'],
+                    Prefix=response_repair['QueryExecutionId'])
+                if 'Contents' in response:
+                    break
+                else:
+                    time.sleep(2)
+        else:
+            print('No files to parse')

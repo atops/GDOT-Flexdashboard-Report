@@ -14,12 +14,12 @@ import boto3
 import pandas as pd
 import io
 import re
-from multiprocessing import get_context
+from multiprocessing import Pool
 import itertools
 from config import get_date_from_string
 
 
-def get_signalids(s3, date_, conf):
+def get_signalids(date_, conf):
 
     bucket = conf['bucket']
     prefix = 'detections/date={d}'.format(d=date_.strftime('%Y-%m-%d'))
@@ -42,15 +42,15 @@ def get_det_config(date_, conf):
 
     bucket = conf['bucket']
     
-    bd_key = 's3://{bucket}/mark/bad_detectors/date={d}/bad_detectors_{d}.parquet'
-    bd = pd.read_parquet(bd_key.format(d=date_str)).assign(
+    bd_key = f's3://{bucket}/mark/bad_detectors/date={date_str}/bad_detectors_{date_str}.parquet'
+    bd = pd.read_parquet(bd_key).assign(
             SignalID = lambda x: x.SignalID.astype('int64'),
             Detector = lambda x: x.Detector.astype('int64'))
 
-    dc_key = 'config/atspm_det_config_good/date={d}/ATSPM_Det_Config_Good.feather'
+    dc_key = f'config/atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather'
     with io.BytesIO() as data:
-        boto3.resource('s3').Bucket(conf['bucket']).download_fileobj(
-                Key=dc_key.format(d=date_str), Fileobj=data)
+        boto3.resource('s3').Bucket(bucket).download_fileobj(
+                Key=dc_key, Fileobj=data)
         dc = pd.read_feather(data)[['SignalID', 'Detector', 'DetectionTypeDesc']]
     dc.loc[dc.DetectionTypeDesc.isna(), 'DetectionTypeDesc'] = '[]'
 
@@ -155,20 +155,21 @@ def main(start_date, end_date):
 
     for date_ in dates:
       try:
-
         t0 = time.time()
-        print(date_)
-    
+        
+        date_str = date_.strftime('%Y-%m-%d') 
+        print(date_str)
+        
         print('Getting detector configuration...', end='')
         det_config = get_det_config(date_, conf)
         print('done.')
         print('Getting signals...', end='')
-        signalids = list(get_signalids(date_), conf)
+        signalids = list(get_signalids(date_, conf))
         print('done.')
 
 
         print('1 hour')
-        with get_context('spawn').Pool(24) as pool:
+        with Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
                 list(itertools.product(signalids, [date_], [det_config], [conf], ['H'])))
@@ -187,9 +188,9 @@ def main(start_date, end_date):
               .assign(SignalID=lambda x: x.SignalID.astype('str'),
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
-    
-        df.to_parquet('s3://{b}/mark/arrivals_on_green/date={d}/aog_{d}.parquet'.format(
-            b=conf['bucket'], d=date_.strftime('%Y-%m-%d')))
+   
+        df.to_parquet(f's3://{bucket}/mark/arrivals_on_green/date={date_str}/aog_{date_str}.parquet')
+
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')
@@ -197,7 +198,7 @@ def main(start_date, end_date):
 
         print('\n15 minutes')
         
-        with get_context('spawn').Pool(24) as pool:
+        with Pool(24) as pool:
             results = pool.starmap_async(
                 get_aog,
                 list(itertools.product(signalids, [date_], [det_config], ['15min'])))
@@ -217,8 +218,8 @@ def main(start_date, end_date):
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
     
-        df.to_parquet('s3://{b}/mark/arrivals_on_green_15min/date={d}/aog_{d}.parquet'.format(
-            b=conf['bucket'], d=date_.strftime('%Y-%m-%d')))
+        df.to_parquet(f's3://{bucket}/mark/arrivals_on_green_15min/date={date_str}/aog_{date_str}.parquet')
+
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')

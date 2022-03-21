@@ -135,7 +135,7 @@ get_det_config_  <- function(bucket, folder) {
         }
         
         s3bucket <- bucket 
-        s3prefix = glue("{folder}/date={date_}")
+        s3prefix = glue("config/{folder}/date={date_}")
         
         # Are there any files for this date?
         s3objects <- aws.s3::get_bucket(

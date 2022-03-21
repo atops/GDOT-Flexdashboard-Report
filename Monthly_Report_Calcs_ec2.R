@@ -87,7 +87,7 @@ signals_list <- unique(corridors$SignalID)
 
 # Most recent detector config. Needed for Watchdog Notes, as feather files
 # can't be read from shinyapps.io for some unknown reason.
-get_latest_det_config() %>%
+get_latest_det_config(conf) %>%
     s3write_using(qsave, bucket = conf$bucket, object = "ATSPM_Det_Config_Good_Latest.qs")
 
 # -- TMC Codes for Corridors

@@ -129,7 +129,7 @@ def main(start_date, end_date):
         with io.BytesIO() as data:
             s3.download_fileobj(
                 Bucket=bucket,
-                Key=f'atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather',
+                Key=f'config/atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather',
                 Fileobj=data)
 
             det_config_raw = pd.read_feather(data)\
