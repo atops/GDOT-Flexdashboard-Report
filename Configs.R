@@ -89,36 +89,38 @@ get_cam_config <- function(object, bucket, corridors) {
 
 
 
-get_ped_config <- function(conf, date_) {
+get_ped_config_ <- function(bucket) {
     
-    date_ <- max(date_, ymd("2019-01-01"))
-    
-    s3key <- glue("config/maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
-    s3bucket <- conf$bucket
-    
-    if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
-        col_spec <- cols_only(
-            # .default = col_character(),
-            SignalID = col_character(),
-            IP = col_character(),
-            PrimaryName = col_character(),
-            SecondaryName = col_character(),
-            Detector = col_character(),
-            CallPhase = col_character())
+    function(date_) {
+        date_ <- max(date_, ymd("2019-01-01"))
         
-        s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(), 
-                     object = s3key, 
-                     bucket = s3bucket) %>%
-            transmute(SignalID = factor(SignalID), 
-                      Detector = factor(Detector), 
-                      CallPhase = factor(CallPhase)) %>%
-            distinct()
-    } else {
-        data.frame()
+        s3key <- glue("config/maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
+        s3bucket <- bucket
+        
+        if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
+            col_spec <- cols_only(
+                # .default = col_character(),
+                SignalID = col_character(),
+                IP = col_character(),
+                PrimaryName = col_character(),
+                SecondaryName = col_character(),
+                Detector = col_character(),
+                CallPhase = col_character())
+            
+            s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(), 
+                         object = s3key, 
+                         bucket = s3bucket) %>%
+                transmute(SignalID = factor(SignalID), 
+                          Detector = factor(Detector), 
+                          CallPhase = factor(CallPhase)) %>%
+                distinct()
+        } else {
+            data.frame()
+        }
     }
-    
 }
 
+get_ped_config <- get_ped_config_(conf$bucket)
 
 ## -- --- Adds CountPriority from detector config file --------------------- -- ##
 ## This determines which detectors to use for counts when there is more than

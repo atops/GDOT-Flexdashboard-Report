@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
             while True:
                 response = s3.list_objects(
-                    Bucket=conf['athena']['staging_dir'],
+                    Bucket=os.path.basename(conf['athena']['staging_dir']),
                     Prefix=response_repair['QueryExecutionId'])
                 if 'Contents' in response:
                     break
