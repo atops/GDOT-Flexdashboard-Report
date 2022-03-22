@@ -1,4 +1,5 @@
 #!/bin/bash
+source /home/rstudio/.bashrc
 
 H=$(TZ=America/New_York date +%H)
 
@@ -11,19 +12,41 @@ echo "System booted. The hour is ${H#0}"
 # run this script.
 #
 
-cd /home/rstudio/Code/GDOT/GDOT-Flexdashboard-Report
+cd /home/rstudio/Code/GDOT/production_scripts
+
+bucket=`cat Monthly_Report.yaml | yq -r .bucket`
 
 if [[ ${H#0} -lt 6 ]]; then
     echo $(TZ=America/New_York date)
+
+    # this was moved to crontab to run at midnight. creates empty nightly.log.
+    /usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state /home/rstudio/logrotate-state
+
+    ./sync_configs.sh  # Temporary while waiting for merge to be accepted into production: gdot-spm/config/...
+    
     Rscript Monthly_Report_Calcs_ec2.R
     Rscript Monthly_Report_Package.R
-    
-    # this was moved to crontab to run at midnight. creates empty nightly.log.
+    echo "------------------------"
+
+    cd ../interim_production_scripts/
+    Rscript Monthly_Report_Package.R
+    echo "------------------------"
+    Rscript Monthly_Report_Package_1hr.R
+    echo "------------------------"
+    Rscript Monthly_Report_Package_15min.R
+    cd ../production_scripts/
+
+    # Run User Delay Cost on the SAM on the 1sh, 8th, 11th and 21st of the month
+    if [[ $(date +%d) =~ 01|11|21 ]]; then
+        python user_delay_costs.py &
+    fi
+
     #/usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state=/home/rstudio/logrotate-state --verbose
-    aws s3 sync /home/rstudio/ s3://gdot-spm/logs --exclude "*" --include "nightly.lo*"
+    aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1
     
-    #systemctl poweroff -i
+    # Shut down when script completes
+    aws ec2 stop-instances --instance-ids i-0ddfe60da0c6fe4bd
+
 else
     echo "$(TZ=America/New_York date) - after 6am"
 fi
-
