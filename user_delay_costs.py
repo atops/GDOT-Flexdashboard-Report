@@ -256,6 +256,8 @@ if __name__ == '__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
+    bucket = conf['bucket']
+    
     start_date = conf['start_date']
     end_date = conf['end_date']
 
@@ -279,12 +281,12 @@ if __name__ == '__main__':
     print(end_date)
 
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket=conf['bucket'],
+        s3.download_fileobj(Bucket=bucket,
                             Key='Corridor_TMCs_Latest.xlsx',
                             Fileobj=data)
         tmc_df = pd.read_excel(data)
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket=conf['bucket'],
+        s3.download_fileobj(Bucket=bucket,
                             Key='Corridors_Latest.xlsx',
                             Fileobj=data)
         corridors_zones_df = pd.read_excel(data)
@@ -325,7 +327,6 @@ if __name__ == '__main__':
         df = udc_df.sort_values(by=['zone', 'corridor',
                                     'date'])  # 'hour_current'])
 
-        bucket = conf['bucket']
         df.to_parquet(
             f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}'
         )
