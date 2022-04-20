@@ -3,10 +3,12 @@ get_teams_locations <- function(locs, conf) {
     
     # conn <- get_atspm_connection()
     
-    last_key <- max(aws.s3::get_bucket_df(bucket = "gdot-devices", prefix = "maxv_atspm_intersections")$Key)
+    last_key <- max(aws.s3::get_bucket_df(
+        bucket = conf$bucket, 
+        prefix = "config/maxv_atspm_intersections")$Key)
     sigs <- s3read_using(
         read_csv,
-        bucket = "gdot-devices",
+        bucket = conf$bucket,
         object = last_key
     ) %>%
         mutate(SignalID = factor(SignalID),
@@ -14,9 +16,10 @@ get_teams_locations <- function(locs, conf) {
                Longitude = as.numeric(Longitude)) %>%
         filter(Latitude != 0)
     
-    corridors <- s3read_using(read_feather, 
-                              object = sub('\\.xlsx', '.feather', conf$corridors_filename_s3),
-                              bucket = conf$bucket)
+    corridors <- s3read_using(
+        read_feather, 
+        object = sub('\\.xlsx', '.feather', conf$corridors_filename_s3),
+        bucket = conf$bucket)
     
     # sf (spatial - point) objects
     locs.sp <- sf::st_as_sf(locs, coords = c("Latitude", "Longitude")) %>%
@@ -190,7 +193,7 @@ get_teams_tasks_from_s3 <- function(
                                  }) %>% 
             bind_rows() %>% 
             select(-X1) %>% 
-            filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
+            filter(`Date Reported` >= today() - months(18))
     } else {
         archived_tasks <- data.frame()
     }
@@ -205,7 +208,7 @@ get_teams_tasks_from_s3 <- function(
             escape_double = FALSE), 
         bucket = bucket, 
         object = current_tasks_key)  %>% 
-        filter(`Date Reported` >= ymd(conf$report_start_date) - months(6))
+        filter(`Date Reported` >= today() - months(18))
     
     bind_rows(archived_tasks, current_tasks) %>% 
         distinct()

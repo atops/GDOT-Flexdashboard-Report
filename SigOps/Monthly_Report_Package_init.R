@@ -60,7 +60,6 @@ cam_config <- get_cam_config(
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
-# system("aws s3 sync s3://gdot-spm/mark MARK --exclude *counts_*")
 
 # # ###########################################################################
 
@@ -68,7 +67,9 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
-report_start_date <- conf$report_start_date
+report_end_date <- Sys.Date() - days(1)
+report_start_date <- floor_date(report_end_date - months(12), unit = "months")
+
 if (conf$report_end_date == "yesterday") {
     report_end_date <- Sys.Date() - days(1)
 } else {
@@ -95,6 +96,7 @@ round_to_tuesday <- function(date_) {
     }
     date_ - wday(date_) + 3
 }
+
 wk_calcs_start_date <- round_to_tuesday(calcs_start_date)
 
 dates <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
