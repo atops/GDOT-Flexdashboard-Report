@@ -173,6 +173,16 @@ if (conf$run$counts == TRUE) {
             uptime = TRUE,
             counts = TRUE
         )
+    } else if (length(date_range) == 2) {
+        lapply(date_range, function(date_) {
+            get_counts2(
+                date_,
+                bucket = conf$bucket,
+                conf_athena = conf$athena,
+                uptime = TRUE,
+                counts = TRUE
+            )
+        })
     } else {
         foreach(date_ = date_range, .errorhandling = "pass") %dopar% {
             get_counts2(

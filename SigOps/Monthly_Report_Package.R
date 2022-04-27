@@ -159,8 +159,6 @@ tryCatch(
             ungroup() %>%
             select(SignalID, Detector, CallPhase, Date, DOW, Week, papd, uptime, all)
 
-        # TODO: Can we move this to Monthly_Report_Calcs?
-        #
         # We have do to this here rather than in Monthly_Report_Calcs
         # because we need a longer time series to calculate ped detector uptime
         # based on the exponential distribution method (as least 6 months)
@@ -181,7 +179,8 @@ tryCatch(
         )
         pau <- pau %>%
             mutate(CallPhase = Detector)
-        
+
+
         daily_pa_uptime <- get_daily_avg(pau, "uptime", peak_only = FALSE)
         weekly_pa_uptime <- get_weekly_avg_by_day(pau, "uptime", peak_only = FALSE)
         monthly_pa_uptime <- get_monthly_avg_by_day(pau, "uptime", "all", peak_only = FALSE)
@@ -277,7 +276,7 @@ tryCatch(
                 key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             select(SignalID, Detector) %>%
                             mutate(Date = date_)
                     },
@@ -357,7 +356,7 @@ tryCatch(
                 key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             mutate(Date = date_)
                     },
                     error = function(e) {
@@ -399,10 +398,9 @@ tryCatch(
             seq(floor_date(today() %m-% months(6), "month"), today() %m-% days(1), by = "1 month"),
             function(date_) {
                 key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
-                # print(key)
                 tryCatch(
                     {
-                        s3read_using(read_parquet, bucket = "gdot-spm", object = key) %>%
+                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
                             filter(Size == 0)
                     },
                     error = function(e) {
@@ -458,13 +456,6 @@ print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 29]"))
 
 tryCatch(
     {
-        # daily_papd <- readRDS("../production_scripts/daily_papd.rds") %>% 
-        #     filter(Date >= calcs_start_date)
-        # weekly_papd <- readRDS("../production_scripts/weekly_papd.rds") %>% 
-        #     filter(Date >= wk_calcs_start_date)
-        # monthly_papd <- readRDS("../production_scripts/monthly_papd.rds") %>% 
-        #     filter(Month >= calcs_start_date)
-
         daily_papd <- get_daily_sum(papd, "papd")
         weekly_papd <- get_weekly_papd(papd)
         monthly_papd <- get_monthly_papd(papd)
@@ -729,13 +720,6 @@ tryCatch(
                 Date = date(Date)
             )
 
-        # daily_vpd <- readRDS("../production_scripts/daily_vpd.rds") %>%
-        #     filter(Date >= calcs_start_date)
-        # weekly_vpd <- readRDS("../production_scripts/weekly_vpd.rds") %>%
-        #     filter(Date >= wk_calcs_start_date)
-        # monthly_vpd <- readRDS("../production_scripts/monthly_vpd.rds") %>%
-        #     filter(Month >= calcs_start_date)
-
         daily_vpd <- get_daily_sum(vpd, "vpd")
         weekly_vpd <- get_weekly_vpd(vpd)
         monthly_vpd <- get_monthly_vpd(vpd)
@@ -762,7 +746,7 @@ tryCatch(
         addtoRDS(cor_daily_vpd, "cor_daily_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
         addtoRDS(cor_weekly_vpd, "cor_weekly_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
         addtoRDS(cor_monthly_vpd, "cor_monthly_vpd.rds", "vpd", report_start_date, calcs_start_date)
-        addtoRDS(cor_daily_vpd, "sub_daily_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
+        addtoRDS(sub_daily_vpd, "sub_daily_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
         addtoRDS(sub_weekly_vpd, "sub_weekly_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
         addtoRDS(sub_monthly_vpd, "sub_monthly_vpd.rds", "vpd", report_start_date, calcs_start_date)
 
@@ -912,11 +896,6 @@ tryCatch(
         
         # daily_throughput <- readRDS("../production_scripts/daily_throughput.rds") %>%
         #     filter(Date >= calcs_start_date)
-        # weekly_throughput <- readRDS("../production_scripts/weekly_throughput.rds") %>%
-        #     filter(Date >= wk_calcs_start_date)
-        # monthly_throughput <- readRDS("../production_scripts/monthly_throughput.rds") %>%
-        #     filter(Month >= calcs_start_date)
-        
         daily_throughput <- get_daily_sum(throughput, "vph")
         weekly_throughput %<-% get_weekly_thruput(throughput)
         monthly_throughput %<-% get_monthly_thruput(throughput)
@@ -994,7 +973,7 @@ tryCatch(
         # ds <- arrow::open_dataset(glue("s3://{conf$bucket}/mark/arrivals_on_green"))
         # date_range <- seq(wk_calcs_start_date, as_date(report_end_date), by = "1 day") %>% 
         #     as.character()
-        # mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
+        # aog <- mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
         #     ds %>% 
         #         filter(date == date_, SignalID %in% signals_list) %>%
         #         collect() %>%
@@ -1006,15 +985,8 @@ tryCatch(
         #             Week = week(date)
         #         ) %>%
         #         get_daily_aog()
-        # })
+        # }) %>% bind_rows()
         # 
-        
-        # daily_aog <- readRDS("../production_scripts/daily_aog.rds") %>%
-        #     filter(Date >= calcs_start_date)
-        # weekly_aog_by_day <- readRDS("../production_scripts/weekly_aog_by_day.rds") %>%
-        #     filter(Date >= wk_calcs_start_date)
-        # monthly_aog_by_day <- readRDS("../production_scripts/monthly_aog_by_day.rds") %>%
-        #     filter(Month >= calcs_start_date)
         
         daily_aog <- get_daily_aog(aog)
         weekly_aog_by_day <- get_weekly_aog_by_day(aog)
@@ -1480,16 +1452,6 @@ tryCatch(
         cor_monthly_bi <- get_cor_monthly_ti_by_day(bi, cor_monthly_vph, all_corridors)
         cor_monthly_spd <- get_cor_monthly_ti_by_day(spd, cor_monthly_vph, all_corridors)
 
-        
-        
-        # cor_weekly_tti <- get_cor_weekly_ti_by_day(tti, cor_weekly_vph, all_corridors)
-        # "tti" = readRDS("cor_weekly_tti.rds")
-        # "pti" = readRDS("cor_weekly_pti.rds")
-        # "bi" = readRDS("cor_weekly_bi.rds")
-        # "spd" = readRDS("cor_weekly_spd.rds")
-        
-        
-
         addtoRDS(cor_monthly_tti, "cor_monthly_tti.rds", "tti", report_start_date, calcs_start_date)
         addtoRDS(cor_monthly_tti_by_hr, "cor_monthly_tti_by_hr.rds", "tti", report_start_date, calcs_start_date)
 
@@ -1873,7 +1835,7 @@ tryCatch(
         saveRDS(cor_outstanding_tasks_by_day_range, "cor_tasks_by_date.rds")
         saveRDS(sig_outstanding_tasks_by_day_range, "sig_tasks_by_date.rds")
         
-	    rm(tasks_by_type)
+        rm(tasks_by_type)
         rm(tasks_by_subtype)
         rm(tasks_by_priority)
         rm(tasks_by_source)
@@ -1927,7 +1889,6 @@ tryCatch(
 
         months <- unique(udc$analysis_month)
         udc_trend_table_list <- lapply(months[2:length(months)], function(current_month) {
-            print(current_month)
             last_month <- current_month - months(1)
             last_year <- current_month - years(1)
 
@@ -1991,7 +1952,7 @@ tryCatch(
     {
         fe <- s3_read_parquet_parallel(
             bucket = conf$bucket,
-            table_name = "flash_events", # s3://gdot-spm/mark/flash_events/date=yyyy-mm-dd/filename.parquet
+            table_name = "flash_events",
             start_date = wk_calcs_start_date,
             end_date = report_end_date,
             signals_list = signals_list
@@ -2824,6 +2785,7 @@ source("Health_Metrics.R")
 
 
 # Assign Descriptions for hover text
+print(glue("{Sys.time()} Assigning descriptions to tables"))
 
 descs <- corridors %>%
     select(SignalID, Corridor, Description) %>%
@@ -2841,7 +2803,6 @@ for (tab in c(
     "flash", "bpsi", "rsi", "cri", "kabco",
     "maint_plot", "ops_plot", "safety_plot"
 )) {
-    print(tab)
     if (tab %in% names(sig$mo) & tab != "cctv") {
         sig$mo[[tab]] <- sig$mo[[tab]] %>%
             left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
@@ -2876,7 +2837,6 @@ for (tab in c(
 }
 
 for (tab in names(sig$dy)) {
-    print(tab)
     if (tab %in% names(sig$mo) & tab != "cctv") {
         sig$dy[[tab]] <- sig$dy[[tab]] %>%
             left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
@@ -2891,6 +2851,7 @@ for (tab in names(sig$dy)) {
 
 
 print(glue("{Sys.time()} Upload to AWS [28 of 29]"))
+
 
 print(glue("{Sys.time()} Write to Database [29 of 29]"))
 

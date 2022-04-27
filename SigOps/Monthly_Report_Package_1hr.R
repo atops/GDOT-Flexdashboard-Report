@@ -536,6 +536,7 @@ tryCatch(
 
 
 # Assign Descriptions for hover text
+print(glue("{Sys.time()} Assigning descriptions to tables"))
 
 descs <- corridors %>%
     select(SignalID, Corridor, Description) %>%
@@ -544,7 +545,6 @@ descs <- corridors %>%
     ungroup()
 
 for (tab in names(cor2$hr)) {
-    print(tab)
     sig2$hr[[tab]] <- sig2$hr[[tab]] %>%
         left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
         mutate(
@@ -582,11 +582,14 @@ aurora <- get_aurora_connection()
 # append_to_database(aurora, sig2, "sig", calcs_start_date, report_start_date, report_end_date)
 
 
-# Uncomment this block to once database has been created and all is good for nightly runs.
 append_to_database(
     aurora, cor2, "cor", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
 append_to_database(
     aurora, sub2, "sub", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
 append_to_database(
     aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+
+dbDisconnect(aurora)
+
+
 

@@ -2635,10 +2635,6 @@ source("write_sigops_to_db.R")
 # Update Aurora Nightly
 conn <- keep_trying(get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
-# append_to_database(
-#    conn, cor, sub, sig, 
-#    calcs_start_date = report_start_date, 
-#    report_start_date = report_start_date)
 
 append_to_database(
     conn, cor, "cor",
@@ -2649,34 +2645,3 @@ append_to_database(
 append_to_database(
     conn, sig, "sig",
     calcs_start_date, report_start_date, report_end_date = NULL)
-
-
-# Update DuckDB Once per Month for Staging/Main
-if (file.exists("sigops.duckdb")) file.remove("sigops.duckdb")
-duckconn <- get_duckdb_connection("sigops.duckdb")
-recreate_database(duckconn, cor, "cor")
-recreate_database(duckconn, sub, "sub")
-recreate_database(duckconn, sig, "sig")
-append_to_database(
-    duckconn, cor, "cor",
-    report_start_date, report_start_date, report_end_date = NULL)
-append_to_database(
-    duckconn, sub, "sub",
-    report_start_date, report_start_date, report_end_date = NULL)
-append_to_database(
-    duckconn, sig, "sig",
-    report_start_date, report_start_date, report_end_date = NULL)
-# Optional for production API
-#                                         report_end_date = conf$production_report_end_date)
-
-# Need to execute checkpoint to commit write-ahead log (wal)
-DBI::dbExecute(duckconn, "CHECKPOINT")
-dbDisconnect(duckconn)
-
-aws.s3::put_object(
-    file = "sigops.duckdb",
-    object = "code/sigops.duckdb",
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-

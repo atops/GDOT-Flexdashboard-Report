@@ -5,6 +5,7 @@ Created on Tue Nov 26 09:46:47 2019
 """
 
 import os
+import shutil
 import io
 import pandas as pd
 import requests
@@ -18,7 +19,8 @@ from dateutil.relativedelta import relativedelta  #needed for 1 year subtraction
 import boto3
 import json
 import re
-from multiprocessing.dummy import Pool
+import dask.dataframe as dd
+from multiprocessing import get_context
 from config import get_date_from_string
 
 os.environ['TZ'] = 'America/New_York'
@@ -180,6 +182,7 @@ def get_udc_data(start_date,
     end_date_1yr = (datetime.strptime(end_date, '%Y-%m-%d').date() -
                     relativedelta(years=1)).strftime('%Y-%m-%d')
 
+    # Get TMCs list by Zone/Corridor combinations
     zcdf = zone_corridor_tmc_df.groupby(
         ['Zone', 'Corridor']).apply(lambda x: x.tmc.values.tolist())
     zcdf = zcdf.reset_index().rename(columns={0: 'tmcs'})
@@ -187,6 +190,9 @@ def get_udc_data(start_date,
     zcdf['threshold'] = threshold
     zcdf['key'] = key
 
+
+    # Results are stored locally. Don't re-run corridors if script is interrupted and we need to run again.
+    # Current Month
     zcdf0 = zcdf.copy()
     zcdf0['start_date'] = start_date
     zcdf0['end_date'] = end_date
@@ -203,6 +209,8 @@ def get_udc_data(start_date,
     zcdf0 = zcdf0[zcdf0.Corridor.isin(corridors_to_run)]
 
 
+    # Results are stored locally. Don't re-run corridors if script is interrupted and we need to run again.
+    # Current month, one year ago
     zcdf1 = zcdf.copy()
     zcdf1['start_date'] = start_date_1yr
     zcdf1['end_date'] = end_date_1yr
@@ -218,8 +226,10 @@ def get_udc_data(start_date,
     print(f'{len(corridors_to_run)} corridors to run')
     zcdf1 = zcdf1[zcdf1.Corridor.isin(corridors_to_run)]
 
+
+    # Get user delay costs for each Zone/Corridor for current month.
     if len(zcdf0):
-        with Pool(2) as pool:
+        with get_context('spawn').Pool(2) as pool:
             results = pool.starmap_async(
                 get_udc_response,
                 [list(row.values()) for row in zcdf0.to_dict(orient='records')])
@@ -229,9 +239,11 @@ def get_udc_data(start_date,
         df0 = pd.concat(dfs).reset_index()
     else:
         df0 = pd.DataFrame()
+    df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
 
+    # Get user delay costs for each Zone/Corridor for current month one year ago.
     if len(zcdf1):
-        with Pool(2) as pool:
+        with get_context('spawn').Pool(2) as pool:
             results = pool.starmap_async(
                 get_udc_response,
                 [list(row.values()) for row in zcdf1.to_dict(orient='records')])
@@ -241,6 +253,7 @@ def get_udc_data(start_date,
         df1 = pd.concat(dfs).reset_index()
     else:
         df1 = pd.DataFrame()
+    df1 = dd.read_parquet(f'user_delay_costs/{start_date_1yr}/*.parquet').compute()
 
     df = pd.concat([df0, df1])
 
@@ -273,8 +286,8 @@ if __name__ == '__main__':
     end_date = min(ed + timedelta(days=1), datetime.today()).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    #start_date = '2021-11-01'
-    #end_date = '2021-11-30'
+    start_date = '2022-03-01'
+    end_date = '2022-03-31'
     #---
 
     print(start_date)
@@ -333,3 +346,7 @@ if __name__ == '__main__':
 
     else:
         print('No records returned.')
+    
+    shutil.rmtree(f'user_delay_costs/{start_date}/')
+    shutil.rmtree(f'user_delay_costs/{start_date0}/')
+
