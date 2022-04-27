@@ -115,6 +115,8 @@ def main(start_date, end_date):
     signalids = list(corridors.SignalID.astype('int').values)
 
     bucket = conf['bucket']
+    athena = conf['athena']
+    
     #-----------------------------------------------------------------------------------------
     # Placeholder for manual override of signalids
     #signalids = [7053]
@@ -183,22 +185,22 @@ def main(start_date, end_date):
 
         response_repair_cycledata = ath.start_query_execution(
             QueryString=f"ALTER TABLE cycledata ADD PARTITION (date = '{date_str}');",
-            QueryExecutionContext={'Database': conf['athena']['database']},
-            ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
+            QueryExecutionContext={'Database': athena['database']},
+            ResultConfiguration={'OutputLocation': athena['staging_dir']})
 
         response_repair_detection_events = ath.start_query_execution(
             QueryString=f"ALTER TABLE detectionevents ADD PARTITION (date = '{date_str}');",
-            QueryExecutionContext={'Database': conf['athena']['database']},
-            ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
+            QueryExecutionContext={'Database': athena['database']},
+            ResultConfiguration={'OutputLocation': athena['staging_dir']})
 
 
     # Check if the partitions for the last day were successfully added before moving on
     while True:
         response1 = s3.list_objects(
-            Bucket=os.path.basename(conf['athena']['staging_dir']),
+            Bucket=os.path.basename(athena['staging_dir']),
             Prefix=response_repair_cycledata['QueryExecutionId'])
         response2 = s3.list_objects(
-            Bucket=os.path.basename(conf['athena']['staging_dir']),
+            Bucket=os.path.basename(athena['staging_dir']),
             Prefix=response_repair_detection_events['QueryExecutionId'])
 
         if 'Contents' in response1 and 'Contents' in response2:

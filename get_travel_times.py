@@ -188,6 +188,7 @@ if __name__=='__main__':
     start_date = min(sd, sd - timedelta(days=7)).strftime('%Y-%m-%d')
 
     end_date = get_date_from_string(end_date)
+    bucket = conf['bucket']
 
 
     suff = tt_conf['table_suffix']
@@ -248,13 +249,13 @@ if __name__=='__main__':
  
         for yyyy_mm in months:
             try:
-                df = dd.read_parquet(f"s3://{conf['bucket']}/mark/{cor_table}/date={yyyy_mm}-*/*").compute()
+                df = dd.read_parquet(f's3://{bucket}/mark/{cor_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
                      get_corridor_travel_time_metrics(
                          df, ['Corridor'], conf['bucket'], cor_metrics_table)
 
                 if not df.empty:
-                    df = dd.read_parquet(f"s3://{conf['bucket']}/mark/{sub_table}/date={yyyy_mm}-*/*").compute()
+                    df = dd.read_parquet(f's3://{bucket}/mark/{sub_table}/date={yyyy_mm}-*/*').compute()
                     get_corridor_travel_time_metrics(
                         df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_metrics_table)
             except IndexError:

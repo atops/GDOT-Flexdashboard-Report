@@ -51,10 +51,10 @@ def parse_cctvlog_encoders(bucket, key):
 if __name__ == '__main__':
 
     with open('Monthly_Report.yaml') as yaml_file:
-        conf = yaml.load(yaml_file, Loader=yaml.Loader)    
-   
+        conf = yaml.load(yaml_file, Loader=yaml.Loader)
+
     bucket = conf['bucket']
- 
+
     td = date.today()
     som = td - timedelta(td.day - 1)
     sopm = som - relativedelta(months=1)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
             while True:
                 response = s3.list_objects(
-                    Bucket=os.path.basename(confconf['athena']['staging_dir']),
+                    Bucket=os.path.basename(conf['athena']['staging_dir']),
                     Prefix=response_repair['QueryExecutionId'])
                 if 'Contents' in response:
                     break

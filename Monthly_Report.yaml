@@ -7,8 +7,7 @@ mode: production
 agency: GDOT
 bucket: gdot-spm
 athena:
-    staging_dir: s3://gdot-spm-athena  # this has to be <bucket>-athena
-    jar_path: AthenaJDBC42_2.0.9.jar
+    staging_dir: s3://gdot-spm-athena
     database: gdot_spm
     atspm_table: atspm2
     region: us-east-1
@@ -36,10 +35,8 @@ run:
 start_date: yesterday
 end_date: yesterday
 
-report_start_date: 2020-02-01
 report_end_date: yesterday
 calcs_start_date: auto
-production_report_end_date: 2021-02-01
 
 corridors_filename_s3: Corridors_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx

@@ -43,7 +43,6 @@ if (interactive()) {
 
 source("Utilities.R")
 source("Classes.R")
-source("zone_manager_reports_editor.R")
 
 usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
@@ -167,8 +166,6 @@ goal <- list("tp" = NULL,
 
 conf <- read_yaml("Monthly_Report.yaml")
 
-conf$mode <- conf_mode
-
 aws_conf <- read_yaml("Monthly_Report_AWS.yaml")
 Sys.setenv("AWS_ACCESS_KEY_ID" = aws_conf$AWS_ACCESS_KEY_ID,
            "AWS_SECRET_ACCESS_KEY" = aws_conf$AWS_SECRET_ACCESS_KEY,
@@ -182,15 +179,7 @@ source("Database_Functions.R")
 athena_connection_pool <- get_athena_connection_pool(conf$athena)
 
 
-if (conf$mode == "production") {
-    last_month <- ymd(conf$production_report_end_date)   # Production
-    
-} else if (conf$mode == "beta") {
-    last_month <- floor_date(today() - days(6), unit = "months")   # Beta
-    
-} else {
-    stop("mode defined in configuration yaml file must be either production or beta")
-}
+last_month <- floor_date(today() - days(6), unit = "months")
 
 endof_last_month <- last_month + months(1) - days(1)
 first_month <- last_month - months(12)
@@ -239,28 +228,11 @@ s3reactivePoll <- function(intervalMillis, bucket, object, aws_s3) {
 
 
 
-if (conf$mode == "production") {
+corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
 
-    corridors <- function() {qs::qread("all_Corridors_Latest.qs")}
-    
-    if (Sys.info()["sysname"] == "Linux") {
-        sigops_connection_pool <<- get_duckdb_connection_pool("/data/staging/sigops.duckdb", read_only = TRUE)
-        aurora_connection_pool <<- get_aurora_connection_pool()
-    }
-    
-} else if (conf$mode == "beta") {
-    
-    corridors_key <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
-    corridors <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = corridors_key, aws_conf)
-    
-    if (Sys.info()["sysname"] == "Linux") {
-        sigops_connection_pool <<- get_aurora_connection_pool()
-        aurora_connection_pool <<- sigops_connection_pool
-    }
-
-} else {
-    stop("mode defined in configuration yaml file must be either production or beta")
-}
+sigops_connection_pool <<- get_aurora_connection_pool()
+aurora_connection_pool <<- sigops_connection_pool
 
 alerts <- s3reactivePoll(poll_interval, bucket = conf$bucket, object = "mark/watchdog/alerts.qs", aws_conf) 
 

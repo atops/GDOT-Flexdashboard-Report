@@ -9,8 +9,6 @@ output:
     logo: GDOTLogo.svg
     favicon: GDOTLogo.svg
     css: style.css
-    includes:
-      in_header: google-analytics.html
 runtime: shiny
 ---
 
@@ -25,8 +23,6 @@ runtime: shiny
 
 ```{r global, include = FALSE, warning = FALSE}
 # FLEXDASHBOARD - RTOP_MONTHLY_REPORT
-
-conf_mode <- "beta"
 
 source("Monthly_Report_UI_Functions.R")
 
