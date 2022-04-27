@@ -95,25 +95,25 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
       "uuid": str(uuid.uuid1())
     }
     #----------------------------------------------------------
-    response = requests.post(uri.format('jobs/export'),
-                             params = {'key': key},
+    response = requests.post(uri.format('submit/export'), 
+                             params = {'key': key}, 
                              json = payload)
-    print('response status code:', response.status_code)
+    print('travel times response status code:', response.status_code)
 
     if response.status_code == 200: # Only if successful response
 
         # retry at intervals of 'step' until results return (status code = 200)
-        jobid = json.loads(response.content.decode('utf-8'))['id']
+        jobid = response.json()['id']
 
         polling.poll(
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
             check_success = is_success,
             step=60,
-            timeout=3600) #changed to allow for up to 1 hour to be safe
+            timeout=3600)
 
-        results = requests.get(uri.format('jobs/export/results'),
+        results = requests.get(uri.format('results/export'), 
                                params = {'key': key, 'uuid': payload['uuid']})
-        print('results received')
+        print('travel times results received')
 
         # Save results (binary zip file with one csv)
         with io.BytesIO() as f:
@@ -121,6 +121,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             f.seek(0)
             with ZipFile(f, 'r') as zf:
                 df = pd.read_csv(zf.open('Readings.csv'))
+                #tmci = pd.read_csv(zf.open('TMC_Identification.csv'))
 
     else:
         df = pd.DataFrame()
@@ -189,15 +190,10 @@ if __name__=='__main__':
     tmc_df = (pd.read_excel(f"s3://{bucket}/{conf['corridors_TMCs_filename_s3']}")
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
-    tmc_df = tmc_df[tmc_df.Corridor != 'None'] #4500 rows
-
-    # test - 95 rows
-    # tmc_df = tmc_df[(tmc_df.Corridor == "Peachtree St-Midtown") | (tmc_df.Corridor == "Peachtree St-Downtown")]
+    tmc_df = tmc_df[tmc_df.Corridor != 'None']
 
     tmc_list = list(set(tmc_df.tmc.values))
 
-    print(start_date)
-    print(end_date)
     dates = pd.date_range(start_date, end_date)
     number_of_days = len(dates)
 
@@ -205,7 +201,6 @@ if __name__=='__main__':
 
         date_str = date_.strftime('%F')
         ed_str = (date_ + timedelta(days=1)).strftime('%F')
-        print(date_str)
 
         try:
             start_time = time.perf_counter()
@@ -215,8 +210,7 @@ if __name__=='__main__':
             print(f'Time to pull {len(tmc_list)} TMCs for 1 day: {round(process_time/60)} minutes')
 
         except Exception as e:
-            print('ERROR retrieving records')
-            print(e)
+            print(f'ERROR retrieving tmc records - {str(e)}')
             tt_df = pd.DataFrame()
 
 
@@ -254,8 +248,6 @@ if __name__=='__main__':
     months = list(set(months))
 
     for yyyy_mm in months:
-
-        print(yyyy_mm)
 
         try:
             df = dd.read_parquet(f's3://{bucket}/mark/travel_times_1min/date={yyyy_mm}*/*.parquet')

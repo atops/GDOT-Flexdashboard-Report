@@ -236,9 +236,6 @@ def get_udc_data(start_date,
             pool.close()
             pool.join()
         dfs = results.get()
-        df0 = pd.concat(dfs).reset_index()
-    else:
-        df0 = pd.DataFrame()
     df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
 
     # Get user delay costs for each Zone/Corridor for current month one year ago.
@@ -250,9 +247,6 @@ def get_udc_data(start_date,
             pool.close()
             pool.join()
         dfs = results.get()
-        df1 = pd.concat(dfs).reset_index()
-    else:
-        df1 = pd.DataFrame()
     df1 = dd.read_parquet(f'user_delay_costs/{start_date_1yr}/*.parquet').compute()
 
     df = pd.concat([df0, df1])

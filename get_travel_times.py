@@ -15,7 +15,7 @@ import uuid
 import polling
 import time
 import yaml
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pytz
 from zipfile import ZipFile
 import json
@@ -41,13 +41,13 @@ def is_success(response):
 
 
 def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, initial_sleep_sec=0):
-    
+
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
-    uri = 'http://pda-api.ritis.org:8080/{}'   
-    
-    #----------------------------------------------------------  
+    uri = 'http://pda-api.ritis.org:8080/{}'
+
+    #----------------------------------------------------------
     payload = {
       "dates": [
         {
@@ -80,7 +80,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
         "type": "minutes",
         "value": bin_minutes
       },
-      "times": [
+      "times": [ #pulling all 24 hours
         {
           "end": None,
           "start": "00:00:00.000"
@@ -89,17 +89,17 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
       "tmcs": tmcs,
       "travelTimeUnits": "MINUTES",
       "uuid": str(uuid.uuid1())
-    }  
-    #----------------------------------------------------------    
-    response = requests.post(uri.format('jobs/export'), 
+    }
+    #----------------------------------------------------------
+    response = requests.post(uri.format('submit/export'), 
                              params = {'key': key}, 
                              json = payload)
     print('travel times response status code:', response.status_code)
-    
+
     if response.status_code == 200: # Only if successful response
 
         # retry at intervals of 'step' until results return (status code = 200)
-        jobid = json.loads(response.content.decode('utf-8'))['id']
+        jobid = response.json()['id']
 
         polling.poll(
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
@@ -107,15 +107,14 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
             step=30,
             timeout=600)
 
-        results = requests.get(uri.format('jobs/export/results'), 
+        results = requests.get(uri.format('results/export'), 
                                params = {'key': key, 'uuid': payload['uuid']})
         print('travel times results received')
-        
+
         # Save results (binary zip file with one csv)
         with io.BytesIO() as f:
             f.write(results.content)
             f.seek(0)
-            #df = pd.read_csv(f, compression='zip')       
             with ZipFile(f, 'r') as zf:
                 df = pd.read_csv(zf.open('Readings.csv'))
                 #tmci = pd.read_csv(zf.open('TMC_Identification.csv'))
@@ -124,7 +123,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
         df = pd.DataFrame()
 
     print(f'{len(df)} travel times records')
-        
+
     return df
 
 def get_corridor_travel_times(df, corr_grouping, bucket, table_name):
@@ -178,16 +177,20 @@ if __name__=='__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    # start_date is either the given day or the first day of the month
-    start_date = conf['start_date']
-    end_date = conf['end_date']
-    
+    if len(sys.argv) > 2:
+        start_date = sys.argv[2]
+        end_date = sys.argv[3]
+    else:
+        start_date = conf['start_date']
+        end_date = conf['end_date']
+
     # start_date is 7 days ago or conf['start_date'], whichever is earlier
     start_date = get_date_from_string(start_date)
     sd = datetime.fromisoformat(start_date)
     start_date = min(sd, sd - timedelta(days=7)).strftime('%Y-%m-%d')
 
     end_date = get_date_from_string(end_date)
+
     bucket = conf['bucket']
 
 
@@ -198,8 +201,8 @@ if __name__=='__main__':
     sub_metrics_table = f'sub_travel_time_metrics_{suff}'
     
    
-    tmc_df = (pd.read_excel(f"s3://{conf['bucket']}/{conf['corridors_TMCs_filename_s3']}", 
-                            engine='openpyxl')
+    # pull in file that matches up corridors/subcorridors/TMCs from S3
+    tmc_df = (pd.read_excel(f"s3://{bucket}/{conf['corridors_TMCs_filename_s3']}")
                 .rename(columns={'length': 'miles'})
                 .fillna(value={'Corridor': 'None', 'Subcorridor': 'None'}))
     tmc_df = tmc_df[tmc_df.Corridor != 'None']
@@ -223,8 +226,7 @@ if __name__=='__main__':
         )
 
     except Exception as e:
-        print('ERROR retrieving tmc records')
-        print(e)
+        print(f'ERROR retrieving tmc records - {str(e)}')
         tt_df = pd.DataFrame()
     
     if len(tt_df) > 0:

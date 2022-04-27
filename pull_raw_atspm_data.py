@@ -47,20 +47,6 @@ def pull_raw_atspm_data(s, date_):
     try:
         if s in GroupableElements_Map.SignalID:
             did = GroupableElements_Map[GroupableElements_Map.SignalID==s].DeviceId.values[0]
-            #dc_fn = '../ATSPM_Det_Config_Good_{}.feather'.format(date_.strftime('%Y-%m-%d'))
-            #det_config = (feather.read_dataframe(dc_fn)
-            #                .assign(SignalID = lambda x: x.SignalID.astype('int64'))
-            #                .assign(Detector = lambda x: x.Detector.astype('int64'))
-            #                .rename(columns={'CallPhase':'Call Phase'}))
-            #
-            #left = det_config[det_config.SignalID==s]
-            #right = bad_detectors[(bad_detectors.SignalID==s) & (bad_detectors.Date==date_)]
-
-            #det_config_good = (pd.merge(left, right, how = 'outer', indicator = True)
-            #                     .loc[lambda x: x._merge=='left_only']
-            #                     .drop(['Date','_merge'], axis=1))
-
-            #sum(~pd.isnull(det_config_good['CallPhase.atspm']))
             monday = (date_ - pd.DateOffset(days=(date_.weekday()))).strftime('%m-%d-%Y')
 
             query1 = """SELECT * FROM [ASC_PhasePed_Events_{}]
