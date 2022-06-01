@@ -3,7 +3,6 @@
 library(odbc)
 library(RMariaDB)
 library(yaml)
-library(duckdb)
 library(tictoc)
 
 
@@ -74,20 +73,6 @@ get_aurora_connection <- function(f = RMariaDB::dbConnect, driver = RMariaDB::Ma
 
 get_aurora_connection_pool <- function() {
     get_aurora_connection(pool::dbPool)
-}
-
-
-get_duckdb_connection <- function(dbdir, read_only = FALSE, f = duckdb::dbConnect) {
-    f(
-        drv = duckdb::duckdb(),
-        dbdir = dbdir,
-        read_only = read_only
-    )
-}
-
-
-get_duckdb_connection_pool <- function(dbdir, read_only = FALSE) {
-    get_duckdb_connection(dbdir, read_only, pool::dbPool)
 }
 
 
@@ -322,6 +307,8 @@ dbWriteTable <- function(conn, name, value, ...) {
     tic()
     print(class(conn)[1])
     if (class(conn)[1] == "MariaDBConnection") {
+        cols_ <- dbListFields(conn, name)
+        value <- value[cols_]  # Make sure columns are in the right order
         fn <- tempfile()
         write_csv(value, fn)
         DBI::dbExecute(

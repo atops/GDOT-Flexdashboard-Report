@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import *
 import time
 import itertools
-from multiprocessing import Pool
+from multiprocessing import get_context
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena', region_name='us-east-1')
@@ -75,7 +75,7 @@ if __name__ == '__main__':
             print(len(keys))
 
             if len(keys) > 0:
-                with Pool() as pool:
+                with get_context('spawn').Pool() as pool:
                     results = pool.starmap_async(parse_cctvlog, list(itertools.product([bucket], keys)))
                     pool.close()
                     pool.join()

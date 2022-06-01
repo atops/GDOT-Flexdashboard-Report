@@ -1,7 +1,10 @@
 
 # Monthly_Report_Package.R
 
+source("renv/activate.R")
+
 source("Monthly_Report_Package_init.R")
+
 # options(warn = 2)
 
 # # DETECTOR UPTIME ###########################################################
@@ -1715,13 +1718,14 @@ tryCatch(
                     object = obj
                 ) %>%
                     filter(!is.na(date)) %>%
+                    convert_to_utc() %>%
                     transmute(
                         Zone = zone,
                         Corridor = corridor,
                         analysis_month = ymd(yyyymmdd),
-                        month_hour = mdy_hms(date), # YYYY-mm-dd HH:MM:SS
-                        month_hour = month_hour - days(day(month_hour)) + days(1), # YYYY-mm-01 HH:MM:SS
-                        Month = date(floor_date(month_hour, "month")), # YYYY-mm-01  # year_month
+                        month_hour = date,
+                        month_hour = month_hour - days(day(month_hour)) + days(1),
+                        Month = date(floor_date(month_hour, "month")),
                         delay_cost = combined.delay_cost
                     )
             }
@@ -2110,6 +2114,7 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
         df_ <- df %>%
             left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
+            filter(Corridor != "Undefined") %>%  # Exclude new SigOps Signals from legacy site
             rename(Zone_Group = Corridor, Corridor = SignalID) %>%
             ungroup() %>%
             mutate(Corridor = factor(Corridor))

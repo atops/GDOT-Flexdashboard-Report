@@ -180,8 +180,6 @@ get_daily_sum <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        complete(SignalID, !!per_ := full_seq(!!per_, 1)) %>%
-        mutate(!!var_ := ifelse(is.na(!!var_), 0, !!var_)) %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
 
@@ -197,7 +195,6 @@ get_weekly_sum_by_day <- function(df, var_) {
         summarize(!!var_ := mean(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>% # Mean over 3 days in the week
         
-        #group_by(SignalID, Week) %>% 
         summarize(!!var_ := sum(!!var_, na.rm = TRUE),
                   .groups = "drop_last") %>% # Sum of phases 2,6
         
@@ -206,8 +203,6 @@ get_weekly_sum_by_day <- function(df, var_) {
         ungroup() %>%
         left_join(Tuesdays) %>%
         dplyr::select(SignalID, Date, Week, !!var_, delta)
-    
-    # SignalID | Date | var_
 }
 
 
@@ -246,8 +241,6 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
         left_join(Tuesdays) %>%
         dplyr::select(SignalID, Date, Week, !!var_, !!wt_, delta) %>%
         ungroup()
-    
-    # SignalID | Date | vpd
 }
 
 
@@ -276,8 +269,6 @@ get_weekly_avg_by_day_cctv <- function(df, var_ = "uptime", wt_ = "num") {
         left_join(Tuesdays) %>%
         dplyr::select(Zone_Group, Zone, Corridor, Subcorridor, CameraID, 
                       Description, Date, Week, !!var_, !!wt_, delta)
-    
-    # SignalID | Date | vpd
 }
 
 
@@ -310,8 +301,7 @@ get_cor_monthly_avg_by_period <- function(df, corridors, var_, per_, wt_="ones")
         wt_ <- as.name(wt_)
     }
     var_ <- as.name(var_)
-    #per_ <- as.name(per_)
-    
+
     cor_df_out <- weighted_mean_by_corridor_(df, per_, corridors, var_, wt_) %>%
         filter(!is.nan(!!var_))
     
@@ -360,8 +350,7 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     current_month <- max(df$Month)
     
     gdf <- df %>%
-        group_by(SignalID, CallPhase) %>%
-        complete(nesting(SignalID, CallPhase), 
+        complete(nesting(SignalID, CallPhase),
                  Month = seq(min(Month), current_month, by = "1 month")) %>%
         group_by(SignalID, Month, CallPhase)
     
@@ -421,7 +410,8 @@ get_weekly_avg_by_hr <- function(df, var_, wt_ = NULL) {
     
     df_ <- df %>% 
         select(-Date) %>% 
-        left_join(Tuesdays, by = c("Week"))
+        left_join(Tuesdays, by = c("Week")) %>%
+        filter(!is.na(Date))
     year(df_$Hour) <- year(df_$Date)
     month(df_$Hour) <- month(df_$Date)
     day(df_$Hour) <- day(df_$Date)
@@ -537,8 +527,6 @@ get_monthly_avg_by_hr <- function(df, var_, wt_ = "ones") {
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
         dplyr::select(-lag_)
-    
-    # SignalID | CallPhase | Hour | vph
 }
 
 
@@ -757,13 +745,6 @@ get_monthly_vpd <- function(vpd) {
 
 
 get_monthly_flashevent <- function(flash) {
-    #flash <- filter(flash, DOW %in% c(TUE,WED,THU)) 
-    
-    #ignore EventParam, FlashDuration, Endparam, FlashMode etc. for now
-    # select
-    # filter
-    # arrange
-    # mutate
     flash <- flash %>%
         select(SignalID, Date)
 
@@ -772,8 +753,6 @@ get_monthly_flashevent <- function(flash) {
     flash <- flash %>%
         group_by(SignalID, Date) %>%
         summarize(flash = n(), .groups = "drop")
-        # summarise (flash = n()) %>%
-        # ungroup
     
     flash$CallPhase = 0 # set the dummy, 'CallPhase' is used in get_monthly_avg_by_day() function
     get_monthly_avg_by_day(flash, "flash", peak_only = FALSE)
@@ -887,8 +866,11 @@ get_vph <- function(counts, interval = "1 hour", mainline_only = TRUE) {
         counts <- counts %>%
             filter(CallPhase %in% c(2,6)) # sum over Phases 2,6
     }
-    if (interval == "1 hour") {
-        df <- rename(counts, Timeperiod = Hour)
+    # Determine the Timeperiod column by its data type (POSIXct)
+    # for force it to be named Timeperiod
+    per_col <- names(Filter(function(x) "POSIXct" %in% x, sapply(counts, class)))[1]
+    if (per_col != "Timeperiod") {
+        df <- rename(counts, Timeperiod = !!as.name(per_col))
     } else {
         df <- counts
     }
@@ -1216,7 +1198,7 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
                   .groups = "drop") %>%
-	filter(!is.na(Corridor))
+        filter(!is.na(Corridor))
 }
 
 
@@ -1229,7 +1211,7 @@ get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
                   .groups = "drop") %>%
-	filter(!is.na(Corridor))
+        filter(!is.na(Corridor))
 }
 
 
@@ -1240,6 +1222,9 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
         monthly_df <- monthly_df %>% mutate(ones = 1)
     }
     
+    if (sapply(monthly_df, class)[["Month"]] != "Date") {
+        monthly_df <- mutate(monthly_df, Month = as_date(Month))
+    }
     var_ <- as.name(var_)
     wt_ <- as.name(wt_)
     

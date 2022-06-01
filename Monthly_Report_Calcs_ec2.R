@@ -1,6 +1,8 @@
 
 # Monthly_Report_Calcs.R
 
+source("renv/activate.R")
+
 library(yaml)
 library(glue)
 
@@ -165,27 +167,16 @@ if (conf$run$counts == TRUE) {
     date_range <- seq(ymd(start_date), ymd(end_date), by = "1 day")
 
     if (length(date_range) == 1) {
-        date_ <- date_range
         get_counts2(
-            date_,
+            date_range[1],
             bucket = conf$bucket,
             conf_athena = conf$athena,
             uptime = TRUE,
             counts = TRUE
         )
-    } else if (length(date_range) == 2) {
-        lapply(date_range, function(date_) {
-            get_counts2(
-                date_,
-                bucket = conf$bucket,
-                conf_athena = conf$athena,
-                uptime = TRUE,
-                counts = TRUE
-            )
-        })
     } else {
         foreach(date_ = date_range, .errorhandling = "pass") %dopar% {
-            get_counts2(
+            keep_trying(get_counts2, n_tries = 2, 
                 date_,
                 bucket = conf$bucket,
                 conf_athena = conf$athena,
@@ -355,13 +346,18 @@ get_counts_based_measures <- function(month_abbrs) {
         # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
 
-        print("15-minute adjusted counts")
+        print("Prep 15-minute adjusted counts")
         prep_db_for_adjusted_counts_arrow("filtered_counts_15min", conf, date_range)
+        print("Calculate 15-minute adjusted counts")
         get_adjusted_counts_arrow("filtered_counts_15min", "adjusted_counts_15min", conf)
-        
+
+        cat('adjusted counts created. Opening datasets.\n')
+
         fc_ds <- arrow::open_dataset(sources = "filtered_counts_15min/")
         ac_ds <- arrow::open_dataset(sources = "adjusted_counts_15min/")
-        
+       
+        cat('datasets read.\n') 
+
         lapply(date_range, function(date_) {
             print(date_)
             adjusted_counts_15min <- ac_ds %>% 

@@ -162,6 +162,8 @@ get_summary_data <- function(df, current_month = NULL) {
     return(data)
 }
 
+
+
 # function to compute scores/weights at sub/sig level
 get_health_all <- function(df) {
     df <- df %>%
@@ -261,6 +263,8 @@ get_health_all <- function(df) {
     df
 }
 
+
+
 # function to product maintenance % health data frame
 get_health_maintenance <- function(df) {
     health <- df %>%
@@ -314,6 +318,8 @@ get_health_maintenance <- function(df) {
         )
 }
 
+
+
 # function to product safety % health data frame
 get_health_operations <- function(df) {
     health <- df %>%
@@ -363,6 +369,7 @@ get_health_operations <- function(df) {
             `Buffer Index` = BI
         )
 }
+
 
 
 # function to product safety % health data frame
@@ -415,6 +422,7 @@ get_health_safety <- function(df) {
 }
 
 
+
 # function used to look up health score for various metric
 # data.table approach - update so last field is up/down
 get_lookup_value <- function(dt, lookup_col, lookup_val, x, direction = "forward") {
@@ -428,6 +436,8 @@ get_lookup_value <- function(dt, lookup_col, lookup_val, x, direction = "forward
         as_vector() %>%
         unname() # return as vector, not tibble, to avoid replacing column names in DF
 }
+
+
 
 # function that computes % health subtotals for corridor and zone level
 get_percent_health_subtotals <- function(df) {
@@ -457,132 +467,6 @@ get_percent_health_subtotals <- function(df) {
 
 
 
-
-if (TRUE) {
- 
-    csd <- get_summary_data(sub)
-    ssd <- get_summary_data(sig) %>%
-        # Give each CameraID its associated SignalID and combine with other metrics on SignalID
-        left_join(
-            select(cam_config, SignalID, CameraID), 
-            by = c("Corridor" = "CameraID")) %>% 
-        mutate(
-	    Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
-        select(-SignalID) %>% 
-        filter(!grepl("CAM", Corridor)) %>% 
-        group_by(Corridor, Zone_Group, Month) %>% 
-        summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
-    
-    ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
-
-    corridor_groupings <- s3read_using(
-        read_excel, 
-        bucket = conf$bucket, 
-        object = conf$corridors_filename_s3, 
-        sheet = "Contexts", 
-        range = cell_cols("A:F")
-        ) %>%
-        mutate(Context = as.integer(Context))
-    
-    # input data frame for subcorridor health metrics
-    sub_health_data <- csd %>%
-        inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
-
-    # input data frame for signal health metrics
-    sig_health_data <- ssd %>%
-        rename(
-            SignalID = Corridor,
-            Corridor = Zone_Group
-        ) %>%
-        left_join(
-	    select(corridors, Corridor, SignalID, Subcorridor), 
-	    by = c("Corridor", "SignalID")) %>%
-        inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
-        #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
-        left_join(
-	    select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), 
-	    by = c("Corridor", "Subcorridor", "Month")) %>%
-        mutate(
-            tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
-            pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
-        ) %>%
-        select(-Subcorridor, -tti.y, -pti.y) %>% # workaround - drop subcorridor column and replace with signalID
-        rename(Subcorridor = SignalID, tti = tti.x, pti = pti.x)
-    
-    ############################################################################
-    ### GENERATE COMPILED TABLES FOR WEBPAGE
-    ############################################################################
-    
-    ## all data for all 3 health metrics - think this should be run in the background and cached?
-    # compile all data needed for health metrics calcs - does not calculate % health yet
-    health_all_sub <- get_health_all(sub_health_data)
-    health_all_sig <- get_health_all(sig_health_data)
-    
-    # factor levels for tables
-    # zone_group_levels <- levels(health_all_sub$Zone_Group)
-    # rtop <- zone_group_levels[grepl("RTOP", zone_group_levels)]
-    # districts <- zone_group_levels[grepl("District", zone_group_levels)]
-    # other <- zone_group_levels[!grepl("District", zone_group_levels) & !grepl("RTOP", zone_group_levels)]
-    # zone_group_levels <- factor(c(rtop, districts, other), levels = c(rtop, districts, other))
-    
-    # compile maintenance % health
-    maintenance_sub <- get_health_maintenance(health_all_sub)
-    maintenance_sig <- get_health_maintenance(health_all_sig)
-    
-    maintenance_cor <- maintenance_sub %>% 
-        select(-c(Subcorridor, Context)) %>% 
-        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
-        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
-    
-    # compile operations % health
-    operations_sub <- get_health_operations(health_all_sub)
-    operations_sig <- get_health_operations(health_all_sig)
-    
-    # operations_cor <- get_health_operations(health_all_cor)
-    operations_cor <- operations_sub %>% 
-        select(-c(Subcorridor, Context)) %>% 
-        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
-        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
-    
-    ## compile safety % health
-    safety_sub <- get_health_safety(health_all_sub)
-    safety_sig <- get_health_safety(health_all_sig)
-    
-    safety_cor <- safety_sub %>%
-        select(-c(Subcorridor, Context)) %>% 
-        group_by(`Zone Group`, Zone, Corridor, Month) %>% 
-        summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
-}
-
-if (FALSE) {
-    
-    qsave(maintenance_cor, "maintenance_cor.qs")
-    qsave(maintenance_sub, "maintenance_sub.qs")
-    qsave(maintenance_sig, "maintenance_sig.qs")
-
-    qsave(operations_cor, "operations_cor.qs")
-    qsave(operations_sub, "operations_sub.qs")
-    qsave(operations_sig, "operations_sig.qs")
-
-    qsave(safety_cor, "safety_cor.qs")
-    qsave(safety_sub, "safety_sub.qs")
-    qsave(safety_sig, "safety_sig.qs")
-    
-    maintenance_cor <- qread("maintenance_cor.qs")
-    maintenance_sub <- qread("maintenance_sub.qs")
-    maintenance_sig <- qread("maintenance_sig.qs")
-
-    operations_cor <- qread("operations_cor.qs")
-    operations_sub <- qread("operations_sub.qs")
-    operations_sig <- qread("operations_sig.qs")
-    
-    safety_cor <- qread("safety_cor.qs")
-    safety_sub <- qread("safety_sub.qs")
-    safety_sig <- qread("safety_sig.qs")
-    
-}
-
-
 get_health_metrics_plot_df <- function(df) {
     df %>% 
         select(
@@ -599,6 +483,8 @@ get_health_metrics_plot_df <- function(df) {
         arrange(Zone_Group, Corridor, Month)
 }
 
+
+
 get_cor_health_metrics_plot_df <- function(df) {
     df %>% 
         select(-`Zone Group`) %>% 
@@ -610,6 +496,115 @@ get_cor_health_metrics_plot_df <- function(df) {
         ) %>%
         arrange(Zone_Group, Corridor, Month)
 }
+
+
+
+add_subcorridor <- function(df)  {
+    df %>% 
+        rename(SignalID = Subcorridor) %>% 
+        left_join(
+            select(corridors, Zone, Corridor, Subcorridor, SignalID), 
+            by = c("Zone", "Corridor", "SignalID")) %>% 
+        relocate(Subcorridor, .after = Corridor) %>% 
+        filter(!is.na(Subcorridor))
+}
+
+
+
+corridor_groupings <- s3read_using(
+    read_excel, 
+    bucket = conf$bucket, 
+    object = conf$corridors_filename_s3, 
+    sheet = "Contexts", 
+    range = cell_cols("A:F")
+    ) %>%
+    mutate(Context = as.integer(Context))
+
+
+csd <- get_summary_data(sub)
+ssd <- get_summary_data(sig) %>%
+    # Give each CameraID its associated SignalID and combine with other metrics on SignalID
+    left_join(
+        select(cam_config, SignalID, CameraID), 
+        by = c("Corridor" = "CameraID")) %>% 
+    mutate(
+        Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
+    select(-SignalID) %>% 
+    filter(!grepl("CAM", Corridor)) %>% 
+    group_by(Corridor, Zone_Group, Month) %>% 
+    summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
+
+ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
+
+
+
+# input data frame for subcorridor health metrics
+sub_health_data <- csd %>%
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
+
+# input data frame for signal health metrics
+sig_health_data <- ssd %>%
+    rename(
+        SignalID = Corridor,
+        Corridor = Zone_Group
+    ) %>%
+    left_join(
+        select(corridors, Corridor, SignalID, Subcorridor), 
+        by = c("Corridor", "SignalID")) %>%
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
+    #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
+    left_join(
+        select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), 
+        by = c("Corridor", "Subcorridor", "Month")) %>%
+    mutate(
+        tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
+        pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
+    ) %>%
+    select(-Subcorridor, -tti.y, -pti.y) %>% # workaround - drop subcorridor column and replace with signalID
+    rename(Subcorridor = SignalID, tti = tti.x, pti = pti.x)
+
+
+## all data for all 3 health metrics - think this should be run in the background and cached?
+# compile all data needed for health metrics calcs - does not calculate % health yet
+health_all_sub <- get_health_all(sub_health_data)
+health_all_sig <- get_health_all(sig_health_data)
+
+# factor levels for tables
+# zone_group_levels <- levels(health_all_sub$Zone_Group)
+# rtop <- zone_group_levels[grepl("RTOP", zone_group_levels)]
+# districts <- zone_group_levels[grepl("District", zone_group_levels)]
+# other <- zone_group_levels[!grepl("District", zone_group_levels) & !grepl("RTOP", zone_group_levels)]
+# zone_group_levels <- factor(c(rtop, districts, other), levels = c(rtop, districts, other))
+
+# compile maintenance % health
+maintenance_sub <- get_health_maintenance(health_all_sub)
+maintenance_sig <- get_health_maintenance(health_all_sig)
+
+maintenance_cor <- maintenance_sub %>% 
+    select(-c(Subcorridor, Context)) %>% 
+    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+    summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
+
+# compile operations % health
+operations_sub <- get_health_operations(health_all_sub)
+operations_sig <- get_health_operations(health_all_sig)
+
+# operations_cor <- get_health_operations(health_all_cor)
+operations_cor <- operations_sub %>% 
+    select(-c(Subcorridor, Context)) %>% 
+    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+    summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
+
+## compile safety % health
+safety_sub <- get_health_safety(health_all_sub)
+safety_sig <- get_health_safety(health_all_sig)
+
+safety_cor <- safety_sub %>%
+    select(-c(Subcorridor, Context)) %>% 
+    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+    summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
+
+
 
 cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor)
 sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub)
@@ -635,16 +630,6 @@ cor$mo$safety <- safety_cor
 sub$mo$safety <- safety_sub
 sig$mo$safety <- safety_sig
 
-
-add_subcorridor <- function(df)  {
-    df %>% 
-        rename(SignalID = Subcorridor) %>% 
-        left_join(
-            select(corridors, Zone, Corridor, Subcorridor, SignalID), 
-            by = c("Zone", "Corridor", "SignalID")) %>% 
-        relocate(Subcorridor, .after = Corridor) %>% 
-        filter(!is.na(Subcorridor))
-}
 
 sig$mo$maint <- add_subcorridor(sig$mo$maint)
 sig$mo$ops <- add_subcorridor(sig$mo$ops)

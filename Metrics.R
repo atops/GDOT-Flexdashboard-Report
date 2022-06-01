@@ -211,8 +211,10 @@ get_daily_pr <- function(aog) {
 
 
 get_occupancy <- function(de_dt, int_dt) {
-    occdf <- foverlaps(de_dt, int_dt, type = "any") %>%
-        filter(!is.na(IntervalStart)) %>%
+    occ_df <- foverlaps(de_dt, int_dt, type = "any") %>%
+        filter(!is.na(IntervalStart), !is.na(IntervalEnd)) %>%
+
+        as_tibble() %>%
 
         transmute(
             SignalID = factor(SignalID),
@@ -221,21 +223,21 @@ get_occupancy <- function(de_dt, int_dt) {
             CycleStart,
             IntervalStart,
             IntervalEnd,
-            int_int = lubridate::interval(IntervalStart, IntervalEnd),
-            occ_int = lubridate::interval(DetOn, DetOff),
-            occ_duration = as.duration(intersect(occ_int, int_int)),
-            int_duration = as.duration(int_int))
+            int_interval = lubridate::interval(IntervalStart, IntervalEnd),
+            occ_interval = lubridate::interval(DetOn, DetOff),
+            occ_duration = as.numeric(intersect(occ_interval, int_interval)),
+            int_duration = as.numeric(int_interval))
 
-    occdf <- full_join(int_dt,
-                       occdf,
-                       by = c("SignalID", "Phase",
-                              "CycleStart", "IntervalStart", "IntervalEnd")) %>%
+    int_df <- as_tibble(int_dt)
+
+    occ_df <- full_join(
+            int_df, occ_df,
+            by = c("SignalID", "Phase", "CycleStart", "IntervalStart", "IntervalEnd")
+        ) %>%
         tidyr::replace_na(
             list(Detector = 0, occ_duration = 0, int_duration = 1)) %>%
         mutate(SignalID = factor(SignalID),
-               Detector = factor(Detector),
-               occ_duration = as.numeric(occ_duration),
-               int_duration = as.numeric(int_duration)) %>%
+               Detector = factor(Detector)) %>%
 
         group_by(SignalID, Phase, CycleStart, Detector) %>%
         summarize(occ = sum(occ_duration)/max(int_duration),
@@ -247,7 +249,7 @@ get_occupancy <- function(de_dt, int_dt) {
         mutate(SignalID = factor(SignalID),
                Phase = factor(Phase))
 
-    occdf
+    occ_df
 }
 
 
@@ -467,7 +469,8 @@ get_qs <- function(detection_events, intervals = c("hour")) {
 }
 
 get_daily_cctv_uptime <- function(db, table, cam_config, start_date) {
-    tbl(conn, sql(glue(paste(
+    athena_connection <- get_athena_connection()
+    tbl(athena_connection, sql(glue(paste(
             "select cameraid, date  from {db}.{table}",
             "where size > 0")))) %>%
         filter(date >= date_parse(start_date, "%Y-%m-%d")) %>% # start_date) %>%  #

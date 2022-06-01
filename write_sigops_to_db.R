@@ -9,12 +9,7 @@ load_bulk_data <- function(conn, table_name, df_) {
         filename <- tempfile(pattern = table_name, fileext = ".csv")
         data.table::fwrite(df_, filename)
         dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
-    } else if (class(conn) == "duckdb_connection") {
-        filename <- tempfile(pattern = table_name, fileext = ".parquet")
-        arrow::write_parquet(df_, filename)
-        dbExecute(conn, glue("INSERT INTO {table_name} SELECT * FROM parquet_scan('{filename}');"))
-    }
-    
+    }    
     file.remove(filename)
 }
 
@@ -108,7 +103,7 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
         } else {
             if (table_name %in% dbListTables(conn)) {
                 # Clear Prior to Append
-                dbSendQuery(conn, glue("DELETE FROM {table_name}")) # duckdb doesn't support TRUNCATE statement
+                dbSendQuery(conn, glue("TRUNCATE TABLE {table_name}"))
                 # Filter Dates and Append
                 if (!is.null(start_date) & length(datefield) == 1) {
                     df <- filter(df, !!as.name(datefield) >= start_date)
@@ -135,31 +130,6 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
         print(glue("{Sys.time()} {e}"))
     })
 }
-
-
-set_index_duckdb <- function(conn, table_name) {
-    if (table_name %in% dbListTables(conn)) {
-        fields <- dbListFields(conn, table_name)
-        period <- intersect(fields, c("Month", "Date", "Hour", "Timeperiod", "Quarter"))
-        
-        if (length(period) > 1) {
-            print("More than one possible period in table fields")
-            return(0)
-        }
-        tryCatch({
-            dbSendStatement(conn, glue(paste(
-                "CREATE INDEX idx_{table_name}_zone_period", 
-                "on {table_name} (Zone_Group, {period})")))
-            
-        }, error = function(e) {
-            print(glue("{Sys.time()} {e}"))
-            
-        })
-    } else {
-        print(glue("Won't create index: table {table_name} does not exist."))
-    }
-}
-
 
 
 set_index_aurora <- function(aurora, table_name) {
@@ -292,16 +262,7 @@ recreate_database <- function(conn, df, dfname) {
                 set_index_aurora(conn, x)
             )
         })
-        
-    # Can probably remove this since we're not using duckdb for the new site
-    } else if (class(conn) == "duckdb_connection") {
-        print("DuckDB Database Connection")
-        
-        # Create Indexes
-        lapply(table_names, function(x) {
-            set_index_duckdb(conn, x)
-        })
-    }
+    }    
 }
 
 

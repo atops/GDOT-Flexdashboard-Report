@@ -145,6 +145,7 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                 [pd.json_normalize(x) for x in df['values']])
             dfDailyValues.insert(0, 'corridor', corridor, True)
             dfDailyValues.insert(0, 'zone', zone, True)
+            dfDailyValues['date'] = pd.to_datetime(dfDailyValues['date'], format='%B %d, %Y %H:%M:%S')
 
             udc_path = f'user_delay_costs/{start_date}'
             if not os.path.exists(udc_path):
@@ -236,6 +237,9 @@ def get_udc_data(start_date,
             pool.close()
             pool.join()
         dfs = results.get()
+        df0 = pd.concat(dfs).reset_index()
+    else:
+        df0 = pd.DataFrame()
     df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
 
     # Get user delay costs for each Zone/Corridor for current month one year ago.
@@ -247,6 +251,9 @@ def get_udc_data(start_date,
             pool.close()
             pool.join()
         dfs = results.get()
+        df1 = pd.concat(dfs).reset_index()
+    else:
+        df1 = pd.DataFrame()
     df1 = dd.read_parquet(f'user_delay_costs/{start_date_1yr}/*.parquet').compute()
 
     df = pd.concat([df0, df1])
@@ -263,8 +270,6 @@ if __name__ == '__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    bucket = conf['bucket']
-    
     start_date = conf['start_date']
     end_date = conf['end_date']
 
@@ -280,21 +285,21 @@ if __name__ == '__main__':
     end_date = min(ed + timedelta(days=1), datetime.today()).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    start_date = '2022-03-01'
-    end_date = '2022-03-31'
+    # start_date = '2022-03-01'
+    # end_date = '2022-03-31'
     #---
 
     print(start_date)
     print(end_date)
 
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket=bucket,
-                            Key='Corridor_TMCs_Latest.xlsx',
+        s3.download_fileobj(Bucket=conf['bucket'],
+                            Key=conf['corridors_TMCs_filename_s3'],
                             Fileobj=data)
         tmc_df = pd.read_excel(data)
     with io.BytesIO() as data:
-        s3.download_fileobj(Bucket=bucket,
-                            Key='Corridors_Latest.xlsx',
+        s3.download_fileobj(Bucket=conf['bucket'],
+                            Key=conf['corridors_filename_s3'],
                             Fileobj=data)
         corridors_zones_df = pd.read_excel(data)
 
@@ -334,6 +339,7 @@ if __name__ == '__main__':
         df = udc_df.sort_values(by=['zone', 'corridor',
                                     'date'])  # 'hour_current'])
 
+        bucket = conf['bucket']
         df.to_parquet(
             f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}'
         )

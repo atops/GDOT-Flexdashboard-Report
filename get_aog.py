@@ -14,7 +14,7 @@ import boto3
 import pandas as pd
 import io
 import re
-from multiprocessing import Pool
+from multiprocessing import get_context # , Pool
 import itertools
 from config import get_date_from_string
 
@@ -147,10 +147,8 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
         return pd.DataFrame()
 
 
-def main(start_date, end_date):
+def main(conf, start_date, end_date):
 
-    with open('Monthly_Report.yaml') as yaml_file:
-        conf = yaml.load(yaml_file, Loader=yaml.Loader)
     dates = pd.date_range(start_date, end_date, freq='1D')
 
     for date_ in dates:
@@ -167,9 +165,11 @@ def main(start_date, end_date):
         signalids = list(get_signalids(date_, conf))
         print('done.')
 
+        bucket = conf['bucket']
 
         print('1 hour')
-        with Pool(24) as pool:
+        # get_context()
+        with get_context('spawn').Pool(processes=24) as pool:
             results = pool.starmap_async(
                 get_aog,
                 list(itertools.product(signalids, [date_], [det_config], [conf], ['H'])))
@@ -198,10 +198,11 @@ def main(start_date, end_date):
 
         print('\n15 minutes')
         
-        with Pool(24) as pool:
+        # get_context()
+        with get_context('spawn').Pool(processes=24) as pool:
             results = pool.starmap_async(
                 get_aog,
-                list(itertools.product(signalids, [date_], [det_config], ['15min'])))
+                list(itertools.product(signalids, [date_], [det_config], [conf], ['15min'])))
             pool.close()
             pool.join()
     
@@ -247,5 +248,5 @@ if __name__=='__main__':
     end_date = get_date_from_string(end_date)
     
 
-    main(start_date, end_date)
+    main(conf, start_date, end_date)
 

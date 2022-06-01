@@ -523,8 +523,8 @@ get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = funct
 
     groups <- (fc_ds %>% select(group) %>% collect() %>% distinct())$group
     
-    mclapply(groups, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(grp) {
-        ac <- fc_ds %>% 
+    mclapply(groups, mc.cores = get_usable_cores(), mc.preschedule = FALSE, FUN = function(grp) {
+        ac <- arrow::open_dataset(fc_table) %>%
             filter(group == grp) %>%
             collect() %>%
             get_adjusted_counts() %>%

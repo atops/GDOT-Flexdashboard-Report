@@ -28,17 +28,17 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Package.R
     echo "------------------------"
 
-    cd ../interim_production_scripts/
+    cd SigOps
     Rscript Monthly_Report_Package.R
     echo "------------------------"
     Rscript Monthly_Report_Package_1hr.R
     echo "------------------------"
     Rscript Monthly_Report_Package_15min.R
-    cd ../production_scripts/
+    cd ..
 
     # Run User Delay Cost on the SAM on the 1sh, 8th, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
-        python user_delay_costs.py &
+        python user_delay_costs.py
     fi
 
     #/usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state=/home/rstudio/logrotate-state --verbose

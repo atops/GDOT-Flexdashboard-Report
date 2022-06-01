@@ -199,8 +199,6 @@ get_daily_sum <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        complete(SignalID, !!per_ := full_seq(!!per_, 1)) %>%
-        mutate(!!var_ := ifelse(is.na(!!var_), 0, !!var_)) %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
 
@@ -371,8 +369,7 @@ get_monthly_avg_by_day <- function(df, var_, wt_ = NULL, peak_only = FALSE) {
     current_month <- max(df$Month)
     
     gdf <- df %>%
-        group_by(SignalID, CallPhase) %>%
-        complete(nesting(SignalID, CallPhase), 
+        complete(nesting(SignalID, CallPhase),
                  Month = seq(min(Month), current_month, by = "1 month")) %>%
         group_by(SignalID, Month, CallPhase)
     
@@ -1220,7 +1217,7 @@ get_cor_weekly_cctv_uptime <- function(daily_cctv_uptime) {
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
                   .groups = "drop") %>%
-	filter(!is.na(Corridor))
+        filter(!is.na(Corridor))
 }
 
 
@@ -1233,7 +1230,7 @@ get_cor_monthly_cctv_uptime <- function(daily_cctv_uptime) {
                   num = sum(num, na.rm = TRUE),
                   uptime = sum(up, na.rm = TRUE)/sum(num, na.rm = TRUE),
                   .groups = "drop") %>%
-	filter(!is.na(Corridor))
+        filter(!is.na(Corridor))
 }
 
 
@@ -1244,6 +1241,9 @@ get_quarterly <- function(monthly_df, var_, wt_="ones", operation = "avg") {
         monthly_df <- monthly_df %>% mutate(ones = 1)
     }
     
+    if (sapply(monthly_df, class)[["Month"]] != "Date") {
+        monthly_df <- mutate(monthly_df, Month = as_date(Month))
+    }
     var_ <- as.name(var_)
     wt_ <- as.name(wt_)
     

@@ -10,7 +10,7 @@ from glob import glob
 import random
 import string
 from retrying import retry
-from multiprocessing import Pool
+from multiprocessing import get_context
 
 
 def random_string(length):
@@ -102,7 +102,7 @@ def read_parquet(bucket, table_name, start_date, end_date, signals_list = None):
         df = download_and_read_parquet(bucket + '/' + keys[0])
     else: #len(keys) > 1:
         bucket_keys = [bucket + '/' + key for key in keys]
-        with Pool() as pool:
+        with get_context('spawn').Pool() as pool:
             results = pool.map_async(download_and_read_parquet, bucket_keys)
             pool.close()
             pool.join()
