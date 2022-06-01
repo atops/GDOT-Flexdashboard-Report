@@ -6,7 +6,7 @@ source("Monthly_Report_Package_init.R")
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 29]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 29(2)]"))
 
 tryCatch(
     {
@@ -109,7 +109,7 @@ tryCatch(
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ###############################################
 
-print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 29]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 29(2)]"))
 
 tryCatch(
     {
@@ -264,7 +264,7 @@ tryCatch(
 
 # # WATCHDOG ###########################################################
 
-print(glue("{Sys.time()} watchdog alerts [3 of 29]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 29(2)]"))
 
 tryCatch(
     {
@@ -452,7 +452,7 @@ tryCatch(
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 29]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 29(2)]"))
 
 tryCatch(
     {
@@ -505,7 +505,7 @@ tryCatch(
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 29]"))
+print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 29(2)]"))
 
 if (FALSE) {
 tryCatch(
@@ -553,7 +553,7 @@ tryCatch(
 
 # GET PEDESTRIAN DELAY ###################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 29]"))
+print(glue("{Sys.time()} Pedestrian Delay [6 of 29(2)]"))
 
 tryCatch(
     {
@@ -630,7 +630,7 @@ tryCatch(
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [7 of 29]"))
+print(glue("{Sys.time()} Communication Uptime [7 of 29(2)]"))
 
 tryCatch(
     {
@@ -703,7 +703,7 @@ tryCatch(
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [8 of 29]"))
+print(glue("{Sys.time()} Daily Volumes [8 of 29(2)]"))
 
 tryCatch(
     {
@@ -771,7 +771,7 @@ tryCatch(
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [9 of 29]"))
+print(glue("{Sys.time()} Hourly Volumes [9 of 29(2)]"))
 
 tryCatch(
     {
@@ -877,7 +877,7 @@ tryCatch(
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [10 of 29]"))
+print(glue("{Sys.time()} Daily Throughput [10 of 29(2)]"))
 
 tryCatch(
     {
@@ -947,7 +947,7 @@ tryCatch(
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [11 of 29]"))
+print(glue("{Sys.time()} Daily AOG [11 of 29(2)]"))
 
 tryCatch(
     {
@@ -1031,7 +1031,7 @@ tryCatch(
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [12 of 29]"))
+print(glue("{Sys.time()} Hourly AOG [12 of 29(2)]"))
 
 tryCatch(
     {
@@ -1066,7 +1066,7 @@ tryCatch(
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [13 of 29]"))
+print(glue("{Sys.time()} Daily Progression Ratio [13 of 29(2)]"))
 
 tryCatch(
     {
@@ -1115,7 +1115,7 @@ tryCatch(
 
 # HOURLY PROGESSION RATIO ####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [14 of 29]"))
+print(glue("{Sys.time()} Hourly Progression Ratio [14 of 29(2)]"))
 
 tryCatch(
     {
@@ -1154,7 +1154,7 @@ tryCatch(
 
 tryCatch(
     {
-        print(glue("{Sys.time()} Daily Split Failures [15 of 29]"))
+        print(glue("{Sys.time()} Daily Split Failures [15 of 29(2)]"))
 
         sf <- s3_read_parquet_parallel(
             bucket = conf$bucket,
@@ -1271,7 +1271,7 @@ tryCatch(
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [16 of 29]"))
+print(glue("{Sys.time()} Hourly Split Failures [16 of 29(2)]"))
 
 tryCatch(
     {
@@ -1305,7 +1305,7 @@ tryCatch(
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [17 of 29]"))
+print(glue("{Sys.time()} Daily Queue Spillback [17 of 29(2)]"))
 
 tryCatch(
     {
@@ -1368,7 +1368,7 @@ tryCatch(
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [18 of 29]"))
+print(glue("{Sys.time()} Hourly Queue Spillback [18 of 29(2)]"))
 
 tryCatch(
     {
@@ -1401,7 +1401,7 @@ tryCatch(
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [19 of 29]"))
+print(glue("{Sys.time()} Travel Time Indexes [19 of 29(2)]"))
 
 tryCatch(
     {
@@ -1556,7 +1556,7 @@ tryCatch(
 
 # CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} CCTV Uptimes [20 of 29]"))
+print(glue("{Sys.time()} CCTV Uptimes [20 of 29(2)]"))
 
 tryCatch(
     {
@@ -1772,7 +1772,7 @@ if (FALSE) {
 
 # ACTIVITIES ##############################
 
-print(glue("{Sys.time()} TEAMS [21 of 29]"))
+print(glue("{Sys.time()} TEAMS [21 of 29(2)]"))
 
 tryCatch(
     {
@@ -1855,7 +1855,7 @@ tryCatch(
 # USER DELAY COSTS   ##############################
 
 
-print(glue("{Sys.time()} User Delay Costs [22 of 29]"))
+print(glue("{Sys.time()} User Delay Costs [22 of 29(2)]"))
 
 
 tryCatch(
@@ -1946,7 +1946,7 @@ tryCatch(
 
 # Flash Events ###############################################################
 
-print(glue("{Sys.time()} Flash Events [23 of 29]"))
+print(glue("{Sys.time()} Flash Events [23 of 29(2)]"))
 
 tryCatch(
     {
@@ -1996,7 +1996,7 @@ tryCatch(
 
 # BIKE/PED SAFETY INDEX #######################################################
 
-print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29]"))
+print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29(2)]"))
 
 tryCatch(
     {
@@ -2076,7 +2076,7 @@ tryCatch(
 
 # RELATIVE SPEED INDEX ########################################################
 
-print(glue("{Sys.time()} Relative Speed Index [25 of 29]"))
+print(glue("{Sys.time()} Relative Speed Index [25 of 29(2)]"))
 
 tryCatch(
     {
@@ -2153,7 +2153,7 @@ tryCatch(
 
 # CRASH INDICES ###############################################################
 
-print(glue("{Sys.time()} Crash Indices [26 of 29]"))
+print(glue("{Sys.time()} Crash Indices [26 of 29(2)]"))
 
 tryCatch(
     {
@@ -2269,15 +2269,30 @@ tryCatch(
 
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [27 of 29]"))
+print(glue("{Sys.time()} Package for Monthly Report [27 of 29(2)]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
+    
+    per <- intersect(names(df), c("Date", "Month"))
+    
+    descs <- corridors %>%
+        select(SignalID, Corridor, Description) %>%
+        group_by(SignalID, Corridor) %>%
+        filter(Description == first(Description)) %>%
+        ungroup()
+            
     if (identifier == "SignalID") {
         df_ <- df %>%
             left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
             rename(Zone_Group = Corridor, Corridor = SignalID) %>%
             ungroup() %>%
-            mutate(Corridor = factor(Corridor))
+            mutate(Corridor = factor(Corridor)) %>%
+            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
+            mutate(
+                Description = coalesce(Description, Corridor),
+                Corridor = factor(Corridor),
+                Description = factor(Description)
+            )
     } else if (identifier == "CameraID") {
         corridors <- rename(corridors, Name = Location)
         df_ <- df %>%
@@ -2291,7 +2306,9 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
                 Corridor = CameraID
             ) %>%
             ungroup() %>%
-            mutate(Corridor = factor(Corridor))
+            select(Zone_Group, Corridor, Description, !!per, uptime, uptime) %>%
+            mutate(
+                Description = coalesce(Description, Corridor))
     } else {
         stop("bad identifier. Must be SignalID (default) or CameraID")
     }
@@ -2413,7 +2430,6 @@ tryCatch(
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("cor_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
-            #"hourly_udc" = readRDS("hourly_udc.rds"),
             "udc_trend_table" = readRDS("udc_trend_table_list.rds"),
             "flash" = readRDS("cor_monthly_flash.rds"),
             "bpsi" = readRDS("cor_monthly_bpsi.rds"),
@@ -2456,6 +2472,15 @@ tryCatch(
             "cri" = get_quarterly(cor$mo$cri, "cri"),
             "kabco" = get_quarterly(cor$mo$kabco, "kabco")
         )
+
+        for (per in c("mo", "wk")) {
+            for (tabl in names(cor[[per]])) {
+                if ("data.frame" %in% class(cor[[per]][[tabl]])) {
+                    cor[[per]][[tabl]] <- cor[[per]][[tabl]] %>%
+                        mutate(Description = Corridor)
+                }
+            }
+        }
 
         cor$summary_data <- get_corridor_summary_data(cor)
     },
@@ -2574,6 +2599,15 @@ tryCatch(
             "pau" = get_quarterly(sub$mo$pau, "uptime"),
             "cctv" = get_quarterly(sub$mo$cctv, "uptime")
         )
+    
+        for (per in c("mo", "wk")) {
+            for (tabl in names(sub[[per]])) {
+                if ("data.frame" %in% class(sub[[per]][[tabl]])) {
+                    sub[[per]][[tabl]] <- sub[[per]][[tabl]] %>%
+                        mutate(Description = Corridor)
+                }
+            }
+        }
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -2614,11 +2648,7 @@ tryCatch(
             "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
                 select(Zone_Group, Corridor, Date, uptime),
             "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime, up) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                ),
+                select(Zone_Group, Corridor, Description, Date, uptime, uptime),
             "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,
@@ -2662,11 +2692,7 @@ tryCatch(
             "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
                 select(Zone_Group, Corridor, Date, uptime, delta),
             "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime, delta) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                )
+                select(Zone_Group, Corridor, Description, Date, uptime, delta)
         )
         sig$mo <- list(
             "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
@@ -2712,11 +2738,7 @@ tryCatch(
             "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors) %>%
                 select(Zone_Group, Corridor, Month, uptime, delta),
             "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Month, uptime, delta) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                ),
+                select(Zone_Group, Corridor, Description, Month, uptime, delta),
             "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
@@ -2784,76 +2806,10 @@ source("Health_Metrics.R")
 
 
 
-# Assign Descriptions for hover text
-print(glue("{Sys.time()} Assigning descriptions to tables"))
-
-descs <- corridors %>%
-    select(SignalID, Corridor, Description) %>%
-    group_by(SignalID, Corridor) %>%
-    filter(Description == first(Description)) %>%
-    ungroup()
-
-for (tab in c(
-    "vpd", "vphpa", "vphpp", "papd", "pd", 
-    "tp", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
-    # "tti", "pti", "bi", "spd", 
-    "du", "cu", "pau", "cctv", 
-    "ttyp", "tsub", "tpri", "tsou",
-    "tasks", "reported", "resolved", "outstanding", "over45", "mttr",
-    "flash", "bpsi", "rsi", "cri", "kabco",
-    "maint_plot", "ops_plot", "safety_plot"
-)) {
-    if (tab %in% names(sig$mo) & tab != "cctv") {
-        sig$mo[[tab]] <- sig$mo[[tab]] %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    }
-    if (tab %in% names(sub$mo)) {
-        sub$mo[[tab]] <- sub$mo[[tab]] %>% mutate(Description = Corridor)
-    }
-    if (tab %in% names(cor$mo)) {
-        cor$mo[[tab]] <- cor$mo[[tab]] %>% mutate(Description = Corridor)
-    }
-
-    if (tab %in% names(sig$wk) & tab != "cctv") {
-        sig$wk[[tab]] <- sig$wk[[tab]] %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    }
-    if (tab %in% names(sub$wk)) {
-        sub$wk[[tab]] <- sub$wk[[tab]] %>% mutate(Description = Corridor)
-    }
-    if (tab %in% names(cor$wk)) {
-        cor$wk[[tab]] <- cor$wk[[tab]] %>% mutate(Description = Corridor)
-    }
-}
-
-for (tab in names(sig$dy)) {
-    if (tab %in% names(sig$mo) & tab != "cctv") {
-        sig$dy[[tab]] <- sig$dy[[tab]] %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    }
-}
+print(glue("{Sys.time()} Upload to AWS [28 of 29(2)]"))
 
 
-
-print(glue("{Sys.time()} Upload to AWS [28 of 29]"))
-
-
-print(glue("{Sys.time()} Write to Database [29 of 29]"))
+print(glue("{Sys.time()} Write to Database [29 of 29(2)]"))
 
 source("write_sigops_to_db.R")
 
