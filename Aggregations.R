@@ -199,6 +199,8 @@ get_daily_sum <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
+        complete(SignalID, !!per_ := full_seq(!!per_, 1)) %>%
+        mutate(!!var_ := ifelse(is.na(!!var_), 0, !!var_)) %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
 
