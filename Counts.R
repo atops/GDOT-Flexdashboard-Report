@@ -474,7 +474,7 @@ prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
     
     if (dir.exists(table)) unlink(table, recursive = TRUE)
     dir.create(table)
-    
+    usable_cores <- 1 
     mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
         date_str <- format(date_, "%F")
         cat('.')
@@ -522,8 +522,8 @@ get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = funct
     dir.create(ac_table)
 
     groups <- (fc_ds %>% select(group) %>% collect() %>% distinct())$group
-    
-    mclapply(groups, mc.cores = get_usable_cores(), mc.preschedule = FALSE, FUN = function(grp) {
+    usable_cores <- 1
+    mclapply(groups, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(grp) {
         ac <- arrow::open_dataset(fc_table) %>%
             filter(group == grp) %>%
             collect() %>%
