@@ -88,7 +88,6 @@ if __name__ == '__main__':
                 s3key = 's3://{b}/mark/cctv_uptime_encoders/month={d}/cctv_uptime_encoders_{d}.parquet'.format(
                     b=bucket, d=mo.strftime('%Y-%m-%d'))
                 summ.reset_index().to_parquet(s3key)
-                print(summ)
             os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
             response_repair = ath.start_query_execution(
