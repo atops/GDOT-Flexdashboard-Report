@@ -30,9 +30,8 @@ def parse_cctvlog_encoders(bucket, key):
             pd.read_parquet(
                 f's3://{bucket}/{key}',
                 columns=[
-                    'Location ID', 'Datetime', 'Size'
+                    'CameraID', 'Datetime', 'Size'
                 ]).rename(columns={
-                    'Location ID': 'CameraID',
                     'Datetime': 'Timestamp',
                     'Size': 'Size'
                 }).assign(Timestamp=lambda x: pd.to_datetime(
@@ -86,10 +85,10 @@ if __name__ == '__main__':
                 # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
                 summ = df.groupby(['CameraID', 'Date']).agg(np.std).fillna(0)
 
-                s3key = 's3://{b}/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
+                s3key = 's3://{b}/mark/cctv_uptime_encoders/month={d}/cctv_uptime_encoders_{d}.parquet'.format(
                     b=bucket, d=mo.strftime('%Y-%m-%d'))
                 summ.reset_index().to_parquet(s3key)
-
+                print(summ)
             os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
             response_repair = ath.start_query_execution(
