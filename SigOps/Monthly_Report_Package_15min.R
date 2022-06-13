@@ -12,23 +12,23 @@ rds_start_date <- calcs_start_date - days(7)
 
 # # DETECTOR UPTIME ###########################################################
 
-print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 29]"))
+print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 29(4)]"))
 
 # DAILY PEDESTRIAN PUSHBUTTON UPTIME ##########################################
 
-print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 29]"))
+print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 29(4)]"))
 
 # # WATCHDOG ##################################################################
 
-print(glue("{Sys.time()} watchdog alerts [3 of 29]"))
+print(glue("{Sys.time()} watchdog alerts [3 of 29(4)]"))
 
 # DAILY PEDESTRIAN ACTIVATIONS ################################################
 
-print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 29]"))
+print(glue("{Sys.time()} Daily Pedestrian Activations [4 of 29(4)]"))
 
 # HOURLY PEDESTRIAN ACTIVATIONS ###############################################
 
-print(glue("{Sys.time()} Hourly Pedestrian Activations [5 of 29]"))
+print(glue("{Sys.time()} 15-Minute Pedestrian Activations [5 of 29(4)]"))
 
 tryCatch(
     {
@@ -98,19 +98,19 @@ tryCatch(
 
 # GET PEDESTRIAN DELAY ########################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 29]"))
+print(glue("{Sys.time()} Pedestrian Delay [6 of 29(4)]"))
 
 # GET COMMUNICATIONS UPTIME ###################################################
 
-print(glue("{Sys.time()} Communication Uptime [7 of 29]"))
+print(glue("{Sys.time()} Communication Uptime [7 of 29(4)]"))
 
 # DAILY VOLUMES ###############################################################
 
-print(glue("{Sys.time()} Daily Volumes [8 of 29]"))
+print(glue("{Sys.time()} Daily Volumes [8 of 29(4)]"))
 
 # HOURLY VOLUMES ##############################################################
 
-print(glue("{Sys.time()} Hourly Volumes [9 of 29]"))
+print(glue("{Sys.time()} 15-Minute Volumes [9 of 29(4)]"))
 
 tryCatch(
     {
@@ -156,15 +156,15 @@ tryCatch(
 
 # DAILY THROUGHPUT ############################################################
 
-print(glue("{Sys.time()} Daily Throughput [10 of 29]"))
+print(glue("{Sys.time()} Daily Throughput [10 of 29(4)]"))
 
 # DAILY ARRIVALS ON GREEN #####################################################
 
-print(glue("{Sys.time()} Daily AOG [11 of 29]"))
+print(glue("{Sys.time()} Daily AOG [11 of 29(4)]"))
 
 # HOURLY ARRIVALS ON GREEN ####################################################
 
-print(glue("{Sys.time()} Hourly AOG [12 of 29]"))
+print(glue("{Sys.time()} 15-Minute AOG [12 of 29(4)]"))
 
 tryCatch(
     {
@@ -218,11 +218,11 @@ tryCatch(
 
 # DAILY PROGRESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Daily Progression Ratio [13 of 29]"))
+print(glue("{Sys.time()} Daily Progression Ratio [13 of 29(4)]"))
 
 # HOURLY PROGESSION RATIO #####################################################
 
-print(glue("{Sys.time()} Hourly Progression Ratio [14 of 29]"))
+print(glue("{Sys.time()} 15-Minute Progression Ratio [14 of 29(4)]"))
 
 tryCatch(
     {
@@ -255,11 +255,11 @@ tryCatch(
 
 # DAILY SPLIT FAILURES ########################################################
 
-print(glue("{Sys.time()} Daily Split Failures [15 of 29]"))
+print(glue("{Sys.time()} Daily Split Failures [15 of 29(4)]"))
 
 # HOURLY SPLIT FAILURES #######################################################
 
-print(glue("{Sys.time()} Hourly Split Failures [16 of 29]"))
+print(glue("{Sys.time()} 15-Minute Split Failures [16 of 29(4)]"))
 
 tryCatch(
     {
@@ -312,11 +312,11 @@ tryCatch(
 
 # DAILY QUEUE SPILLBACK #######################################################
 
-print(glue("{Sys.time()} Daily Queue Spillback [17 of 29]"))
+print(glue("{Sys.time()} Daily Queue Spillback [17 of 29(4)]"))
 
 # HOURLY QUEUE SPILLBACK ######################################################
 
-print(glue("{Sys.time()} Hourly Queue Spillback [18 of 29]"))
+print(glue("{Sys.time()} 15-Minute Queue Spillback [18 of 29(4)]"))
 
 tryCatch(
     {
@@ -369,35 +369,35 @@ tryCatch(
 
 # TRAVEL TIME AND BUFFER TIME INDEXES #########################################
 
-print(glue("{Sys.time()} Travel Time Indexes [19 of 29]"))
+print(glue("{Sys.time()} Travel Time Indexes [19 of 29(4)]"))
 
 # CCTV UPTIME From 511 and Encoders
 
-print(glue("{Sys.time()} CCTV Uptimes [20 of 29]"))
+print(glue("{Sys.time()} CCTV Uptimes [20 of 29(4)]"))
 
 # ACTIVITIES ##################################################################
 
-print(glue("{Sys.time()} TEAMS [21 of 29]"))
+print(glue("{Sys.time()} TEAMS [21 of 29(4)]"))
 
 # USER DELAY COSTS   ##########################################################
 
-print(glue("{Sys.time()} User Delay Costs [22 of 29]"))
+print(glue("{Sys.time()} User Delay Costs [22 of 29(4)]"))
 
 # Flash Events ################################################################
 
-print(glue("{Sys.time()} Flash Events [23 of 29]"))
+print(glue("{Sys.time()} Flash Events [23 of 29(4)]"))
 
 # BIKE/PED SAFETY INDEX #######################################################
 
-print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29]"))
+print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29(4)]"))
 
 # RELATIVE SPEED INDEX ########################################################
 
-print(glue("{Sys.time()} Relative Speed Index [25 of 29]"))
+print(glue("{Sys.time()} Relative Speed Index [25 of 29(4)]"))
 
 # CRASH INDICES ###############################################################
 
-print(glue("{Sys.time()} Crash Indices [26 of 29]"))
+print(glue("{Sys.time()} Crash Indices [26 of 29(4)]"))
 
 
 
@@ -405,7 +405,7 @@ print(glue("{Sys.time()} Crash Indices [26 of 29]"))
 
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [27 of 29]"))
+print(glue("{Sys.time()} Package for Monthly Report [27 of 29(4)]"))
 
 sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
     if (identifier == "SignalID") {
@@ -557,10 +557,10 @@ for (tab in names(cor2$qhr)) {
 
 
 
-print(glue("{Sys.time()} Upload to AWS [28 of 29]"))
+print(glue("{Sys.time()} Upload to AWS [28 of 29(4)]"))
 
 
-print(glue("{Sys.time()} Write to Database [29 of 29]"))
+print(glue("{Sys.time()} Write to Database [29 of 29(4)]"))
 
 source("write_sigops_to_db.R")
 
