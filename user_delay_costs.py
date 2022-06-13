@@ -178,10 +178,8 @@ def get_udc_data(start_date,
     # 10 mph below historic avg speed;
     # this may change for certain corridors in which case script will need to be more dynamic
     threshold = 10
-    start_date_1yr = (datetime.strptime(start_date, '%Y-%m-%d').date() -
-                      relativedelta(years=1)).strftime('%Y-%m-%d')
-    end_date_1yr = (datetime.strptime(end_date, '%Y-%m-%d').date() -
-                    relativedelta(years=1)).strftime('%Y-%m-%d')
+    start_date_1yr = (pd.Timestamp(start_date) - pd.DateOffset(years=1)).strftime('%F')
+    end_date_1yr = (pd.Timestamp(end_date) - pd.DateOffset(years=1)).strftime('%F')
 
     # Get TMCs list by Zone/Corridor combinations
     zcdf = zone_corridor_tmc_df.groupby(
@@ -231,31 +229,23 @@ def get_udc_data(start_date,
     # Get user delay costs for each Zone/Corridor for current month.
     if len(zcdf0):
         with get_context('spawn').Pool(2) as pool:
-            results = pool.starmap_async(
+            pool.starmap_async(
                 get_udc_response,
                 [list(row.values()) for row in zcdf0.to_dict(orient='records')])
             pool.close()
             pool.join()
-        dfs = results.get()
-        df0 = pd.concat(dfs).reset_index()
-    else:
-        df0 = pd.DataFrame()
-    df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
 
     # Get user delay costs for each Zone/Corridor for current month one year ago.
     if len(zcdf1):
         with get_context('spawn').Pool(2) as pool:
-            results = pool.starmap_async(
+            pool.starmap_async(
                 get_udc_response,
                 [list(row.values()) for row in zcdf1.to_dict(orient='records')])
             pool.close()
             pool.join()
-        dfs = results.get()
-        df1 = pd.concat(dfs).reset_index()
-    else:
-        df1 = pd.DataFrame()
+    
+    df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
     df1 = dd.read_parquet(f'user_delay_costs/{start_date_1yr}/*.parquet').compute()
-
     df = pd.concat([df0, df1])
 
     print(f'{len(df)} records')
@@ -327,17 +317,11 @@ if __name__ == '__main__':
         print(e)
         udc_df = pd.DataFrame()
 
-    udc_df = pd.read_parquet(f'user_delay_costs/{start_date}')
-    start_date0 = (pd.Timestamp(start_date) - pd.DateOffset(years=1)).strftime('%F')
-    udc_df0 = pd.read_parquet(f'user_delay_costs/{start_date0}')
-    udc_df = pd.concat([udc_df, udc_df0])
-
     if len(udc_df) > 0:
-        #need to do any manipulation? Or just write to parquet and upload to S3?
         filename = f'user_delay_costs_{start_date}.parquet'
         udc_df.to_parquet(filename)
         df = udc_df.sort_values(by=['zone', 'corridor',
-                                    'date'])  # 'hour_current'])
+                                    'date'])
 
         bucket = conf['bucket']
         df.to_parquet(
