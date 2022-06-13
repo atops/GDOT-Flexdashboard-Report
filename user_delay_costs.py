@@ -40,8 +40,7 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                      key):
     uri = 'http://pda-api.ritis.org:8080/{}'
 
-    month = (datetime.strptime(start_date,
-                               '%Y-%m-%d').date()).strftime('%b %Y')
+    month = (datetime.strptime(start_date, '%Y-%m-%d').date()).strftime('%b %Y')
 
     payload = {
         "aadtPriority": ["gdot_2018", "inrix_2019"],  # ["GDOT_2018", "INRIX"],
@@ -50,16 +49,10 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
         "costs": {
             "catt.inrix.udc.commercial":  #need to enter costs for each year
             {
-                "2018": 100.49,
-                "2019": 100.49,
-                "2020": 100.49,
                 "2021": 100.49,
                 "2022": 100.49
             },
             "catt.inrix.udc.passenger": {
-                "2018": 17.91,
-                "2019": 17.91,
-                "2020": 17.91,
                 "2021": 17.91,
                 "2022": 17.91
             }
@@ -86,6 +79,15 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
         False,  #if true, uses the percentCommercial value for all segments instead of as a fallback
         "uuid": str(uuid.uuid1())
     }
+
+    start_year = pd.Timestamp(start_date).strftime('%Y')
+    end_year = pd.Timestamp(end_date).strftime('%Y')
+    
+    payload['costs']['catt.inrix.udc.commercial'][start_year] = 100.49
+    payload['costs']['catt.inrix.udc.passenger'][start_year] = 17.91
+
+    payload['costs']['catt.inrix.udc.commercial'][end_year] = 100.49
+    payload['costs']['catt.inrix.udc.passenger'][end_year] = 17.91
     #----------------------------------------------------------
     try:
 
@@ -244,8 +246,8 @@ def get_udc_data(start_date,
             pool.close()
             pool.join()
     
-    df0 = dd.read_parquet(f'user_delay_costs/{start_date}/*.parquet').compute()
-    df1 = dd.read_parquet(f'user_delay_costs/{start_date_1yr}/*.parquet').compute()
+    df0 = pd.read_parquet(f'user_delay_costs/{start_date}')
+    df1 = pd.read_parquet(f'user_delay_costs/{start_date_1yr}')
     df = pd.concat([df0, df1])
 
     print(f'{len(df)} records')
@@ -320,13 +322,10 @@ if __name__ == '__main__':
     if len(udc_df) > 0:
         filename = f'user_delay_costs_{start_date}.parquet'
         udc_df.to_parquet(filename)
-        df = udc_df.sort_values(by=['zone', 'corridor',
-                                    'date'])
+        df = udc_df.sort_values(by=['zone', 'corridor', 'date'])
 
         bucket = conf['bucket']
-        df.to_parquet(
-            f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}'
-        )
+        df.to_parquet(f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}')
 
     else:
         print('No records returned.')

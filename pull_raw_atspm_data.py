@@ -94,14 +94,7 @@ def pull_raw_atspm_data(s, date_):
                         os.mkdir('../atspm/' + date_str)
 
                     parquet_filename = '../atspm/{}/atspm_{}_{}.parquet'.format(date_str, s, date_str)
-                    #feather_filename = parquet_filename.replace('.parquet','.feather')
                     df.to_parquet(parquet_filename)
-
-                    #with io.StringIO() as buff:
-                    #    feather.write_dataframe(df, buff)
-                    #    with zipfile.ZipFile(feather_filename + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
-                    #        zf.write(os.path.basename(feather_filename), buff.getvalue())
-                    #feather.write_dataframe(df, feather_filename)
 
                     s3.upload_file(Filename = parquet_filename,
                                    Bucket = conf['bucket'],

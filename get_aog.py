@@ -14,7 +14,7 @@ import boto3
 import pandas as pd
 import io
 import re
-from multiprocessing import get_context # , Pool
+from multiprocessing import get_context
 import itertools
 from config import get_date_from_string
 
@@ -198,7 +198,6 @@ def main(conf, start_date, end_date):
 
         print('\n15 minutes')
         
-        # get_context()
         with get_context('spawn').Pool(processes=24) as pool:
             results = pool.starmap_async(
                 get_aog,
