@@ -21,8 +21,14 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  County = "text",
                  City = "text")
     
+    # Set the column types in the excel file as defined above
+    x <- readxl::read_xlsx(corr_fn)
+    col_types <- cols[names(x)]
     
-    df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
+    # Set any other columns (not defined above) to "text"
+    col_types[sapply(col_types, is.null)] <- "text"
+    
+    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>% 
         
         # Get the last modified record for the Signal|Zone|Corridor combination
         replace_na(replace = list(Modified = ymd("1900-01-01"))) %>% 

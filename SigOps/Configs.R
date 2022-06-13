@@ -5,8 +5,8 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
     cols <- list(SignalID = "numeric", #"text",
                  Zone_Group = "text",
                  Zone = "text",
-                 Corridor = "text",
-                 Subcorridor = "text",
+                 Contract = "text",
+                 District = "text",
                  Agency = "text",
                  `Main Street Name` = "text",
                  `Side Street Name` = "text",
@@ -21,9 +21,15 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  County = "text",
                  City = "text")
     
+    # Set the column types in the excel file as defined above
+    x <- readxl::read_xlsx(corr_fn)
+    col_types <- cols[names(x)]
     
-    df <- readxl::read_xlsx(corr_fn, col_types = unlist(cols)) %>% 
-        
+    # Set any other columns (not defined above) to "text"
+    col_types[sapply(col_types, is.null)] <- "text"
+    
+    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>% 
+
         rename(Zone_Group = Contract, Zone = District) %>%
         
         # Get the last modified record for the Signal|Zone|Corridor combination
