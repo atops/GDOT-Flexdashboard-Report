@@ -77,7 +77,7 @@ def assign_cycle(df, cycles):
                             'TimeStamp':'CycleStart'})
            .set_index(['SignalID','Phase'])
            .sort_index())
- 
+
     df['TimeInCycle'] = (df.StartTimeStamp - df.CycleStart) / np.timedelta64(1, 's')
 
     # return SignalID|EventParam||...<see below>

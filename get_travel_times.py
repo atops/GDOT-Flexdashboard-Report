@@ -251,7 +251,7 @@ if __name__=='__main__':
             df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_table)
 
         months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in pd.date_range(start_date, end_date, freq='D')]))
- 
+
         for yyyy_mm in months:
             try:
                 df = dd.read_parquet(f's3://{bucket}/mark/{cor_table}/date={yyyy_mm}-*/*').compute()

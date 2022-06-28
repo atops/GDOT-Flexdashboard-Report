@@ -25,31 +25,26 @@ run:
     etl: TRUE
     arrivals_on_green: TRUE
     queue_spillback: TRUE
-    split_failures: TRUE
     ped_delay: TRUE
+    split_failures: TRUE
 
 
-start_date: yesterday
+start_date: 2 days ago
 end_date: yesterday
 
-report_end_date: yesterday
 calcs_start_date: auto
+report_end_date: yesterday
 
-corridors_filename_s3: Corridors_Latest.xlsx
+corridors_filename_s3: Corridors_Latest_w_SigOps.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
-
 cctv_config_filename: Cameras_Latest.xlsx
-cctv_parsed_filename: parsed_cctv.feather
 
-teams_tasks_filename: TEAMS_Reports/tasks.csv
-
-tmc_filename: tmc_routes.feather
 
 AM_PEAK_HOURS: [6, 7, 8, 9]
 PM_PEAK_HOURS: [15, 16, 17, 18, 19]
 
 zone_groups:
-    - All RTOP 
+    - All RTOP
     - RTOP1
     - RTOP2
     - Zone 1
