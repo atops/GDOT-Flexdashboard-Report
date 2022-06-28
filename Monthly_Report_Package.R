@@ -2026,7 +2026,7 @@ tryCatch(
                 crashes_o,
                 crashes_total,
                 cost) %>%
-            drop_na() %>%    
+            drop_na() %>%
             arrange(SignalID, Month) %>%
             group_by(SignalID, Month) %>%
             summarise(across(c(starts_with("crashes"), cost), sum), .groups = "drop")
