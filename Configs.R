@@ -1,14 +1,12 @@
 
 get_corridors <- function(corr_fn, filter_signals = TRUE) {
-    
+
     # Keep this up to date to reflect the Corridors_Latest.xlsx file
     cols <- list(SignalID = "numeric", #"text",
                  Zone_Group = "text",
                  Zone = "text",
                  Corridor = "text",
                  Subcorridor = "text",
-                 Contract = "text",
-                 District = "text",
                  Agency = "text",
                  `Main Street Name` = "text",
                  `Side Street Name` = "text",
@@ -22,24 +20,24 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  Longitude = "numeric",
                  County = "text",
                  City = "text")
-    
+
     # Set the column types in the excel file as defined above
     x <- readxl::read_xlsx(corr_fn)
     col_types <- cols[names(x)]
-    
+
     # Set any other columns (not defined above) to "text"
     col_types[sapply(col_types, is.null)] <- "text"
-    
+
     df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>% 
-        
+
         # Get the last modified record for the Signal|Zone|Corridor combination
         replace_na(replace = list(Modified = ymd("1900-01-01"))) %>% 
         group_by(SignalID, Zone, Corridor) %>% 
         filter(Modified == max(Modified)) %>% 
         ungroup() %>%
-        
+
         filter(!is.na(Corridor))
-    
+
     # if filter_signals == FALSE, this creates all_corridors, which
     #   includes corridors without signals
     #   which is used for manual ped/det uptimes and camera uptimes
@@ -49,7 +47,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                 SignalID > 0,
                 Include == TRUE)
     }
-    
+
     df %>%        
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
         transmute(SignalID = factor(SignalID), 
@@ -62,16 +60,17 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Name,
                   Asof = date(Asof),
                   Latitude,
-                  Longitude) %>%
+                  Longitude,
+                  TeamsLocationID = stringr::str_trim(`TEAMS GUID`)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
-    
+
 }
 
 
 
 
 get_cam_config <- function(object, bucket, corridors) {
-    
+
     cam_config0 <- aws.s3::s3read_using(
         read_excel,
         object = object, 
@@ -84,7 +83,7 @@ get_cam_config <- function(object, bucket, corridors) {
             SignalID = factor(`MaxView ID`),
             As_of_Date = date(As_of_Date)) %>%
         distinct()
-    
+
     corrs <- corridors %>%
         select(SignalID, Zone_Group, Zone, Corridor, Subcorridor)
 
@@ -98,13 +97,13 @@ get_cam_config <- function(object, bucket, corridors) {
 
 
 get_ped_config_ <- function(bucket) {
-    
+
     function(date_) {
         date_ <- max(date_, ymd("2019-01-01"))
-        
+
         s3key <- glue("config/maxtime_ped_plans/date={date_}/MaxTime_Ped_Plans.csv")
         s3bucket <- bucket
-        
+
         if (nrow(aws.s3::get_bucket_df(s3bucket, s3key)) > 0) {
             col_spec <- cols_only(
                 # .default = col_character(),
@@ -114,7 +113,7 @@ get_ped_config_ <- function(bucket) {
                 SecondaryName = col_character(),
                 Detector = col_character(),
                 CallPhase = col_character())
-            
+
             s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(), 
                          object = s3key, 
                          bucket = s3bucket) %>%
@@ -138,27 +137,27 @@ get_ped_config <- get_ped_config_(conf$bucket)
 # It is meant to be used to create a get_det_config function that takes only the date:
 # like: get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
 get_det_config_  <- function(bucket, folder) { 
-    
+
     function(date_) {
         read_det_config <- function(s3object, s3bucket) {
             aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
         }
-        
+
         s3bucket <- bucket 
         s3prefix = glue("config/{folder}/date={date_}")
-        
+
         # Are there any files for this date?
         s3objects <- aws.s3::get_bucket(
             bucket = s3bucket, 
             prefix = s3prefix)
-        
+
         # If the s3 object exists, read it and return the data frame
         if (length(s3objects) == 1) {
             read_det_config(s3objects[1]$Contents$Key, s3bucket) %>%
                 mutate(SignalID = as.character(SignalID),
                        Detector = as.integer(Detector),
                        CallPhase = as.integer(CallPhase))
-            
+
             # If the s3 object does not exist, but where there are objects for this date,
             # read all files and bind rows (for when multiple ATSPM databases are contributing)
         } else if (length(s3objects) > 0) {
@@ -178,7 +177,7 @@ get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
 
 
 get_det_config_aog <- function(date_) {
-    
+
     get_det_config(date_) %>%
         filter(!is.na(Detector)) %>%
         mutate(AOGPriority = 
@@ -190,7 +189,7 @@ get_det_config_aog <- function(date_) {
         group_by(SignalID, CallPhase) %>% 
         filter(AOGPriority == min(AOGPriority)) %>%
         ungroup() %>%
-        
+
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
                   CallPhase = factor(CallPhase),
@@ -200,20 +199,20 @@ get_det_config_aog <- function(date_) {
 
 
 get_det_config_qs <- function(date_) {
-    
-    # Detector config    
+
+    # Detector config
     dc <- get_det_config(date_) %>%
         filter(grepl("Advanced Count", DetectionTypeDesc) | 
                    grepl("Advanced Speed", DetectionTypeDesc)) %>%
         filter(!is.na(DistanceFromStopBar)) %>%
         filter(!is.na(Detector)) %>%
-        
+
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
                   CallPhase = factor(CallPhase),
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
-    
+
     # Bad detectors
     bd <- s3read_using(
         read_parquet,
@@ -222,21 +221,21 @@ get_det_config_qs <- function(date_) {
         transmute(SignalID = factor(SignalID),
                   Detector = factor(Detector),
                   Good_Day)
-    
+
     # Join to take detector config for only good detectors for this day
     left_join(dc, bd, by=c("SignalID", "Detector")) %>%
         filter(is.na(Good_Day)) %>% select(-Good_Day)
-    
+
 }
 
 
 get_det_config_sf <- function(date_) {
-    
+
     get_det_config(date_) %>%
         filter(grepl("Stop Bar Presence", DetectionTypeDesc)) %>%
         filter(!is.na(Detector)) %>%
-        
-        
+
+
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
                   CallPhase = factor(CallPhase),
@@ -246,7 +245,7 @@ get_det_config_sf <- function(date_) {
 
 
 get_det_config_vol <- function(date_) {
-    
+
     get_det_config(date_) %>%
         transmute(SignalID = factor(SignalID), 
                   Detector = factor(Detector), 
@@ -264,9 +263,9 @@ get_det_config_vol <- function(date_) {
 
 
 get_latest_det_config <- function(conf) {
-    
+
     date_ <- today(tzone = "America/New_York")
-    
+
     # Get most recent detector config file, start with today() and work backward
     while (TRUE) {
         x <- aws.s3::get_bucket(

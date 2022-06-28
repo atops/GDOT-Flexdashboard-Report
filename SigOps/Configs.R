@@ -62,7 +62,8 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Name,
                   Asof = date(Asof),
                   Latitude,
-                  Longitude) %>%
+                  Longitude,
+                  TeamsLocationID = stringr::str_trim(`TEAMS GUID`)) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
     
 }
@@ -76,7 +77,7 @@ get_cam_config <- function(object, bucket, corridors) {
         read_excel,
         object = object, 
         bucket = bucket
-	    ) %>%
+	) %>%
         filter(Include == TRUE) %>%
         transmute(
             CameraID = factor(CameraID), 

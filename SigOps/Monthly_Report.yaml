@@ -33,15 +33,13 @@ run:
     split_failures: TRUE
 
 
-start_date: yesterday
+start_date: 2 days ago
 end_date: yesterday
 
-report_start_date: 2020-09-01
-report_end_date: yesterday
 calcs_start_date: auto
-production_report_end_date: 2021-09-01
+report_end_date: yesterday
 
-corridors_filename_s3: Corridors_v3_Latest.xlsx
+corridors_filename_s3: Corridors_v4_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
 cctv_config_filename: Cameras_v3_Latest.xlsx
 
@@ -53,9 +51,9 @@ AM_PEAK_HOURS: [6, 7, 8, 9]
 PM_PEAK_HOURS: [15, 16, 17, 18, 19]
 
 zone_groups:
-    - East Metro
     - Central Metro
-    - West Metro
+    - Western Metro
+    - Eastern Metro
     - North
     - Southeast
     - Southwest

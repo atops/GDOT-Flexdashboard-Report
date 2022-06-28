@@ -175,7 +175,7 @@ tryCatch(
                 bucket = conf$bucket,
                 prefix = "bad_ped_detectors",
                 table_name = "bad_ped_detectors",
-                conf_athena = conf$athena, 
+                conf_athena = conf$athena,
                 parallel = FALSE
             )
 
@@ -337,8 +337,8 @@ tryCatch(
                 Alert = factor("Bad Vehicle Detection"),
                 Name = factor(if_else(Corridor == "Ramp Meter", sub("@", "-", Name), Name)),
                 ApproachDesc = if_else(
-		    is.na(ApproachDesc), 
-		    "", 
+		    is.na(ApproachDesc),
+		    "",
 		    as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
             )
 
@@ -1639,9 +1639,9 @@ tryCatch(
         )
         teams <- tidy_teams_tasks(
             teams,
-            bucket = conf$bucket, 
-            teams_locations_key = "mark/teams/teams_locations.feather",
-            corridors, replicate = TRUE
+            bucket = conf$bucket,
+            corridors,
+            replicate = TRUE
         )
 
         tasks_by_type <- get_outstanding_tasks_by_param(
@@ -1690,6 +1690,14 @@ tryCatch(
         saveRDS(tasks_all, "tasks_all.rds")
         saveRDS(cor_outstanding_tasks_by_day_range, "cor_tasks_by_date.rds")
         saveRDS(sig_outstanding_tasks_by_day_range, "sig_tasks_by_date.rds")
+
+        rm(tasks_by_type)
+        rm(tasks_by_subtype)
+        rm(tasks_by_priority)
+        rm(tasks_by_source)
+        rm(tasks_all)
+        rm(cor_outstanding_tasks_by_day_range)
+        rm(sig_outstanding_tasks_by_day_range)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1815,7 +1823,7 @@ tryCatch(
 
         # Group into corridors
         cor_monthly_flash <- get_cor_monthly_flash(monthly_flash, corridors)
-        
+
         # Subcorridors
         sub_monthly_flash <- get_cor_monthly_flash(monthly_flash, subcorridors) %>%
             filter(!is.na(Corridor))
@@ -1847,7 +1855,7 @@ print(glue("{Sys.time()} Bike/Ped Safety Index [24 of 29]"))
 tryCatch(
     {
         date_range <- seq(ymd(calcs_start_date), ymd(report_end_date), by = "month")
-        
+
         sub_monthly_bpsi <- lapply(
             date_range, function(d) {
                 obj <- glue("mark/bike_ped_safety_index/bpsi_sub_{d}.parquet")
@@ -1863,8 +1871,8 @@ tryCatch(
                 Corridor = factor(Corridor),
                 Subcorridor = factor(Subcorridor)
             )
-        
-        
+
+
         cor_monthly_bpsi <- lapply(
             date_range, function(d) {
                 obj <- glue("mark/bike_ped_safety_index/bpsi_cor_{d}.parquet")
@@ -1879,32 +1887,32 @@ tryCatch(
             mutate(
                 Corridor = factor(Corridor)
             )
-        
+
         sub_monthly_bpsi <- bind_rows(
             sub_monthly_bpsi,
             mutate(cor_monthly_bpsi, Subcorridor = Corridor)
-        ) %>% 
+        ) %>%
             rename(Zone_Group = Corridor, Corridor = Subcorridor) %>%
-            group_by(Zone_Group, Corridor) %>% 
-            arrange(Month) %>% 
+            group_by(Zone_Group, Corridor) %>%
+            arrange(Month) %>%
             mutate(
                 ones = NA,
                 delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
             ungroup()
-        
+
         cor_monthly_bpsi <- left_join(
-            cor_monthly_bpsi, 
-            distinct(corridors, Zone_Group, Corridor), 
+            cor_monthly_bpsi,
+            distinct(corridors, Zone_Group, Corridor),
             by = "Corridor"
-        ) %>% 
+        ) %>%
             relocate(Zone_Group, .before = "Corridor") %>%
-            group_by(Zone_Group, Corridor) %>% 
-            arrange(Month) %>% 
+            group_by(Zone_Group, Corridor) %>%
+            arrange(Month) %>%
             mutate(
                 ones = NA,
                 delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
             ungroup()
-        
+
         addtoRDS(cor_monthly_bpsi, "cor_monthly_bpsi.rds", "bpsi", report_start_date, calcs_start_date)
         addtoRDS(sub_monthly_bpsi, "sub_monthly_bpsi.rds", "bpsi", report_start_date, calcs_start_date)
         

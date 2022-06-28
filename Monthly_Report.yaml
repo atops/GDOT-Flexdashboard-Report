@@ -1,9 +1,6 @@
 
 # Monthly_Report config file (yaml format)
 
-mode: production
-#mode: beta
-
 agency: GDOT
 bucket: gdot-spm
 athena:

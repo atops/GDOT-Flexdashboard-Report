@@ -40,7 +40,8 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
                      key):
     uri = 'http://pda-api.ritis.org:8080/{}'
 
-    month = (datetime.strptime(start_date, '%Y-%m-%d').date()).strftime('%b %Y')
+    month = (datetime.strptime(start_date,
+                               '%Y-%m-%d').date()).strftime('%b %Y')
 
     payload = {
         "aadtPriority": ["gdot_2018", "inrix_2019"],  # ["GDOT_2018", "INRIX"],
@@ -49,10 +50,12 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
         "costs": {
             "catt.inrix.udc.commercial":  #need to enter costs for each year
             {
+                "2020": 100.49,
                 "2021": 100.49,
                 "2022": 100.49
             },
             "catt.inrix.udc.passenger": {
+                "2020": 17.91,
                 "2021": 17.91,
                 "2022": 17.91
             }
@@ -62,12 +65,9 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
             "end": end_date,
             "start": start_date
         }],
-        "percentCommercial":
-        10,  #fallback for % trucks if the data isn't available
-        "threshold":
-        threshold,  #delay calculated where speed falls below threshold type by threshold mph
-        "thresholdType":
-        "AVERAGE",  #choices are AVERAGE (historic avg speed), REFERENCE (freeflow speed), or ABSOLUTE/NONE
+        "percentCommercial": 10,  #fallback for % trucks if the data isn't available
+        "threshold": threshold,  #delay calculated where speed falls below threshold type by threshold mph
+        "thresholdType": "AVERAGE",  #choices are AVERAGE (historic avg speed), REFERENCE (freeflow speed), or ABSOLUTE/NONE
         "times": [{
             "end": None,
             "start": "00:00:00.000"
@@ -82,7 +82,7 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
 
     start_year = pd.Timestamp(start_date).strftime('%Y')
     end_year = pd.Timestamp(end_date).strftime('%Y')
-    
+
     payload['costs']['catt.inrix.udc.commercial'][start_year] = 100.49
     payload['costs']['catt.inrix.udc.passenger'][start_year] = 17.91
 
@@ -219,7 +219,7 @@ def get_udc_data(start_date,
         'start_date', 'end_date', 'threshold', 'Zone', 'Corridor', 'tmcs',
         'key'
     ]]
-    
+
     zcdf1.to_parquet('zcdf1.parquet')
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date_1yr}/{get_filename(x)}'),
@@ -245,7 +245,7 @@ def get_udc_data(start_date,
                 [list(row.values()) for row in zcdf1.to_dict(orient='records')])
             pool.close()
             pool.join()
-    
+
     df0 = pd.read_parquet(f'user_delay_costs/{start_date}')
     df1 = pd.read_parquet(f'user_delay_costs/{start_date_1yr}')
     df = pd.concat([df0, df1])
@@ -270,7 +270,7 @@ if __name__ == '__main__':
 
     # start_date is the first day of the month
     start_date = datetime.fromisoformat(start_date).strftime('%Y-%m-01')
- 
+
     # end date is either the given date + 1 or today.
     # end_date is not included in the query results
     ed = datetime.fromisoformat(end_date)
@@ -283,6 +283,10 @@ if __name__ == '__main__':
 
     print(start_date)
     print(end_date)
+
+    os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID']
+    os.environ['AWS_SECRET_ACCESS_KEY'] = cred['AWS_SECRET_ACCESS_KEY']
+    os.environ['AWS_DEFAULT_REGION'] = cred['AWS_DEFAULT_REGION']
 
     with io.BytesIO() as data:
         s3.download_fileobj(Bucket=conf['bucket'],
@@ -322,14 +326,15 @@ if __name__ == '__main__':
     if len(udc_df) > 0:
         filename = f'user_delay_costs_{start_date}.parquet'
         udc_df.to_parquet(filename)
-        df = udc_df.sort_values(by=['zone', 'corridor', 'date'])
+        df = udc_df.sort_values(by=['zone', 'corridor',
+                                    'date'])  # 'hour_current'])
 
         bucket = conf['bucket']
         df.to_parquet(f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}')
 
     else:
         print('No records returned.')
-    
+
     shutil.rmtree(f'user_delay_costs/{start_date}/')
     shutil.rmtree(f'user_delay_costs/{start_date0}/')
 

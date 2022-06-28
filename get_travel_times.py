@@ -127,20 +127,20 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
     return df
 
 def get_corridor_travel_times(df, corr_grouping, bucket, table_name):
-    
+
     # -- Raw Hourly Travel Time Data --
     def uf(df):
         date_string = df.date.values[0]
         filename = 'travel_times_{}.parquet'.format(date_string)
         df = df.drop(columns=['date'])
         df.to_parquet(f's3://{bucket}/mark/{table_name}/date={date_string}/{filename}')
-         
+
     # Write to parquet files and upload to S3
     df.groupby(['date']).apply(uf)
 
 
 def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
-    
+
     df = df.groupby(corr_grouping + ['Hour'], as_index=False)[
         ['travel_time_minutes', 'reference_minutes', 'miles']].sum()
 
@@ -161,7 +161,7 @@ def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
         filename = 'travel_time_metrics_{}.parquet'.format(date_string)
         df = df.drop(columns=['date'])
         df.to_parquet(f's3://{bucket}/mark/{table_name}/date={date_string}/{filename}')
-            
+
     # Write to parquet files and upload to S3
     summ_df.reset_index().assign(date = lambda x: x.Hour.dt.date).groupby(['date']).apply(uf)
 
@@ -193,14 +193,17 @@ if __name__=='__main__':
 
     bucket = conf['bucket']
 
+    os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID'] 
+    os.environ['AWS_SECRET_ACCESS_KEY'] = cred['AWS_SECRET_ACCESS_KEY']
+    os.environ['AWS_DEFAULT_REGION'] = cred['AWS_DEFAULT_REGION']
 
     suff = tt_conf['table_suffix']
     cor_table = f'cor_travel_times_{suff}'
     cor_metrics_table = f'cor_travel_time_metrics_{suff}'
     sub_table = f'sub_travel_times_{suff}'
     sub_metrics_table = f'sub_travel_time_metrics_{suff}'
-    
-   
+
+
     # pull in file that matches up corridors/subcorridors/TMCs from S3
     tmc_df = (pd.read_excel(f"s3://{bucket}/{conf['corridors_TMCs_filename_s3']}")
                 .rename(columns={'length': 'miles'})
@@ -208,7 +211,7 @@ if __name__=='__main__':
     tmc_df = tmc_df[tmc_df.Corridor != 'None']
 
     tmc_list = list(set(tmc_df.tmc.values))
-    
+
     #start_date = '2019-11-01'
     #end_date = '2019-12-01'
 
@@ -228,7 +231,7 @@ if __name__=='__main__':
     except Exception as e:
         print(f'ERROR retrieving tmc records - {str(e)}')
         tt_df = pd.DataFrame()
-    
+
     if len(tt_df) > 0:
         df = (pd.merge(tmc_df[['tmc', 'miles', 'Corridor', 'Subcorridor']], tt_df, left_on=['tmc'], right_on=['tmc_code'])
                 .drop(columns=['tmc'])
@@ -240,13 +243,13 @@ if __name__=='__main__':
                         date = lambda x: x.measurement_tstamp.dt.date)
                 .rename(columns = {'measurement_tstamp': 'Hour'}))
         df = df.drop_duplicates()
-             
+
         get_corridor_travel_times(
             df, ['Corridor'], conf['bucket'], cor_table)
 
         get_corridor_travel_times(
             df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_table)
-            
+
         months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in pd.date_range(start_date, end_date, freq='D')]))
  
         for yyyy_mm in months:

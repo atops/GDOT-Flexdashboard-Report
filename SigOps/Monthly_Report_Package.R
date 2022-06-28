@@ -1784,8 +1784,8 @@ tryCatch(
         teams <- tidy_teams_tasks(
             teams,
             bucket = conf$bucket, 
-            teams_locations_key = "teams_locations.feather",
-            corridors, replicate = TRUE
+            corridors, 
+            replicate = TRUE
         )
 
         tasks_by_type <- get_outstanding_tasks_by_param(

@@ -17,8 +17,8 @@ get_teams_locations <- function(locs, conf) {
         filter(Latitude != 0)
     
     corridors <- s3read_using(
-        read_feather, 
-        object = sub('\\.xlsx', '.feather', conf$corridors_filename_s3),
+        qread, 
+        object = sub('\\.xlsx', '.qs', conf$corridors_filename_s3),
         bucket = conf$bucket)
     
     # sf (spatial - point) objects
@@ -65,25 +65,14 @@ get_teams_locations <- function(locs, conf) {
 
 
 
-tidy_teams_tasks <- function(tasks, bucket, teams_locations_key, corridors, replicate = FALSE) {
+tidy_teams_tasks <- function(tasks, bucket, corridors, replicate = FALSE) {
     
-    
-    # Teams Locations
-    if (!file.exists(basename(teams_locations_key))) {
-        aws.s3::save_object(teams_locations_key, bucket = bucket)
-    }
-    locations <- read_feather(basename(teams_locations_key))
-
-    corridors <- select(corridors, -c(Latitude, Longitude))
-    # Get tasks and join locations, corridors
+    # Get tasks and join with corridors
     tasks <- tasks %>%
-        dplyr::select(-`Maintained by`) %>%
-        left_join(locations, by = c("LocationId")) %>%
-        filter(!is.na(m),
-               `Date Reported` < today(),
-               (`Date Resolved` < today() | is.na(`Date Resolved`))) %>%
-        mutate(SignalID = factor(SignalID)) %>%
-        left_join(corridors, by = c("SignalID"))
+        dplyr::select(-c(Latitude, Longitude)) %>%
+        filter(`Date Reported` < today(),
+              (`Date Resolved` < today() | is.na(`Date Resolved`))) %>%
+        left_join(corridors, by = c("LocationId" = "TeamsLocationID"))
     
     all_tasks <- tasks %>% 
         mutate(
@@ -112,7 +101,7 @@ tidy_teams_tasks <- function(tasks, bucket, teams_locations_key, corridors, repl
                       `Date Resolved`,
                       `Time To Resolve In Days`,
                       `Time To Resolve In Hours`,
-                      Maintained_by = `Maintained By`,
+                      Maintained_by = `Maintained by`,
                       Owned_by = `Owned by`,
                       `Custom Identifier`,
                       `Primary Route`,

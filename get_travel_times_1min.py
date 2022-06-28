@@ -183,8 +183,11 @@ if __name__=='__main__':
     start_date = get_date_from_string(start_date)
     end_date = get_date_from_string(end_date)
 
-
     bucket = conf['bucket']
+
+    os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID']
+    os.environ['AWS_SECRET_ACCESS_KEY'] = cred['AWS_SECRET_ACCESS_KEY']
+    os.environ['AWS_DEFAULT_REGION'] = cred['AWS_DEFAULT_REGION']
 
     # pull in file that matches up corridors/subcorridors/TMCs from S3
     tmc_df = (pd.read_excel(f"s3://{bucket}/{conf['corridors_TMCs_filename_s3']}")

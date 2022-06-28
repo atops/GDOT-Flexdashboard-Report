@@ -14,16 +14,16 @@ pd.options.display.width = 120
 def get_pairs(df, a, b):
     # Get the start time, end time and duration of all chronological pairs of EventCodes
     # Example: a=1, b=8 gives the start, end and duration of green for every SignalID, EventParam
-    
+
     g = df.query('EventCode in [%s,%s]' % (str(a), str(b)))
-     
+
     rdf = (g.query('EventCode=={}'.format(str(a)))
             .rename(columns={'TimeStamp':'StartTimeStamp'})
             .sort_values('StartTimeStamp'))
     ldf = (g.query('EventCode=={}'.format(str(b)))
             .rename(columns={'TimeStamp':'EndTimeStamp','EventCode':'delete'})
             .sort_values('EndTimeStamp'))
-        
+
     j = (pd.merge_asof(left=ldf, 
                             right=rdf, 
                             left_on=['EndTimeStamp'], 
@@ -36,7 +36,7 @@ def get_pairs(df, a, b):
 
     j['Duration'] = (j.EndTimeStamp - j.StartTimeStamp) / np.timedelta64(1, 's')
     j = j[['StartTimeStamp','EndTimeStamp','EventCode','Duration']]
-    
+
     # Remove secondary matches when there are multiple matches on the first item    
     j = j.set_index('StartTimeStamp', append=True).sort_index()
     j['rank'] = j.groupby(level=[0,1,2]).rank()['Duration']
@@ -62,10 +62,10 @@ def get_phase_cycle(df):
     return get_pairs(df, 1, 1)
 
 def assign_cycle(df, cycles):
-    
+
     ldf = df.reset_index().sort_values(['StartTimeStamp']).dropna()
     rdf = cycles.reset_index().sort_values(['TimeStamp']).dropna()
-    
+
     df = (pd.merge_asof(left=ldf, 
                         right=rdf, 
                         left_on=['StartTimeStamp'], 
@@ -83,7 +83,7 @@ def assign_cycle(df, cycles):
     # return SignalID|EventParam||...<see below>
     return df[['CycleStart','StartTimeStamp','EndTimeStamp','TimeInCycle',
                'Duration','EventCode']]
-    
+
 def get_detector_pairs(df, det_config):
     # df is what comes from Event Table
     # det_config is what comes from MaxTime Detector Plans
@@ -92,12 +92,12 @@ def get_detector_pairs(df, det_config):
                     .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar', 'CountDetector']]
 
     df = get_pairs(df, 82, 81).join(dc).dropna() # map detector ID to phase
-    
+
     df['Call Phase'] = df['Call Phase'].astype('int64')
     df['EventCode'] = df['EventCode'].astype('int64')
 
     df.StartTimeStamp = df.StartTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
-    
+
     df = (df.reset_index(level=1, drop=False)
             .rename(columns={'EventParam':'Detector'})
             .rename(columns={'Call Phase':'Phase'})
@@ -142,7 +142,7 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
             .rename(columns={'EventCode_y':'EventCode',
                              'Duration':'DetDuration'}))
     df.EventCode = df.EventCode.astype('int64')
-    
+
 
     # Disaggregate. All detection events at point in cycle/phase
     detections_by_cycle = df[['Detector', 'CycleStart','PhaseStart','EventCode','DetTimeStamp',
@@ -157,10 +157,10 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
                  .count()[['DetTimeStamp']]
                  .rename(columns={'DetTimeStamp':'Volume'})
                  .reset_index())
-    
+
     volumes.EventCode = volumes.EventCode.astype('int64')
     volumes.Volume = volumes.Volume.astype('int64')
-    
+
     # clean up
     df = (gyr.reset_index()
              .merge(right=volumes, 
@@ -177,13 +177,13 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
     df.Volume = df.Volume.fillna(0).astype('int64')
 
     cycles = df[['CycleStart','PhaseStart','PhaseEnd','EventCode','Duration','Volume']]
-    
+
     if aggregate==True:
 
         return cycles
-    
+
     else:
-        
+
         return (cycles, detections_by_cycle)
 
 def etl_main(df, det_config):
@@ -193,7 +193,7 @@ def etl_main(df, det_config):
         TimeStamp [datetime]
         EventCode [str or int64]
         EventParam [str or int64]
-    
+
     det_config:
         SignalID [int64]
         IP [str]
@@ -212,7 +212,7 @@ def etl_main(df, det_config):
     terminations = (df.query('EventCode in [4,5,6]')
                       .set_index(['SignalID','EventParam'])
                       .sort_values('TimeStamp').sort_index())
-    
+
     if len(cycles) > 0 and len(terminations) > 0:
         detections = get_detector_pairs(df, det_config)
 
@@ -249,11 +249,11 @@ def etl_main(df, det_config):
                                 'EventCode','TermType','Duration','Volume']))
 
         return cycles, detections_by_cycle
-    
+
     else:
         return pd.DataFrame(), pd.DataFrame()
 
 
 if __name__=='__main__':
-    
+
     print('')
