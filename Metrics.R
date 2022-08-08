@@ -770,8 +770,8 @@ get_ped_delay <- function(date_, conf, signals_list) {
 
     ds <- arrow::open_dataset(glue("s3://{s3bucket}/{s3prefix}"))
 
-    pe <- ds %>% 
-        filter(EventCode %in% c(45, 21, 22, 132)) %>% 
+    pe <- ds %>%
+        filter(EventCode %in% c(45, 21, 22, 132)) %>%
         select(SignalID, Timestamp, EventCode, EventParam) %>%
         collect() %>%
         convert_to_utc() %>%
