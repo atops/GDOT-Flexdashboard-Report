@@ -322,34 +322,34 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         select(-EventCode)
 
     cat('.')
-    
+
     grn_interval <- setDT(grn_interval)
     sor_interval <- setDT(sor_interval)
-    
+
     setkey(de, SignalID, Phase, DetOn, DetOff)
     setkey(grn_interval, SignalID, Phase, IntervalStart, IntervalEnd)
     setkey(sor_interval, SignalID, Phase, IntervalStart, IntervalEnd)
-    
+
     ## ---
-    
+
     grn_occ <- get_occupancy(de, grn_interval) %>%
         rename(gr_occ = occ)
     cat('.')
     sor_occ <- get_occupancy(de, sor_interval) %>%
         rename(sr_occ = occ)
     cat('.\n')
-    
+
     sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
-    
+
     # if a split failure on any phase
     sf0 <- sf %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%
         summarize(sf = max(sf), .groups = "drop")
-    
+
     sf <- bind_rows(sf, sf0) %>%
         mutate(Phase = factor(Phase))
-    
+
     return_list <- list()
     for (interval in intervals) {
         return_list[[interval]] <- sf %>%
@@ -358,7 +358,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                       sf_freq = sum(sf, na.rm = TRUE)/cycles,
                       sf = sum(sf, na.rm = TRUE),
                       .groups = "drop") %>%
-            
+
             transmute(SignalID,
                       CallPhase = Phase,
                       Date_Hour = as_datetime(hour),
@@ -537,7 +537,7 @@ get_pau_high_ <- function(paph, pau_start_date) {
 
     # Fail pushbutton input if mean hourly count > 600
     # or std dev hourly count > 9000
-    print("too high filter (based on mean and sd for the day)...")
+    # print("too high filter (based on mean and sd for the day)...")
     too_high_distn <- paph %>%
         filter(hour(Hour) >= 6, hour(Hour) <= 22) %>%
         complete(
@@ -554,7 +554,7 @@ get_pau_high_ <- function(paph, pau_start_date) {
 
     # Fail pushbutton input if between midnight and 6am,
     # at least one hour > 300 or at least three hours > 60
-    print("too high filter (early morning counts)...")
+    # print("too high filter (early morning counts)...")
     too_high_am <- paph %>%
         filter(hour(Hour) < 6) %>%
         group_by(SignalID, Detector, CallPhase, Date) %>%
@@ -575,7 +575,7 @@ get_pau_high_ <- function(paph, pau_start_date) {
     # An outlier data point is when, for a given hour, the count is > 300
     # and exceeds 100 times the count of next highest pushbutton input
     # (if next highest pushbutton input count is 0, use 1 instead)
-    print("too high filter (compared to other phases for the same signal)...")
+    # print("too high filter (compared to other phases for the same signal)...")
     too_high_nn <- paph %>%
         complete(
             nesting(SignalID, Detector, CallPhase),
@@ -669,7 +669,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
                Detector = factor(Detector),
                CallPhase = factor(CallPhase))
 
-    print("too low filter...")
+    # print("too low filter...")
     papd <- papd %>%
         full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
     rm(ped_config)
@@ -724,7 +724,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
         ungroup() %>%
         select(SignalID, CallPhase, Detector, Date, problow = prob_bad)
 
-    print("all filters combined...")
+    # print("all filters combined...")
     pau <- left_join(
         select(papd, SignalID, CallPhase, Detector, Date, Week, DOW, papd),
         pz,

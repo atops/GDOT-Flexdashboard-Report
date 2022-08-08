@@ -1516,6 +1516,7 @@ tryCatch(
 
         sub_daily_cctv_uptime <- daily_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,
@@ -1525,6 +1526,7 @@ tryCatch(
 
         sub_weekly_cctv_uptime <- weekly_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,
@@ -1534,6 +1536,7 @@ tryCatch(
 
         sub_monthly_cctv_uptime <- monthly_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,
@@ -1731,7 +1734,7 @@ tryCatch(
                         Zone = zone,
                         Corridor = corridor,
                         analysis_month = ymd(yyyymmdd),
-                        month_hour = date,
+                        month_hour = as_date(date),
                         month_hour = month_hour - days(day(month_hour)) + days(1),
                         Month = date(floor_date(month_hour, "month")),
                         delay_cost = combined.delay_cost

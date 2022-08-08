@@ -250,6 +250,9 @@ def get_udc_data(start_date,
     df1 = pd.read_parquet(f'user_delay_costs/{start_date_1yr}')
     df = pd.concat([df0, df1])
 
+    shutil.rmtree(f'user_delay_costs/{start_date}/')
+    shutil.rmtree(f'user_delay_costs/{start_date_1yr}/')
+    
     print(f'{len(df)} records')
     return df
 
@@ -277,8 +280,8 @@ if __name__ == '__main__':
     end_date = min(ed + timedelta(days=1), datetime.today()).strftime('%Y-%m-%d')
 
     #-- manual start and end dates
-    # start_date = '2022-03-01'
-    # end_date = '2022-03-31'
+    # start_date = '2022-07-01'
+    # end_date = '2022-07-31'
     #---
 
     print(start_date)
@@ -335,6 +338,4 @@ if __name__ == '__main__':
     else:
         print('No records returned.')
 
-    shutil.rmtree(f'user_delay_costs/{start_date}/')
-    shutil.rmtree(f'user_delay_costs/{start_date0}/')
 
