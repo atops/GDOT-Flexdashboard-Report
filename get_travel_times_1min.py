@@ -257,6 +257,12 @@ if __name__=='__main__':
         except IndexError:
             df = pd.DataFrame()
             print(f'No data for {yyyy_mm}')
+        except KeyError as e:
+            df = pd.DataFrame()
+            print(f'KeyError for {yyyy_mm} - {str(e)}')
+        except Exception as e:
+            df = pd.DataFrame()
+            print(f'Unhandled exception for {yyyy_mm} - {str(e)}')
 
         if len(df.columns) > 0:
 

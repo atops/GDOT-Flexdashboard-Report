@@ -329,8 +329,7 @@ if __name__ == '__main__':
     if len(udc_df) > 0:
         filename = f'user_delay_costs_{start_date}.parquet'
         udc_df.to_parquet(filename)
-        df = udc_df.sort_values(by=['zone', 'corridor',
-                                    'date'])  # 'hour_current'])
+        df = udc_df.sort_values(by=['zone', 'corridor', 'date'])
 
         bucket = conf['bucket']
         df.to_parquet(f's3://{bucket}/mark/user_delay_costs/date={start_date}/{filename}')
