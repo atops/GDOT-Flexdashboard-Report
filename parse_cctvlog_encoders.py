@@ -67,6 +67,7 @@ if __name__ == '__main__':
     re_today = re.compile(datetime.today().strftime('%Y-%m-%d'))
     
     bucket = conf['bucket']
+    athena = conf['athena']
 
     os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID']
     os.environ['AWS_SECRET_ACCESS_KEY'] = cred['AWS_SECRET_ACCESS_KEY']
@@ -103,12 +104,12 @@ if __name__ == '__main__':
 
             response_repair = ath.start_query_execution(
                 QueryString='MSCK REPAIR TABLE cctv_uptime_encoders',
-                QueryExecutionContext={'Database': conf['bucket']},
-                ResultConfiguration={'OutputLocation': conf['athena']['staging_dir']})
+                QueryExecutionContext={'Database': athena['database']},
+                ResultConfiguration={'OutputLocation': athena['staging_dir']})
 
             while True:
                 response = s3.list_objects(
-                    Bucket=os.path.basename(conf['athena']['staging_dir']),
+                    Bucket=os.path.basename(athena['staging_dir']),
                     Prefix=response_repair['QueryExecutionId'])
                 if 'Contents' in response:
                     break

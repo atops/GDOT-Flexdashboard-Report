@@ -22,8 +22,6 @@ if [[ ${H#0} -lt 6 ]]; then
     # this was moved to crontab to run at midnight. creates empty nightly.log.
     /usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state /home/rstudio/logrotate-state
 
-    ./sync_configs.sh  # Temporary while waiting for merge to be accepted into production: gdot-spm/config/...
-    
     Rscript Monthly_Report_Calcs_ec2.R
     Rscript Monthly_Report_Package.R
     echo "------------------------"
@@ -36,12 +34,11 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Package_15min.R
     cd ..
 
-    # Run User Delay Cost on the SAM on the 1sh, 8th, 11th and 21st of the month
+    # Run User Delay Cost on the SAM on the 1st, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
         python user_delay_costs.py
     fi
 
-    #/usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state=/home/rstudio/logrotate-state --verbose
     aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1
     
     # Shut down when script completes

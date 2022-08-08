@@ -987,7 +987,7 @@ tryCatch(
         #         get_daily_aog()
         # }) %>% bind_rows()
         # 
-        
+
         daily_aog <- get_daily_aog(aog)
         weekly_aog_by_day <- get_weekly_aog_by_day(aog)
         monthly_aog_by_day <- get_monthly_aog_by_day(aog)
@@ -1561,10 +1561,10 @@ print(glue("{Sys.time()} CCTV Uptimes [20 of 29(2)]"))
 tryCatch(
     {
         daily_cctv_uptime_511 <- get_daily_cctv_uptime(
-            "cctv_uptime", cam_config, wk_calcs_start_date
+            conf$athena$database, "cctv_uptime", cam_config, wk_calcs_start_date
         )
         daily_cctv_uptime_encoders <- get_daily_cctv_uptime(
-            "cctv_uptime_encoders", cam_config, wk_calcs_start_date
+            conf$athena$database, "cctv_uptime_encoders", cam_config, wk_calcs_start_date
         )
 
         # up:
@@ -1648,6 +1648,7 @@ tryCatch(
 
         sub_daily_cctv_uptime <- daily_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,
@@ -1657,6 +1658,7 @@ tryCatch(
 
         sub_weekly_cctv_uptime <- weekly_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,
@@ -1666,6 +1668,7 @@ tryCatch(
 
         sub_monthly_cctv_uptime <- monthly_cctv_uptime %>%
             select(-Zone_Group) %>%
+            filter(!is.na(Subcorridor)) %>%
             rename(
                 Zone_Group = Zone,
                 Zone = Corridor,

@@ -1,14 +1,10 @@
 
 # Monthly_Report config file (yaml format)
 
-mode: production
-#mode: beta
-
 agency: GDOT
 bucket: gdot-spm
 athena:
     staging_dir: s3://gdot-spm-athena  # this has to be <bucket>-athena
-    jar_path: AthenaJDBC42_2.0.9.jar
     database: gdot_spm
     atspm_table: atspm2
     region: us-east-1
@@ -40,8 +36,8 @@ calcs_start_date: auto
 report_end_date: yesterday
 
 corridors_filename_s3: Corridors_v4_Latest.xlsx
-corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
-cctv_config_filename: Cameras_v3_Latest.xlsx
+corridors_TMCs_filename_s3: Corridor_TMCs_v3_Latest.xlsx
+cctv_config_filename: Cameras_v4_Latest.xlsx
 
 # cctv_parsed_filename: parsed_cctv.feather
 # teams_tasks_filename: TEAMS_Reports/tasks.csv

@@ -163,7 +163,7 @@ def main(start_date, end_date):
             det_config = pd.DataFrame()
 
         if len(det_config) > 0:
-            nthreads = round(psutil.virtual_memory().total/1e9)  # ensure 1 MB memory per thread
+            nthreads = round(psutil.virtual_memory().available/1e9)  # ensure 1 MB memory per thread
 
             #-----------------------------------------------------------------------------------------
             with get_context('spawn').Pool(processes=nthreads) as pool:

@@ -99,8 +99,8 @@ write_quarterly_data <- function(qdata, filename = "quarterly_data.csv") {
 get_quarterly_bottlenecks <- function() {
     tmcs <- s3read_using(
         read_excel,
-        bucket = "gdot-spm",
-        object = "Corridor_TMCs_Latest.xlsx"
+        bucket = "",
+        object = ""
     )
     
     bottlenecks <- lapply(c("2020-10-01", "2020-11-01", "2020-12-01"), function(x) {

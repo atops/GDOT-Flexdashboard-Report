@@ -1047,52 +1047,85 @@ tryCatch(
                 Week = week(Date)
             )
 
-        # Alternative design pattern. Uses Arrow datasets on S3.
-        # Less memory. Multiple cores. Seems far better all around.
-        # Need to assess the stability of Arrow datasets.
-        #
-        # ds <- arrow::open_dataset(glue("s3://{conf$bucket}/mark/arrivals_on_green"))
-        # date_range <- seq(wk_calcs_start_date, as_date(report_end_date), by = "1 day") %>%
-        #     as.character()
-        # aog <- mclapply(date_range, mc.cores = usable_cores, FUN = function(date_) {
-        #     ds %>%
-        #         filter(date == date_, SignalID %in% signals_list) %>%
-        #         collect() %>%
-        #         mutate(
-        #             SignalID = factor(SignalID),
-        #             CallPhase = factor(CallPhase),
-        #             Date = date(date),
-        #             DOW = wday(date),
-        #             Week = week(date)
-        #         ) %>%
-        #         get_daily_aog()
-        # }) %>% bind_rows()
-        #
+        daily_aog <-
+            get_daily_aog(aog)
+        cor_daily_aog <-
+            get_cor_weekly_aog_by_day(daily_aog, corridors) %>% select(-Week)
+        sub_daily_aog <-
+            get_cor_weekly_aog_by_day(daily_aog, subcorridors) %>% select(-Week) %>%
+                filter(!is.na(Corridor))
 
-        daily_aog <- get_daily_aog(aog)
-        weekly_aog_by_day <- get_weekly_aog_by_day(aog)
-        monthly_aog_by_day <- get_monthly_aog_by_day(aog)
+        weekly_aog_by_day <-
+            get_weekly_aog_by_day(aog)
+        cor_weekly_aog_by_day <-
+            get_cor_weekly_aog_by_day(weekly_aog_by_day, corridors) %>%
+                mutate(Description = Corridor)
+        sub_weekly_aog_by_day <-
+            get_cor_weekly_aog_by_day(weekly_aog_by_day, subcorridors) %>%
+                filter(!is.na(Corridor)) %>%
+                mutate(Description = Corridor)
 
-        cor_daily_aog <- get_cor_weekly_aog_by_day(daily_aog, corridors) %>% select(-Week)
-        cor_weekly_aog_by_day <- get_cor_weekly_aog_by_day(weekly_aog_by_day, corridors)
-        cor_monthly_aog_by_day <- get_cor_monthly_aog_by_day(monthly_aog_by_day, corridors)
+        monthly_aog_by_day <-
+            get_monthly_aog_by_day(aog)
+        cor_monthly_aog_by_day <-
+            get_cor_monthly_aog_by_day(monthly_aog_by_day, corridors) %>%
+                mutate(Description = Corridor)
+        sub_monthly_aog_by_day <-
+            get_cor_monthly_aog_by_day(monthly_aog_by_day, subcorridors) %>%
+                filter(!is.na(Corridor)) %>%
+                mutate(Description = Corridor)
 
-        sub_daily_aog <- get_cor_weekly_aog_by_day(daily_aog, subcorridors) %>% select(-Week) %>%
-            filter(!is.na(Corridor))
-        sub_weekly_aog_by_day <- get_cor_weekly_aog_by_day(weekly_aog_by_day, subcorridors) %>%
-            filter(!is.na(Corridor))
-        sub_monthly_aog_by_day <- get_cor_monthly_aog_by_day(monthly_aog_by_day, subcorridors) %>%
-            filter(!is.na(Corridor))
+        daily_aog <-
+            sigify(daily_aog, cor_daily_aog, corridors) %>%
+              select(Zone_Group, Corridor, Date, aog, delta)
+        weekly_aog_by_day <-
+            sigify(weekly_aog_by_day, cor_weekly_aog_by_day, corridors) %>%
+                select(Zone_Group, Corridor, Date, aog, delta)
+        monthly_aog_by_day <-
+            sigify(monthly_aog_by_day, cor_monthly_aog_by_day, corridors) %>%
+                select(Zone_Group, Corridor, Month, aog, delta)
 
-        addtoRDS(daily_aog, "daily_aog.rds", "aog", report_start_date, wk_calcs_start_date)
-        addtoRDS(weekly_aog_by_day, "weekly_aog_by_day.rds", "aog", report_start_date, wk_calcs_start_date)
-        addtoRDS(monthly_aog_by_day, "monthly_aog_by_day.rds", "aog", report_start_date, calcs_start_date)
-        addtoRDS(cor_daily_aog, "cor_daily_aog.rds", "aog", report_start_date, calcs_start_date)
-        addtoRDS(cor_weekly_aog_by_day, "cor_weekly_aog_by_day.rds", "aog", report_start_date, wk_calcs_start_date)
-        addtoRDS(cor_monthly_aog_by_day, "cor_monthly_aog_by_day.rds", "aog", report_start_date, calcs_start_date)
-        addtoRDS(sub_daily_aog, "sub_daily_aog.rds", "aog", report_start_date, calcs_start_date)
-        addtoRDS(sub_weekly_aog_by_day, "sub_weekly_aog_by_day.rds", "aog", report_start_date, wk_calcs_start_date)
-        addtoRDS(sub_monthly_aog_by_day, "sub_monthly_aog_by_day.rds", "aog", report_start_date, calcs_start_date)
+        addtoRDS(
+            daily_aog, "sig/dy/aogd.parquet", "aog",
+            report_start_date, wk_calcs_start_date)
+        addtoRDS(
+            weekly_aog_by_day, "sig/wk/aogd.parquet", "aog",
+            report_start_date, wk_calcs_start_date)
+        addtoRDS(
+            monthly_aog_by_day, "sig/mo/aogd.parquet", "aog",
+            report_start_date, calcs_start_date)
+        addtoRDS(
+            get_quarterly(read_parquet("sig/mo/aogd.parquet"), "aog"),
+            "sig/qu/aogd.parquet", "aog",
+            report_start_date, calcs_start_date, overwrite = TRUE)
+
+        addtoRDS(
+            cor_daily_aog, "cor/dy/aogd.parquet", "aog",
+            report_start_date, calcs_start_date)
+        addtoRDS(
+            cor_weekly_aog_by_day, "cor/wk/aogd.parquet", "aog",
+            report_start_date, wk_calcs_start_date)
+        addtoRDS(
+            cor_monthly_aog_by_day, "cor/mo/aogd.parquet", "aog",
+            report_start_date, calcs_start_date)
+        addtoRDS(
+            get_quarterly(read_parquet("cor/mo/aogd.parquet"), "aog"),
+            "cor/qu/aogd.parquet", "aog",
+            report_start_date, calcs_start_date, overwrite = TRUE)
+
+        addtoRDS(
+            sub_daily_aog, "sub/dy/aogd.parquet", "aog",
+            report_start_date, calcs_start_date)
+        addtoRDS(
+            sub_weekly_aog_by_day, "sub/wk/aogd.parquet", "aog",
+            report_start_date, wk_calcs_start_date)
+        addtoRDS(
+            sub_monthly_aog_by_day, "sub/mo/aogd.parquet", "aog",
+            report_start_date, calcs_start_date)
+        addtoRDS(
+            get_quarterly(read_parquet("sub/mo/aogd.parquet"), "aog"),
+            "sub/qu/aogd.parquet", "aog",
+            report_start_date, calcs_start_date, overwrite = TRUE)
 
         rm(daily_aog)
         rm(weekly_aog_by_day)
