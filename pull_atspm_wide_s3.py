@@ -17,11 +17,11 @@ import os
 import sys
 from datetime import datetime, timedelta
 import time
-
+import random
 
 s3 = boto3.client('s3')
 events_bucket = 'gdot-spm'
-config_bucket = 'gdot-devices'
+config_bucket = events_bucket
 
 
 def read_atspm_query(query):
@@ -63,7 +63,7 @@ def get_eventlog_data(bucket, signalid, dates):
 
 def get_det_config(bucket, date_, leading_zeros=False):
     date_str = date_.strftime('%F')
-    objs = s3.list_objects(Bucket=bucket, Prefix=f'atspm_det_config_good/date={date_str}/')
+    objs = s3.list_objects(Bucket=bucket, Prefix=f'config/atspm_det_config_good/date={date_str}/')
     keys = [obj['Key'] for obj in objs['Contents']]
     
     def f(bucket, key):
@@ -211,11 +211,14 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
         det_config = get_det_configs(config_bucket, [date0_, date_])
     
     dc = det_config[['SignalID','Detector','CallPhase','TimeFromStopBar','date']]
+    dc = dc[dc.SignalID==s]
     
     if source=='s3':
         df = pd.concat(get_eventlog_data(events_bucket, signalid, [date0_, date_]))
     elif source=='db':
         df = get_eventlog_data_db(signalid, date_str)
+    
+    df = df[~df.EventCode.isin([43, 44])]
     
     df = df.rename(columns={'TimeStamp':'Timestamp'})
     df = df.sort_values(['SignalID','Timestamp','EventCode','EventParam']).reset_index(drop=True)
@@ -234,9 +237,13 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
             on=['SignalID','EventCode','EventParam','date'], 
             how='left')\
         .reset_index(drop=True)
+    
     # Adjust Timestamp for detectors by adding TimeFromStopBar
     df.Timestamp = df.Timestamp + pd.to_timedelta(df.TimeFromStopBar.fillna(0), 's')
     df = df.sort_values(['SignalID','Timestamp','EventCode','EventParam'])
+    
+    codes = df.EventCode.drop_duplicates().values.tolist()
+    
     # Rename Detector, Phase columns
     df.loc[df.EventCode.isin(detector_codes), 'Detector'] = df.loc[df.EventCode.isin(detector_codes), 'EventParam']
     df.loc[df.EventCode.isin(detector_codes), 'Phase'] = df.loc[df.EventCode.isin(detector_codes), 'CallPhase']
@@ -249,16 +256,44 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     df.loc[df.EventCode.isin(ped_input_codes), 'PedInput'] = df.loc[df.EventCode.isin(ped_input_codes), 'EventParam']
     
     # Global (Signal-wide) copy-downs. Uses two-step function to create new field and copy down
-    df = copy_down(df, 31, 'Ring', ['SignalID'], 'EventParam')
-    df = copy_down(df, 31, 'CycleStart', ['SignalID'], 'Timestamp')
-    df = copy_down(df, 131, 'CoordPattern', ['SignalID'], 'EventParam')
-    df = copy_down(df, 132, 'CycleLength', ['SignalID'], 'EventParam')
-    df = copy_down(df, 316, 'ActualCycleLength', ['SignalID'], 'EventParam') # New 7/20/21
-    df = copy_down(df, 317, 'ActualNaturalCycleLength', ['SignalID'], 'EventParam') # New 7/20/21
-    df = copy_down(df, 133, 'CycleOffset', ['SignalID'], 'EventParam')
-    df = copy_down(df, 318, 'ActualCycleOffset', ['SignalID'], 'EventParam') # New 7/20/21
-    df = copy_down(df, 150, 'CoordState', ['SignalID'], 'EventParam')
-    df = copy_down(df, 173, 'FlashStatus', ['SignalID'], 'EventParam')
+    if 31 in codes:
+        df = copy_down(df, 31, 'Ring', ['SignalID'], 'EventParam')
+        df = copy_down(df, 31, 'CycleStart', ['SignalID'], 'Timestamp')
+    else:
+        df['Ring'] = None
+        df['CycleStart'] = None
+    if 131 in codes:
+        df = copy_down(df, 131, 'CoordPattern', ['SignalID'], 'EventParam')
+    else:
+        df['CoordPattern'] = None
+    if 132 in codes:
+        df = copy_down(df, 132, 'CycleLength', ['SignalID'], 'EventParam')
+    else:
+        df['CycleLength'] = None
+    if 316 in codes:
+        df = copy_down(df, 316, 'ActualCycleLength', ['SignalID'], 'EventParam') # New 7/20/21
+    else:
+        df['ActualCycleLength'] = None
+    if 317 in codes:
+        df = copy_down(df, 317, 'ActualNaturalCycleLength', ['SignalID'], 'EventParam') # New 7/20/21
+    else:
+        df['ActualNaturalCycleLength'] = None
+    if 133 in codes:
+        df = copy_down(df, 133, 'CycleOffset', ['SignalID'], 'EventParam')
+    else:
+        df['CycleOffset'] = None
+    if 318 in codes:
+        df = copy_down(df, 318, 'ActualCycleOffset', ['SignalID'], 'EventParam') # New 7/20/21
+    else:
+        df['ActualCycleOffset'] = None
+    if 150 in codes:
+        df = copy_down(df, 150, 'CoordState', ['SignalID'], 'EventParam')
+    else:
+        df['CoordState'] = None
+    if 173 in codes:
+        df = copy_down(df, 173, 'FlashStatus', ['SignalID'], 'EventParam')
+    else:
+        df['FlashStatus'] = None
 
     split_eventcodes = list(range(134,150))
     df = create_new_grouping_field(df, split_eventcodes, 'EventCode', 'Phase', lambda x: x-133)
@@ -305,12 +340,13 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     df['PedInputOff'] = pd.to_datetime(df['PedInputOff'])
     df['PedInputDuration'] = (df['PedInputOff'] - df['Timestamp'])/pd.Timedelta(1, 's')
     
+    df = df[~df.EventCode.isin([43, 44, 81, 89])]
+    
     # Pair up phase call on/offs under eventcode 43
     #df = copy_up(df, 44, 'PhaseCallOff', ['SignalID','Detector'], 'Timestamp', apply_to_timestamp=None)
     #df.loc[df.EventCode != 43, 'PhaseCallOff'] = np.nan
     #df['PhaseCallDuration'] = (df['PhaseCallOff'] - df['Timestamp'])/pd.Timedelta(1, 's')
-    df = df[~df.EventCode.isin([43])]
-    df = df[~df.EventCode.isin([44,81,89])]
+    #df = df[~df.EventCode.isin([43, 44,81,89])]
     
     # TODO: Need a way to account for multiple detectors, inputs, etc. that overlap.
     #       Add a new column for each? e.g., Detector1, Detector2, etc.?
@@ -318,7 +354,7 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     # Possible update to copy_down for phase interval status. but needs to be grouped by phase
     #df.loc[df.EventCode.isin(eventcodes), 'Interval'] = df.loc[df.EventCode.isin(eventcodes), 'EventCode']
     
-    df = df[df['Timestamp'].dt.date==date_].reset_index(drop=True)
+    df = df[df['Timestamp'].dt.date==date_.date()].reset_index(drop=True)
     df = df[['Timestamp','SignalID','EventCode','EventParam','date',
              'Ring','CycleStart','CoordPattern','CoordState',
              'CycleLength','ActualCycleLength','ActualNaturalCycleLength','CycleOffset','ActualCycleOffset',
@@ -354,6 +390,39 @@ def get_signalids(bucket, prefix):
             yield signalid
             
 
+
+def get_channel_phase_mapping(df, channel_num=82, phase_num=43):
+
+    df = df.rename(columns={'TimeStamp':'Timestamp'})
+    df = df.sort_values(['SignalID','Timestamp','EventCode','EventParam']).reset_index(drop=True)
+
+    is_phase = df.EventCode==phase_num
+    is_channel = df.EventCode==channel_num
+    df.loc[is_phase, 'Timestamp'] = df.loc[is_phase, 'Timestamp'] - timedelta(seconds=0.1)
+   
+    dfc = df[is_channel].set_index(['SignalID', 'Timestamp'])['EventParam']
+    dfp = df[is_phase].set_index(['SignalID', 'Timestamp'])['EventParam']
+
+    dfcp = (pd.merge(left=dfc, right=dfp, on=['SignalID', 'Timestamp'], how='outer', suffixes=['_c', '_p'])
+            .dropna('EventParam_p')
+            .apply(tuple, axis=1))
+         
+    dfcp = (dfcp[dfcp.groupby(level=['SignalID', 'Timestamp']).transform('count') == 1]
+         .reset_index(level='Timestamp', drop=True)
+         .drop_duplicates()
+         .sort_values())
+         
+    dfcp = (pd.DataFrame.from_records(
+                dfcp, 
+                columns=['Detector', 'CallPhase'], 
+                index=dfcp.index)
+           .astype(int)
+           .reset_index(drop=False))
+
+    return dfcp
+
+
+
 if __name__=='__main__':
 
     if len(sys.argv) > 1:
@@ -379,12 +448,12 @@ if __name__=='__main__':
         date_str = date_.strftime('%Y-%m-%d')
         print(date_str)
         
-        signalids = get_signalids(events_bucket, prefix='atspm/date={}'.format(date_str))
+        signalids = get_signalids(events_bucket, prefix=f'atspm/date={date_str}')
         det_config = get_det_configs(config_bucket, [date0_, date_])
         
         # with Pool(8) as pool:
-        with get_context('spawn').Pool(processes=8) as pool:
-            pool.starmap_async(widen, list(itertools.product(signalids, [date_], [det_config], ['s3'])))
+        with get_context('spawn').Pool(processes=os.cpu_count()-1) as pool:
+            pool.starmap_async(widen, itertools.product(signalids, [date_], [det_config], ['s3']))
             pool.close()
             pool.join()
             
