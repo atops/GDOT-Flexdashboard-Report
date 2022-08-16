@@ -1638,7 +1638,8 @@ tryCatch(
         teams <- get_teams_tasks_from_s3(
             bucket = conf$bucket,
             archived_tasks_prefix = "mark/teams/tasks202",
-            current_tasks_key = "mark/teams/tasks.csv.zip"
+            current_tasks_key = "mark/teams/tasks.csv.zip",
+            report_start_date
         )
         teams <- tidy_teams_tasks(
             teams,
