@@ -202,7 +202,6 @@ def get_udc_data(start_date,
         'key'
     ]]
 
-    zcdf0.to_parquet('zcdf0.parquet')
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date}/{get_filename(x)}'),
         zcdf0.Corridor))
@@ -220,7 +219,6 @@ def get_udc_data(start_date,
         'key'
     ]]
 
-    zcdf1.to_parquet('zcdf1.parquet')
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date_1yr}/{get_filename(x)}'),
         zcdf1.Corridor)) 
