@@ -28,6 +28,7 @@ os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
 
+
 '''
     df:
         SignalID [int64]
@@ -53,6 +54,7 @@ def etl2(s, date_, det_config, conf):
     start_date = date_
     end_date = date_ + pd.DateOffset(days=1) - pd.DateOffset(seconds=0.1)
 
+    logfilename = f'etl_{date_str}.log'
 
     t0 = time.time()
 
@@ -63,11 +65,13 @@ def etl2(s, date_, det_config, conf):
 
 
         if len(df)==0:
-            print(f'{date_str} | {s} | No event data for this signal')
+            with open(logfilename, 'a') as f:
+                f.write(f'{date_str} | {s} | No event data for this signal\n')
 
 
         if len(det_config_good)==0:
-            print(f'{date_str} | {s} | No detector configuration data for this signal')
+            with open(logfilename, 'a') as f:
+                f.write(f'{date_str} | {s} | No detector configuration data for this signal\n')
 
         if len(df) > 0 and len(det_config_good) > 0:
 
@@ -82,11 +86,13 @@ def etl2(s, date_, det_config, conf):
                              allow_truncated_timestamps=True)
 
             else:
-                print(f'{date_str} | {s} | No cycles')
+                with open(logfilename, 'a') as f:
+                    f.write(f'{date_str} | {s} | No cycles\n')
 
 
     except Exception as e:
-        print(f'{s}: {e}')
+        with open(logfilename, 'a') as f:
+            f.write(f'{s}: {e}\n')
 
 
 
@@ -127,6 +133,9 @@ def main(start_date, end_date):
     for date_ in dates:
 
         date_str = date_.strftime('%Y-%m-%d')
+
+        logfilename = f'etl_{date_str}.log'
+        if os.path.exists(logfilename): os.remove(logfilename)
 
         with io.BytesIO() as data:
             s3.download_fileobj(
