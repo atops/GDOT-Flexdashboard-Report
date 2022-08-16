@@ -650,6 +650,11 @@ get_avg_daily_detector_uptime <- function(ddu) {
 }
 
 
+get_daily_aog <- function(df) {
+    get_daily_avg(df, var_ = "aog", wt_ = "vol", peak_only = TRUE)
+}
+
+
 get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corridors) {
     
     cor_daily_sb_uptime %<-% (avg_daily_detector_uptime %>% 

@@ -179,37 +179,6 @@ get_thruput <- function(counts) {
 }
 
 
-
-get_daily_aog <- function(aog) {
-
-    aog %>%
-        ungroup() %>%
-        mutate(DOW = wday(Date),
-               Week = week(Date)) %>%
-        # filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        group_by(SignalID, Date, Week, DOW) %>%
-        summarize(aog = weighted.mean(aog, vol, na.rm = TRUE),
-                  vol = sum(vol, na.rm = TRUE),
-                  .groups = "drop")
-}
-
-
-get_daily_pr <- function(aog) {
-
-    aog %>%
-        ungroup() %>%
-        mutate(DOW = wday(Date),
-               Week = week(Date)) %>%
-        # filter(DOW %in% c(TUE,WED,THU) & (hour(Date_Hour) %in% c(AM_PEAK_HOURS, PM_PEAK_HOURS))) %>%
-        group_by(SignalID, Date, Week, DOW) %>%
-        summarize(pr = weighted.mean(pr, vol, na.rm = TRUE),
-                  vol = sum(vol, na.rm = TRUE),
-                  .groups = "drop")
-
-    # SignalID | Date | Week | DOW | pr | vol
-}
-
-
 get_occupancy <- function(de_dt, int_dt) {
     occ_df <- foverlaps(de_dt, int_dt, type = "any") %>%
         filter(!is.na(IntervalStart), !is.na(IntervalEnd)) %>%

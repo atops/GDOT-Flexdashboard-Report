@@ -22,7 +22,9 @@ if [[ ${H#0} -lt 6 ]]; then
     # this was moved to crontab to run at midnight. creates empty nightly.log.
     /usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state /home/rstudio/logrotate-state
 
-    Rscript Monthly_Report_Calcs_ec2.R
+    # Rscript Monthly_Report_Calcs_ec2.R
+    Rscript Monthly_Report_Calcs_1.R
+    Rscript Monthly_Report_Calcs_2.R
     Rscript Monthly_Report_Package.R
     echo "------------------------"
 
