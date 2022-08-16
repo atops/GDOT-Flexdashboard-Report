@@ -19,9 +19,8 @@ suppressMessages({
 })
 
 
-############################################################################
-### USER-DEFINED CONSTANTS AND LOOKUPS
-############################################################################
+
+# USER-DEFINED CONSTANTS AND LOOKUPS
 
 health_conf <- read_yaml("health_metrics.yaml")
 
@@ -33,9 +32,8 @@ weights_lookup <- health_conf$weights_lookup %>%
     as.data.table()
 
 
-############################################################################
-### USER-DEFINED FUNCTIONS
-############################################################################
+
+# USER-DEFINED FUNCTIONS
 
 # function to commpile summary data from the sub/cor/sig datasets
 get_summary_data <- function(df, current_month = NULL) {
@@ -479,7 +477,7 @@ get_health_metrics_plot_df <- function(df) {
             Zone_Group = factor(Zone_Group), 
             Corridor = factor(Corridor)
             #Description = "Desc"
-            ) %>%
+        ) %>%
         arrange(Zone_Group, Corridor, Month)
 }
 
@@ -563,18 +561,12 @@ sig_health_data <- ssd %>%
     select(-Subcorridor, -tti.y, -pti.y) %>% # workaround - drop subcorridor column and replace with signalID
     rename(Subcorridor = SignalID, tti = tti.x, pti = pti.x)
 
+# GENERATE COMPILED TABLES FOR WEBPAGE
 
 ## all data for all 3 health metrics - think this should be run in the background and cached?
 # compile all data needed for health metrics calcs - does not calculate % health yet
 health_all_sub <- get_health_all(sub_health_data)
 health_all_sig <- get_health_all(sig_health_data)
-
-# factor levels for tables
-# zone_group_levels <- levels(health_all_sub$Zone_Group)
-# rtop <- zone_group_levels[grepl("RTOP", zone_group_levels)]
-# districts <- zone_group_levels[grepl("District", zone_group_levels)]
-# other <- zone_group_levels[!grepl("District", zone_group_levels) & !grepl("RTOP", zone_group_levels)]
-# zone_group_levels <- factor(c(rtop, districts, other), levels = c(rtop, districts, other))
 
 # compile maintenance % health
 maintenance_sub <- get_health_maintenance(health_all_sub)
@@ -605,7 +597,6 @@ safety_cor <- safety_sub %>%
     summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
 
 
-
 cor$mo$maint_plot <- get_cor_health_metrics_plot_df(maintenance_cor)
 sub$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sub)
 sig$mo$maint_plot <- get_health_metrics_plot_df(maintenance_sig)
@@ -620,18 +611,13 @@ sig$mo$safety_plot <- get_health_metrics_plot_df(safety_sig)
 
 cor$mo$maint <- maintenance_cor
 sub$mo$maint <- maintenance_sub
-sig$mo$maint <- maintenance_sig
+sig$mo$maint <- maintenance_sig %>% add_subcorridor()
 
 cor$mo$ops <- operations_cor
 sub$mo$ops <- operations_sub
-sig$mo$ops <- operations_sig
+sig$mo$ops <- operations_sig %>% add_subcorridor()
 
 cor$mo$safety <- safety_cor
 sub$mo$safety <- safety_sub
-sig$mo$safety <- safety_sig
-
-
-sig$mo$maint <- add_subcorridor(sig$mo$maint)
-sig$mo$ops <- add_subcorridor(sig$mo$ops)
-sig$mo$safety <- add_subcorridor(sig$mo$safety)
+sig$mo$safety <- safety_sig %>% add_subcorridor()
 
