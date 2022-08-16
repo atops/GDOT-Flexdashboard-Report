@@ -39,6 +39,10 @@ write_sigops_to_db <- function(
                 start_date <- calcs_start_date
             }
             
+            # Sort to align with index to hopefully speed up database writes
+            if (length(intersect(names(df_), c("Zone_Group", "Corridor", datefield))) == 3) {
+                df_ <- arrange(df_, Zone_Group, Corridor, !!as.name(datefield))
+            }
             
             tryCatch({
                 if (recreate) {
@@ -288,7 +292,7 @@ append_to_database <- function(
 
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
     if ("udc_trend_table" %in% names(df$mo)) {
-        if (names(df$mo$udc_trend_table) != c("key", "data")) {
+        if (length(intersect(names(df$mo$udc_trend_table), c("key", "data"))) < 2) {
             df$mo$udc_trend_table <- convert_to_key_value_df("udc", df$mo$udc_trend_table)
         }
     }
