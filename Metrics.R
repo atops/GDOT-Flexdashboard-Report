@@ -292,6 +292,8 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
 
     cat('.')
 
+    rm(cd)
+
     grn_interval <- setDT(grn_interval)
     sor_interval <- setDT(sor_interval)
 
@@ -308,16 +310,26 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         rename(sr_occ = occ)
     cat('.\n')
 
+    rm(de)
+    rm(grn_interval)
+    rm(sor_interval)
+
     sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
 
+    rm(grn_occ)
+    rm(sor_occ)
+
     # if a split failure on any phase
-    sf0 <- sf %>% group_by(SignalID, Phase = factor(0), CycleStart) %>%
+    sf0 <- sf %>% 
+        group_by(SignalID, Phase = factor(0), CycleStart) %>%
         summarize(sf = max(sf), .groups = "drop")
 
     sf <- bind_rows(sf, sf0) %>%
         mutate(Phase = factor(Phase))
+
+    rm(sf0)
 
     return_list <- list()
     for (interval in intervals) {

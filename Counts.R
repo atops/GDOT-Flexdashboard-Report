@@ -467,7 +467,7 @@ prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
     
     fc_ds <- arrow::open_dataset(sources = glue("s3://{conf$bucket}/mark/{table}/")) %>%
         filter(date %in% format(date_range, "%F"))
-    chunks <- get_signals_chunks_arrow(fc_ds)
+    chunks <- get_signals_chunks_arrow(fc_ds, rows = 1e6)
     groups <- tibble(group = names(chunks), SignalID = chunks) %>% 
         unnest(SignalID) %>%
         mutate(SignalID = as.integer(SignalID))
@@ -497,14 +497,14 @@ prep_db_for_adjusted_counts_arrow <- function(table, conf, date_range) {
             filter(!is.na(CountPriority))
         
         fc <- left_join(fc, dc, by = c("SignalID", "Detector", "CallPhase", "Date")) %>% 
-            filter(!is.na(CountPriority))
-        fc <- left_join(fc, groups, by = c("SignalID"))
-        lapply(names(chunks), function(grp) {
+            filter(!is.na(CountPriority)) %>%
+            left_join(groups, by = c("SignalID"))
+        for (grp in names(chunks)) {
             folder_location <- glue("{table}/group={grp}/date={date_str}")
             if (!dir.exists(folder_location)) dir.create(folder_location, recursive = TRUE)
             fc %>% filter(group == grp) %>% select(-group) %>%
                 write_parquet(glue("{folder_location}/{table}.parquet"))
-        })
+        }
     })
     cat('\n')
     return (TRUE)
@@ -530,8 +530,8 @@ get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = funct
             get_adjusted_counts() %>%
             mutate(Date = as_date(Timeperiod)) %>%
             callback()
-        lapply(unique(ac$Date), function(date_) {
-            date_str <- format(date_, "%F")
+        for (date_ in unique(ac$Date)) {
+            date_str <- format(as_date(date_), "%F")
             ac_dir <- glue("{ac_table}/date={date_str}")
             if (!dir.exists(ac_dir)) dir.create(ac_dir)
             filename <- tempfile(
@@ -539,7 +539,7 @@ get_adjusted_counts_arrow <- function(fc_table, ac_table, conf, callback = funct
                 pattern = "ac_", 
                 fileext = ".parquet")
             ac %>% filter(Date == date_) %>% write_parquet(filename)
-        })
+        }
     })
 }
 
