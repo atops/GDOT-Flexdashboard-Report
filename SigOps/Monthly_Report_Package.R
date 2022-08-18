@@ -2,6 +2,7 @@
 # Monthly_Report_Package.R
 
 source("Monthly_Report_Package_init.R")
+
 # options(warn = 2)
 
 # # DETECTOR UPTIME ###########################################################
@@ -1782,7 +1783,8 @@ tryCatch(
         teams <- get_teams_tasks_from_s3(
             bucket = conf$bucket,
             archived_tasks_prefix = "mark/teams/tasks202",
-            current_tasks_key = "mark/teams/tasks.csv.zip"
+            current_tasks_key = "mark/teams/tasks.csv.zip",
+            report_start_date
         )
         teams <- tidy_teams_tasks(
             teams,
@@ -1873,13 +1875,14 @@ tryCatch(
                     object = obj
                 ) %>%
                     filter(!is.na(date)) %>%
+                    convert_to_utc() %>%
                     transmute(
                         Zone = zone,
                         Corridor = corridor,
                         analysis_month = ymd(yyyymmdd),
-                        month_hour = mdy_hms(date), # YYYY-mm-dd HH:MM:SS
-                        month_hour = month_hour - days(day(month_hour)) + days(1), # YYYY-mm-01 HH:MM:SS
-                        Month = date(floor_date(month_hour, "month")), # YYYY-mm-01  # year_month
+                        month_hour = as_date(date),
+                        month_hour = month_hour - days(day(month_hour)) + days(1),
+                        Month = date(floor_date(month_hour, "month")),
                         delay_cost = combined.delay_cost
                     )
             }
