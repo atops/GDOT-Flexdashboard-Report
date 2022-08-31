@@ -240,7 +240,7 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     # Map Detectors to Phases. 
     # Replace EventParam with Phase to align with other event types
     # Add new field for Detector from original EventParam field
-    detector_codes = list(range(81,89))
+    detector_codes = list(range(81, 89))
     dc2 = pd.concat([dc.assign(EventCode=d).rename(columns={'Detector':'EventParam'}) for d in detector_codes])
     
     df = pd.merge(
@@ -251,6 +251,10 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
         .reset_index(drop=True)
     
     # Adjust Timestamp for detectors by adding TimeFromStopBar
+    #-- Work in progress 8/17/22. Keep timestamp unchanged. Create new column DetectorOn for Detector On Event timestamp, adjusted for TimeFromStopBar.
+    #df['DetectorOn'] = np.nan
+    #df.loc[df.EventCode==82, 'DetectorOn'] = df.loc[df.EventCode==82, 'Timestamp']
+    #df.DetectorOn = df.DetectorOn + pd.to_timedelta(df.TimeFromStopBar.fillna(0), 's')
     df.Timestamp = df.Timestamp + pd.to_timedelta(df.TimeFromStopBar.fillna(0), 's')
     df = df.sort_values(['SignalID','Timestamp','EventCode','EventParam'])
     
@@ -261,8 +265,8 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     df.loc[df.EventCode.isin(detector_codes), 'Phase'] = df.loc[df.EventCode.isin(detector_codes), 'CallPhase']
     df = df.drop(columns=['CallPhase','TimeFromStopBar'])
     
-    df = create_new_grouping_field(df, list(range(83,89)), ['SignalID', 'Detector'], 'DetectorFault')
-    df = copy_down(df, list(range(84,89)), 'DetectorFault', ['SignalID','Detector'], 'EventParam', off_eventcode=83)
+    df = create_new_grouping_field(df, list(range(83, 89)), ['SignalID', 'Detector'], 'DetectorFault')
+    df = copy_down(df, list(range(84, 89)), 'DetectorFault', ['SignalID','Detector'], 'EventParam', off_eventcode=83)
     
     ped_input_codes = [89, 90]
     df.loc[df.EventCode.isin(ped_input_codes), 'PedInput'] = df.loc[df.EventCode.isin(ped_input_codes), 'EventParam']
@@ -323,7 +327,7 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     else:
         df['FlashStatus'] = None
 
-    split_eventcodes = list(range(134,150))
+    split_eventcodes = list(range(134, 150))
     df = create_new_grouping_field(df, split_eventcodes, 'EventCode', 'Phase', lambda x: x-133)
     
     actual_split_eventcodes = list(range(300, 316))
@@ -332,10 +336,10 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     ped_wait_eventcodes = list(range(612, 652))
     df = create_new_grouping_field(df, ped_wait_eventcodes, 'EventCode', 'Phase', lambda x: x-611)
 
-    phase_eventcodes = list(range(0,25)) + list(range(41,50)) + [151]
+    phase_eventcodes = list(range(0, 25)) + list(range(41,50)) + [151]
     df = create_new_grouping_field(df, phase_eventcodes, 'EventParam', 'Phase')
     df = copy_down(df, 0, 'PhaseStart', ['SignalID','Phase'], 'Timestamp')
-    df = copy_down(df, [1,8,10], 'Interval', ['SignalID','Phase'], 'EventCode', apply_to_timestamp='group')
+    df = copy_down(df, [1, 8, 10], 'Interval', ['SignalID','Phase'], 'EventCode', apply_to_timestamp='group')
     df.loc[df.EventCode==4, 'TermType'] = 4
     df.loc[df.EventCode==5, 'TermType'] = 5
     df.loc[df.EventCode==6, 'TermType'] = 6
