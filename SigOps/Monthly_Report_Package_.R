@@ -59,15 +59,15 @@ tryCatch(
 
         avg_daily_detector_uptime <-
             sigify(avg_daily_detector_uptime, cor_avg_daily_detector_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime, uptime.sb, uptime.pr, Description)
+                select(Zone_Group, Corridor, Date, uptime, uptime.sb, uptime.pr)
 
         weekly_detector_uptime <-
             sigify(weekly_detector_uptime, cor_weekly_detector_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime, delta, Description)
+                select(Zone_Group, Corridor, Date, uptime, delta)
 
         monthly_detector_uptime <-
             sigify(monthly_detector_uptime, cor_monthly_detector_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Month, uptime, uptime.sb, uptime.pr, delta, Description)
+                select(Zone_Group, Corridor, Month, uptime, uptime.sb, uptime.pr, delta)
 
 
         addtoRDS(
@@ -237,15 +237,12 @@ tryCatch(
             filter(!is.na(Corridor))
 
 
-        daily_pa_uptime <- 
-            sigify(daily_pa_uptime, cor_daily_pa_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime, Description)
-        weekly_pa_uptime <- 
-            sigify(weekly_pa_uptime, cor_weekly_pa_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime, delta, Description)
-        monthly_pa_uptime <- 
-            sigify(monthly_pa_uptime, cor_monthly_pa_uptime, corridors) %>%
-                select(Zone_Group, Corridor, Month, uptime, delta, Description)
+        daily_pa_uptime <- sigify(daily_pa_uptime, cor_daily_pa_uptime, corridors) %>%
+            select(Zone_Group, Corridor, Date, uptime)
+        weekly_pa_uptime <- sigify(weekly_pa_uptime, cor_weekly_pa_uptime, corridors) %>%
+            select(Zone_Group, Corridor, Date, uptime, delta)
+        monthly_pa_uptime <- sigify(monthly_pa_uptime, cor_monthly_pa_uptime, corridors) %>%
+            select(Zone_Group, Corridor, Month, uptime, delta)
 
 
         addtoRDS(
@@ -1080,67 +1077,55 @@ tryCatch(
 
         daily_aog <-
             sigify(daily_aog, cor_daily_aog, corridors) %>%
-              select(Zone_Group, Corridor, Date, aog, delta, Description)
+              select(Zone_Group, Corridor, Date, aog, delta)
         weekly_aog_by_day <-
             sigify(weekly_aog_by_day, cor_weekly_aog_by_day, corridors) %>%
-                select(Zone_Group, Corridor, Date, aog, delta, Description)
+                select(Zone_Group, Corridor, Date, aog, delta)
         monthly_aog_by_day <-
             sigify(monthly_aog_by_day, cor_monthly_aog_by_day, corridors) %>%
-                select(Zone_Group, Corridor, Month, aog, delta, Description)
+                select(Zone_Group, Corridor, Month, aog, delta)
 
         addtoRDS(
             daily_aog, "sig/dy/aogd.parquet", "aog",
-            report_start_date, wk_calcs_start_date
-        )
+            report_start_date, wk_calcs_start_date)
         addtoRDS(
             weekly_aog_by_day, "sig/wk/aogd.parquet", "aog",
-            report_start_date, wk_calcs_start_date
-        )
+            report_start_date, wk_calcs_start_date)
         addtoRDS(
             monthly_aog_by_day, "sig/mo/aogd.parquet", "aog",
-            report_start_date, calcs_start_date
-        )
+            report_start_date, calcs_start_date)
         addtoRDS(
             get_quarterly(read_parquet("sig/mo/aogd.parquet"), "aog"),
             "sig/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE
-        )
-        
+            report_start_date, calcs_start_date, overwrite = TRUE)
+
         addtoRDS(
             cor_daily_aog, "cor/dy/aogd.parquet", "aog",
-            report_start_date, calcs_start_date
-        )
+            report_start_date, calcs_start_date)
         addtoRDS(
             cor_weekly_aog_by_day, "cor/wk/aogd.parquet", "aog",
-            report_start_date, wk_calcs_start_date
-        )
+            report_start_date, wk_calcs_start_date)
         addtoRDS(
             cor_monthly_aog_by_day, "cor/mo/aogd.parquet", "aog",
-            report_start_date, calcs_start_date
-        )
+            report_start_date, calcs_start_date)
         addtoRDS(
             get_quarterly(read_parquet("cor/mo/aogd.parquet"), "aog"),
             "cor/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE
-        )
+            report_start_date, calcs_start_date, overwrite = TRUE)
 
         addtoRDS(
             sub_daily_aog, "sub/dy/aogd.parquet", "aog",
-            report_start_date, calcs_start_date
-        )
+            report_start_date, calcs_start_date)
         addtoRDS(
             sub_weekly_aog_by_day, "sub/wk/aogd.parquet", "aog",
-            report_start_date, wk_calcs_start_date
-        )
+            report_start_date, wk_calcs_start_date)
         addtoRDS(
             sub_monthly_aog_by_day, "sub/mo/aogd.parquet", "aog",
-            report_start_date, calcs_start_date
-        )
+            report_start_date, calcs_start_date)
         addtoRDS(
             get_quarterly(read_parquet("sub/mo/aogd.parquet"), "aog"),
             "sub/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE
-        )
+            report_start_date, calcs_start_date, overwrite = TRUE)
 
         rm(daily_aog)
         rm(weekly_aog_by_day)
@@ -1164,39 +1149,22 @@ print(glue("{Sys.time()} Hourly AOG [12 of 29(2)]"))
 
 tryCatch(
     {
-        aog_by_hr <- 
-            get_aog_by_hr(aog)
-        monthly_aog_by_hr <- 
-            get_monthly_aog_by_hr(aog_by_hr)
+        aog_by_hr <- get_aog_by_hr(aog)
+        monthly_aog_by_hr <- get_monthly_aog_by_hr(aog_by_hr)
 
         # Hourly volumes by Corridor --------------------------------------------------
-        cor_monthly_aog_by_hr <- 
-            get_cor_monthly_aog_by_hr(monthly_aog_by_hr, corridors) %>%
-                filter(!is.na(Corridor)) %>%
-                mutate(Description = Corridor)
-        sub_monthly_aog_by_hr <- 
-            get_cor_monthly_aog_by_hr(monthly_aog_by_hr, subcorridors) %>%
-                filter(!is.na(Corridor)) %>%
-                mutate(Description = Corridor)
+        cor_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, corridors)
+        sub_monthly_aog_by_hr <- get_cor_monthly_aog_by_hr(monthly_aog_by_hr, subcorridors) %>%
+            filter(!is.na(Corridor))
 
-        monthly_aog_by_hr <- 
-            sigify(monthly_aog_by_hr, cor_monthly_aog_by_hr, corridors) %>%
-                select(Corridor, Zone_Group, Hour, aog, delta, Description)
+        # cor_monthly_aog_peak <- get_cor_monthly_aog_peak(cor_monthly_aog_by_hr)
 
-        addtoRDS(
-            monthly_aog_by_hr, "sig/mo/aogh.parquet", "aog", 
-            report_start_date, calcs_start_date
-        )
-        addtoRDS(
-            cor_monthly_aog_by_hr, "cor/mo/aogh.parquet", "aog", 
-            report_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_monthly_aog_by_hr, "sub/mo/aogh.parquet", "aog", 
-            report_start_date, calcs_start_date
-        )
+        addtoRDS(monthly_aog_by_hr, "monthly_aog_by_hr.rds", "aog", report_start_date, calcs_start_date)
+        addtoRDS(cor_monthly_aog_by_hr, "cor_monthly_aog_by_hr.rds", "aog", report_start_date, calcs_start_date)
+        addtoRDS(sub_monthly_aog_by_hr, "sub_monthly_aog_by_hr.rds", "aog", report_start_date, calcs_start_date)
 
         rm(aog_by_hr)
+        # rm(cor_monthly_aog_peak)
         rm(monthly_aog_by_hr)
         rm(cor_monthly_aog_by_hr)
         rm(sub_monthly_aog_by_hr)
