@@ -1094,10 +1094,12 @@ tryCatch(
         addtoRDS(
             monthly_aog_by_day, "sig/mo/aogd.parquet", "aog",
             report_start_date, calcs_start_date)
-        addtoRDS(
-            get_quarterly(read_parquet("sig/mo/aogd.parquet"), "aog"),
-            "sig/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE)
+        # -- Need to calculate quarterly metrics over the entire monthly table
+        #    to make sure we capture each quarter in its entirety.
+        # addtoRDS(
+        #     get_quarterly(read_parquet("sig/mo/aogd.parquet"), "aog"),
+        #     "sig/qu/aogd.parquet", "aog",
+        #     report_start_date, calcs_start_date, overwrite = TRUE)
 
         addtoRDS(
             cor_daily_aog, "cor/dy/aogd.parquet", "aog",
@@ -1108,10 +1110,10 @@ tryCatch(
         addtoRDS(
             cor_monthly_aog_by_day, "cor/mo/aogd.parquet", "aog",
             report_start_date, calcs_start_date)
-        addtoRDS(
-            get_quarterly(read_parquet("cor/mo/aogd.parquet"), "aog"),
-            "cor/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE)
+        # addtoRDS(
+        #     get_quarterly(read_parquet("cor/mo/aogd.parquet"), "aog"),
+        #     "cor/qu/aogd.parquet", "aog",
+        #     report_start_date, calcs_start_date, overwrite = TRUE)
 
         addtoRDS(
             sub_daily_aog, "sub/dy/aogd.parquet", "aog",
@@ -1122,10 +1124,10 @@ tryCatch(
         addtoRDS(
             sub_monthly_aog_by_day, "sub/mo/aogd.parquet", "aog",
             report_start_date, calcs_start_date)
-        addtoRDS(
-            get_quarterly(read_parquet("sub/mo/aogd.parquet"), "aog"),
-            "sub/qu/aogd.parquet", "aog",
-            report_start_date, calcs_start_date, overwrite = TRUE)
+        # addtoRDS(
+        #     get_quarterly(read_parquet("sub/mo/aogd.parquet"), "aog"),
+        #     "sub/qu/aogd.parquet", "aog",
+        #     report_start_date, calcs_start_date, overwrite = TRUE)
 
         rm(daily_aog)
         rm(weekly_aog_by_day)
