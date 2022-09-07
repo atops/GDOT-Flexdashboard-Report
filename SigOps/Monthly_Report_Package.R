@@ -1862,7 +1862,7 @@ tryCatch(
 
 print(glue("{Sys.time()} User Delay Costs [22 of 29(2)]"))
 
-
+if (FALSE) {
 tryCatch(
     {
         months <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
@@ -1947,7 +1947,7 @@ tryCatch(
         print(e)
     }
 )
-
+}
 
 
 # Flash Events ###############################################################
