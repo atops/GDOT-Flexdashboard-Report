@@ -26,8 +26,8 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
-start_date <- get_date_from_string(conf$start_date) 
-end_date <- get_date_from_string(conf$end_date) 
+start_date <- get_date_from_string(conf$start_date)
+end_date <- get_date_from_string(conf$end_date)
 
 # Manual overrides
 # start_date <- "2020-01-04"
@@ -176,7 +176,7 @@ if (conf$run$counts == TRUE) {
         )
     } else {
         foreach(date_ = date_range, .errorhandling = "pass") %dopar% {
-            keep_trying(get_counts2, n_tries = 2, 
+            keep_trying(get_counts2, n_tries = 2,
                 date_,
                 bucket = conf$bucket,
                 conf_athena = conf$athena,
@@ -242,7 +242,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 bucket = conf$bucket,
                 prefix = "adjusted_counts_1hr",
                 table_name = "adjusted_counts_1hr",
-                conf_athena = conf$athena, parallel = FALSE
+                conf_athena = conf$athena
             )
         })
         
@@ -366,7 +366,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 bucket = conf$bucket,
                 prefix = "adjusted_counts_15min",
                 table_name = "adjusted_counts_15min",
-                conf_athena = conf$athena, parallel = FALSE
+                conf_athena = conf$athena
             )
 
             throughput <- get_thruput(adjusted_counts_15min)
@@ -375,7 +375,7 @@ get_counts_based_measures <- function(month_abbrs) {
                 bucket = conf$bucket,
                 prefix = "tp",
                 table_name = "throughput",
-                conf_athena = conf$athena, parallel = FALSE
+                conf_athena = conf$athena
             )
             
             # Vehicles per 15-minute timeperiod

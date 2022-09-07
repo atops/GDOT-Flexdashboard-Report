@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from multiprocessing import get_context
 import pandas as pd
 import sqlalchemy as sq
-import dask.dataframe as dd
 import time
 import os
 import itertools
@@ -133,6 +132,7 @@ def main(start_date, end_date):
     for date_ in dates:
 
         date_str = date_.strftime('%Y-%m-%d')
+        print(date_str)
 
         logfilename = f'etl_{date_str}.log'
         if os.path.exists(logfilename): os.remove(logfilename)

@@ -34,7 +34,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
 
 
 
-s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_athena, parallel = TRUE) {
+s3_upload_parquet_date_split <- function(df, prefix, bucket, table_name, conf_athena, parallel = FALSE) {
     
     if (!("Date" %in% names(df))) {
         if ("Timeperiod" %in% names(df)) { 

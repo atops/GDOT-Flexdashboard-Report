@@ -49,7 +49,7 @@ get_usable_cores <- function() {
     } else if (Sys.info()["sysname"] == "Linux") {
         x <- readLines('/proc/meminfo')
         
-        memline <- x[grepl("MemTotal", x)]
+        memline <- x[grepl("MemAvailable", x)]
         mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
         mem <- as.integer(mem)
         mem <- round(mem, -6)
@@ -135,23 +135,30 @@ read_zipped_feather <- function(x) {
 }
 
 
-
 keep_trying <- function(func, n_tries, ..., timeout = Inf) {
 
-    possibly_func = purrr::possibly(func, otherwise = NULL)
+    safely_func = purrr::safely(func, otherwise = NULL)
 
-    result = NULL
-    try_number = 1
-    sleep = 1
+    result <- NULL
+    error <- 1
+    try_number <- 1
+    sleep <- 1
 
-    while(is.null(result) && try_number <= n_tries) {
+    while((!is.null(error) || is.null(result)) && try_number <= n_tries) {
         if (try_number > 1) {
             print(glue("{deparse(substitute(func))} Attempt: {try_number}"))
         }
-        try_number = try_number + 1
-        result = R.utils::withTimeout(possibly_func(...), timeout=timeout, onTimeout="error")
 
-        Sys.sleep(sleep)
+        try_number = try_number + 1
+        x <- R.utils::withTimeout(safely_func(...), timeout=timeout, onTimeout="error")
+
+        result <- x$result
+        error <- x$error
+        if (!is.null(error)) {
+            print(error)
+        }
+
+	Sys.sleep(sleep)
         sleep = sleep + 1
     }
     return(result)
