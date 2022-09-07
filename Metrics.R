@@ -274,6 +274,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         path <- glue("s3://{conf$bucket}")
     }
     de <- arrow::open_dataset(glue("{path}/detections/date={date_}")) %>%
+        select(SignalID, Phase, Detector, CycleStart, PhaseStart, DetTimeStamp, DetDuration) %>%
         filter(SignalID %in% signals_list,
                Phase %in% c(3, 4, 7, 8)) %>%
         collect() %>%
@@ -307,6 +308,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     }
         
     cd <- arrow::open_dataset(glue("{path}/cycles/date={date_}")) %>%
+        select(SignalID, Phase, CycleStart, PhaseStart, PhaseEnd, EventCode) %>%
         filter(SignalID %in% signals_list,
                Phase %in% c(3, 4, 7, 8),
                EventCode %in% c(1, 9)) %>%
