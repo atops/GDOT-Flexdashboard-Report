@@ -147,7 +147,7 @@ tidy_teams_tasks <- function(tasks, bucket, corridors, replicate = FALSE) {
 
 
 get_teams_tasks_from_s3 <- function(
-    bucket, archived_tasks_prefix, current_tasks_key) {
+    bucket, archived_tasks_prefix, current_tasks_key, report_start_date) {
     
     # Keys for past years' tasks. Not the one actively updated.
     teams_keys <- aws.s3::get_bucket_df(
@@ -182,7 +182,7 @@ get_teams_tasks_from_s3 <- function(
                                  }) %>% 
             bind_rows() %>% 
             select(-X1) %>% 
-            filter(`Date Reported` >= today() - months(18))
+            filter(`Date Reported` >= report_start_date)
     } else {
         archived_tasks <- data.frame()
     }
@@ -197,7 +197,7 @@ get_teams_tasks_from_s3 <- function(
             escape_double = FALSE), 
         bucket = bucket, 
         object = current_tasks_key)  %>% 
-        filter(`Date Reported` >= today() - months(18))
+        filter(`Date Reported` >= report_start_date)
     
     bind_rows(archived_tasks, current_tasks) %>% 
         distinct()
