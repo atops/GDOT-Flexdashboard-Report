@@ -1,4 +1,3 @@
-
 # Monthly_Report config file (yaml format)
 
 agency: GDOT
@@ -40,7 +39,7 @@ report_end_date: yesterday
 
 corridors_filename_s3: Corridors_Latest_w_SigOps.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
-cctv_config_filename: Cameras_Latest.xlsx
+cctv_config_filename: Cameras_v3_Latest.xlsx
 
 
 AM_PEAK_HOURS: [6, 7, 8, 9]
@@ -69,5 +68,4 @@ zone_groups:
     - District 7
     - Cobb County
     - Ramp Meters
-
 
