@@ -529,7 +529,7 @@ tryCatch(
 
 
 
-
+if (FALSE) { # Extra column we don't need. Save space in large tables.
 # Assign Descriptions for hover text
 print(glue("{Sys.time()} Assigning descriptions to tables"))
 
@@ -554,7 +554,7 @@ for (tab in names(cor2$qhr)) {
         cor2$qhr[[tab]] <- cor2$qhr[[tab]] %>% mutate(Description = Corridor)
     }
 }
-
+}
 
 
 print(glue("{Sys.time()} Upload to AWS [28 of 29(4)]"))

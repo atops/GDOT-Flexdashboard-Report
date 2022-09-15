@@ -224,23 +224,28 @@ get_occupancy <- function(de_dt, int_dt) {
 
 
 get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour")) {
-    
+
 
     plan(multisession)
     print("Pulling data...")
-    
+
     cat('.')
-    
+
     dc <- get_det_config_sf(date_) %>%
         filter(SignalID %in% signals_list) %>%
         rename(Phase = CallPhase)
-    
-    cat('.')
 
-    ds_de <- arrow::open_dataset(glue("s3://{conf$bucket}/detections/date={date_}"))
-    de <- ds_de %>%
+    cat('.')
+    if (dir.exists(glue("./detections/date={date_}"))) {
+        print('read detections locally')
+        path <- "."
+    } else {
+        print('read detections from s3')
+        path <- glue("s3://{conf$bucket}")
+    }
+    de <- arrow::open_dataset(glue("{path}/detections/date={date_}")) %>%
         filter(SignalID %in% signals_list,
-               Phase %in% c(3, 4, 7, 8)) %>% 
+               Phase %in% c(3, 4, 7, 8)) %>%
         collect() %>%
         convert_to_utc() %>%
         arrange(
@@ -260,11 +265,18 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
                Phase = factor(Phase),
                Detector = factor(Detector)) %>%
         data.table()
-    
+
     cat('.')
 
-    ds_cd <- arrow::open_dataset(glue("s3://{conf$bucket}/cycles/date={date_}"))
-    cd <- ds_cd %>%
+    if (dir.exists(glue("./cycles/date={date_}"))) {
+        print('read cycles locally')
+        path <- "."
+    } else {
+        print('read cycles from s3')
+        path <- glue("s3://{conf$bucket}")
+    }
+        
+    cd <- arrow::open_dataset(glue("{path}/cycles/date={date_}")) %>%
         filter(SignalID %in% signals_list,
                Phase %in% c(3, 4, 7, 8),
                EventCode %in% c(1, 9)) %>%
@@ -277,13 +289,13 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
 
     cat('\n')
     print("Running calcs")
-    
+
     grn_interval <- cd %>%
         filter(EventCode == 1) %>%
         mutate(IntervalStart = PhaseStart,
                IntervalEnd = PhaseEnd) %>%
         select(-EventCode)
-    
+
     sor_interval <- cd %>%
         filter(EventCode == 9) %>%
         mutate(IntervalStart = ymd_hms(PhaseStart),
@@ -416,7 +428,7 @@ get_qs <- function(detection_events, intervals = c("hour")) {
         mutate(SignalID = factor(SignalID),
                CallPhase = factor(CallPhase))
 
-    qs_df <- qs_df %>% 
+    qs_df <- qs_df %>%
         left_join(dc, by=c("Date", "SignalID", "CallPhase", "Detector")) %>%
         filter(!is.na(TimeFromStopBar)) %>%
         # -- data.tables. This is faster ---
@@ -430,8 +442,8 @@ get_qs <- function(detection_events, intervals = c("hour")) {
     return_list <- lapply(intervals, function(interval, df=qs_df) {
         print(interval)
 
-        df[, Hour := floor_date(CycleStart, unit = interval)] 
-        df <- df[, .(qs = sum(occ > 3), cycles = .N), 
+        df[, Hour := floor_date(CycleStart, unit = interval)]
+        df <- df[, .(qs = sum(occ > 3), cycles = .N),
            by = c("Date", "SignalID", "Hour", "CallPhase")]
         df %>%
             transmute(
@@ -631,7 +643,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
 
     # too_high <- get_pau_high(paph, 200, wk_calcs_start_date)
     too_high <- get_pau_high_(paph, wk_calcs_start_date)
-    
+
 
     begin_date <- min(papd$Date)
 
