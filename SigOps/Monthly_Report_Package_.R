@@ -9,12 +9,124 @@
 source("Monthly_Report_Package_init.R")
 # options(warn = 2)
 
+
+write_aggregations <- function(conn, td) {
+
+    # conn is aurora database connection
+    # td is a tibble with columns: data|fn|var|rsd|csd
+    #   data = aggregated metrics dataframe to write
+    #   fn = RDS or parquet filename
+    #   var = metric$variable
+    #   rsd = report_start_date
+    #   csd = calcs_start_date (wk_calcs_start_date for weekly calcs)
+
+    # addtoRDS and write to database row-by-row
+    for (row in 1:nrow(td)) {
+        this_row <- td[row, ]
+        print(this_row$fn)
+
+        addtoRDS(
+            this_row$data[[1]], this_row$fn, this_row$var, this_row$rsd, this_row$csd)
+
+        write_parquet_to_db(
+            conn, this_row$fn, FALSE, this_row$csd, this_row$rsd, report_end_date)
+    }
+}
+
+# Add to metrics.yaml:
+# metric:
+#    s3table: detector_uptime_pd
+#    peak_only: True/False
+
+
 # # DETECTOR UPTIME ###########################################################
 
 print(glue("{Sys.time()} Vehicle Detector Uptime [1 of 29(2)]"))
 
 tryCatch(
     {
+
+
+    #-----------------------------------------
+    # This is the future. Need to test.
+
+        daily <- s3_read_parquet_parallel(
+            bucket = conf$bucket,
+            table_name = metric$s3table,
+            start_date = wk_calcs_start_date,
+            end_date = report_end_date,
+            signals_list = signals_list
+        ) %>%
+            mutate(
+                SignalID = factor(SignalID),
+                CallPhase = factor(CallPhase),
+                Week = week(Date)
+            )
+
+        weekly <- get_weekly_avg_by_day(daily, metric$variable, metric$weight, metric$peak_only)
+        monthly <- get_monthly_avg_by_day(daily, metric$variable, metric$weight, metric$peak_only)
+
+        sub_daily <- get_cor_weekly_avg_by_day(
+            daily, subcorridors, metric$variable, metric$weight)
+        cor_daily <- get_cor_weekly_avg_by_day(
+            daily, corridors, metric$variable, metric$weight)
+        avg_daily <- sigify(daily, cor_daily, corridors) %>%
+            select(Zone_Group, Corridor, Date, !!as.name(metric$variable), delta) %>%
+            filter(!is.na(Zone_Group))
+
+        sub_weekly <- get_cor_weekly_avg_by_day(weekly, subcorridors, metric$variable, metric$weight)
+        cor_weekly <- get_cor_weekly_avg_by_day(weekly, corridors, metric$variable, metric$weight)
+        avg_weekly <- sigify(weekly, cor_weekly, corridors) %>%
+            select(Zone_Group, Corridor, Date, !!as.name(metric$variable), delta) %>%
+            filter(!is.na(Zone_Group))
+
+        sub_monthly <- get_cor_monthly_avg_by_day(monthly, subcorridors, metric$variable, metric$weight)
+        cor_monthly <- get_cor_monthly_avg_by_day(monthly, corridors, metric$variable, metric$weight)
+        avg_monthly <- sigify(monthly, cor_monthly, corridors) %>%
+            select(Zone_Group, Corridor, Month, !!as.name(metric$variable), delta) %>%
+            filter(!is.na(Zone_Group))
+
+        tabl <- metric$table
+
+        td <- tibble(
+            data = list(avg_daily, sub_daily, cor_daily,
+                        avg_weekly, sub_weekly, cor_weekly,
+                        avg_monthly, sub_monthly, cor_monthly),
+            fn = sapply(c("sig/dy/{tabl}.parquet", "sub/dy/{tabl}.parquet", "cor/dy/{tabl}.parquet",
+                          "sig/wk/{tabl}.parquet", "sub/wk/{tabl}.parquet", "cor/wk/{tabl}.parquet",
+                          "sig/mo/{tabl}.parquet", "sub/mo/{tabl}.parquet", "cor/mo/{tabl}.parquet"),
+                        glue),
+            var = metric$variable,
+            rsd = report_start_date,
+            csd = c(rep(as_date(calcs_start_date), 3),
+                    rep(wk_calcs_start_date, 3),
+                    rep(as_date(calcs_start_date), 3))
+        )
+
+        write_aggregations(conn, td)
+
+
+        quarterly_detector_uptime <- get_quarterly(read_parquet("sig/mo/du.parquet"), "uptime")
+        sub_quarterly_detector_uptime <- get_quarterly(read_parquet("sub/mo/du.parquet"), "uptime")
+        cor_quarterly_detector_uptime <- get_quarterly(read_parquet("cor/mo/du.parquet"), "uptime")
+
+        td <- tibble(
+            data = list(
+                quarterly_detector_uptime,
+                sub_quarterly_detector_uptime,
+                cor_quarterly_detector_uptime),
+            fn = sapply(c("sig/qu/du.parquet", "sub/qu/du.parquet", "cor/qu/du.parquet"),
+                        glue),
+            var = "uptime",
+            rsd = report_start_date,
+            csd = report_start_date
+        )
+
+        write_aggregations(conn, td)
+    #-----------------------------------------
+
+
+
         cb <- function(x) {
             get_avg_daily_detector_uptime(x) %>%
                 mutate(Date = date(Date))
@@ -31,6 +143,7 @@ tryCatch(
             mutate(
                 SignalID = factor(SignalID)
             )
+
 
         cor_avg_daily_detector_uptime <-
             get_cor_avg_daily_detector_uptime(avg_daily_detector_uptime, corridors)
@@ -56,7 +169,6 @@ tryCatch(
             get_cor_monthly_detector_uptime(avg_daily_detector_uptime, subcorridors) %>%
                 filter(!is.na(Corridor))
 
-
         avg_daily_detector_uptime <-
             sigify(avg_daily_detector_uptime, cor_avg_daily_detector_uptime, corridors) %>%
                 select(Zone_Group, Corridor, Date, uptime, uptime.sb, uptime.pr)
@@ -70,23 +182,65 @@ tryCatch(
                 select(Zone_Group, Corridor, Month, uptime, uptime.sb, uptime.pr, delta)
 
 
-        addtoRDS(
-            avg_daily_detector_uptime, "sig/dy/du.parquet", "uptime",
-            report_start_date, calcs_start_date
+        td <- tibble(
+            data = list(avg_daily_detector_uptime, weekly_detector_uptime, monthly_detector_uptime, quarterly_detector_uptime),
+            fn = c("sig/dy/du.parquet", "sig/wk/du.parquet", "sig/mo/du.parquet", "sig/qu/du.parquet"),
+            var = "uptime",
+            rsd = report_start_date,
+            csd = c(calcs_start_date, wk_calcs_start_date, calcs_start_date, report_start_date)
         )
-        addtoRDS(
-            weekly_detector_uptime, "sig/wk/du.parquet", "uptime",
-            report_start_date, wk_calcs_start_date
+
+        # addtoRDS and write to database row-by-row
+        for (row in 1:nrow(td)) {
+            this_row <- td[row, ]
+            print(this_row$fn)
+
+            addtoRDS(
+                this_row$data[[1]], this_row$fn, this_row$var, this_row$rsd, this_row$csd)
+
+            # TODO: create database connection
+            write_parquet_to_db(
+                conn, this_row$fn, FALSE, this_row$csd, this_row$rsd, report_end_date)
+        }
+
+        quarterly_detector_uptime <- get_quarterly(read_parquet("sig/mo/du.parquet"), "uptime")
+        sub_quarterly_detector_uptime <- get_quarterly(read_parquet("sub/mo/du.parquet"), "uptime")
+        cor_quarterly_detector_uptime <- get_quarterly(read_parquet("cor/mo/du.parquet"), "uptime")
+
+
+        # addtoRDS(
+        #     avg_daily_detector_uptime, "sig/dy/du.parquet", "uptime",
+        #     report_start_date, calcs_start_date
+        # )
+        # addtoRDS(
+        #     weekly_detector_uptime, "sig/wk/du.parquet", "uptime",
+        #     report_start_date, wk_calcs_start_date
+        # )
+        # addtoRDS(
+        #     monthly_detector_uptime, "sig/mo/du.parquet", "uptime",
+        #     report_start_date, calcs_start_date
+        # )
+        td <- tibble(
+            data = list(quarterly_detector_uptime, sub_quarterly_detector_uptime, cor_quarterly_detector_uptime),
+            fn = c("sig/qu/du.parquet", "sub/qu/du.parquet", "cor/qu/du.parquet"),
+            var = "uptime",
+            rsd = report_start_date,
+            csd = report_start_date
         )
-        addtoRDS(
-            monthly_detector_uptime, "sig/mo/du.parquet", "uptime",
-            report_start_date, calcs_start_date
-        )
-        addtoRDS(
-            get_quarterly(read_parquet("sig/mo/du.parquet"), "uptime"),
-            "sig/qu/du.parquet", "uptime",
-            report_start_date, calcs_start_date, overwrite = TRUE
-        )
+
+        # addtoRDS and write to database row-by-row
+        for (row in 1:nrow(td)) {
+            this_row <- td[row, ]
+            print(this_row$fn)
+
+            addtoRDS(
+                this_row$data[[1]], this_row$fn, this_row$var, this_row$rsd, this_row$csd)
+
+            # TODO: create database connection
+            write_parquet_to_db(
+                conn, this_row$fn, FALSE, this_row$csd, this_row$rsd, report_end_date)
+        }
+
 
         addtoRDS(
             cor_avg_daily_detector_uptime, "cor/dy/du.parquet", "uptime",
