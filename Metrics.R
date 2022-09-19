@@ -255,8 +255,6 @@ get_occupancy <- function(de_dt, int_dt) {
 
 get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour")) {
 
-
-    plan(multisession)
     print("Pulling data...")
 
     cat('.')
@@ -726,7 +724,6 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
         dplyr::select(-Asof) %>%
         mutate(SignalID = factor(SignalID))
 
-    #plan(multisession, workers = detectCores()-1)
     modres <- papd %>%
         group_by(SignalID, Detector, CallPhase, weekday) %>%
         filter(n() > 2) %>%
@@ -787,12 +784,14 @@ get_ped_delay <- function(date_, conf, signals_list) {
 
     cat('.')
 
-    pe <- get_atspm_events_db(date_, date_, conf$atspm, signals_list) %>%
-	select(SignalID, Timestamp, EventCode, Phase=EventParam) %>%
-        filter(EventCode %in% c(45, 21, 22, 132)) %>%
+    athena <- get_athena_connection()
+    signals_list <- as.integer(signals_list)
+    pe <- tbl(athena, "atspm2") %>%
+        filter(date == date_) %>%
+	select(SignalID=signalid, Timestamp=timestamp, EventCode=eventcode, Phase=eventparam) %>%
+        filter(SignalID %in% signals_list, EventCode %in% c(45, 21, 22, 132)) %>%
         arrange(SignalID, Timestamp) %>%
         collect() %>%
-        # convert_to_utc() %>%
         mutate(CycleLength = ifelse(EventCode == 132, Phase, NA))
 
     cat('.')
