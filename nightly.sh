@@ -26,10 +26,12 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Calcs_1.R
     Rscript Monthly_Report_Calcs_2.R
     Rscript Monthly_Report_Package.R
+    Rscript get_alerts.R
     echo "------------------------"
 
     cd SigOps
     Rscript Monthly_Report_Package.R
+    Rscript get_alerts_interim.R
     echo "------------------------"
     Rscript Monthly_Report_Package_1hr.R
     echo "------------------------"
