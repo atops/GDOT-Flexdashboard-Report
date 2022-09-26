@@ -23,31 +23,29 @@ get_atspm_connection <- function(conf_atspm) {
         
         dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
-                  server = Sys.getenv(conf_atspm$svr_env),
-                  database = Sys.getenv(conf_atspm$db_env),
+                  dsn = conf_atspm$odbc_dsn,
                   uid = Sys.getenv(conf_atspm$uid_env),
                   pwd = Sys.getenv(conf_atspm$pwd_env))
     }
 }
 
 
-get_maxview_connection <- function(dsn = "MaxView") {
+get_maxview_connection <- function(dsn = "maxview") {
     
     if (Sys.info()["sysname"] == "Windows") {
         
         dbConnect(odbc::odbc(),
                   dsn = dsn,
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+                  uid = Sys.getenv("MAXV_USERNAME"),
+                  pwd = Sys.getenv("MAXV_PASSWORD"))
         
     } else if (Sys.info()["sysname"] == "Linux") {
         
         dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
-                  server = Sys.getenv("MAXV_SERVER_INSTANCE"),
-                  database = Sys.getenv("MAXV_EVENTLOG_DB"),
-                  uid = Sys.getenv("ATSPM_USERNAME"),
-                  pwd = Sys.getenv("ATSPM_PASSWORD"))
+                  dsn = dsn,
+                  uid = Sys.getenv("MAXV_USERNAME"),
+                  pwd = Sys.getenv("MAXV_PASSWORD"))
     }
 }
 

@@ -7,14 +7,13 @@ source("Monthly_Report_Calcs_init.R")
 signals_list <- as.integer(as.character(corridors$SignalID))
 signals_list <- unique(as.character(signals_list[signals_list > 0]))
 
-
 # -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
 print(glue("{Sys.time()} etl [7 of 11]"))
 
 if (conf$run$etl == TRUE) {
 
     # run python script and wait for completion
-    system2("./etl_dashboard.sh", args = c(start_date, end_date))
+    system(glue("~/miniconda3/bin/conda run -n sigops python etl_dashboard.py {start_date} {end_date}"))
 }
 
 # --- ----------------------------- -----------
@@ -25,7 +24,7 @@ print(glue("{Sys.time()} aog [8 of 11]"))
 if (conf$run$arrivals_on_green == TRUE) {
 
     # run python script and wait for completion
-    system2("./get_aog.sh", args = c(start_date, end_date))
+    system(glue("~/miniconda3/bin/conda run -n sigops python get_aog.py {start_date} {end_date}"))
 }
 invisible(gc())
 
@@ -107,9 +106,9 @@ get_sf_date_range <- function(start_date, end_date) {
 
     lapply(date_range, function(date_) {
         print(date_)
-        
+
         sf <- get_sf_utah(date_, conf, signals_list, intervals = c("hour", "15min"))
-        
+
         s3_upload_parquet_date_split(
             sf$hour,
             bucket = conf$bucket,

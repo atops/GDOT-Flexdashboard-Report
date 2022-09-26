@@ -26,8 +26,8 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
-start_date <- get_date_from_string(conf$start_date) 
-end_date <- get_date_from_string(conf$end_date) 
+start_date <- get_date_from_string(conf$start_date)
+end_date <- get_date_from_string(conf$end_date)
 
 # Manual overrides
 # start_date <- "2020-01-04"
@@ -92,35 +92,3 @@ signals_list <- unique(corridors$SignalID)
 get_latest_det_config(conf) %>%
     s3write_using(qsave, bucket = conf$bucket, object = "ATSPM_Det_Config_Good_Latest.qs")
 
-# -- TMC Codes for Corridors
-# tmc_routes <- get_tmc_routes()
-# write_feather(tmc_routes, "tmc_routes.feather")
-# aws.s3::put_object("tmc_routes.feather", object = "tmc_routes.feather", bucket = conf$bucket)
-
-
-# -- Teams Locations
-# Warning: Need to clean up ,="", and convert to utf-8 on Notepad++
-# to TEAMS Location Report after export
-
-
-# teams_locations_report_raw_output <- s3read_using(
-#     read_csv,
-#     bucket = conf$bucket,
-#     object = "teams_locations_report_2020-03-12.csv"
-#     ) %>%
-#     select(
-#         -starts_with("Power"),
-#         -starts_with("RailRoad"))
-# teams_locations_shp <- get_teams_locations(locs = teams_locations_report_raw_output, conf)
-# s3saveRDS(
-#     teams_locations_shp,
-#     bucket = conf$bucket,
-#     object = "teams_locations_shp.rds")
-#
-# teams_locations <- teams_locations_shp
-# st_geometry(teams_locations) <- NULL
-# s3write_using(
-#     teams_locations,
-#     write_feather,
-#     object = "teams_locations.feather",
-#     bucket = conf$bucket)

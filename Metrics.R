@@ -43,26 +43,37 @@ get_uptime <- function(df, start_date, end_time) {
 }
 
 
-
-get_spm_data <- function(start_date, end_date, signals_list, conf_atspm, table, TWR_only=TRUE) {
+get_spm_data_atspm <- function(start_date, end_date, conf_atspm, table, signals_list = NULL, eventcodes = NULL, TWR_only = FALSE) {
+    # To optimize query performance, specify signals_list, avoid specifying TWR_only
 
     conn <- get_atspm_connection(conf_atspm)
 
-    if (TWR_only==TRUE) {
-        query_where <- "WHERE DATEPART(dw, CycleStart) in (3,4,5)"
-    } else {
-        query_where <- ""
+    end_date1 <- ymd(end_date) + days(1)
+
+    df <- tbl(conn, table)
+
+    if (!is.null(signals_list)) {
+        if (is.factor(signals_list)) {
+            signals_list <- as.character(signals_list)
+        } else if (is.character(signals_list)) {
+            signals_list <- signals_list
+        }
+        df <- filter(df, SignalID %in% signals_list)
     }
 
-    query <- paste("SELECT * FROM", table, query_where)
+    df <- df %>%
+        filter(Timestamp >= start_date, Timestamp < end_date1)
 
-    df <- tbl(conn, sql(query))
+    if (!is.null(eventcodes)) {
+        df <- filter(df, EventCode %in% eventcodes)
+    }
 
-    end_date1 <- as.character(ymd(end_date) + days(1))
-
-    dplyr::filter(df, CycleStart >= start_date & CycleStart < end_date1 &
-                      SignalID %in% signals_list)
+    if (TWR_only) {
+        df <- filter(df, DATENAME(WEEKDAY, Timestamp) %in% c('Tuesday','Wednesday','Thursday'))
+    }
+    df
 }
+
 
 
 
@@ -116,6 +127,25 @@ get_detection_events <- function(start_date, end_date, conf_athena, signals_list
         signals_list,
         conf_athena,
         table = "DetectionEvents",
+        TWR_only = FALSE)
+}
+
+get_atspm_events_db <- function(start_date, end_date, conf_atspm, signals_list = NULL) {
+    get_spm_data_atspm(
+        start_date,
+	end_date,
+	conf_atspm,
+	table = "Controller_Event_Log",
+	signals_list)
+}
+
+get_atspm_events_s3 <- function(start_date, end_date, conf_athena, signals_list = NULL) {
+    get_spm_data_aws(
+        start_date,
+        end_date,
+        signals_list,
+        conf_athena,
+        table = conf_athena$atspm_table,
         TWR_only = FALSE)
 }
 
@@ -225,8 +255,6 @@ get_occupancy <- function(de_dt, int_dt) {
 
 get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red = 5, intervals = c("hour")) {
 
-
-    plan(multisession)
     print("Pulling data...")
 
     cat('.')
@@ -244,6 +272,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         path <- glue("s3://{conf$bucket}")
     }
     de <- arrow::open_dataset(glue("{path}/detections/date={date_}")) %>%
+        select(SignalID, Phase, Detector, CycleStart, PhaseStart, DetTimeStamp, DetDuration) %>%
         filter(SignalID %in% signals_list,
                Phase %in% c(3, 4, 7, 8)) %>%
         collect() %>%
@@ -277,6 +306,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     }
         
     cd <- arrow::open_dataset(glue("{path}/cycles/date={date_}")) %>%
+        select(SignalID, Phase, CycleStart, PhaseStart, PhaseEnd, EventCode) %>%
         filter(SignalID %in% signals_list,
                Phase %in% c(3, 4, 7, 8),
                EventCode %in% c(1, 9)) %>%
@@ -334,7 +364,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     rm(sor_occ)
 
     # if a split failure on any phase
-    sf0 <- sf %>% 
+    sf0 <- sf %>%
         group_by(SignalID, Phase = factor(0), CycleStart) %>%
         summarize(sf = max(sf), .groups = "drop")
 
@@ -694,7 +724,6 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
         dplyr::select(-Asof) %>%
         mutate(SignalID = factor(SignalID))
 
-    #plan(multisession, workers = detectCores()-1)
     modres <- papd %>%
         group_by(SignalID, Detector, CallPhase, weekday) %>%
         filter(n() > 2) %>%
@@ -755,23 +784,15 @@ get_ped_delay <- function(date_, conf, signals_list) {
 
     cat('.')
 
-    plan(sequential)
-    plan(multisession)
-
-    s3bucket = conf$bucket
-    s3prefix = glue("atspm/date={date_}")
-
-    ds <- arrow::open_dataset(glue("s3://{s3bucket}/{s3prefix}"))
-
-    pe <- ds %>%
-        filter(EventCode %in% c(45, 21, 22, 132)) %>%
-        select(SignalID, Timestamp, EventCode, EventParam) %>%
-        collect() %>%
-        convert_to_utc() %>%
-        mutate(CycleLength = ifelse(EventCode == 132, EventParam, NA)) %>%
+    athena <- get_athena_connection()
+    signals_list <- as.integer(signals_list)
+    pe <- tbl(athena, "atspm2") %>%
+        filter(date == date_) %>%
+	select(SignalID=signalid, Timestamp=timestamp, EventCode=eventcode, Phase=eventparam) %>%
+        filter(SignalID %in% signals_list, EventCode %in% c(45, 21, 22, 132)) %>%
         arrange(SignalID, Timestamp) %>%
-        rename(Phase = EventParam) %>%
-	    convert_to_utc()
+        collect() %>%
+        mutate(CycleLength = ifelse(EventCode == 132, Phase, NA))
 
     cat('.')
     coord.type <- group_by(pe, SignalID) %>%

@@ -69,7 +69,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
         
         bucket = conf['bucket']
                 
-        all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=per, closed='left')
+        all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=per, inclusive='left')
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
         if os.path.exists(de_fn):
