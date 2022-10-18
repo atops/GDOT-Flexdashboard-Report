@@ -81,6 +81,12 @@ traffic_plot <- function(df, x_variable, y_variable, color_variable) {
 
     shiny::validate(need(nrow(df) > 0, "No Data"))
 
+    if (all(is.na(df[[color_variable]]))) {
+        color_scale <- scale_color_manual(values=0, na.value = "gray")
+    } else {
+        color_scale <- scale_color_viridis_c(direction = -1)
+    }
+
     ggplot(
         data = df, 
         mapping = aes(
@@ -88,9 +94,9 @@ traffic_plot <- function(df, x_variable, y_variable, color_variable) {
             y = !!as.name(y_variable), 
             color = !!as.name(color_variable))
         ) + 
-        geom_path(size = 1) +  # color = "gray") + 
+        geom_path(size = 1) +
         geom_point(size = 3) +
-        scale_color_viridis_c(direction = -1) +
+        color_scale +
         theme_minimal() + 
         theme(
             legend.position = "bottom", 
