@@ -79,7 +79,7 @@ metering_rates_overlay_plot <- function(
 
 traffic_plot <- function(df, x_variable, y_variable, color_variable) {
 
-    req(nrow(df) > 0)
+    shiny::validate(need(nrow(df) > 0, "No Data"))
 
     ggplot(
         data = df, 
@@ -124,9 +124,11 @@ filter_tod <- function(df, ampm) {
 
 timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
     
-    req(nrow(df) > 0)
-    
-    df <- df %>% rename(
+    reverse_colorscale <- color_variable %in% c("Avg Occ")
+
+    shiny::validate(need(nrow(df) > 0, "No Data"))
+
+    df <- df %>% transmute(
         Timestamp = !!as.name(t_variable),
         y_var = !!as.name(y_variable),
         color_var = !!as.name(color_variable))
@@ -134,19 +136,13 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
     p <- plot_ly() %>%
         add_trace(
             data = df,
+            name = "",
             type = "scatter", 
-            mode = "lines", 
+            mode = "lines+markers", 
             x = ~Timestamp,
             y = ~y_var, 
             line = list(
-                color = "lightgray")) %>%
-        add_trace(
-            data = filter(df, is.na(color_var)),
-            name = "",
-            type = "scatter", 
-            mode = "markers", 
-            x = ~Timestamp, 
-            y = ~y_var, 
+                color = "lightgray"),
             marker = list(
                 color = "lightgray"),
             customdata = ~glue(paste(
@@ -154,28 +150,33 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
                 "<br><b>{y_variable}:</b> {y_var}",
                 "<br><b>{color_variable}:</b> {color_var}")),
             hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))
+        )
+
+    df2 <- df[complete.cases(df), ]
+
+    p <- p %>%
+        add_trace(
+            data = df2,
+            name = "",
+            type = "scatter", 
+            mode = "markers", 
+            x = ~Timestamp, 
+            y = ~y_var, 
+            marker = list(
+                color = ~color_var,
+                colorscale = "YlOrRd",
+                reversescale = reverse_colorscale,
+                cmin = if_else(color_variable == "Metering Rate", as.numeric(min(df2$color_var)), 0),
+                cmax = max(df2$color_var),
+                colorbar = list(title = color_variable)),
+            customdata = ~glue(paste(
+                "<br><b>Timestamp:</b> {Timestamp}",
+                "<br><b>{y_variable}:</b> {y_var}",
+                "<br><b>{color_variable}:</b> {color_var}")),
+            hovertemplate = "%{customdata}",
             hoverlabel = list(font = list(family = "Source Sans Pro")))
-    
-    if (nrow(filter(df, !is.na(color_var))) > 0) {
-        p <- p %>%
-            add_trace(
-                data = filter(df, !is.na(color_var)),
-                name = "",
-                type = "scatter", 
-                mode = "markers", 
-                x = ~Timestamp, 
-                y = ~y_var, 
-                marker = list(
-                    color = ~color_var, 
-                    colorscale = "YlOrRd",  # Viridis
-                    colorbar = list(title = color_variable)),
-                customdata = ~glue(paste(
-                    "<br><b>Timestamp:</b> {Timestamp}",
-                    "<br><b>{y_variable}:</b> {y_var}",
-                    "<br><b>{color_variable}:</b> {color_var}")),
-                hovertemplate = "%{customdata}",
-                hoverlabel = list(font = list(family = "Source Sans Pro"))) 
-    }
+
     p %>% 
         layout(
             showlegend = FALSE,
@@ -287,7 +288,7 @@ signals_data <- reactive({
 
 
 events <- reactive({
-    future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
+    data <- future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
         key <- glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")
         if (length(aws.s3::get_bucket(bucket = conf$bucket, prefix = key)) > 0) {
             aws.s3::s3read_using(
@@ -298,20 +299,34 @@ events <- reactive({
             filter(EventCode >= 1000)
         }
     }) %>% 
-        bind_rows() %>%
-        arrange(SignalID, Timestamp) %>%
-        mutate(
-            SignalID = factor(SignalID),
-            Timestamp = as_datetime(Timestamp),
-            per = if_else(hour(Timestamp) < 12, "AM", "PM"),
-            EventCode = factor(EventCode),
-            EventParam = as.integer(EventParam),
-            date = input$date) %>%
-        convert_to_utc()
+        bind_rows()
+
+    if (nrow(data)) {
+        data %>%
+            arrange(SignalID, Timestamp) %>%
+            mutate(
+                SignalID = factor(SignalID),
+                Timestamp = as_datetime(Timestamp),
+                per = if_else(hour(Timestamp) < 12, "AM", "PM"),
+                EventCode = factor(EventCode),
+                EventParam = as.integer(EventParam),
+                date = input$date) %>%
+            convert_to_utc()
+    } else {
+        data.frame(
+            SignalID = factor(),
+            Timestamp = as_datetime(character()),
+            per = character(),
+            EventCode = factor(),
+            EventParam = integer(),
+            date = as_date(character()),
+            stringsAsFactors=FALSE)
+    }
 })
 
 
 flush_events <- reactive({
+    shiny::validate(need(nrow(events()) > 0, "No Data"))
     events() %>% 
         filter(
             EventCode == 1058, EventParam == 0,
@@ -322,7 +337,8 @@ flush_events <- reactive({
 
 
 metering_rates <- reactive({
-    events()  %>% 
+    shiny::validate(need(nrow(events()) > 0, "No Data")) 
+    events() %>%
         filter(
             EventCode == 1058 | (EventCode == 1013 & EventParam == 1),
             per %in% str_split(input$tod, "/")[[1]]) %>%
@@ -336,6 +352,7 @@ metering_rates <- reactive({
 
 
 traffic <- reactive({
+    shiny::validate(need(nrow(events()) > 0, "No Data"))
     events() %>% 
         filter(
             per %in% str_split(input$tod, "/")[[1]], 
@@ -357,6 +374,7 @@ traffic <- reactive({
 
 
 speed <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(spd)) %>%
         group_by(SignalID, date) %>% 
@@ -366,6 +384,7 @@ speed <- reactive({
 
 
 volume <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(vol)) %>%
         group_by(SignalID, date) %>% 
@@ -375,6 +394,7 @@ volume <- reactive({
 
 
 occupancy <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(occ)) %>%
         group_by(SignalID, date) %>% 
@@ -593,6 +613,7 @@ rates <- reactive({
 
 df_scatter2 <- reactive({
     merge_asof(df_scatter(), rates(), "Timestamp", "Timestamp", roll_val = Inf) %>% 
+    select(-i.Timestamp) %>%
     mutate(hr = (as.numeric(Timestamp) - min(as.numeric(Timestamp)))/3600) %>%
     arrange(Timestamp) %>%
     mutate(`Metering Rate` = ifelse(`Metering Rate`==0, NA, `Metering Rate`))
