@@ -53,7 +53,6 @@ get_alerts <- function(conf) {
                        Date = date(Date))
         }
     }) %>% bind_rows() %>%
-    # qsave(alerts, "alerts.qs")
         filter(!is.na(Corridor)) %>%
         replace_na(replace = list(Detector = factor(0), CallPhase = factor(0))) %>%
         transmute(
@@ -124,9 +123,9 @@ get_alerts <- function(conf) {
 
     bind_rows(alerts, rms_alerts) %>%
 
-    group_by(
-        Zone_Group, Zone, SignalID, CallPhase, Detector, Alert
-    ) %>%
+        group_by(
+            Zone_Group, Zone, SignalID, CallPhase, Detector, Alert
+        ) %>%
         mutate(
             start_streak = ifelse(
                 as.integer(Date - lag(Date), unit = "days") > 1 |

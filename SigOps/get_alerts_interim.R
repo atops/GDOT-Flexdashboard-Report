@@ -53,7 +53,6 @@ get_alerts <- function(conf) {
                        Date = date(Date))
         }
     }) %>% bind_rows() %>%
-    # qsave(alerts, "alerts.qs")
         filter(!is.na(Corridor)) %>%
         replace_na(replace = list(Detector = factor(0), CallPhase = factor(0))) %>%
         transmute(
@@ -71,7 +70,9 @@ get_alerts <- function(conf) {
         distinct() %>%
         arrange(Alert, SignalID, CallPhase, Detector, Date)
 
+
     # bind_rows(alerts, rms_alerts) %>%
+
     alerts %>%
         group_by(
             Zone_Group, Zone, SignalID, CallPhase, Detector, Alert
