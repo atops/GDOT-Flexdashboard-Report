@@ -1,1 +1,0 @@
-for /f %%1 in ('dir /b %USERPROFILE%\AppData\Local\Temp') do rd /s /q %USERPROFILE%\AppData\Local\Temp\%%1
