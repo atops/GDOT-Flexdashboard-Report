@@ -40,7 +40,8 @@ metering_rates_overlay_plot <- function(
     input_corridor,
     overlay_variable, 
     overlay_palette, 
-    plot_title
+    plot_title,
+    color_scale_direction = 1
 ) {
     ggplot() + 
     geom_segment(
@@ -51,8 +52,8 @@ metering_rates_overlay_plot <- function(
             xend = Timestamp2, 
             yend = Milepost, 
             color = !!as.name(overlay_variable)), 
-        size = 3) + 
-    scale_color_distiller(palette = overlay_palette, direction = 1) +
+        size = 4) +
+    scale_color_distiller(palette = overlay_palette, direction = color_scale_direction) +
     
     new_scale("color") +
 
@@ -64,8 +65,8 @@ metering_rates_overlay_plot <- function(
             xend = Timestamp2,
             yend = Milepost + 0.2,
             color = rate),
-        size = 3) +
-    scale_color_distiller(palette = "Blues", direction = 1) +
+        size = 3.5) +
+    scale_color_distiller(palette = "Blues", direction = -1) +
     geom_point(
         data = filter(flush_events_, date == input_date), 
         mapping = aes(x = Timestamp, y = Milepost + 0.2)) +
@@ -73,13 +74,27 @@ metering_rates_overlay_plot <- function(
         breaks = signals_data_$Milepost, 
         labels = signals_data_$Name,
         limits = range(signals_data_$Milepost)) +
-    ggtitle(glue("{plot_title} on {input_date}: {input_corridor}"))
+    scale_x_datetime(date_labels = "%l:%M %p") +
+    ggtitle(glue("{input_corridor} - {plot_title} on {format(input_date, '%B %e, %Y')}")) +
+
+    theme(axis.text = element_text(size = 12),
+          axis.title = element_blank(),
+          title = element_text(size = 14),
+          legend.text = element_text(size = 12),
+          legend.title = element_text(size = 12),
+          panel.grid.minor.y = element_blank())
 }
 
 
 traffic_plot <- function(df, x_variable, y_variable, color_variable) {
 
-    req(nrow(df) > 0)
+    shiny::validate(need(nrow(df) > 0, "No Data"))
+
+    if (all(is.na(df[[color_variable]]))) {
+        color_scale <- scale_color_manual(values=0, na.value = "gray")
+    } else {
+        color_scale <- scale_color_viridis_c(direction = -1, na.value = "lightgray")
+    }
 
     ggplot(
         data = df, 
@@ -88,9 +103,9 @@ traffic_plot <- function(df, x_variable, y_variable, color_variable) {
             y = !!as.name(y_variable), 
             color = !!as.name(color_variable))
         ) + 
-        geom_path(size = 1) +  # color = "gray") + 
+        geom_path(size = 1) +
         geom_point(size = 3) +
-        scale_color_viridis_c(direction = -1) +
+        color_scale +
         theme_minimal() + 
         theme(
             legend.position = "bottom", 
@@ -124,9 +139,11 @@ filter_tod <- function(df, ampm) {
 
 timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
     
-    req(nrow(df) > 0)
-    
-    df <- df %>% rename(
+    shiny::validate(need(nrow(df) > 0, "No Data"))
+
+    reverse_colorscale <- color_variable %in% c("Avg Occ")
+
+    df <- df %>% transmute(
         Timestamp = !!as.name(t_variable),
         y_var = !!as.name(y_variable),
         color_var = !!as.name(color_variable))
@@ -134,19 +151,13 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
     p <- plot_ly() %>%
         add_trace(
             data = df,
+            name = "",
             type = "scatter", 
-            mode = "lines", 
+            mode = "lines+markers", 
             x = ~Timestamp,
             y = ~y_var, 
             line = list(
-                color = "lightgray")) %>%
-        add_trace(
-            data = filter(df, is.na(color_var)),
-            name = "",
-            type = "scatter", 
-            mode = "markers", 
-            x = ~Timestamp, 
-            y = ~y_var, 
+                color = "lightgray"),
             marker = list(
                 color = "lightgray"),
             customdata = ~glue(paste(
@@ -154,28 +165,33 @@ timeseries_plot <- function(df, t_variable, y_variable, color_variable) {
                 "<br><b>{y_variable}:</b> {y_var}",
                 "<br><b>{color_variable}:</b> {color_var}")),
             hovertemplate = "%{customdata}",
+            hoverlabel = list(font = list(family = "Source Sans Pro"))
+        )
+
+    df2 <- df[complete.cases(df), ]
+
+    p <- p %>%
+        add_trace(
+            data = df2,
+            name = "",
+            type = "scatter", 
+            mode = "markers", 
+            x = ~Timestamp, 
+            y = ~y_var, 
+            marker = list(
+                color = ~color_var,
+                colorscale = "YlOrRd",
+                reversescale = reverse_colorscale,
+                cmin = if_else(color_variable == "Metering Rate", as.numeric(min(df2$color_var)), 0),
+                cmax = max(df2$color_var),
+                colorbar = list(title = color_variable)),
+            customdata = ~glue(paste(
+                "<br><b>Timestamp:</b> {Timestamp}",
+                "<br><b>{y_variable}:</b> {y_var}",
+                "<br><b>{color_variable}:</b> {color_var}")),
+            hovertemplate = "%{customdata}",
             hoverlabel = list(font = list(family = "Source Sans Pro")))
-    
-    if (nrow(filter(df, !is.na(color_var))) > 0) {
-        p <- p %>%
-            add_trace(
-                data = filter(df, !is.na(color_var)),
-                name = "",
-                type = "scatter", 
-                mode = "markers", 
-                x = ~Timestamp, 
-                y = ~y_var, 
-                marker = list(
-                    color = ~color_var, 
-                    colorscale = "YlOrRd",  # Viridis
-                    colorbar = list(title = color_variable)),
-                customdata = ~glue(paste(
-                    "<br><b>Timestamp:</b> {Timestamp}",
-                    "<br><b>{y_variable}:</b> {y_var}",
-                    "<br><b>{color_variable}:</b> {color_var}")),
-                hovertemplate = "%{customdata}",
-                hoverlabel = list(font = list(family = "Source Sans Pro"))) 
-    }
+
     p %>% 
         layout(
             showlegend = FALSE,
@@ -287,7 +303,7 @@ signals_data <- reactive({
 
 
 events <- reactive({
-    future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
+    data <- future.apply::future_lapply(signals(), function(signal_, date_ = input$date) {
         key <- glue("atspm/date={date_}/atspm_{signal_}_{date_}.parquet")
         if (length(aws.s3::get_bucket(bucket = conf$bucket, prefix = key)) > 0) {
             aws.s3::s3read_using(
@@ -298,20 +314,34 @@ events <- reactive({
             filter(EventCode >= 1000)
         }
     }) %>% 
-        bind_rows() %>%
-        arrange(SignalID, Timestamp) %>%
-        mutate(
-            SignalID = factor(SignalID),
-            Timestamp = as_datetime(Timestamp),
-            per = if_else(hour(Timestamp) < 12, "AM", "PM"),
-            EventCode = factor(EventCode),
-            EventParam = as.integer(EventParam),
-            date = input$date) %>%
-        convert_to_utc()
+        bind_rows()
+
+    if (nrow(data)) {
+        data %>%
+            arrange(SignalID, Timestamp) %>%
+            mutate(
+                SignalID = factor(SignalID),
+                Timestamp = as_datetime(Timestamp),
+                per = if_else(hour(Timestamp) < 12, "AM", "PM"),
+                EventCode = factor(EventCode),
+                EventParam = as.integer(EventParam),
+                date = input$date) %>%
+            convert_to_utc()
+    } else {
+        data.frame(
+            SignalID = factor(),
+            Timestamp = as_datetime(character()),
+            per = character(),
+            EventCode = factor(),
+            EventParam = integer(),
+            date = as_date(character()),
+            stringsAsFactors=FALSE)
+    }
 })
 
 
 flush_events <- reactive({
+    shiny::validate(need(nrow(events()) > 0, "No Data"))
     events() %>% 
         filter(
             EventCode == 1058, EventParam == 0,
@@ -322,7 +352,8 @@ flush_events <- reactive({
 
 
 metering_rates <- reactive({
-    events()  %>% 
+    shiny::validate(need(nrow(events()) > 0, "No Data")) 
+    events() %>%
         filter(
             EventCode == 1058 | (EventCode == 1013 & EventParam == 1),
             per %in% str_split(input$tod, "/")[[1]]) %>%
@@ -336,6 +367,7 @@ metering_rates <- reactive({
 
 
 traffic <- reactive({
+    shiny::validate(need(nrow(events()) > 0, "No Data"))
     events() %>% 
         filter(
             per %in% str_split(input$tod, "/")[[1]], 
@@ -357,6 +389,7 @@ traffic <- reactive({
 
 
 speed <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(spd)) %>%
         group_by(SignalID, date) %>% 
@@ -366,6 +399,7 @@ speed <- reactive({
 
 
 volume <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(vol)) %>%
         group_by(SignalID, date) %>% 
@@ -375,6 +409,7 @@ volume <- reactive({
 
 
 occupancy <- reactive({
+    shiny::validate(need(nrow(traffic()) > 0, "No Data"))
     traffic() %>%
         filter(!is.na(occ)) %>%
         group_by(SignalID, date) %>% 
@@ -438,12 +473,13 @@ renderPlotly({
         geom_point(
             data = flush_events(), 
             mapping = aes(x = Timestamp, y = Milepost),
-            alpha = 0.2) +
+            alpha = 0.4) +
         scale_y_continuous(
             breaks = signals_data()$Milepost, 
             labels = signals_data()$Name,
             limits = range(signals_data()$Milepost)) +
-        ggtitle(glue("Flush events on {input$date}: {input$corridor}"))
+        ggtitle(glue("{input$corridor} - Flush events on {format(input$date, '%B %e, %Y')}"))
+
 
     ggplotly(p)
 })
@@ -466,7 +502,7 @@ renderPlotly({
                 yend = Milepost, 
                 color = rate), 
             size = 3) + 
-        scale_colour_distiller(direction = 1) +
+        scale_colour_distiller(direction = -1) +
         geom_point(
             data = filter(flush_events(), date == input$date), 
             mapping = aes(x = Timestamp, y = Milepost)) +
@@ -474,7 +510,7 @@ renderPlotly({
             breaks = signals_data()$Milepost, 
             labels = signals_data()$Name,
             limits = range(signals_data()$Milepost)) +
-        ggtitle(glue("Metering Rates and Flush Events on {input$date}: {input$corridor}"))
+        ggtitle(glue("{input$corridor} - Metering Rates on {format(input$date, '%B %e, %Y')}"))
     
     ggplotly(p)
 })
@@ -495,7 +531,7 @@ renderPlot({
         input$date,
         input$corridor,
         "occ", 
-        "Reds", 
+        "YlOrRd",
         "Metering Rates and Flush Events")
 })
 ```
@@ -515,8 +551,9 @@ renderPlot({
         input$date,
         input$corridor,
         "spd", 
-        "Greens", 
-        "Metering Rates and Flush Events")
+        "YlOrRd",
+        "Metering Rates and Flush Events",
+        color_scale_direction = -1)
     })
 ```
 
@@ -593,6 +630,7 @@ rates <- reactive({
 
 df_scatter2 <- reactive({
     merge_asof(df_scatter(), rates(), "Timestamp", "Timestamp", roll_val = Inf) %>% 
+    select(-i.Timestamp) %>%
     mutate(hr = (as.numeric(Timestamp) - min(as.numeric(Timestamp)))/3600) %>%
     arrange(Timestamp) %>%
     mutate(`Metering Rate` = ifelse(`Metering Rate`==0, NA, `Metering Rate`))
