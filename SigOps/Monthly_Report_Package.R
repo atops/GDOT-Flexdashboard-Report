@@ -272,7 +272,7 @@ tryCatch(
         # -- Alerts: detector downtime --
 
         bad_det <- lapply(
-            seq(today() %m-% days(90), today() %m-% days(1), by = "1 day"),
+            seq(today() %m-% days(180), today() %m-% days(1), by = "1 day"),
             function(date_) {
                 key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
                 tryCatch(
