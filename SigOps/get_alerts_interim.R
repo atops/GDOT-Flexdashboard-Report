@@ -66,7 +66,7 @@ get_alerts <- function(conf) {
             Name = as.character(Name),
             Alert = factor(Alert),
             ApproachDesc) %>%
-        filter(Date > today() - days(90)) %>%
+        filter(Date > today() - days(180)) %>%
         distinct() %>%
         arrange(Alert, SignalID, CallPhase, Detector, Date)
 
