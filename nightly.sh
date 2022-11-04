@@ -25,7 +25,8 @@ if [[ ${H#0} -lt 6 ]]; then
     # Rscript Monthly_Report_Calcs_ec2.R
     Rscript Monthly_Report_Calcs_1.R
     Rscript Monthly_Report_Calcs_2.R
-    Rscript Monthly_Report_Package.R
+    Rscript Monthly_Report_Package_1.R
+    Rscript Monthly_Report_Package_2.R
     Rscript get_alerts.R
     echo "------------------------"
 
