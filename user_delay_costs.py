@@ -50,12 +50,10 @@ def get_udc_response(start_date, end_date, threshold, zone, corridor, tmcs,
         "costs": {
             "catt.inrix.udc.commercial":  #need to enter costs for each year
             {
-                "2020": 100.49,
                 "2021": 100.49,
                 "2022": 100.49
             },
             "catt.inrix.udc.passenger": {
-                "2020": 17.91,
                 "2021": 17.91,
                 "2022": 17.91
             }
