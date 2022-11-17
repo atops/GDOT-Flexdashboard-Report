@@ -41,7 +41,7 @@ if [[ ${H#0} -lt 6 ]]; then
 
     # Run User Delay Cost on the SAM on the 1st, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
-        python user_delay_costs.py
+        ~/miniconda3/bin/conda run -n sigops python user_delay_costs.py
     fi
 
     aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1
