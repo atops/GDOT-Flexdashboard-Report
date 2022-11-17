@@ -33,11 +33,6 @@ write_aggregations <- function(conn, td) {
     }
 }
 
-# Add to metrics.yaml:
-# metric:
-#    s3table: detector_uptime_pd
-#    peak_only: True/False
-
 
 # # DETECTOR UPTIME ###########################################################
 

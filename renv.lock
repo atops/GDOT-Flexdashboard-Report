@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.1.0",
+    "Version": "4.2.2",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -140,6 +140,16 @@
         "lubridate",
         "plogr",
         "rlang"
+      ]
+    },
+    "RMySQL": {
+      "Package": "RMySQL",
+      "Version": "0.10.24",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ee5fba95e7381fcaa1ce3132fd6818d7",
+      "Requirements": [
+        "DBI"
       ]
     },
     "Rcpp": {
@@ -519,16 +529,6 @@
         "tibble",
         "tidyselect",
         "vctrs"
-      ]
-    },
-    "duckdb": {
-      "Package": "duckdb",
-      "Version": "0.3.2-2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "2c2e60917d2acc1e35883e4c8b5e73e3",
-      "Requirements": [
-        "DBI"
       ]
     },
     "e1071": {
