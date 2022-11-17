@@ -28,12 +28,12 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
     # Set any other columns (not defined above) to "text"
     col_types[sapply(col_types, is.null)] <- "text"
 
-    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>% 
+    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>%
 
         # Get the last modified record for the Signal|Zone|Corridor combination
-        replace_na(replace = list(Modified = ymd("1900-01-01"))) %>% 
-        group_by(SignalID, Zone, Corridor) %>% 
-        filter(Modified == max(Modified)) %>% 
+        replace_na(replace = list(Modified = ymd("1900-01-01"))) %>%
+        group_by(SignalID, Zone, Corridor) %>%
+        filter(Modified == max(Modified)) %>%
         ungroup() %>%
 
         filter(!is.na(Corridor))
@@ -48,10 +48,10 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                 Include == TRUE)
     }
 
-    df %>%        
+    df %>%
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
-        transmute(SignalID = factor(SignalID), 
-                  Zone = as.factor(Zone), 
+        transmute(SignalID = factor(SignalID),
+                  Zone = as.factor(Zone),
                   Zone_Group = factor(Zone_Group),
                   Corridor = as.factor(Corridor),
                   Subcorridor = as.factor(Subcorridor),
@@ -73,13 +73,13 @@ get_cam_config <- function(object, bucket, corridors) {
 
     cam_config0 <- aws.s3::s3read_using(
         read_excel,
-        object = object, 
+        object = object,
         bucket = bucket
 	) %>%
         filter(Include == TRUE) %>%
         transmute(
-            CameraID = factor(CameraID), 
-            Location, 
+            CameraID = factor(CameraID),
+            Location,
             SignalID = factor(`MaxView ID`),
             As_of_Date = date(As_of_Date)) %>%
         distinct()
@@ -88,7 +88,7 @@ get_cam_config <- function(object, bucket, corridors) {
         select(SignalID, Zone_Group, Zone, Corridor, Subcorridor)
 
 
-    left_join(corrs, cam_config0) %>% 
+    left_join(corrs, cam_config0) %>%
         filter(!is.na(CameraID)) %>%
 	mutate(Description = paste(CameraID, Location, sep = ": ")) %>%
         arrange(Zone_Group, Zone, Corridor, CameraID)
@@ -114,11 +114,11 @@ get_ped_config_ <- function(bucket) {
                 Detector = col_character(),
                 CallPhase = col_character())
 
-            s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(), 
-                         object = s3key, 
+            s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(),
+                         object = s3key,
                          bucket = s3bucket) %>%
-                transmute(SignalID = factor(SignalID), 
-                          Detector = factor(Detector), 
+                transmute(SignalID = factor(SignalID),
+                          Detector = factor(Detector),
                           CallPhase = factor(CallPhase)) %>%
                 distinct()
         } else {
@@ -133,22 +133,22 @@ get_ped_config <- get_ped_config_(conf$bucket)
 ## This determines which detectors to use for counts when there is more than
 ## one detector in a lane, such as for video, Gridsmart and Wavetronix Matrix
 
-# This is a "function factory" 
+# This is a "function factory"
 # It is meant to be used to create a get_det_config function that takes only the date:
 # like: get_det_config <- get_det_config_(conf$bucket, "atspm_det_config_good")
-get_det_config_  <- function(bucket, folder) { 
+get_det_config_  <- function(bucket, folder) {
 
     function(date_) {
         read_det_config <- function(s3object, s3bucket) {
             aws.s3::s3read_using(read_feather, object = s3object, bucket = s3bucket)
         }
 
-        s3bucket <- bucket 
+        s3bucket <- bucket
         s3prefix = glue("config/{folder}/date={date_}")
 
         # Are there any files for this date?
         s3objects <- aws.s3::get_bucket(
-            bucket = s3bucket, 
+            bucket = s3bucket,
             prefix = s3prefix)
 
         # If the s3 object exists, read it and return the data frame
@@ -165,7 +165,7 @@ get_det_config_  <- function(bucket, folder) {
                 read_det_config(x$Key, s3bucket)})  %>%
                 rbindlist() %>% as_tibble() %>%
                 mutate(SignalID = as.character(SignalID),
-                       Detector = as.integer(Detector), 
+                       Detector = as.integer(Detector),
                        CallPhase = as.integer(CallPhase))
         } else {
             stop(glue("No detector config file for {date_}"))
@@ -180,18 +180,18 @@ get_det_config_aog <- function(date_) {
 
     get_det_config(date_) %>%
         filter(!is.na(Detector)) %>%
-        mutate(AOGPriority = 
+        mutate(AOGPriority =
                    dplyr::case_when(
                        grepl("Exit", DetectionTypeDesc)  ~ 0,
                        grepl("Advanced Count", DetectionTypeDesc) ~ 1,
                        TRUE ~ 2)) %>%
         filter(AOGPriority < 2) %>%
-        group_by(SignalID, CallPhase) %>% 
+        group_by(SignalID, CallPhase) %>%
         filter(AOGPriority == min(AOGPriority)) %>%
         ungroup() %>%
 
-        transmute(SignalID = factor(SignalID), 
-                  Detector = factor(Detector), 
+        transmute(SignalID = factor(SignalID),
+                  Detector = factor(Detector),
                   CallPhase = factor(CallPhase),
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
@@ -202,13 +202,13 @@ get_det_config_qs <- function(date_) {
 
     # Detector config
     dc <- get_det_config(date_) %>%
-        filter(grepl("Advanced Count", DetectionTypeDesc) | 
+        filter(grepl("Advanced Count", DetectionTypeDesc) |
                    grepl("Advanced Speed", DetectionTypeDesc)) %>%
         filter(!is.na(DistanceFromStopBar)) %>%
         filter(!is.na(Detector)) %>%
 
-        transmute(SignalID = factor(SignalID), 
-                  Detector = factor(Detector), 
+        transmute(SignalID = factor(SignalID),
+                  Detector = factor(Detector),
                   CallPhase = factor(CallPhase),
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
@@ -236,8 +236,8 @@ get_det_config_sf <- function(date_) {
         filter(!is.na(Detector)) %>%
 
 
-        transmute(SignalID = factor(SignalID), 
-                  Detector = factor(Detector), 
+        transmute(SignalID = factor(SignalID),
+                  Detector = factor(Detector),
                   CallPhase = factor(CallPhase),
                   TimeFromStopBar = TimeFromStopBar,
                   Date = date(date_))
@@ -247,8 +247,8 @@ get_det_config_sf <- function(date_) {
 get_det_config_vol <- function(date_) {
 
     get_det_config(date_) %>%
-        transmute(SignalID = factor(SignalID), 
-                  Detector = factor(Detector), 
+        transmute(SignalID = factor(SignalID),
+                  Detector = factor(Detector),
                   CallPhase = factor(CallPhase),
                   CountPriority = as.integer(CountPriority),
                   TimeFromStopBar = TimeFromStopBar,
@@ -272,7 +272,7 @@ get_latest_det_config <- function(conf) {
             bucket = conf$bucket,
             prefix = glue("config/atspm_det_config_good/date={format(date_, '%F')}"))
         if (length(x)) {
-            det_config <- s3read_using(arrow::read_feather, 
+            det_config <- s3read_using(arrow::read_feather,
                                        bucket = conf$bucket,
                                        object = x$Contents$Key)
             break
