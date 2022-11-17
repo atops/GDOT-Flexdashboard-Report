@@ -135,14 +135,13 @@ read_zipped_feather <- function(x) {
 }
 
 
-keep_trying <- function(func, n_tries, ..., timeout = Inf) {
+keep_trying <- function(func, n_tries, ..., sleep = 1, timeout = Inf) {
 
     safely_func = purrr::safely(func, otherwise = NULL)
 
     result <- NULL
     error <- 1
     try_number <- 1
-    sleep <- 1
 
     while((!is.null(error) || is.null(result)) && try_number <= n_tries) {
         if (try_number > 1) {
