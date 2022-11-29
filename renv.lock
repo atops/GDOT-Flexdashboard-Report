@@ -170,15 +170,16 @@
     },
     "arrow": {
       "Package": "arrow",
-      "Version": "8.0.0",
+      "Version": "10.0.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "58b7ef7a5c997e324767b86ae0bb0896",
+      "Hash": "05f9b803e1f6a5d47ff0a885ed04ebd2",
       "Requirements": [
         "R6",
         "assertthat",
         "bit64",
         "cpp11",
+        "glue",
         "purrr",
         "rlang",
         "tidyselect",

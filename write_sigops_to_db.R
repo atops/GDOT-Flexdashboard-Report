@@ -9,10 +9,17 @@ load_bulk_data <- function(conn, table_name, df_) {
         filename <- tempfile(pattern = table_name, fileext = ".csv")
         data.table::fwrite(df_, filename)
         dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
-    }    
+    } else if (class(conn) == "MySQLConnection") {
+        RMySQL::dbWriteTable(conn, table_name, df_, append = TRUE, overwrite = FALSE, row.names = FALSE)
+    }
     file.remove(filename)
 }
 
+load_data <- function(conn_pool, table_name, df_) {
+    con <- pool::poolCheckout()
+    dbAppendTable(con, table_name, df_)
+    pool::poolReturn(con)
+}
 
 write_sigops_to_db <- function(
     conn, df, dfname, recreate = FALSE, 
@@ -54,7 +61,7 @@ write_sigops_to_db <- function(
                         head(df_, 3), 
                         overwrite = TRUE,
                         row.names = FALSE)
-                    dbExecute(conn, glue("DELETE FROM {table_name}"))
+                    dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
                 } else {
                     if (table_name %in% dbListTables(conn)) {
                         # Clear head of table prior to report start date
@@ -79,6 +86,7 @@ write_sigops_to_db <- function(
                         
                         print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
                         load_bulk_data(conn, table_name, df_)
+                        # future(load_data, conn, table_name, df_)
                     }
                 }
                 

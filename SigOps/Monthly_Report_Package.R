@@ -2820,16 +2820,8 @@ print(glue("{Sys.time()} Write to Database [29 of 29(2)]"))
 source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
-conn <- get_aurora_connection()
-
-# Uncomment this block to recreate (refresh) database. Rare event. Development only.
-# recreate_database(conn, cor, "cor")
-# recreate_database(conn, sub, "sub")
-# recreate_database(conn, sig, "sig")
-
-# append_to_database(conn, cor, "cor", calcs_start_date, report_start_date, report_end_date)
-# append_to_database(conn, sub, "sub", calcs_start_date, report_start_date, report_end_date)
-# append_to_database(conn, sig, "sig", calcs_start_date, report_start_date, report_end_date)
+conn <- keep_trying(func = get_aurora_connection, f = RMySQL::dbConnect, driver = RMySQL::MySQL(), n_tries = 5)
+# recreate_database(conn)
 
 append_to_database(
     conn, cor, "cor", calcs_start_date, report_start_date, report_end_date = NULL)
