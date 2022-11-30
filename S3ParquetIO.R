@@ -93,6 +93,7 @@ s3_read_parquet <- function(bucket, object, date_ = NULL) {
             select(-starts_with("__")) %>%
             mutate(Date = ymd(date_))
     }, error = function(e) {
+        print(e)
         data.frame()
     })
 }
