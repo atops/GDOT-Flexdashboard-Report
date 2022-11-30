@@ -1,18 +1,13 @@
 
 # Monthly_Report_Package_init.R
 
-library(yaml)
-library(glue)
-library(future)
-
-
-print(glue("{Sys.time()} Starting Package Script"))
-
-conf <- read_yaml("Monthly_Report.yaml")
+source("../renv/activate.R")
 
 source("Monthly_Report_Functions.R")
 source("Database_Functions.R")
 
+
+print(glue("{Sys.time()} Starting Package Script"))
 
 if (interactive()) {
     plan(multisession)
@@ -63,7 +58,7 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 # # ###########################################################################
 
-# # Package everything up for Monthly Report back 13 months
+# # Package everything up for Monthly Report back 15 months
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 

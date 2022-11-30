@@ -1,8 +1,6 @@
 
 # Monthly_Report_Package.R
 
-source("renv/activate.R")
-
 source("Monthly_Report_Package_init.R")
 
 # options(warn = 2)
