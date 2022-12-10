@@ -1,4 +1,6 @@
 
+source("renv/activate.R")
+
 suppressMessages({
     library(aws.s3)
     library(dplyr)
@@ -16,6 +18,7 @@ suppressMessages({
     library(DBI)
     library(odbc)
 })
+
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
