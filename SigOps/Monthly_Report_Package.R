@@ -2820,7 +2820,8 @@ print(glue("{Sys.time()} Write to Database [29 of 29(2)]"))
 source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
-conn <- keep_trying(func = get_aurora_connection, f = RMySQL::dbConnect, driver = RMySQL::MySQL(), n_tries = 5)
+conn <- keep_trying(func = get_aurora_connection, n_tries = 5)
+#conn <- keep_trying(func = get_aurora_connection, f = RMySQL::dbConnect, driver = RMySQL::MySQL(), n_tries = 5)
 # recreate_database(conn)
 
 append_to_database(

@@ -299,22 +299,3 @@ query_health_data <- function(
     
     df
 }
-
-
-dbWriteTable <- function(conn, name, value, ...) {
-    tic()
-    print(class(conn)[1])
-    if (class(conn)[1] == "MariaDBConnection") {
-        cols_ <- dbListFields(conn, name)
-        value <- value[cols_]  # Make sure columns are in the right order
-        fn <- tempfile()
-        write_csv(value, fn)
-        DBI::dbExecute(
-            conn,
-            glue("LOAD DATA LOCAL INFILE '{fn}' into table {name} fields terminated by ',' IGNORE 1 LINES"))
-        file.remove(fn)
-    } else {
-        DBI::dbWriteTable(conn, name, value, ...)
-    }
-    toc()
-}

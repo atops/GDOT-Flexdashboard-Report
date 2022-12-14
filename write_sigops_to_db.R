@@ -5,13 +5,18 @@ library(qs)
 
 load_bulk_data <- function(conn, table_name, df_) {
     
+    cols_ <- dbListFields(conn, table_name)
+    df_ <- df_[cols_]  # Put columns in the right order
+
     if (class(conn)[[1]] == "MariaDBConnection") { # Aurora
         filename <- tempfile(pattern = table_name, fileext = ".csv")
         data.table::fwrite(df_, filename)
         dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
         file.remove(filename)
-    } else if (class(conn) == "MySQLConnection") {
+    } else if (class(conn)[[1]] == "MySQLConnection") {
         RMySQL::dbWriteTable(conn, table_name, df_, append = TRUE, overwrite = FALSE, row.names = FALSE)
+    } else {
+        DBI::dbWriteTable(conn, table_name, df_, append = TRUE, overwrite = FALSE, row.names = FALSE)
     }
 }
 
