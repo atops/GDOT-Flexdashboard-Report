@@ -5,6 +5,7 @@ bucket: gdot-spm
 profile: gdot
 aws_region: us-east-1
 region: 
+ssl_cert:
 athena:
     staging_dir: s3://gdot-spm-athena
     database: gdot_spm
