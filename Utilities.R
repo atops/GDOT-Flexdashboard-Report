@@ -288,7 +288,7 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
         df0 <- readRDS(fn)
         if (is.list(df) && is.list(df0) && 
             !is.data.frame(df) && !is.data.frame(df0) && 
-            (names(df) == names(df0))) {
+            identical(names(df), names(df0))) {
             x <- purrr::map2(df0, df, combine_dfs, delta_var, rsd, csd)
         } else {
             x <- combine_dfs(df0, df, delta_var, rsd, csd)
