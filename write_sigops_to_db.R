@@ -96,7 +96,6 @@ write_sigops_to_db <- function(
                         
                         print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
                         load_bulk_data(conn, table_name, df_)
-                        # future(load_data, conn, table_name, df_)
                     }
                 }
                 

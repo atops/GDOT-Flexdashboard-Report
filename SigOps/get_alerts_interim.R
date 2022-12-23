@@ -1,27 +1,11 @@
 
-suppressMessages({
-    library(aws.s3)
-    library(dplyr)
-    library(tidyr)
-    library(stringr)
-    library(arrow)
-    library(httr)
-    library(fst)
-    library(lubridate)
-    library(runner)
-    library(qs)
-    #library(log4r)
-    library(glue)
-    library(yaml)
-    library(DBI)
-    library(odbc)
-})
+source("../renv/activate.R")
+source("Monthly_Report_Package_init.R")
+source("write_sigops_to_db.R")
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
-
-httr::set_config(config(ssl_verifypeer = 0L))
 
 log_path <- "./logs"
 if (!dir.exists(log_path)) {
@@ -127,10 +111,11 @@ tryCatch({
 
 # Write to Angular Database for New SigOps
 tryCatch({
-    cred <- read_yaml("Monthly_Report_AWS.yaml")
-    conn <- DBI::dbConnect(RMySQL::MySQL(), host= cred$RDS_HOST, dbname = cred$RDS_DATABASE, username=cred$RDS_USERNAME, password=cred$RDS_PASSWORD)
+    conn <- keep_trying(func = get_aurora_connection, n_tries = 5)
+    #conn <- keep_trying(func = get_aurora_connection, f = RMySQL::dbConnect, driver = RMySQL::MySQL(), n_tries = 5)
     dbExecute(conn, "TRUNCATE TABLE WatchdogAlerts")
-    dbWriteTable(conn, "WatchdogAlerts", alerts, row.names = FALSE, append = TRUE, overwrite = FALSE)
+    load_bulk_data(conn, "WatchdogAlerts", alerts)
+    dbDisconnect(conn)
 
     write(
         paste0(

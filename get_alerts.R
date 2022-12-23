@@ -1,30 +1,11 @@
 
 source("renv/activate.R")
-
-suppressMessages({
-    library(aws.s3)
-    library(dplyr)
-    library(tidyr)
-    library(stringr)
-    library(arrow)
-    library(httr)
-    library(fst)
-    library(lubridate)
-    library(runner)
-    library(qs)
-    #library(log4r)
-    library(glue)
-    library(yaml)
-    library(DBI)
-    library(odbc)
-})
-
+source("Monthly_Report_Package_init.R")
+source("write_sigops_to_db.R")
 
 read_zipped_feather <- function(x) {
     read_feather(unzip(x))
 }
-
-httr::set_config(config(ssl_verifypeer = 0L))
 
 log_path <- "./logs"
 if (!dir.exists(log_path)) {
