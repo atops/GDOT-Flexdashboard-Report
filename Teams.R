@@ -66,7 +66,10 @@ get_teams_locations <- function(locs, conf) {
 
 
 tidy_teams_tasks <- function(tasks, bucket, corridors, replicate = FALSE) {
-    
+
+    corridors <- corridors %>%
+        select(SignalID, Zone_Group, Zone, Corridor, Subcorridor, Latitude, Longitude, TeamsLocationID)
+
     # Get tasks and join with corridors
     tasks <- tasks %>%
         dplyr::select(-c(Latitude, Longitude)) %>%

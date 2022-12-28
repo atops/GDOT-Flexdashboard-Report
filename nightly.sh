@@ -39,9 +39,12 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Package_15min.R
     cd ..
 
-    # Run User Delay Cost on the SAM on the 1st, 11th and 21st of the month
+    # Run User Delay Cost on the 1st, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
-        ~/miniconda3/bin/conda run -n sigops python user_delay_costs.py
+        conda activate sigops
+        echo "------------------------"
+        echo "Run user delay costs"
+        python user_delay_costs.py
     fi
 
     aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1
@@ -49,6 +52,7 @@ if [[ ${H#0} -lt 6 ]]; then
     # Shut down when script completes
     aws ec2 stop-instances --instance-ids i-0ddfe60da0c6fe4bd
 
+    echo "Nightly calcs complete at $(TZ=America/New_York date)."
 else
     echo "$(TZ=America/New_York date) - after 6am"
 fi

@@ -35,7 +35,7 @@ end_date: yesterday
 calcs_start_date: auto
 report_end_date: yesterday
 
-corridors_filename_s3: Corridors_v4_Latest.xlsx
+corridors_filename_s3: Corridors_v5_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_v3_Latest.xlsx
 cctv_config_filename: Cameras_v4_Latest.xlsx
 

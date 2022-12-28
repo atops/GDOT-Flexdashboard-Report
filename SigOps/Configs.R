@@ -19,7 +19,9 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                  Latitude = "numeric",
                  Longitude = "numeric",
                  County = "text",
-                 City = "text")
+                 City = "text",
+                 Priority = "text",
+                 Classification = "text")
 
     # Set the column types in the excel file as defined above
     x <- readxl::read_xlsx(corr_fn)
@@ -63,7 +65,9 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                   Asof = date(Asof),
                   Latitude,
                   Longitude,
-                  TeamsLocationID = stringr::str_trim(`TEAMS GUID`)) %>%
+                  TeamsLocationID = stringr::str_trim(`TEAMS GUID`),
+                  Priority,
+                  Classification) %>%
         mutate(Description = paste(SignalID, Name, sep = ": "))
 
 }
