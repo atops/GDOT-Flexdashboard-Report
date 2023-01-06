@@ -8,19 +8,45 @@ library(tictoc)
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
 
+
+# My own function to perform multiple inserts at once.
+# Hadn't found a way to do this through native functions.
+mydbAppendTable <- function(conn, name, value, chunksize = 1e4) {
+
+    df <- value %>%
+        mutate(across(where(is.Date), ~format(., "%F"))) %>%
+        mutate(across(where(is.POSIXct), ~format(., "%F %X"))) %>%
+        mutate(across(where(is.factor), as.character)) %>%
+        mutate(across(where(is.character), ~str_replace_all(., "'", "\\\\'")))
+
+    table_name <- name
+
+    vals <- unite(df, "z", names(df), sep = "','") %>% pull(z)
+    vals <- glue("('{vals}')")
+    vals_list <- split(vals, ceiling(seq_along(vals)/chunksize))
+
+    query0 <- glue("INSERT INTO {table_name} (`{paste0(colnames(df), collapse = '`, `')}`) VALUES ")
+
+    for (v in vals_list) {
+        query <- paste0(query0, paste0(v, collapse = ','))
+        dbExecute(conn, query)
+    }
+}
+
+
 # -- Previously from Monthly_Report_Functions.R
 
 get_atspm_connection <- function(conf_atspm) {
-    
+
     if (Sys.info()["sysname"] == "Windows") {
-        
+
         dbConnect(odbc::odbc(),
                   dsn = conf_atspm$odbc_dsn,
                   uid = Sys.getenv(conf_atspm$uid_env),
                   pwd = Sys.getenv(conf_atspm$pwd_env))
-        
+
     } else if (Sys.info()["sysname"] == "Linux") {
-        
+
         dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
                   dsn = conf_atspm$odbc_dsn,
@@ -31,16 +57,16 @@ get_atspm_connection <- function(conf_atspm) {
 
 
 get_maxview_connection <- function(dsn = "maxview") {
-    
+
     if (Sys.info()["sysname"] == "Windows") {
-        
+
         dbConnect(odbc::odbc(),
                   dsn = dsn,
                   uid = Sys.getenv("MAXV_USERNAME"),
                   pwd = Sys.getenv("MAXV_PASSWORD"))
-        
+
     } else if (Sys.info()["sysname"] == "Linux") {
-        
+
         dbConnect(odbc::odbc(),
                   driver = "FreeTDS",
                   dsn = dsn,
@@ -58,19 +84,23 @@ get_maxview_eventlog_connection <- function() {
 get_cel_connection <- get_maxview_eventlog_connection
 
 
-get_aurora_connection <- function(f = RMariaDB::dbConnect, driver = RMariaDB::MariaDB()) {
-    
-    # f(drv = RMariaDB::MariaDB(), # RMySQL::MySQL(), # 
+get_aurora_connection <- function(
+    f = RMariaDB::dbConnect,
+    driver = RMariaDB::MariaDB(),
+    load_data_local_infile = FALSE
+) {
+
     f(drv = driver,
       host = cred$RDS_HOST,
       port = 3306,
       dbname = cred$RDS_DATABASE,
       username = cred$RDS_USERNAME,
-      password = cred$RDS_PASSWORD)
-}    
+      password = cred$RDS_PASSWORD,
+      load_data_local_infile = load_data_local_infile)
+}
 
 get_aurora_connection_pool <- function() {
-    get_aurora_connection(pool::dbPool)
+    get_aurora_connection(f = pool::dbPool)
 }
 
 
@@ -101,41 +131,41 @@ add_partition <- function(conf_athena, table_name, date_) {
 
 
 query_data <- function(
-    metric, 
-    level = "corridor", 
-    resolution = "monthly", 
-    hourly = FALSE, 
-    zone_group, 
+    metric,
+    level = "corridor",
+    resolution = "monthly",
+    hourly = FALSE,
+    zone_group,
     corridor = NULL,
-    month = NULL, 
-    quarter = NULL, 
+    month = NULL,
+    quarter = NULL,
     upto = TRUE) {
-    
+
     # metric is one of {vpd, tti, aog, ...}
     # level is one of {corridor, subcorridor, signal}
     # resolution is one of {quarterly, monthly, weekly, daily}
-    
+
     per <- switch(
         resolution,
         "quarterly" = "qu",
         "monthly" = "mo",
         "weekly" = "wk",
         "daily" = "dy")
-    
+
     mr_ <- switch(
         level,
         "corridor" = "cor",
         "subcorridor" = "sub",
         "signal" = "sig")
-    
+
     tab <- if (hourly & !is.null(metric$hourly_table)) {
         metric$hourly_table
     } else {
         metric$table
     }
-    
+
     table <- glue("{mr_}_{per}_{tab}")
-    
+
     # Special cases--groups of corridors
     if (level == "corridor" & (grepl("RTOP", zone_group))) {
         if (zone_group == "All RTOP") {
@@ -159,17 +189,17 @@ query_data <- function(
     } else {
         where_clause <- "WHERE Zone_Group = '{zone_group}'"
     }
-    
+
     query <- glue(paste(
-        "SELECT * FROM {table}", 
+        "SELECT * FROM {table}",
         where_clause))
-    
+
     comparison <- ifelse(upto, "<=", "=")
-    
+
     if (typeof(month) == "character") {
         month <- as_date(month)
     }
-    
+
     if (hourly & !is.null(metric$hourly_table)) {
         if (resolution == "monthly") {
             query <- paste(query, glue("AND Hour <= '{month + months(1) - hours(1)}'"))
@@ -181,23 +211,23 @@ query_data <- function(
         query <- paste(query, glue("AND Month {comparison} '{month}'"))
     } else if (resolution == "quarterly") { # current_quarter is not null
         query <- paste(query, glue("AND Quarter {comparison} {quarter}"))
-        
+
     } else if (resolution == "weekly" | resolution == "daily") {
         query <- paste(query, glue("AND Date {comparison} '{month + months(1) - days(1)}'"))
-        
+
     } else {
         "oops"
     }
 
     df <- data.frame()
-    
+
     tryCatch({
         df <- dbGetQuery(sigops_connection_pool, query)
-        
+
         if (!is.null(corridor)) {
             df <- filter(df, Corridor == corridor)
         }
-        
+
         date_string <- intersect(c("Month", "Date"), names(df))
         if (length(date_string)) {
             df[[date_string]] = as_date(df[[date_string]])
@@ -243,28 +273,28 @@ query_udc_hourly <- function(zone_group, month) {
 
 
 query_health_data <- function(
-    health_metric, 
-    level, 
-    zone_group, 
+    health_metric,
+    level,
+    zone_group,
     corridor = NULL,
     month = NULL) {
-    
+
     # metric is one of {ops, maint, safety}
     # level is one of {corridor, subcorridor, signal}
     # resolution is one of {quarterly, monthly, weekly, daily}
-    
+
     per <- "mo"
-    
+
     mr_ <- switch(
         level,
         "corridor" = "sub",
         "subcorridor" = "sub",
         "signal" = "sig")
-    
+
     tab <- health_metric
-    
+
     table <- glue("{mr_}_{per}_{tab}")
-    
+
     # Special cases--groups of corridors
     if ((level == "corridor" | level == "subcorridor") & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
         if (zone_group == "All RTOP") {
@@ -284,9 +314,9 @@ query_health_data <- function(
         where_clause <- glue("WHERE Corridor = '{corridor}'")
     }
     where_clause <- glue("{where_clause} AND Month = '{month}'")
-    
+
     query <- glue(paste(
-        "SELECT * FROM {table}", 
+        "SELECT * FROM {table}",
         where_clause))
 
     tryCatch({
@@ -296,6 +326,6 @@ query_health_data <- function(
     }, error = function(e) {
         print(e)
     })
-    
+
     df
 }

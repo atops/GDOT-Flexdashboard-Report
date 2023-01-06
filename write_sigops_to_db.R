@@ -10,19 +10,7 @@ load_bulk_data <- function(conn, table_name, df_) {
     cols_ <- intersect(dbcols, dfcols)  # Columns common to both df and db tables
     df_ <- df_[cols_]  # Put columns in the right order
 
-    if (class(conn)[[1]] == "MariaDBConnection") { # Aurora
-        print(paste(class(conn)[[1]], "bulk load"))
-        filename <- tempfile(pattern = table_name, fileext = ".csv")
-        data.table::fwrite(df_, filename)
-        dbExecute(conn, glue("LOAD DATA LOCAL INFILE '{filename}' INTO TABLE {table_name} FIELDS TERMINATED BY ',' IGNORE 1 LINES"))
-        file.remove(filename)
-    } else if (class(conn)[[1]] == "MySQLConnection") {
-        print(paste(class(conn)[[1]], "MySQL dbWriteTable"))
-        RMySQL::dbWriteTable(conn, table_name, df_, append = TRUE, overwrite = FALSE, row.names = FALSE)
-    } else {
-        print(paste(class(conn)[[1]], "DBI dbWriteTable"))
-        DBI::dbWriteTable(conn, table_name, df_, append = TRUE, overwrite = FALSE, row.names = FALSE)
-    }
+    mydbAppendTable(conn, table_name, df_)
 }
 
 load_data <- function(conn_pool, table_name, df_) {
@@ -44,7 +32,7 @@ write_sigops_to_db <- function(
     table_names <- c()
     for (per in pers) {
         for (tab in names(df[[per]])) { 
-            
+
             table_name <- glue("{dfname}_{per}_{tab}")
             table_names <- append(table_names, table_name)
             df_ <- df[[per]][[tab]]
@@ -57,8 +45,8 @@ write_sigops_to_db <- function(
             }
             
             # Sort to align with index to hopefully speed up database writes
-            if (length(intersect(names(df_), c("Zone_Group", "Corridor", datefield))) == 3) {
-                df_ <- arrange(df_, Zone_Group, Corridor, !!as.name(datefield))
+            if (length(intersect(names(df_), c(datefield, "Zone_Group", "Corridor"))) == 3) {
+                df_ <- arrange(df_, !!as.name(datefield), Zone_Group, Corridor)
             }
             
             tryCatch({
@@ -84,7 +72,7 @@ write_sigops_to_db <- function(
                             dbExecute(conn, glue(paste(
                                 "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
                         } else {
-                            dbSendQuery(conn, glue("DELETE from {table_name}"))
+                            dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
                         }
                         # Filter Dates and Append
                         if (!is.null(start_date) & length(datefield) == 1) {
@@ -124,7 +112,7 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
         } else {
             if (table_name %in% dbListTables(conn)) {
                 # Clear Prior to Append
-                dbSendQuery(conn, glue("TRUNCATE TABLE {table_name}"))
+                dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
                 # Filter Dates and Append
                 if (!is.null(start_date) & length(datefield) == 1) {
                     df <- filter(df, !!as.name(datefield) >= start_date)
@@ -162,29 +150,28 @@ set_index_aurora <- function(aurora, table_name) {
         print("More than one possible period in table fields")
         return(0)
     }
-    
-    # Indexes on Zone Group and Period
-    index_exists <- dbGetQuery(aurora, glue(paste(
-        "SELECT * FROM INFORMATION_SCHEMA.STATISTICS", 
-        "WHERE table_schema=DATABASE()",
-        "AND table_name='{table_name}'", 
-        "AND index_name='idx_{table_name}_zone_period';")))
-    if (nrow(index_exists) == 0) {
-        dbSendStatement(aurora, glue(paste(
+
+    indexes <- dbGetQuery(aurora, glue("SHOW INDEXES FROM {table_name}"))
+
+# Indexes on Zone Group and Period
+    if (!glue("idx_{table_name}_zone_period") %in% indexes$Key_name) {
+        dbExecute(aurora, glue(paste(
             "CREATE INDEX idx_{table_name}_zone_period", 
-            "on {table_name} (Zone_Group, {period})")))
-    } 
+            "ON {table_name} (Zone_Group, {period})")))
+    }
     
     # Indexes on Corridor and Period
-    index_exists <- dbGetQuery(aurora, glue(paste(
-        "SELECT * FROM INFORMATION_SCHEMA.STATISTICS", 
-        "WHERE table_schema=DATABASE()",
-        "AND table_name='{table_name}'", 
-        "AND index_name='idx_{table_name}_corridor_period';")))
-    if (nrow(index_exists) == 0) {
-        dbSendStatement(aurora, glue(paste(
+    if (!glue("idx_{table_name}_corridor_period") %in% indexes$Key_name) {
+        dbExecute(aurora, glue(paste(
             "CREATE INDEX idx_{table_name}_corridor_period", 
-            "on {table_name} (Corridor, {period})")))
+            "ON {table_name} (Corridor, {period})")))
+    }
+
+    # Unique Index on Period, Zone Group and Corridor
+    if (!glue("idx_{table_name}_unique") %in% indexes$Key_name) {
+        dbExecute(aurora, glue(paste(
+            "CREATE UNIQUE INDEX idx_{table_name}_unique",
+            "ON {table_name} ({period}, Zone_Group, Corridor)")))
     }
 }
 
@@ -275,7 +262,7 @@ recreate_database <- function(conn, df, dfname) {
             dbRemoveTable(conn, x)
         })
         lapply(create_statements[["Create Table"]], function(x) {
-            dbSendStatement(conn, x)
+            dbExecute(conn, x)
         })
         # Create Indexes
         lapply(create_statements$Table, function(x) {
