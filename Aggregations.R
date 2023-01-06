@@ -4,6 +4,7 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     per_ <- as.name(per_)
     
     gdf <- left_join(df, corridors) %>%
+        filter(!is.na(Corridor)) %>%
         mutate(Corridor = factor(Corridor)) %>%
         group_by(Zone_Group, Zone, Corridor, !!per_) 
     
