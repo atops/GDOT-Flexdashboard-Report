@@ -51,7 +51,7 @@ tryCatch(
                 Week = week(Date),
                 vol = as.numeric(vol)
             )
-        
+
         bad_ped_detectors <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "bad_ped_detectors",
@@ -63,19 +63,22 @@ tryCatch(
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector))
-        
+
         # Filter out bad days
         paph <- paph %>%
             rename(Hour = Timeperiod, paph = vol) %>%
             select(SignalID, Hour, CallPhase, Detector, paph) %>%
             anti_join(bad_ped_detectors)
-        
+
         hourly_pa <- get_period_sum(paph, "paph", "Hour") %>%
             complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(paph = 0))
         cor_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, corridors, "paph", "Hour")
         sub_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, subcorridors, "paph", "Hour")
-        
-        
+
+        hourly_pa <- sigify(hourly_pa, cor_hourly_pa, corridors) %>%
+                select(Zone_Group, Corridor, Hour, paph, delta)
+
+
         addtoRDS(
             hourly_pa, "hourly_pa.rds", "paph", rds_start_date, calcs_start_date
         )
@@ -85,7 +88,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_pa, "sub_hourly_pa.rds", "paph", rds_start_date, calcs_start_date
         )
-        
+
         rm(paph)
         rm(bad_ped_detectors)
         rm(hourly_pa)
@@ -132,8 +135,11 @@ tryCatch(
         hourly_vol <- get_period_sum(vph, "vph", "Hour")
         cor_hourly_vol <- get_cor_monthly_avg_by_period(hourly_vol, corridors, "vph", "Hour")
         sub_hourly_vol <- get_cor_monthly_avg_by_period(hourly_vol, subcorridors, "vph", "Hour")
-        
-        
+
+        hourly_vol <- sigify(hourly_vol, cor_hourly_vol, corridors) %>%
+                select(Zone_Group, Corridor, Hour, vph, delta)
+
+
         addtoRDS(
             hourly_vol, "hourly_vol.rds", "vph", rds_start_date, calcs_start_date
         )
@@ -143,7 +149,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_vol, "sub_hourly_vol.rds", "vph", rds_start_date, calcs_start_date
         )
-        
+
         rm(vph)
         rm(hourly_vol)
         rm(cor_hourly_vol)
@@ -183,22 +189,24 @@ tryCatch(
                 DOW = wday(Date),
                 Week = week(Date)
             )
-        
+
         # Don't fill in gaps (leave as NA)
         # since no volume means no value for aog or pr (it's not 0)
-        aog <- aog %>% 
+        aog <- aog %>%
             rename(Hour = Date_Hour) %>%
             select(SignalID, CallPhase, Hour, aog, pr, vol)
-        
+
         hourly_aog <- get_period_avg(aog, "aog", "Hour", "vol") %>%
             # Don't fill in gaps (leave as NA)
             # since no volume means no value for aog or pr (it's not 0)
             complete(SignalID, Hour = full_seq(Hour, 3600))
         cor_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, corridors, "aog", "Hour")
         sub_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, subcorridors, "aog", "Hour")
-        
-        
-        
+
+        hourly_aog <- sigify(hourly_aog, cor_hourly_aog, corridors) %>%
+                select(Zone_Group, Corridor, Hour, aog, delta)
+
+
         addtoRDS(
             hourly_aog, "hourly_aog.rds", "aog", rds_start_date, calcs_start_date
         )
@@ -208,7 +216,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_aog, "sub_hourly_aog.rds", "aog", rds_start_date, calcs_start_date
         )
-        
+
         rm(hourly_aog)
         rm(cor_hourly_aog)
         rm(sub_hourly_aog)
@@ -232,9 +240,11 @@ tryCatch(
         hourly_pr <- get_period_avg(aog, "pr", "Hour", "vol")
         cor_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, corridors, "pr", "Hour")
         sub_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, subcorridors, "pr", "Hour")
-        
-        
-        
+
+        hourly_pr <- sigify(hourly_pr, cor_hourly_pr, corridors) %>%
+                select(Zone_Group, Corridor, Hour, pr, delta)
+
+
         addtoRDS(
             hourly_pr, "hourly_pr.rds", "pr", rds_start_date, calcs_start_date
         )
@@ -244,7 +254,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_pr, "sub_hourly_pr.rds", "pr", rds_start_date, calcs_start_date
         )
-        
+
         rm(aog)
         rm(hourly_pr)
         rm(cor_hourly_pr)
@@ -279,9 +289,9 @@ tryCatch(
                 CallPhase = factor(CallPhase),
                 Date = date(Date)
             )
-        
+
         # Fill in gaps with 0
-        sf <- sf %>% 
+        sf <- sf %>%
             rename(Hour = Date_Hour) %>%
             select(SignalID, CallPhase, Hour, sf_freq)
 
@@ -290,9 +300,11 @@ tryCatch(
             complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(sf_freq = 0))
         cor_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, corridors, "sf_freq", "Hour")
         sub_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, subcorridors, "sf_freq", "Hour")
-        
-        
-        
+
+        hourly_sf <- sigify(hourly_sf, cor_hourly_sf, corridors) %>%
+                select(Zone_Group, Corridor, Hour, sf_freq, delta)
+
+
         addtoRDS(
             hourly_sf, "hourly_sf.rds", "sf_freq", rds_start_date, calcs_start_date
         )
@@ -302,7 +314,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_sf, "sub_hourly_sf.rds", "sf_freq", rds_start_date, calcs_start_date
         )
-        
+
         rm(sf)
         rm(hourly_sf)
         rm(cor_hourly_sf)
@@ -338,18 +350,20 @@ tryCatch(
             )
 
         # Fill in gaps with 0
-        qs <- qs %>% 
+        qs <- qs %>%
             rename(Hour = Date_Hour) %>%
             select(SignalID, CallPhase, Hour, qs_freq)
-        
+
         hourly_qs <- get_period_avg(qs, "qs_freq", "Hour") %>%
             # Fill in gaps with 0
             complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(qs_freq = 0))
         cor_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, corridors, "qs_freq", "Hour")
         sub_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, subcorridors, "qs_freq", "Hour")
-        
-        
-        
+
+        hourly_qs <- sigify(hourly_qs, cor_hourly_qs, corridors) %>%
+                select(Zone_Group, Corridor, Hour, qs_freq, delta)
+
+
         addtoRDS(
             hourly_qs, "hourly_qs.rds", "qs_freq", rds_start_date, calcs_start_date
         )
@@ -359,7 +373,7 @@ tryCatch(
         addtoRDS(
             sub_hourly_qs, "sub_hourly_qs.rds", "qs_freq", rds_start_date, calcs_start_date
         )
-        
+
         rm(qs)
         rm(hourly_qs)
         rm(cor_hourly_qs)
@@ -409,60 +423,7 @@ print(glue("{Sys.time()} Crash Indices [26 of 29(3)]"))
 
 # Package up for Flexdashboard
 
-print(glue("{Sys.time()} Package for Monthly Report [27 of 29(3)]"))
-
-sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
-    if (identifier == "SignalID") {
-        df_ <- df %>%
-            left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
-            rename(Zone_Group = Corridor, Corridor = SignalID) %>%
-            ungroup() %>%
-            mutate(Corridor = factor(Corridor))
-    } else if (identifier == "CameraID") {
-        corridors <- rename(corridors, Name = Location)
-        df_ <- df %>%
-            select(
-                -matches("Subcorridor"),
-                -matches("Zone_Group")
-            ) %>%
-            left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID")) %>%
-            rename(
-                Zone_Group = Corridor,
-                Corridor = CameraID
-            ) %>%
-            ungroup() %>%
-            mutate(Corridor = factor(Corridor))
-    } else {
-        stop("bad identifier. Must be SignalID (default) or CameraID")
-    }
-    
-    cor_df_ <- cor_df %>%
-        filter(Corridor %in% unique(df_$Zone_Group)) %>%
-        mutate(Zone_Group = Corridor) %>%
-        select(-matches("Subcorridor"))
-    
-    br <- bind_rows(df_, cor_df_) %>%
-        mutate(Corridor = factor(Corridor))
-    
-    if ("Zone_Group" %in% names(br)) {
-        br <- br %>%
-            mutate(Zone_Group = factor(Zone_Group))
-    }
-    
-    if ("Month" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Month)
-    } else if ("Hour" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Hour)
-    } else if ("Timeperiod" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Timeperiod)
-    } else if ("Date" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Date)
-    }
-}
-
-
-
-# All of the hourlies and 15-min bins. Ugh.
+# All of the hourly bins.
 
 tryCatch(
     {
@@ -475,7 +436,7 @@ tryCatch(
             "sfh" = readRDS("cor_hourly_sf.rds"),
             "qsh" = readRDS("cor_hourly_qs.rds")
         )
-    }, 
+    },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
         print(e)
@@ -494,7 +455,7 @@ tryCatch(
             "sfh" = readRDS("sub_hourly_sf.rds"),
             "qsh" = readRDS("sub_hourly_qs.rds")
         )
-    }, 
+    },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
         print(e)
@@ -507,20 +468,14 @@ tryCatch(
     {
         sig2 <- list()
         sig2$hr <- list(
-            "vph" = sigify(readRDS("hourly_vol.rds"), cor2$hr$vph, corridors) %>%
-                select(Zone_Group, Corridor, Hour, vph, delta),
-            "paph" = sigify(readRDS("hourly_pa.rds"), cor2$hr$paph, corridors) %>%
-                select(Zone_Group, Corridor, Hour, paph, delta),
-            "aogh" = sigify(readRDS("hourly_aog.rds"), cor2$hr$aogh, corridors) %>%
-                select(Zone_Group, Corridor, Hour, aog, delta),
-            "prh" = sigify(readRDS("hourly_pr.rds"), cor2$hr$prh, corridors) %>%
-                select(Zone_Group, Corridor, Hour, pr, delta),
-            "sfh" = sigify(readRDS("hourly_sf.rds"), cor2$hr$sfh, corridors) %>%
-                select(Zone_Group, Corridor, Hour, sf_freq, delta),
-            "qsh" = sigify(readRDS("hourly_qs.rds"), cor2$hr$qsh, corridors) %>%
-                select(Zone_Group, Corridor, Hour, qs_freq, delta)
+            "vph" = readRDS("hourly_vol.rds"),
+            "paph" = readRDS("hourly_pa.rds"),
+            "aogh" = readRDS("hourly_aog.rds"),
+            "prh" = readRDS("hourly_pr.rds"),
+            "sfh" = readRDS("hourly_sf.rds"),
+            "qsh" = readRDS("hourly_qs.rds")
         )
-    }, 
+    },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
         print(e)
@@ -529,38 +484,6 @@ tryCatch(
 
 
 
-
-
-
-
-
-
-if (FALSE) { # Extra column we don't need. Save space in large tables.
-# Assign Descriptions for hover text
-print(glue("{Sys.time()} Assigning descriptions to tables"))
-
-descs <- corridors %>%
-    select(SignalID, Corridor, Description) %>%
-    group_by(SignalID, Corridor) %>%
-    filter(Description == first(Description)) %>%
-    ungroup()
-
-for (tab in names(cor2$hr)) {
-    sig2$hr[[tab]] <- sig2$hr[[tab]] %>%
-        left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-        mutate(
-            Description = coalesce(Description, Corridor),
-            Corridor = factor(Corridor),
-            Description = factor(Description)
-        )
-    if (tab %in% names(sub2$hr)) {
-        sub2$hr[[tab]] <- sub2$hr[[tab]] %>% mutate(Description = Corridor)
-    }
-    if (tab %in% names(cor2$hr)) {
-        cor2$hr[[tab]] <- cor2$hr[[tab]] %>% mutate(Description = Corridor)
-    }
-}
-}
 
 
 print(glue("{Sys.time()} Upload to AWS [28 of 29(3)]"))

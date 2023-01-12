@@ -10,54 +10,6 @@ source("Monthly_Report_Package_init.R")
 
 print(glue("{Sys.time()} Package for Monthly Report [27 of 29]"))
 
-sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
-    if (identifier == "SignalID") {
-        df_ <- df %>%
-            left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
-            filter(Corridor != "Undefined") %>%  # Exclude new SigOps Signals from legacy site
-            rename(Zone_Group = Corridor, Corridor = SignalID) %>%
-            ungroup() %>%
-            mutate(Corridor = factor(Corridor))
-    } else if (identifier == "CameraID") {
-        corridors <- rename(corridors, Name = Location)
-        df_ <- df %>%
-            select(
-                -matches("Subcorridor"),
-                -matches("Zone_Group")
-            ) %>%
-            left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID")) %>%
-            rename(
-                Zone_Group = Corridor,
-                Corridor = CameraID
-            ) %>%
-            ungroup() %>%
-            mutate(Corridor = factor(Corridor))
-    } else {
-        stop("bad identifier. Must be SignalID (default) or CameraID")
-    }
-
-    cor_df_ <- cor_df %>%
-        filter(Corridor %in% unique(df_$Zone_Group)) %>%
-        mutate(Zone_Group = Corridor) %>%
-        select(-matches("Subcorridor"))
-
-    br <- bind_rows(df_, cor_df_) %>%
-        mutate(Corridor = factor(Corridor))
-
-    if ("Zone_Group" %in% names(br)) {
-        br <- br %>%
-            mutate(Zone_Group = factor(Zone_Group))
-    }
-
-    if ("Month" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Month)
-    } else if ("Hour" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Hour)
-    } else if ("Date" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Date)
-    }
-}
-
 
 tryCatch(
     {
@@ -188,6 +140,15 @@ tryCatch(
             "kabco" = get_quarterly(cor$mo$kabco, "kabco")
         )
 
+        for (per in c("mo", "wk")) {
+            for (tabl in names(cor[[per]])) {
+                if ("data.frame" %in% class(cor[[per]][[tabl]])) {
+                    cor[[per]][[tabl]] <- cor[[per]][[tabl]] %>%
+                        mutate(Description = Corridor)
+                }
+            }
+        }
+
         cor$summary_data <- get_corridor_summary_data(cor)
     },
     error = function(e) {
@@ -295,6 +256,15 @@ tryCatch(
             "pau" = get_quarterly(sub$mo$pau, "uptime"),
             "cctv" = get_quarterly(sub$mo$cctv, "uptime")
         )
+
+        for (per in c("mo", "wk")) {
+            for (tabl in names(sub[[per]])) {
+                if ("data.frame" %in% class(sub[[per]][[tabl]])) {
+                    sub[[per]][[tabl]] <- sub[[per]][[tabl]] %>%
+                        mutate(Description = Corridor)
+                }
+            }
+        }
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -309,54 +279,46 @@ tryCatch(
         sig <- list()
         sig$dy <- list(
             "du" = sigify(readRDS("avg_daily_detector_uptime.rds"), cor$dy$du, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime, uptime.sb, uptime.pr),
+                select(Zone_Group, Corridor, Description, Date, uptime, uptime.sb, uptime.pr),
             "cu" = sigify(readRDS("daily_comm_uptime.rds"), cor$dy$cu, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime),
             "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime),
             "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime, up) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                )
+                select(Zone_Group, Corridor, Description, Date, uptime, up)
         )
         sig$wk <- list(
             "vpd" = sigify(readRDS("weekly_vpd.rds"), cor$wk$vpd, corridors) %>%
-                select(Zone_Group, Corridor, Date, vpd),
+                select(Zone_Group, Corridor, Description, Date, vpd),
             "vphpa" = sigify(readRDS("weekly_vph_peak.rds")$am, cor$wk$vphpa, corridors) %>%
-                select(Zone_Group, Corridor, Date, vph),
+                select(Zone_Group, Corridor, Description, Date, vph),
             "vphpp" = sigify(readRDS("weekly_vph_peak.rds")$pm, cor$wk$vphpp, corridors) %>%
-                select(Zone_Group, Corridor, Date, vph),
+                select(Zone_Group, Corridor, Description, Date, vph),
             "papd" = sigify(readRDS("weekly_papd.rds"), cor$wk$papd, corridors) %>%
-                select(Zone_Group, Corridor, Date, papd),
+                select(Zone_Group, Corridor, Description, Date, papd),
             # "paph" = sigify(readRDS("weekly_paph.rds"), cor$wk$paph, corridors),
             "pd" = sigify(readRDS("weekly_pd_by_day.rds"), cor$wk$pd, corridors) %>%
-                select(Zone_Group, Corridor, Date, pd),
+                select(Zone_Group, Corridor, Description, Date, pd),
             "tp" = sigify(readRDS("weekly_throughput.rds"), cor$wk$tp, corridors) %>%
-                select(Zone_Group, Corridor, Date, vph),
+                select(Zone_Group, Corridor, Description, Date, vph),
             "aogd" = sigify(readRDS("weekly_aog_by_day.rds"), cor$wk$aogd, corridors) %>%
-                select(Zone_Group, Corridor, Date, aog),
+                select(Zone_Group, Corridor, Description, Date, aog),
             "prd" = sigify(readRDS("weekly_pr_by_day.rds"), cor$wk$prd, corridors) %>%
-                select(Zone_Group, Corridor, Date, pr),
+                select(Zone_Group, Corridor, Description, Date, pr),
             "qsd" = sigify(readRDS("wqs.rds"), cor$wk$qsd, corridors) %>%
-                select(Zone_Group, Corridor, Date, qs_freq),
+                select(Zone_Group, Corridor, Description, Date, qs_freq),
             "sfd" = sigify(readRDS("wsf.rds"), cor$wk$sfd, corridors) %>%
-                select(Zone_Group, Corridor, Date, sf_freq),
+                select(Zone_Group, Corridor, Description, Date, sf_freq),
             "sfo" = sigify(readRDS("wsfo.rds"), cor$wk$sfo, corridors) %>%
-                select(Zone_Group, Corridor, Date, sf_freq),
+                select(Zone_Group, Corridor, Description, Date, sf_freq),
             "du" = sigify(readRDS("weekly_detector_uptime.rds"), cor$wk$du, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime),
             "cu" = sigify(readRDS("weekly_comm_uptime.rds"), cor$wk$cu, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime),
             "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
-                select(Zone_Group, Corridor, Date, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime),
             "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                )
+                select(Zone_Group, Corridor, Description, Date, uptime)        
         )
         sig$mo <- list(
             "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%
@@ -402,11 +364,7 @@ tryCatch(
             "pau" = sigify(readRDS("monthly_pa_uptime.rds"), cor$mo$pau, corridors) %>%
                 select(Zone_Group, Corridor, Month, uptime, delta),
             "cctv" = sigify(readRDS("monthly_cctv_uptime.rds"), cor$mo$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Month, uptime, delta) %>%
-                mutate(
-                    Description = ifelse(is.na(Description), as.character(Corridor), as.character(Description)),
-                    Description = factor(Description)
-                ),
+                select(Zone_Group, Corridor, Description, Month, uptime, delta),
             "ttyp" = readRDS("tasks_by_type.rds")$sig_monthly,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_monthly,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_monthly,
@@ -438,75 +396,11 @@ tryCatch(
 
 
 
-
 source("Health_Metrics.R")
 
 
 
-
-
-
-# Assign Descriptions for hover text
-print(glue("{Sys.time()} Assigning descriptions to tables"))
-
-descs <- corridors %>%
-    select(SignalID, Corridor, Description) %>%
-    group_by(SignalID, Corridor) %>%
-    filter(Description == first(Description)) %>%
-    ungroup()
-
-for (tab in c(
-    "vpd", "vphpa", "vphpp", "papd", "pd", "bpsi", "rsi", "cri", "kabco",
-    "tp", "aog", "aogd", "aogh", "prd", "prh", "qsd", "qsh", "sfd", "sfh", "sfo",
-    "du", "cu", "pau", "cctv", "maint_plot", "ops_plot", "safety_plot"
-)) {
-    if (tab %in% names(sig$mo) & tab != "cctv") {
-        sig$mo[[tab]] <- sig$mo[[tab]] %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    }
-    if (tab %in% names(sub$mo)) {
-        sub$mo[[tab]] <- sub$mo[[tab]] %>% mutate(Description = Corridor)
-    }
-    if (tab %in% names(cor$mo)) {
-        cor$mo[[tab]] <- cor$mo[[tab]] %>% mutate(Description = Corridor)
-    }
-
-    if (tab %in% names(sig$wk) & tab != "cctv") {
-        sig$wk[[tab]] <- sig$wk[[tab]] %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    }
-    if (tab %in% names(sub$wk)) {
-        sub$wk[[tab]] <- sub$wk[[tab]] %>% mutate(Description = Corridor)
-    }
-    if (tab %in% names(cor$wk)) {
-        cor$wk[[tab]] <- cor$wk[[tab]] %>% mutate(Description = Corridor)
-    }
-}
-
-for (tab in c("du", "cu", "pau")) {
-    sig$dy[[tab]] <- sig$dy[[tab]] %>%
-        left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-        mutate(
-            Description = coalesce(Description, Corridor),
-            Corridor = factor(Corridor),
-            Description = factor(Description)
-        )
-}
-
-
-
 print(glue("{Sys.time()} Upload to AWS [28 of 29]"))
-
 
 
 qsave(cor, "cor.qs")

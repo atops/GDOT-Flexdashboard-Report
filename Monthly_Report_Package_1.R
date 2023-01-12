@@ -1553,6 +1553,19 @@ tryCatch(
         addtoRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
         addtoRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
         addtoRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+
+        rm(daily_cctv_uptime_511)
+        rm(daily_cctv_uptime_encoders)
+        rm(daily_cctv_uptime)
+        rm(bad_days)
+        rm(weekly_cctv_uptime)
+        rm(monthly_cctv_uptime)
+        rm(cor_daily_cctv_uptime)
+        rm(cor_weekly_cctv_uptime)
+        rm(cor_monthly_cctv_uptime)
+        rm(sub_daily_cctv_uptime)
+        rm(sub_weekly_cctv_uptime)
+        rm(sub_monthly_cctv_uptime)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")

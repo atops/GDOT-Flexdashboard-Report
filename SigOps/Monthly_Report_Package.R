@@ -1688,6 +1688,7 @@ tryCatch(
         addtoRDS(sub_daily_cctv_uptime, "sub_daily_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
         addtoRDS(sub_weekly_cctv_uptime, "sub_weekly_cctv_uptime.rds", "uptime", report_start_date, wk_calcs_start_date)
         addtoRDS(sub_monthly_cctv_uptime, "sub_monthly_cctv_uptime.rds", "uptime", report_start_date, calcs_start_date)
+
         rm(daily_cctv_uptime_511)
         rm(daily_cctv_uptime_encoders)
         rm(daily_cctv_uptime)
@@ -1862,92 +1863,6 @@ tryCatch(
 
 print(glue("{Sys.time()} User Delay Costs [22 of 29(2)]"))
 
-if (FALSE) {
-tryCatch(
-    {
-        months <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 month")
-        udc <- lapply(months, function(yyyymmdd) {
-            obj <- glue("mark/user_delay_costs/date={yyyymmdd}/user_delay_costs_{yyyymmdd}.parquet")
-            if (nrow(aws.s3::get_bucket_df(conf$bucket, prefix = obj)) > 0) {
-                s3read_using(
-                    read_parquet,
-                    bucket = conf$bucket,
-                    object = obj
-                ) %>%
-                    filter(!is.na(date)) %>%
-                    convert_to_utc() %>%
-                    transmute(
-                        Zone = zone,
-                        Corridor = corridor,
-                        analysis_month = ymd(yyyymmdd),
-                        month_hour = as_date(date),
-                        month_hour = month_hour - days(day(month_hour)) + days(1),
-                        Month = date(floor_date(month_hour, "month")),
-                        delay_cost = combined.delay_cost
-                    )
-            }
-        }) %>% bind_rows()
-
-        hourly_udc <- udc %>%
-            group_by(Zone, Corridor, Month, month_hour) %>% # year_month
-            summarize(delay_cost = sum(delay_cost, na.rm = TRUE), .groups = "drop")
-
-
-        months <- unique(udc$analysis_month)
-        udc_trend_table_list <- lapply(months[2:length(months)], function(current_month) {
-            last_month <- current_month - months(1)
-            last_year <- current_month - years(1)
-
-            current_month_col <- as.name(format(current_month, "%B %Y"))
-            last_month_col <- as.name(format(last_month, "%B %Y"))
-            last_year_col <- as.name(format(last_year, "%B %Y"))
-
-
-            udc_trend_table_list <- udc %>%
-                filter(
-                    analysis_month <= current_month,
-                    Month %in% c(current_month, last_month, last_year)
-                ) %>%
-                group_by(
-                    Zone, Corridor, Month
-                ) %>%
-                summarize(
-                    delay_cost = sum(delay_cost, na.rm = TRUE),
-                    .groups = "drop"
-                ) %>%
-                mutate(
-                    Month = format(Month, "%B %Y")
-                ) %>%
-                spread(
-                    Month, delay_cost
-                ) %>%
-                mutate(
-                    Month = current_month,
-                    `Month-over-Month` = (!!current_month_col - !!last_month_col) / !!last_month_col,
-                    `Year-over-Year` = (!!current_month_col - !!last_year_col) / !!last_year_col
-                ) %>%
-                select(
-                    Zone, Corridor, Month,
-                    !!last_year_col, `Year-over-Year`,
-                    !!last_month_col, `Month-over-Month`,
-                    !!current_month_col
-                )
-        })
-        names(udc_trend_table_list) <- months[2:length(months)]
-
-
-        saveRDS(hourly_udc, "hourly_udc.rds")
-        saveRDS(udc_trend_table_list, "udc_trend_table_list.rds")
-
-	rm(hourly_udc)
-        rm(udc_trend_table_list)
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
-}
 
 
 # Flash Events ###############################################################
@@ -2277,71 +2192,6 @@ tryCatch(
 
 print(glue("{Sys.time()} Package for Monthly Report [27 of 29(2)]"))
 
-sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
-
-    per <- intersect(names(df), c("Date", "Month"))
-
-    descs <- corridors %>%
-        select(SignalID, Corridor, Description) %>%
-        group_by(SignalID, Corridor) %>%
-        filter(Description == first(Description)) %>%
-        ungroup()
-
-    if (identifier == "SignalID") {
-        df_ <- df %>%
-            left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
-            rename(Zone_Group = Corridor, Corridor = SignalID) %>%
-            ungroup() %>%
-            mutate(Corridor = factor(Corridor)) %>%
-            left_join(descs, by = c("Corridor" = "SignalID", "Zone_Group" = "Corridor")) %>%
-            mutate(
-                Description = coalesce(Description, Corridor),
-                Corridor = factor(Corridor),
-                Description = factor(Description)
-            )
-    } else if (identifier == "CameraID") {
-        corridors <- rename(corridors, Name = Location)
-        df_ <- df %>%
-            select(
-                -matches("Subcorridor"),
-                -matches("Zone_Group")
-            ) %>%
-            left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID")) %>%
-            rename(
-                Zone_Group = Corridor,
-                Corridor = CameraID
-            ) %>%
-            ungroup() %>%
-            select(Zone_Group, Corridor, Description, !!per, uptime, uptime) %>%
-            mutate(
-                Description = coalesce(Description, Corridor))
-    } else {
-        stop("bad identifier. Must be SignalID (default) or CameraID")
-    }
-
-    cor_df_ <- cor_df %>%
-        filter(Corridor %in% unique(df_$Zone_Group)) %>%
-        mutate(Zone_Group = Corridor) %>%
-        select(-matches("Subcorridor"))
-
-    br <- bind_rows(df_, cor_df_) %>%
-        mutate(Corridor = factor(Corridor))
-
-    if ("Zone_Group" %in% names(br)) {
-        br <- br %>%
-            mutate(Zone_Group = factor(Zone_Group))
-    }
-
-    if ("Month" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Month)
-    } else if ("Hour" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Hour)
-    } else if ("Date" %in% names(br)) {
-        br %>% arrange(Zone_Group, Corridor, Date)
-    }
-}
-
-
 tryCatch(
     {
         cor <- list()
@@ -2436,7 +2286,6 @@ tryCatch(
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("cor_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, mttr, delta = delta.mttr),
-            "udc_trend_table" = readRDS("udc_trend_table_list.rds"),
             "flash" = readRDS("cor_monthly_flash.rds"),
             "bpsi" = readRDS("cor_monthly_bpsi.rds"),
             "rsi" = readRDS("cor_monthly_rsi.rds"),
@@ -2654,7 +2503,7 @@ tryCatch(
             "pau" = sigify(readRDS("daily_pa_uptime.rds"), cor$dy$pau, corridors) %>%
                 select(Zone_Group, Corridor, Date, uptime),
             "cctv" = sigify(readRDS("daily_cctv_uptime.rds"), cor$dy$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime, uptime),
+                select(Zone_Group, Corridor, Description, Date, uptime, up),
             "ttyp" = readRDS("tasks_by_type.rds")$sig_daily,
             "tsub" = readRDS("tasks_by_subtype.rds")$sig_daily,
             "tpri" = readRDS("tasks_by_priority.rds")$sig_daily,

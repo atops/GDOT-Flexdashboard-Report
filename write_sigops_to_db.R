@@ -71,8 +71,10 @@ write_sigops_to_db <- function(
                         if (!is.null(start_date) & length(datefield) == 1) {
                             dbExecute(conn, glue(paste(
                                 "DELETE from {table_name} WHERE {datefield} >= '{start_date}'")))
-                        } else {
+                        } else if (is.null(start_date) | "Quarter" %in% names(df_)) {
                             dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
+                        } else {
+                            print(glue("More than one datefield ({paste(datefield, collapse = ', ')}) in data frame {table_name}."))
                         }
                         # Filter Dates and Append
                         if (!is.null(start_date) & length(datefield) == 1) {
@@ -153,7 +155,7 @@ set_index_aurora <- function(aurora, table_name) {
 
     indexes <- dbGetQuery(aurora, glue("SHOW INDEXES FROM {table_name}"))
 
-# Indexes on Zone Group and Period
+    # Indexes on Zone Group and Period
     if (!glue("idx_{table_name}_zone_period") %in% indexes$Key_name) {
         dbExecute(aurora, glue(paste(
             "CREATE INDEX idx_{table_name}_zone_period", 
