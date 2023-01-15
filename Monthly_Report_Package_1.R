@@ -2119,6 +2119,10 @@ tryCatch(
 
         addtoRDS(sub_monthly_crash_rate_index, "sub_monthly_crash_rate_index.rds", "cri", report_start_date, calcs_start_date)
         addtoRDS(sub_monthly_kabco_index, "sub_monthly_kabco_index.rds", "kabco", report_start_date, calcs_start_date)
+
+        rm(crashes)
+        rm(monthly_36mo_crashes)
+        rm(monthly_crashes)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")

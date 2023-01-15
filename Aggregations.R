@@ -1327,7 +1327,6 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
                 Corridor = CameraID
             ) %>%
             ungroup() %>%
-            select(Zone_Group, Corridor, Description, !!per, uptime, uptime) %>%
             mutate(
                 Description = coalesce(Description, Corridor))
     } else {

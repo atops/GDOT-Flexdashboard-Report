@@ -36,7 +36,7 @@ tryCatch(
         paph <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "counts_ped_1hr",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             parallel = FALSE
@@ -55,7 +55,7 @@ tryCatch(
         bad_ped_detectors <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "bad_ped_detectors",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             parallel = FALSE
@@ -70,8 +70,7 @@ tryCatch(
             select(SignalID, Hour, CallPhase, Detector, paph) %>%
             anti_join(bad_ped_detectors)
 
-        hourly_pa <- get_period_sum(paph, "paph", "Hour") %>%
-            complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(paph = 0))
+        hourly_pa <- get_period_sum(paph, "paph", "Hour")
         cor_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, corridors, "paph", "Hour")
         sub_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, subcorridors, "paph", "Hour")
 
@@ -122,7 +121,7 @@ tryCatch(
         vph <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "vehicles_ph",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list
         ) %>%
@@ -178,7 +177,7 @@ tryCatch(
         aog <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "arrivals_on_green",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list
         ) %>%
@@ -194,12 +193,16 @@ tryCatch(
         # since no volume means no value for aog or pr (it's not 0)
         aog <- aog %>%
             rename(Hour = Date_Hour) %>%
-            select(SignalID, CallPhase, Hour, aog, pr, vol)
+            select(SignalID, CallPhase, Hour, aog, pr, vol, Date)
 
-        hourly_aog <- get_period_avg(aog, "aog", "Hour", "vol") %>%
+        hourly_aog <- aog %>%
             # Don't fill in gaps (leave as NA)
             # since no volume means no value for aog or pr (it's not 0)
-            complete(SignalID, Hour = full_seq(Hour, 3600))
+            complete(
+                nesting(SignalID, Date),
+                Hour = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - hours(1), by = "1 hour")
+            ) %>%
+            get_period_avg("aog", "Hour", "vol")
         cor_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, corridors, "aog", "Hour")
         sub_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, subcorridors, "aog", "Hour")
 
@@ -237,7 +240,15 @@ print(glue("{Sys.time()} Hourly Progression Ratio [14 of 29(3)]"))
 
 tryCatch(
     {
-        hourly_pr <- get_period_avg(aog, "pr", "Hour", "vol")
+        hourly_pr <- aog %>%
+            # Don't fill in gaps (leave as NA)
+            # since no volume means no value for aog or pr (it's not 0)
+            complete(
+                nesting(SignalID, Date),
+                Hour = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - hours(1), by = "1 hour")
+            ) %>%
+            get_period_avg("pr", "Hour", "vol")
+
         cor_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, corridors, "pr", "Hour")
         sub_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, subcorridors, "pr", "Hour")
 
@@ -279,7 +290,7 @@ tryCatch(
         sf <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "split_failures",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             callback = function(x) filter(x, CallPhase == 0)
@@ -290,14 +301,18 @@ tryCatch(
                 Date = date(Date)
             )
 
-        # Fill in gaps with 0
         sf <- sf %>%
             rename(Hour = Date_Hour) %>%
-            select(SignalID, CallPhase, Hour, sf_freq)
+            select(SignalID, CallPhase, Hour, sf_freq, Date)
 
-        hourly_sf <- get_period_avg(sf, "sf_freq", "Hour") %>%
-            # Fill in gaps with 0
-            complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(sf_freq = 0))
+        hourly_sf <- sf %>%
+            complete(
+                nesting(SignalID, Date, CallPhase),
+                Hour = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - hours(1), by = "1 hour"),
+                fill = list(sf_freq = 0)
+            ) %>%
+            get_period_avg("sf_freq", "Hour")
+
         cor_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, corridors, "sf_freq", "Hour")
         sub_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, subcorridors, "sf_freq", "Hour")
 
@@ -349,14 +364,18 @@ tryCatch(
                 Date = date(Date)
             )
 
-        # Fill in gaps with 0
         qs <- qs %>%
             rename(Hour = Date_Hour) %>%
-            select(SignalID, CallPhase, Hour, qs_freq)
+            select(SignalID, CallPhase, Hour, qs_freq, Date)
 
-        hourly_qs <- get_period_avg(qs, "qs_freq", "Hour") %>%
-            # Fill in gaps with 0
-            complete(SignalID, Hour = full_seq(Hour, 3600), fill = list(qs_freq = 0))
+        hourly_qs <- qs %>%
+            complete(
+                nesting(SignalID, Date, CallPhase),
+                Hour = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - hours(1), by = "1 hour"),
+                fill = list(qs_freq = 0)
+            ) %>%
+            get_period_avg("qs_freq", "Hour")
+
         cor_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, corridors, "qs_freq", "Hour")
         sub_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, subcorridors, "qs_freq", "Hour")
 

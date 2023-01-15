@@ -36,7 +36,7 @@ tryCatch(
         paph <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "counts_ped_15min",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             parallel = FALSE
@@ -55,7 +55,7 @@ tryCatch(
         bad_ped_detectors <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "bad_ped_detectors",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             parallel = FALSE
@@ -69,8 +69,7 @@ tryCatch(
             select(SignalID, Timeperiod, CallPhase, Detector, vol) %>%
             anti_join(bad_ped_detectors)
 
-        pa_15min <- get_period_sum(paph, "vol", "Timeperiod") %>%
-            complete(SignalID, Timeperiod = full_seq(Timeperiod, 900), fill = list(vol = 0))
+        pa_15min <- get_period_sum(paph, "vol", "Timeperiod")
         cor_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, corridors, "vol", "Timeperiod")
         sub_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, subcorridors, "vol", "Timeperiod")
 
@@ -121,7 +120,7 @@ tryCatch(
         vph <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "vehicles_15min",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list
         ) %>%
@@ -177,7 +176,7 @@ tryCatch(
         aog <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "arrivals_on_green_15min",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list
         ) %>%
@@ -193,12 +192,17 @@ tryCatch(
         # since no volume means no value for aog or pr (it's not 0)
         aog <- aog %>%
             rename(Timeperiod = Date_Period) %>%
-            select(SignalID, CallPhase, Timeperiod, aog, pr, vol)
+            select(SignalID, CallPhase, Timeperiod, aog, pr, vol, Date)
 
-        aog_15min <- get_period_avg(aog, "aog", "Timeperiod", "vol") %>%
+        aog_15min <- aog %>%
             # Don't fill in gaps (leave as NA)
             # since no volume means no value for aog or pr (it's not 0)
-            complete(SignalID, Timeperiod = full_seq(Timeperiod, 900))
+            complete(
+                nesting(SignalID, Date),
+                Timeperiod = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - minutes(15), by = "15 min")
+            ) %>%
+            get_period_avg("aog", "Timeperiod", "vol")
+
         cor_15min_aog <- get_cor_monthly_avg_by_period(aog_15min, corridors, "aog", "Timeperiod")
         sub_15min_aog <- get_cor_monthly_avg_by_period(aog_15min, subcorridors, "aog", "Timeperiod")
 
@@ -236,7 +240,15 @@ print(glue("{Sys.time()} 15-Minute Progression Ratio [14 of 29(4)]"))
 
 tryCatch(
     {
-        pr_15min <- get_period_avg(aog, "pr", "Timeperiod", "vol")
+        pr_15min <- aog %>%
+            # Don't fill in gaps (leave as NA)
+            # since no volume means no value for aog or pr (it's not 0)
+            complete(
+                nesting(SignalID, Date),
+                Timeperiod = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - minutes(15), by = "15 min")
+            ) %>%
+            get_period_avg("pr", "Timeperiod", "vol")
+
         cor_15min_pr <- get_cor_monthly_avg_by_period(pr_15min, corridors, "pr", "Timeperiod")
         sub_15min_pr <- get_cor_monthly_avg_by_period(pr_15min, subcorridors, "pr", "Timeperiod")
 
@@ -278,7 +290,7 @@ tryCatch(
         sf <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "split_failures_15min",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list,
             callback = function(x) filter(x, CallPhase == 0)
@@ -289,14 +301,18 @@ tryCatch(
                 Date = date(Date)
             )
 
-        # Fill in gaps with 0
         sf <- sf %>%
             rename(Timeperiod = Date_Hour) %>%
-            select(SignalID, CallPhase, Timeperiod, sf_freq)
+            select(SignalID, CallPhase, Timeperiod, sf_freq, Date)
 
-        sf_15min <- get_period_avg(sf, "sf_freq", "Timeperiod") %>%
-            # Fill in gaps with 0
-            complete(SignalID, Timeperiod = full_seq(Timeperiod, 900), fill = list(sf_freq = 0))
+        sf_15min <- sf %>%
+            complete(
+                nesting(SignalID, Date, CallPhase),
+                Timeperiod = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - minutes(15), by = "15 min"),
+                fill = list(sf_freq = 0)
+            ) %>%
+            get_period_avg("sf_freq", "Timeperiod")
+
         cor_15min_sf <- get_cor_monthly_avg_by_period(sf_15min, corridors, "sf_freq", "Timeperiod")
         sub_15min_sf <- get_cor_monthly_avg_by_period(sf_15min, subcorridors, "sf_freq", "Timeperiod")
 
@@ -305,7 +321,7 @@ tryCatch(
 
 
         addtoRDS(
-            sf_15min, "sf_15min.rds", "sf_freq", rds_start_date, calcs_start_date
+            sf_15min, "sf_15min.rds", "sf_freq", rds_start_date, rds_start_date
         )
         addtoRDS(
             cor_15min_sf, "cor_15min_sf.rds", "sf_freq", rds_start_date, calcs_start_date
@@ -338,24 +354,27 @@ tryCatch(
         qs <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "queue_spillback_15min",
-            start_date = calcs_start_date,
+            start_date = rds_start_date,
             end_date = report_end_date,
             signals_list = signals_list
         ) %>%
             mutate(
                 SignalID = factor(SignalID),
                 CallPhase = factor(CallPhase),
-                Date = date(Date)
-            )
+                Date = date(Date))
 
-        # Fill in gaps with 0
         qs <- qs %>%
             rename(Timeperiod = Date_Hour) %>%
-            select(SignalID, CallPhase, Timeperiod, qs_freq)
+            select(SignalID, CallPhase, Timeperiod, qs_freq, Date)
 
-        qs_15min <- get_period_avg(qs, "qs_freq", "Timeperiod") %>%
-            # Fill in gaps with 0
-            complete(SignalID, Timeperiod = full_seq(Timeperiod, 900), fill = list(qs_freq = 0))
+        qs_15min <- qs %>%
+            complete(
+                nesting(SignalID, Date, CallPhase),
+                Timeperiod = seq(as_datetime(rds_start_date), as_datetime(report_end_date) - minutes(15), by = "15 min"),
+                fill = list(qs_freq = 0)
+            ) %>%
+            get_period_avg("qs_freq", "Timeperiod")
+
         cor_15min_qs <- get_cor_monthly_avg_by_period(qs_15min, corridors, "qs_freq", "Timeperiod")
         sub_15min_qs <- get_cor_monthly_avg_by_period(qs_15min, subcorridors, "qs_freq", "Timeperiod")
 
@@ -364,7 +383,7 @@ tryCatch(
 
 
         addtoRDS(
-            qs_15min, "qs_15min.rds", "qs_freq", rds_start_date, calcs_start_date
+            qs_15min, "qs_15min.rds", "qs_freq", rds_start_date, rds_start_date
         )
         addtoRDS(
             cor_15min_qs, "cor_15min_qs.rds", "qs_freq", rds_start_date, calcs_start_date
@@ -504,6 +523,3 @@ append_to_database(
     aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
 
 dbDisconnect(aurora)
-
-
-

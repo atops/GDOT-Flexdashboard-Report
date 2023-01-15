@@ -318,7 +318,7 @@ tryCatch(
             "pau" = sigify(readRDS("weekly_pa_uptime.rds"), cor$wk$pau, corridors) %>%
                 select(Zone_Group, Corridor, Description, Date, uptime),
             "cctv" = sigify(readRDS("weekly_cctv_uptime.rds"), cor$wk$cctv, cam_config, identifier = "CameraID") %>%
-                select(Zone_Group, Corridor, Description, Date, uptime)        
+                select(Zone_Group, Corridor, Description, Date, uptime)
         )
         sig$mo <- list(
             "vpd" = sigify(readRDS("monthly_vpd.rds"), cor$mo$vpd, corridors) %>%

@@ -248,7 +248,8 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
         periods <- intersect(c("Month", "Date", "Hour", "Timeperiod"), names(df0))
         per_ <- as.name(periods)
         
-        # Remove everything after calcs_start_date (csd) in original df
+        # Remove everything after calcs_start_date (csd)
+        # and before report_start_date (rsd) in original df
         df0 <- df0 %>% filter(!!per_ >= rsd, !!per_ < csd)
         
         # Make sure new data starts on csd
