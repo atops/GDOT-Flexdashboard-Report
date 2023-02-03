@@ -17,7 +17,7 @@ get_teams_locations <- function(locs, conf) {
         filter(Latitude != 0)
     
     corridors <- s3read_using(
-        qread, 
+        qread,
         object = sub('\\.xlsx', '.qs', conf$corridors_filename_s3),
         bucket = conf$bucket)
     

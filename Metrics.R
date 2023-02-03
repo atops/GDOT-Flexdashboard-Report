@@ -304,7 +304,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
         print('read cycles from s3')
         path <- glue("s3://{conf$bucket}")
     }
-        
+
     cd <- arrow::open_dataset(glue("{path}/cycles/date={date_}")) %>%
         select(SignalID, Phase, CycleStart, PhaseStart, PhaseEnd, EventCode) %>%
         filter(SignalID %in% signals_list,

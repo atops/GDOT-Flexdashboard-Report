@@ -63,7 +63,7 @@ doParallel::registerDoParallel(cores = usable_cores)
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
 report_end_date <- Sys.Date() - days(1)
-report_start_date <- floor_date(report_end_date - months(15), unit = "months")
+report_start_date <- floor_date(report_end_date - months(18), unit = "months")
 
 if (conf$report_end_date == "yesterday") {
     report_end_date <- Sys.Date() - days(1)
