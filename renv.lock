@@ -142,16 +142,6 @@
         "rlang"
       ]
     },
-    "RMySQL": {
-      "Package": "RMySQL",
-      "Version": "0.10.24",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "ee5fba95e7381fcaa1ce3132fd6818d7",
-      "Requirements": [
-        "DBI"
-      ]
-    },
     "Rcpp": {
       "Package": "Rcpp",
       "Version": "1.0.8.3",
@@ -384,10 +374,10 @@
     },
     "codetools": {
       "Package": "codetools",
-      "Version": "0.2-18",
+      "Version": "0.2-19",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "019388fc48e48b3da0d3a76ff94608a8",
+      "Hash": "c089a619a7fae175d149d89164f8c7d8",
       "Requirements": []
     },
     "colorspace": {
