@@ -433,6 +433,7 @@ source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
 conn <- keep_trying(func = get_aurora_connection, n_tries = 5)
+print("Database connection created.")
 # recreate_database(conn)
 
 append_to_database(
