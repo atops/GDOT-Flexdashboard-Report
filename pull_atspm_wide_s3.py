@@ -18,6 +18,7 @@ import sys
 from datetime import datetime, timedelta
 import time
 import random
+import urllib.parse
 
 s3 = boto3.client('s3')
 events_bucket = 'gdot-spm'
@@ -25,8 +26,10 @@ config_bucket = events_bucket
 
 
 def read_atspm_query(query):
-    engine = sq.create_engine('mssql+pyodbc://atspm', 
-                pool_size=20)
+    dsn = 'atspm'
+    uid = os.environ['ATSPM_USERNAME']
+    pwd = urllib.parse.quote_plus(os.environ['ATSPM_PASSWORD'])
+    engine = sq.create_engine(f'mssql+pyodbc://{uid}:{pwd}@{dsn}', pool_size=20)
     
     with engine.connect() as con:
         df = pd.read_sql_query(query, con=con)

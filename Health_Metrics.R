@@ -44,7 +44,7 @@ get_summary_data <- function(df, current_month = NULL) {
     #' @param current_month Current month in date format
     #' @return A data frame, monthly data of all metrics by Zone and Corridor
     # current_month <- months[order(months)][match(current_month, months.formatted)]
-    
+
     # Cleaner Version (mostly) for future use more broadly on the site.
     # Still have the issue of certain metrics not applying at certain levels,
     # e.g., tti in sig data frame has no meaning since it's a corridor, not a signal-level metric
@@ -55,7 +55,7 @@ get_summary_data <- function(df, current_month = NULL) {
     #     select(df$mo[["pau"]], Zone_Group, Corridor, Month, pau = uptime, pau.delta = delta),
     #     select(df$mo[["cctv"]], Zone_Group, Corridor, Month, cctv = uptime, cctv.delta = delta),
     #     select(df$mo[["ru"]], Zone_Group, Corridor, Month, ru = uptime, ru.delta = delta),
-    # 
+    #
     #     select(df$mo[["vpd"]], Zone_Group, Corridor, Month, vpd, vpd.delta = delta),
     #     select(df$mo[["papd"]], Zone_Group, Corridor, Month, papd, papd.delta = delta),
     #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
@@ -67,25 +67,25 @@ get_summary_data <- function(df, current_month = NULL) {
     #     select(df$mo[["sfo"]], Zone_Group, Corridor, Month, sfo, sfo.delta = delta),
     #     select(df$mo[["pd"]], Zone_Group, Corridor, Month, pd, pd.delta = delta),
     #     select(df$mo[["flash"]], Zone_Group, Corridor, Month, flash_events = flash, flash.delta = delta),
-    # ifelse(nrow(df$mo$tti) > 0, 
+    # ifelse(nrow(df$mo$tti) > 0,
     #        select(
     #            df$mo[["tti"]], Zone_Group, Corridor, Month, tti, tti.delta = delta),
     #        data.frame(
     #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), tti = double(), tti.delta = double())
     # )
-    # ifelse(nrow(df$mo$pti) > 0, 
+    # ifelse(nrow(df$mo$pti) > 0,
     #        select(
     #            df$mo[["pti"]], Zone_Group, Corridor, Month, pti, pti.delta = delta),
     #        data.frame(
     #            Corridor = factor(), Zone_Group = integer(), Month = as_date(POSIXct()), pti = double(), pti.delta = double())
     # )
-    #     
-    # 
+    #
+    #
     # ) %>%
     #     reduce(full_join, by = c("Zone_Group", "Corridor", "Month"))
-    
-    
-    
+
+
+
     data <- list(
         rename(df$mo$du, du = uptime, du.delta = delta),
         rename(df$mo$pau, pau = uptime, pau.delta = delta),
@@ -167,7 +167,7 @@ get_health_all <- function(df) {
     df <- df %>%
         select(
             Zone_Group, Zone, Corridor, Subcorridor, Month, Context,
-            
+
             # maintenance
             Detection_Uptime = du,
             Ped_Act_Uptime = pau,
@@ -175,14 +175,14 @@ get_health_all <- function(df) {
             CCTV_Uptime = cctv,
             #RSU_Uptime = rsu,
             Flash_Events = flash_events,
-            
+
             # safety
             Platoon_Ratio = pr,
             Ped_Delay = pd,
             Split_Failures = sf_freq,
             TTI = tti,
             pti,
-            
+
             ## safety - updated 3/17/21
             Crash_Rate_Index = cri,
             KABCO_Crash_Severity_Index = kabco,
@@ -196,7 +196,7 @@ get_health_all <- function(df) {
             pti = NULL,
             Crash_Rate_Index = ifelse(is.infinite(Crash_Rate_Index), NA, Crash_Rate_Index),
             KABCO_Crash_Severity_Index = ifelse(is.infinite(KABCO_Crash_Severity_Index), NA, KABCO_Crash_Severity_Index),
-            
+
             # maintenance
             # backward: set roll to -Inf (higher value => higher score)
             Detection_Uptime_Score = get_lookup_value(
@@ -211,7 +211,7 @@ get_health_all <- function(df) {
             #    scoring_lookup, "rsu", "score", RSU_Uptime, "backward"),
             Flash_Events_Score = get_lookup_value(
                 scoring_lookup, "flash_events", "score", Flash_Events),
-            
+
             # operations
             Platoon_Ratio_Score = get_lookup_value(
                 scoring_lookup, "pr", "score", Platoon_Ratio),
@@ -223,7 +223,7 @@ get_health_all <- function(df) {
                 scoring_lookup, "tti", "score", TTI),
             BI_Score = get_lookup_value(
                 scoring_lookup, "bi", "score", BI),
-            
+
             ## safety
             Crash_Rate_Index_Score = get_lookup_value(
                 scoring_lookup, "crash_rate", "score", Crash_Rate_Index),
@@ -233,10 +233,10 @@ get_health_all <- function(df) {
                 scoring_lookup, "high_speed", "score", High_Speed_Index),
             Ped_Injury_Exposure_Index_Score = get_lookup_value(
                 scoring_lookup, "ped_injury_exposure", "score", Ped_Injury_Exposure_Index)
-            
+
         ) %>%
         inner_join(weights_lookup, by = c("Context"))
-    
+
     # Maintenance
     df$Detection_Uptime_Weight[is.na(df$Detection_Uptime_Score)] <- NA
     df$Ped_Act_Uptime_Weight[is.na(df$Ped_Act_Uptime_Score)] <- NA
@@ -257,7 +257,7 @@ get_health_all <- function(df) {
     df$KABCO_Crash_Severity_Index_Weight[is.na(df$KABCO_Crash_Severity_Index_Score)] <- NA
     df$High_Speed_Index_Weight[is.na(df$High_Speed_Index_Score)] <- NA
     df$Ped_Injury_Exposure_Index_Weight[is.na(df$Ped_Injury_Exposure_Index_Score)] <- NA
-    
+
     df
 }
 
@@ -270,27 +270,27 @@ get_health_maintenance <- function(df) {
             Zone_Group, Zone, Corridor, Subcorridor, Month, Context, Context_Category,
             #starts_with(c("Detection", "Ped_Act", "Comm", "CCTV", "RSU", "Flash_Events")))
             starts_with(c("Detection", "Ped_Act", "Comm", "CCTV", "Flash_Events")))
-    
-    
+
+
     # filter out scores and weights and make sure they're both in the same sort order
-    scores <- health %>% 
-        select(ends_with("Score")) %>% 
+    scores <- health %>%
+        select(ends_with("Score")) %>%
         select(sort(tidyselect::peek_vars()))
-    weights <- health %>% 
-        select(ends_with("Weight")) %>% 
+    weights <- health %>%
+        select(ends_with("Weight")) %>%
         select(sort(tidyselect::peek_vars()))
 
     health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
     health$Missing_Data <- 1 - rowSums(weights, na.rm = T)/100
 
-    health <- health %>% 
+    health <- health %>%
         group_by(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
         mutate(
             Percent_Health = mean(Percent_Health, na.rm = T),
             Missing_Data = mean(Missing_Data, na.rm = T)) %>%
         ungroup() %>%
 
-                
+
         get_percent_health_subtotals() %>%
         select(
             `Zone Group` = Zone_Group,
@@ -324,14 +324,14 @@ get_health_operations <- function(df) {
         select(
             Zone_Group, Zone, Corridor, Subcorridor, Month, Context, Context_Category,
             starts_with(c("Platoon_Ratio", "Ped_Delay", "Split_Failures", "TTI", "BI")))
-    
-    
+
+
     # filter out scores and weights and make sure they're both in the same sort order
-    scores <- health %>% 
-        select(ends_with("Score")) %>% 
+    scores <- health %>%
+        select(ends_with("Score")) %>%
         select(sort(tidyselect::peek_vars()))
-    weights <- health %>% 
-        select(ends_with("Weight")) %>% 
+    weights <- health %>%
+        select(ends_with("Weight")) %>%
         select(sort(tidyselect::peek_vars()))
 
     health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
@@ -344,7 +344,7 @@ get_health_operations <- function(df) {
             Missing_Data = mean(Missing_Data, na.rm = T)) %>%
         ungroup() %>%
 
-        
+
         get_percent_health_subtotals() %>%
         select(
             `Zone Group` = Zone_Group,
@@ -376,26 +376,26 @@ get_health_safety <- function(df) {
         select(
             Zone_Group, Zone, Corridor, Subcorridor, Month, Context, Context_Category,
             starts_with(c("Crash_Rate", "KABCO", "High_Speed", "Ped_Injury")))
-    
-    
+
+
     # filter out scores and weights and make sure they're both in the same sort order
-    scores <- health %>% 
-        select(ends_with("Score")) %>% 
+    scores <- health %>%
+        select(ends_with("Score")) %>%
         select(sort(tidyselect::peek_vars()))
-    weights <- health %>% 
-        select(ends_with("Weight")) %>% 
+    weights <- health %>%
+        select(ends_with("Weight")) %>%
         select(sort(tidyselect::peek_vars()))
-    
+
     health$Percent_Health <- rowSums(scores * weights, na.rm = T)/rowSums(weights, na.rm = T)/10
     health$Missing_Data <- 1 - rowSums(weights, na.rm = T)/100
-    
+
     health <- health %>%
         group_by(Zone_Group, Zone, Corridor, Subcorridor, Month) %>%
         mutate(
             Percent_Health = mean(Percent_Health, na.rm = T),
             Missing_Data = mean(Missing_Data, na.rm = T)) %>%
         ungroup() %>%
-        
+
         get_percent_health_subtotals() %>%
         select(
             `Zone Group` = Zone_Group,
@@ -466,15 +466,15 @@ get_percent_health_subtotals <- function(df) {
 
 
 get_health_metrics_plot_df <- function(df) {
-    df %>% 
+    df %>%
         select(
-            Zone_Group = Corridor, 
-            Corridor = Subcorridor, 
-            #Description = Subcorridor, 
-            everything()) %>% 
-        select(-`Zone Group`, -Zone) %>% 
+            Zone_Group = Corridor,
+            Corridor = Subcorridor,
+            #Description = Subcorridor,
+            everything()) %>%
+        select(-`Zone Group`, -Zone) %>%
         mutate(
-            Zone_Group = factor(Zone_Group), 
+            Zone_Group = factor(Zone_Group),
             Corridor = factor(Corridor)
             #Description = "Desc"
         ) %>%
@@ -484,12 +484,12 @@ get_health_metrics_plot_df <- function(df) {
 
 
 get_cor_health_metrics_plot_df <- function(df) {
-    df %>% 
-        select(-`Zone Group`) %>% 
-        rename(Zone_Group = Zone) %>% 
+    df %>%
+        select(-`Zone Group`) %>%
+        rename(Zone_Group = Zone) %>%
         mutate(
-            Zone_Group = factor(Zone_Group), 
-            Corridor = factor(Corridor) 
+            Zone_Group = factor(Zone_Group),
+            Corridor = factor(Corridor)
             #Description = "Desc"
         ) %>%
         arrange(Zone_Group, Corridor, Month)
@@ -498,22 +498,22 @@ get_cor_health_metrics_plot_df <- function(df) {
 
 
 add_subcorridor <- function(df)  {
-    df %>% 
-        rename(SignalID = Subcorridor) %>% 
+    df %>%
+        rename(SignalID = Subcorridor) %>%
         left_join(
-            select(corridors, Zone, Corridor, Subcorridor, SignalID), 
-            by = c("Zone", "Corridor", "SignalID")) %>% 
-        relocate(Subcorridor, .after = Corridor) %>% 
+            select(corridors, Zone, Corridor, Subcorridor, SignalID),
+            by = c("Zone", "Corridor", "SignalID")) %>%
+        relocate(Subcorridor, .after = Corridor) %>%
         filter(!is.na(Subcorridor))
 }
 
 
 
 corridor_groupings <- s3read_using(
-    read_excel, 
-    bucket = conf$bucket, 
-    object = conf$corridors_filename_s3, 
-    sheet = "Contexts", 
+    read_excel,
+    bucket = conf$bucket,
+    object = conf$corridors_filename_s3,
+    sheet = "Contexts",
     range = cell_cols("A:F")
     ) %>%
     mutate(Context = as.integer(Context))
@@ -523,13 +523,13 @@ csd <- get_summary_data(sub)
 ssd <- get_summary_data(sig) %>%
     # Give each CameraID its associated SignalID and combine with other metrics on SignalID
     left_join(
-        select(cam_config, SignalID, CameraID), 
-        by = c("Corridor" = "CameraID")) %>% 
+        select(cam_config, SignalID, CameraID),
+        by = c("Corridor" = "CameraID")) %>%
     mutate(
         Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
-    select(-SignalID) %>% 
-    filter(!grepl("CAM", Corridor)) %>% 
-    group_by(Corridor, Zone_Group, Month) %>% 
+    select(-SignalID) %>%
+    filter(!grepl("CAM", Corridor)) %>%
+    group_by(Corridor, Zone_Group, Month) %>%
     summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
 
 ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
@@ -547,12 +547,12 @@ sig_health_data <- ssd %>%
         Corridor = Zone_Group
     ) %>%
     left_join(
-        select(corridors, Corridor, SignalID, Subcorridor), 
+        select(corridors, Corridor, SignalID, Subcorridor),
         by = c("Corridor", "SignalID")) %>%
     inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
     #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
     left_join(
-        select(sub_health_data, Corridor, Subcorridor, Month, tti, pti), 
+        select(sub_health_data, Corridor, Subcorridor, Month, tti, pti),
         by = c("Corridor", "Subcorridor", "Month")) %>%
     mutate(
         tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
@@ -572,9 +572,9 @@ health_all_sig <- get_health_all(sig_health_data)
 maintenance_sub <- get_health_maintenance(health_all_sub)
 maintenance_sig <- get_health_maintenance(health_all_sig)
 
-maintenance_cor <- maintenance_sub %>% 
-    select(-c(Subcorridor, Context)) %>% 
-    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+maintenance_cor <- maintenance_sub %>%
+    select(-c(Subcorridor, Context)) %>%
+    group_by(`Zone Group`, Zone, Corridor, Month) %>%
     summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
 
 # compile operations % health
@@ -582,9 +582,9 @@ operations_sub <- get_health_operations(health_all_sub)
 operations_sig <- get_health_operations(health_all_sig)
 
 # operations_cor <- get_health_operations(health_all_cor)
-operations_cor <- operations_sub %>% 
-    select(-c(Subcorridor, Context)) %>% 
-    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+operations_cor <- operations_sub %>%
+    select(-c(Subcorridor, Context)) %>%
+    group_by(`Zone Group`, Zone, Corridor, Month) %>%
     summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
 
 ## compile safety % health
@@ -592,8 +592,8 @@ safety_sub <- get_health_safety(health_all_sub)
 safety_sig <- get_health_safety(health_all_sig)
 
 safety_cor <- safety_sub %>%
-    select(-c(Subcorridor, Context)) %>% 
-    group_by(`Zone Group`, Zone, Corridor, Month) %>% 
+    select(-c(Subcorridor, Context)) %>%
+    group_by(`Zone Group`, Zone, Corridor, Month) %>%
     summarize(across(everything(), function(x) mean(x, na.rm = T)), .groups = "drop")
 
 

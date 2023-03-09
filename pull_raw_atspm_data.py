@@ -21,6 +21,7 @@ import feather
 import io
 import zipfile
 from config import get_date_from_string
+import urllib.parse
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
@@ -120,7 +121,7 @@ if __name__=='__main__':
     if os.name=='nt':
 
         uid = os.environ['ATSPM_USERNAME']
-        pwd = os.environ['ATSPM_PASSWORD']
+        pwd = urllib.parse.quote_plus(os.environ['ATSPM_PASSWORD'])
 
         mv_el_engine = sq.create_engine('mssql+pyodbc://{}:{}@MaxView_EventLog'.format(uid, pwd), pool_size=20)
         mv_engine = sq.create_engine('mssql+pyodbc://{}:{}@MaxView'.format(uid, pwd), pool_size=20)
