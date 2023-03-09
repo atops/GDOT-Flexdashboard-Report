@@ -112,7 +112,6 @@ tryCatch({
 # Write to Angular Database for New SigOps
 tryCatch({
     conn <- keep_trying(func = get_aurora_connection, n_tries = 5)
-    #conn <- keep_trying(func = get_aurora_connection, f = RMySQL::dbConnect, driver = RMySQL::MySQL(), n_tries = 5)
     dbExecute(conn, "TRUNCATE TABLE WatchdogAlerts")
     load_bulk_data(conn, "WatchdogAlerts", alerts)
     dbDisconnect(conn)

@@ -20,13 +20,13 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 
 corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = TRUE),
+    function(x) get_corridors(x, filter_signals = TRUE, mark_only = TRUE),
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )
 
 all_corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = FALSE),
+    function(x) get_corridors(x, filter_signals = FALSE, mark_only = TRUE),
     object = conf$corridors_filename_s3,
     bucket = conf$bucket
 )

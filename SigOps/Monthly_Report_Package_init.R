@@ -34,7 +34,6 @@ all_corridors <- s3read_using(
 
 signals_list <- unique(corridors$SignalID)
 
-# This is in testing as of 8/26
 subcorridors <- corridors %>% 
     filter(!is.na(Subcorridor)) %>%
     select(-Zone_Group) %>% 
@@ -58,7 +57,7 @@ doParallel::registerDoParallel(cores = usable_cores)
 
 # # ###########################################################################
 
-# # Package everything up for Monthly Report back 15 months
+# # Package everything up for Monthly Report back 18 months. 5 quarters.
 
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 

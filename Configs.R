@@ -1,5 +1,5 @@
 
-get_corridors <- function(corr_fn, filter_signals = TRUE) {
+get_corridors <- function(corr_fn, filter_signals = TRUE, mark_only = FALSE) {
 
     # Keep this up to date to reflect the Corridors_Latest.xlsx file
     cols <- list(SignalID = "numeric", #"text",
@@ -28,15 +28,7 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
     # Set any other columns (not defined above) to "text"
     col_types[sapply(col_types, is.null)] <- "text"
 
-    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types)) %>%
-
-        # Get the last modified record for the Signal|Zone|Corridor combination
-        replace_na(replace = list(Modified = ymd("1900-01-01"))) %>%
-        group_by(SignalID, Zone, Corridor) %>%
-        filter(Modified == max(Modified)) %>%
-        ungroup() %>%
-
-        filter(!is.na(Corridor))
+    df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types))
 
     # if filter_signals == FALSE, this creates all_corridors, which
     #   includes corridors without signals
@@ -47,6 +39,20 @@ get_corridors <- function(corr_fn, filter_signals = TRUE) {
                 SignalID > 0,
                 Include == TRUE)
     }
+
+    if (mark_only) {
+        df <- df %>%
+            filter(Zone_Group == Zone | Zone_Group %in% c("RTOP1", "RTOP2"))  # Hack for interim. Until Mark1 goes away.
+    }
+
+    df <- df %>%
+        # Get the last modified record for the Signal|Zone|Corridor combination
+        replace_na(replace = list(Modified = ymd("1900-01-01"))) %>%
+        group_by(SignalID, Zone, Corridor) %>%
+        filter(Modified == max(Modified)) %>%
+        ungroup() %>%
+
+        filter(!is.na(Corridor))
 
     df %>%
         tidyr::unite(Name, c(`Main Street Name`, `Side Street Name`), sep = ' @ ') %>%
