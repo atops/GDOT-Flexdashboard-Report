@@ -309,7 +309,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
             )
 
         rm(counts_ped_15min)
-
+        return(TRUE)
     }
 }
 

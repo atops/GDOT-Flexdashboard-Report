@@ -92,3 +92,23 @@ signals_list <- unique(corridors$SignalID)
 get_latest_det_config(conf) %>%
     s3write_using(qsave, bucket = conf$bucket, object = "ATSPM_Det_Config_Good_Latest.qs")
 
+
+# Add partitions that don't already exists to Athena ATSPM table
+athena <- get_athena_connection()
+partitions <- dbGetQuery(athena, glue("SHOW PARTITIONS {conf$athena$atspm_table}"))$partition
+partitions <- sapply(stringr::str_split(partitions, "="), last)
+date_range <- seq(as_date(start_date), as_date(end_date), by = "1 day") %>% as.character()
+missing_partitions <- setdiff(date_range, partitions)
+
+if (length(missing_partitions) > 10) {
+    print(glue("Adding missing partition: date={missing_partitions}"))
+    dbExecute(athena, glue("MSCK REPAIR TABLE {conf$athena$atspm_table}"))
+} else if (length(missing_partitions) > 0) {
+    print(glue("Adding missing partition: date={missing_partitions}"))
+    for (date_ in missing_partitions) {
+        add_partition(conf$athena, conf$athena$atspm_table, date_)
+    }
+} else {
+    print("No missing athena partitions.")
+}
+dbDisconnect(athena)

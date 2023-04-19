@@ -432,7 +432,7 @@ print(glue("{Sys.time()} Write to Database [29 of 29]"))
 source("write_sigops_to_db.R")
 
 # Update Aurora Nightly
-conn <- keep_trying(func = get_aurora_connection, n_tries = 5)
+conn <- keep_trying(func = get_aurora_connection, n_tries = 5, sleep = 5)
 print("Database connection created.")
 # recreate_database(conn)
 
