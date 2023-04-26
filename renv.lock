@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.2.2",
+    "Version": "4.3.0",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -43,10 +43,10 @@
     },
     "MASS": {
       "Package": "MASS",
-      "Version": "7.3-57",
+      "Version": "7.3-59",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "71476c1d88d1ebdf31580e5a257d5d31",
+      "Hash": "26570ae748e78cb2b0f56019dd2ba354",
       "Requirements": []
     },
     "Matrix": {
@@ -160,10 +160,10 @@
     },
     "arrow": {
       "Package": "arrow",
-      "Version": "10.0.0",
+      "Version": "11.0.0.3",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "05f9b803e1f6a5d47ff0a885ed04ebd2",
+      "Hash": "e861b81e0b87a2f133a688c985953508",
       "Requirements": [
         "R6",
         "assertthat",
@@ -334,10 +334,10 @@
     },
     "class": {
       "Package": "class",
-      "Version": "7.3-20",
+      "Version": "7.3-21",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "da09d82223e669d270e47ed24ac8686e",
+      "Hash": "8ae0d4328e2eb3a582dfd5391a3663b7",
       "Requirements": [
         "MASS"
       ]
@@ -577,10 +577,10 @@
     },
     "fitdistrplus": {
       "Package": "fitdistrplus",
-      "Version": "1.1-8",
+      "Version": "1.1-11",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "9de7bf56c16871adf44dc88a24c7836c",
+      "Hash": "f40ef9686e85681a1ccbf33d9236aeb9",
       "Requirements": [
         "MASS",
         "survival"
@@ -1808,10 +1808,10 @@
     },
     "survival": {
       "Package": "survival",
-      "Version": "3.3-1",
+      "Version": "3.5-5",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "f6189c70451d3d68e0d571235576e833",
+      "Hash": "d683341b1fa2e8d817efde27d6e6d35b",
       "Requirements": [
         "Matrix"
       ]
@@ -1860,14 +1860,6 @@
         "rlang",
         "vctrs"
       ]
-    },
-    "tictoc": {
-      "Package": "tictoc",
-      "Version": "1.0.1",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "5acb66b0266ad1f0ebf7ffe1aa36ff4c",
-      "Requirements": []
     },
     "tidyr": {
       "Package": "tidyr",
