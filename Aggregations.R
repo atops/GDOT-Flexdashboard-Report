@@ -3,7 +3,7 @@ weighted_mean_by_corridor_ <- function(df, per_, corridors, var_, wt_ = NULL) {
     
     per_ <- as.name(per_)
     
-    gdf <- left_join(df, corridors) %>%
+    gdf <- left_join(df, corridors, relationship = "many-to-many") %>%
         filter(!is.na(Corridor)) %>%
         mutate(Corridor = factor(Corridor)) %>%
         group_by(Zone_Group, Zone, Corridor, !!per_) 
@@ -1029,7 +1029,8 @@ get_cor_monthly_ti <- function(ti, cor_monthly_vph, corridors) {
     
     left_join(ti, 
               distinct(corridors, Zone_Group, Zone, Corridor), 
-              by = c("Zone_Group", "Zone", "Corridor")) %>%
+              by = c("Zone_Group", "Zone", "Corridor"),
+              relationship = "many-to-many") %>%
         mutate(hr = hour(Hour)) %>%
         left_join(day_dist) %>%
         ungroup() %>%
@@ -1055,7 +1056,8 @@ get_cor_weekly_ti <- function(ti, cor_weekly_vph, corridors) {
     
     left_join(ti, 
               distinct(corridors, Zone_Group, Zone, Corridor), 
-              by = c("Zone_Group", "Zone", "Corridor")) %>%
+              by = c("Zone_Group", "Zone", "Corridor"),
+              relationship = "many-to-many") %>%
         mutate(hr = hour(Hour)) %>%
         left_join(day_dist) %>%
         ungroup() %>%
@@ -1304,7 +1306,7 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
 
     if (identifier == "SignalID") {
         df_ <- df %>%
-            left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID")) %>%
+            left_join(distinct(corridors, SignalID, Corridor, Name), by = c("SignalID"), relationship = "many-to-many") %>%
             rename(Zone_Group = Corridor, Corridor = SignalID) %>%
             ungroup() %>%
             mutate(Corridor = factor(Corridor)) %>%
@@ -1321,7 +1323,7 @@ sigify <- function(df, cor_df, corridors, identifier = "SignalID") {
                 -matches("Subcorridor"),
                 -matches("Zone_Group")
             ) %>%
-            left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID")) %>%
+            left_join(distinct(corridors, CameraID, Corridor, Name), by = c("Corridor", "CameraID"), relationship = "many-to-many") %>%
             rename(
                 Zone_Group = Corridor,
                 Corridor = CameraID

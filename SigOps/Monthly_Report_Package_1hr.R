@@ -102,7 +102,7 @@ tryCatch(
 
 # GET PEDESTRIAN DELAY ########################################################
 
-print(glue("{Sys.time()} Pedestrian Delay [6 of 29(3)]"))
+print(glue("{Sys.time()} Pedestrian Delay [5 of 29(3)]"))
 
 # GET COMMUNICATIONS UPTIME ###################################################
 

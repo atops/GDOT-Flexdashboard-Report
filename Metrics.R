@@ -133,10 +133,10 @@ get_detection_events <- function(start_date, end_date, conf_athena, signals_list
 get_atspm_events_db <- function(start_date, end_date, conf_atspm, signals_list = NULL) {
     get_spm_data_atspm(
         start_date,
-	end_date,
-	conf_atspm,
-	table = "Controller_Event_Log",
-	signals_list)
+        end_date,
+        conf_atspm,
+        table = "Controller_Event_Log",
+        signals_list)
 }
 
 get_atspm_events_s3 <- function(start_date, end_date, conf_athena, signals_list = NULL) {
@@ -356,7 +356,7 @@ get_sf_utah <- function(date_, conf, signals_list = NULL, first_seconds_of_red =
     rm(grn_interval)
     rm(sor_interval)
 
-    sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart")) %>%
+    sf <- full_join(grn_occ, sor_occ, by = c("SignalID", "Phase", "CycleStart"), relationship = "many-to-many") %>%
         replace_na(list(sr_occ = 0, gr_occ = 0)) %>%
         mutate(sf = if_else((gr_occ > 0.80) & (sr_occ > 0.80), 1, 0))
 
@@ -612,7 +612,7 @@ get_pau_high_ <- function(paph, pau_start_date) {
         filter(toohigh_nn)
 
     too_high <- list(too_high_distn, too_high_am, too_high_nn) %>%
-        reduce(full_join, by = c("SignalID", "Detector", "CallPhase", "Date")) %>%
+        reduce(full_join, by = c("SignalID", "Detector", "CallPhase", "Date"), relationship = "many-to-many") %>%
         transmute(
             SignalID, Detector, CallPhase, Date,
             toohigh = as.logical(max(c_across(starts_with("toohigh")), na.rm = TRUE)))
@@ -787,9 +787,8 @@ get_ped_delay <- function(date_, conf, signals_list) {
     athena <- get_athena_connection()
     signals_list <- as.integer(signals_list)
     pe <- tbl(athena, conf$athena$atspm_table) %>%
-        filter(date == date_) %>%
-	select(SignalID=signalid, Timestamp=timestamp, EventCode=eventcode, Phase=eventparam) %>%
-        filter(SignalID %in% signals_list, EventCode %in% c(45, 21, 22, 132)) %>%
+        select(SignalID = signalid, Timestamp = timestamp, EventCode = eventcode, Phase = eventparam) %>%
+        filter(date == date_, SignalID %in% signals_list, EventCode %in% c(45, 21, 22, 132)) %>%
         arrange(SignalID, Timestamp) %>%
         collect() %>%
         mutate(CycleLength = ifelse(EventCode == 132, Phase, NA))
@@ -797,8 +796,9 @@ get_ped_delay <- function(date_, conf, signals_list) {
     cat('.')
     coord.type <- group_by(pe, SignalID) %>%
         tidyr::fill(CycleLength) %>%
+        replace_na(list(CycleLength = 0)) %>%
         summarise(CL = max(CycleLength, na.rm = T), .groups = "drop") %>%
-        mutate(Pattern = ifelse((CL == 0 | !is.finite(CL)), "Free", "Coordinated"))
+        mutate(Pattern = ifelse(CL == 0, "Free", "Coordinated"))
 
     cat('.')
     pe <- inner_join(pe, coord.type, by = "SignalID") %>%

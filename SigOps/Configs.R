@@ -94,7 +94,7 @@ get_cam_config <- function(object, bucket, corridors) {
         select(SignalID, Zone_Group, Zone, Corridor, Subcorridor)
 
 
-    left_join(corrs, cam_config0) %>%
+    left_join(corrs, cam_config0, relationship = "many-to-many") %>%
         filter(!is.na(CameraID)) %>%
 	mutate(Description = paste(CameraID, Location, sep = ": ")) %>%
         arrange(Zone_Group, Zone, Corridor, CameraID)
@@ -123,6 +123,10 @@ get_ped_config_ <- function(bucket) {
             s3read_using(function(x) read_csv(x, col_types = col_spec) %>% suppressMessages(),
                          object = s3key,
                          bucket = s3bucket) %>%
+
+                # New. A bit of a hack to account for multiple detectors configured
+                group_by(SignalID, Detector) %>% filter(row_number() == 1) %>% ungroup() %>%
+
                 transmute(SignalID = factor(SignalID),
                           Detector = factor(Detector),
                           CallPhase = factor(CallPhase)) %>%
@@ -160,6 +164,10 @@ get_det_config_  <- function(bucket, folder) {
         # If the s3 object exists, read it and return the data frame
         if (length(s3objects) == 1) {
             read_det_config(s3objects[1]$Contents$Key, s3bucket) %>%
+
+                # New. A bit of a hack to account for multiple detectors configured
+                group_by(SignalID, Detector) %>% filter(row_number() == 1) %>% ungroup() %>%
+
                 mutate(SignalID = as.character(SignalID),
                        Detector = as.integer(Detector),
                        CallPhase = as.integer(CallPhase))
@@ -170,6 +178,10 @@ get_det_config_  <- function(bucket, folder) {
             lapply(s3objects, function(x) {
                 read_det_config(x$Key, s3bucket)})  %>%
                 rbindlist() %>% as_tibble() %>%
+
+                # New. A bit of a hack to account for multiple detectors configured
+                group_by(SignalID, Detector) %>% filter(row_number() == 1) %>% ungroup() %>%
+
                 mutate(SignalID = as.character(SignalID),
                        Detector = as.integer(Detector),
                        CallPhase = as.integer(CallPhase))

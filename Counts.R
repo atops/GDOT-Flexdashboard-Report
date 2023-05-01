@@ -28,12 +28,12 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
             count() %>%
             ungroup() %>%
             collect() %>%
-            transmute(Timeperiod = ymd_hms(timeperiod),
+            transmute(Timeperiod = as_datetime(timeperiod),
                       SignalID = factor(signalid),
                       Detector = factor(eventparam),
                       vol = as.integer(n)) %>%
             left_join(det_config, by = c("SignalID", "Detector")) %>%
-            
+
             dplyr::select(SignalID, Timeperiod, Detector, CallPhase, vol) %>%
             mutate(SignalID = factor(SignalID),
                    Detector = factor(Detector))
@@ -366,7 +366,8 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
     expanded_counts <- full_join(
         det_config,
         counts,
-        by = c("SignalID", "Timeperiod", "Detector", "CallPhase")
+        by = c("SignalID", "Timeperiod", "Detector", "CallPhase"),
+        relationship = "many-to-many"
     ) %>%
         transmute(SignalID = factor(SignalID),
                   Date = date(Timeperiod),

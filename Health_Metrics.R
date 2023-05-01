@@ -123,7 +123,7 @@ get_summary_data <- function(df, current_month = NULL) {
             rename(df$mo$vpd[0,], bpsi = vpd, bpsi.delta = delta)
         }
     ) %>%
-        reduce(full_join, by = c("Zone_Group", "Corridor", "Month")) %>%
+        reduce(full_join, by = c("Zone_Group", "Corridor", "Month"), relationship = "many-to-many") %>%
         filter(
             as.character(Zone_Group) != as.character(Corridor)
         ) %>%
@@ -235,7 +235,7 @@ get_health_all <- function(df) {
                 scoring_lookup, "ped_injury_exposure", "score", Ped_Injury_Exposure_Index)
 
         ) %>%
-        inner_join(weights_lookup, by = c("Context"))
+        inner_join(weights_lookup, by = c("Context"), relationship = "many-to-many")
 
     # Maintenance
     df$Detection_Uptime_Weight[is.na(df$Detection_Uptime_Score)] <- NA
@@ -502,7 +502,8 @@ add_subcorridor <- function(df)  {
         rename(SignalID = Subcorridor) %>%
         left_join(
             select(corridors, Zone, Corridor, Subcorridor, SignalID),
-            by = c("Zone", "Corridor", "SignalID")) %>%
+            by = c("Zone", "Corridor", "SignalID"),
+            relationship = "many-to-many") %>%
         relocate(Subcorridor, .after = Corridor) %>%
         filter(!is.na(Subcorridor))
 }
@@ -524,21 +525,21 @@ ssd <- get_summary_data(sig) %>%
     # Give each CameraID its associated SignalID and combine with other metrics on SignalID
     left_join(
         select(cam_config, SignalID, CameraID),
-        by = c("Corridor" = "CameraID")) %>%
-    mutate(
-        Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
+        by = c("Corridor" = "CameraID"),
+        relationship = "many-to-many") %>%
+    mutate(Corridor = as.factor(coalesce(as.character(SignalID), as.character(Corridor)))) %>%
     select(-SignalID) %>%
     filter(!grepl("CAM", Corridor)) %>%
     group_by(Corridor, Zone_Group, Month) %>%
-    summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
-
-ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
-
+    fill(everything(), .direction = "updown") %>%
+    slice_head(n = 1) %>%
+    ungroup()%>%
+    mutate(across(is.numeric, ~replace(.x, is.infinite(.x), NA)))
 
 
 # input data frame for subcorridor health metrics
 sub_health_data <- csd %>%
-    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor", relationship = "many-to-many"))
 
 # input data frame for signal health metrics
 sig_health_data <- ssd %>%
@@ -548,12 +549,12 @@ sig_health_data <- ssd %>%
     ) %>%
     left_join(
         select(corridors, Corridor, SignalID, Subcorridor),
-        by = c("Corridor", "SignalID")) %>%
+        by = c("Corridor", "SignalID"), relationship = "many-to-many") %>%
     inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
     #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
     left_join(
         select(sub_health_data, Corridor, Subcorridor, Month, tti, pti),
-        by = c("Corridor", "Subcorridor", "Month")) %>%
+        by = c("Corridor", "Subcorridor", "Month"), relationship = "many-to-many") %>%
     mutate(
         tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
         pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
