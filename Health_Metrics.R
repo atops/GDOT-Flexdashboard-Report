@@ -235,7 +235,7 @@ get_health_all <- function(df) {
                 scoring_lookup, "ped_injury_exposure", "score", Ped_Injury_Exposure_Index)
 
         ) %>%
-        inner_join(weights_lookup, by = c("Context"), relationship = "many-to-many")
+        inner_join(weights_lookup, by = c("Context"))
 
     # Maintenance
     df$Detection_Uptime_Weight[is.na(df$Detection_Uptime_Score)] <- NA
@@ -539,7 +539,7 @@ ssd <- get_summary_data(sig) %>%
 
 # input data frame for subcorridor health metrics
 sub_health_data <- csd %>%
-    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor", relationship = "many-to-many"))
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
 
 # input data frame for signal health metrics
 sig_health_data <- ssd %>%
