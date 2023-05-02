@@ -787,8 +787,8 @@ get_ped_delay <- function(date_, conf, signals_list) {
     athena <- get_athena_connection()
     signals_list <- as.integer(signals_list)
     pe <- tbl(athena, conf$athena$atspm_table) %>%
+        filter(date == date_, signalid %in% signals_list, eventcode %in% c(45, 21, 22, 132)) %>%
         select(SignalID = signalid, Timestamp = timestamp, EventCode = eventcode, Phase = eventparam) %>%
-        filter(date == date_, SignalID %in% signals_list, EventCode %in% c(45, 21, 22, 132)) %>%
         arrange(SignalID, Timestamp) %>%
         collect() %>%
         mutate(CycleLength = ifelse(EventCode == 132, Phase, NA))
