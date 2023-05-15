@@ -534,12 +534,12 @@ ssd <- get_summary_data(sig) %>%
     fill(everything(), .direction = "updown") %>%
     slice_head(n = 1) %>%
     ungroup()%>%
-    mutate(across(is.numeric, ~replace(.x, is.infinite(.x), NA)))
+    mutate(across(where(is.numeric), ~replace(.x, is.infinite(.x), NA)))
 
 
 # input data frame for subcorridor health metrics
 sub_health_data <- csd %>%
-    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"))
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"), relationship = "many-to-many")
 
 # input data frame for signal health metrics
 sig_health_data <- ssd %>%
@@ -550,7 +550,7 @@ sig_health_data <- ssd %>%
     left_join(
         select(corridors, Corridor, SignalID, Subcorridor),
         by = c("Corridor", "SignalID"), relationship = "many-to-many") %>%
-    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
+    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"), relationship = "many-to-many") %>%
     #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
     left_join(
         select(sub_health_data, Corridor, Subcorridor, Month, tti, pti),

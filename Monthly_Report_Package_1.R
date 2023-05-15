@@ -317,11 +317,13 @@ tryCatch(
         bad_det <- bad_det %>%
             left_join(
                 det_config,
-                by = c("SignalID", "Detector", "Date")
+                by = c("SignalID", "Detector", "Date"),
+                relationship = "many-to-many"
             ) %>%
             left_join(
                 dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                by = c("SignalID")
+                by = c("SignalID"),
+                relationship = "many-to-many"
             ) %>%
             filter(!is.na(Corridor)) %>%
             transmute(
@@ -376,7 +378,8 @@ tryCatch(
             ) %>%
             left_join(
                 dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                by = c("SignalID")
+                by = c("SignalID"),
+                relationship = "many-to-many"
             ) %>%
             transmute(Zone_Group,
                 Zone,
@@ -415,7 +418,7 @@ tryCatch(
             }
         ) %>%
             bind_rows() %>%
-            left_join(cam_config, by = c("CameraID")) %>%
+            left_join(cam_config, by = c("CameraID"), relationship = "many-to-many") %>%
             filter(Date > As_of_Date) %>%
             transmute(
                 Zone_Group,

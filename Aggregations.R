@@ -673,8 +673,9 @@ get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corrido
                                    get_cor_weekly_avg_by_day(corridors, "uptime", "ones")) 
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
-              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
-        left_join(dplyr::select(cor_daily_all_uptime, -c(ones, delta))) %>%
+              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta)),
+              relationship = "many-to-many") %>%
+        left_join(dplyr::select(cor_daily_all_uptime, -c(ones, delta)), relationship = "many-to-many") %>%
         mutate(Zone_Group = factor(Zone_Group))
 }
 
@@ -880,8 +881,9 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
                                    get_cor_monthly_avg_by_day(corridors, "uptime", "all"))
     
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
-              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
-        left_join(dplyr::select(cor_daily_all_uptime, -c(all))) %>%
+              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta)),
+              relationship = "many-to-many") %>%
+        left_join(dplyr::select(cor_daily_all_uptime, -c(all)), relationship = "many-to-many") %>%
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }

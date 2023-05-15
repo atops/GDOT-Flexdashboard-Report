@@ -231,7 +231,8 @@ get_occupancy <- function(de_dt, int_dt) {
 
     occ_df <- full_join(
             int_df, occ_df,
-            by = c("SignalID", "Phase", "CycleStart", "IntervalStart", "IntervalEnd")
+            by = c("SignalID", "Phase", "CycleStart", "IntervalStart", "IntervalEnd"),
+            relationship = "many-to-many"
         ) %>%
         tidyr::replace_na(
             list(Detector = 0, occ_duration = 0, int_duration = 1)) %>%
@@ -506,7 +507,7 @@ get_daily_cctv_uptime <- function(db, table, cam_config, start_date) {
         mutate(up = 1, num = 1) %>%
         distinct() %>%
 
-        right_join(cam_config, by="CameraID") %>%
+        right_join(cam_config, by="CameraID", relationship = "many-to-many") %>%
         replace_na(list(Date = start_date, up = 0, num = 1)) %>%
 
         # Expanded out to include all available cameras on all days
@@ -694,7 +695,7 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
 
     # print("too low filter...")
     papd <- papd %>%
-        full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date"))
+        full_join(ped_config, by = c("SignalID", "Detector", "CallPhase", "Date"), relationship = "many-to-many")
     rm(ped_config)
     gc()
 

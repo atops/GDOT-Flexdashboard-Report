@@ -314,11 +314,13 @@ tryCatch(
         bad_det <- bad_det %>%
             left_join(
                 det_config,
-                by = c("SignalID", "Detector", "Date")
+                by = c("SignalID", "Detector", "Date"),
+                relationship = "many-to-many"
             ) %>%
             left_join(
                 dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                by = c("SignalID")
+                by = c("SignalID"),
+                relationship = "many-to-many"
             ) %>%
             filter(!is.na(Corridor)) %>%
             transmute(
@@ -373,7 +375,8 @@ tryCatch(
             ) %>%
             left_join(
                 dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                by = c("SignalID")
+                by = c("SignalID"),
+                relationship = "many-to-many"
             ) %>%
             transmute(Zone_Group,
                 Zone,
@@ -412,7 +415,7 @@ tryCatch(
             }
         ) %>%
             bind_rows() %>%
-            left_join(cam_config, by = c("CameraID")) %>%
+            left_join(cam_config, by = c("CameraID"), relationship = "many-to-many") %>%
             filter(Date > As_of_Date) %>%
             transmute(
                 Zone_Group,
@@ -794,12 +797,12 @@ tryCatch(
     	cor_daily_vph <- get_cor_weekly_vph(hourly_vol, corridors)
     	sub_daily_vph <- get_cor_weekly_vph(hourly_vol, subcorridors) %>%
     	    filter(!is.na(Corridor))
-    	
+
     	daily_vph_peak <- get_weekly_vph_peak(hourly_vol)
     	cor_daily_vph_peak <- get_cor_weekly_vph_peak(cor_daily_vph)
     	sub_daily_vph_peak <- get_cor_weekly_vph_peak(sub_daily_vph) %>%
     	    map(~ filter(., !is.na(Corridor)))
-    	
+
         weekly_vph <- get_weekly_vph(vph)
         cor_weekly_vph <- get_cor_weekly_vph(weekly_vph, corridors)
         sub_weekly_vph <- get_cor_weekly_vph(weekly_vph, subcorridors) %>%
@@ -1435,12 +1438,12 @@ tryCatch(
 
         cor_monthly_vph <- readRDS("cor_monthly_vph.rds") %>%
             rename(Zone = Zone_Group) %>%
-            left_join(distinct(corridors, Zone_Group, Zone), by = ("Zone"))
+            left_join(distinct(corridors, Zone_Group, Zone), by = ("Zone"), relationship = "many-to-many")
 
 
         cor_weekly_vph <- readRDS("cor_weekly_vph.rds") %>%
             rename(Zone = Zone_Group) %>%
-            left_join(distinct(corridors, Zone_Group, Zone), by = ("Zone"))
+            left_join(distinct(corridors, Zone_Group, Zone), by = ("Zone"), relationship = "many-to-many")
 
 
         cor_monthly_tti_by_hr <- get_cor_monthly_ti_by_hr(tti, cor_monthly_vph, all_corridors)
@@ -1481,7 +1484,7 @@ tryCatch(
                 Zone = Corridor,
                 Corridor = Subcorridor
             ) %>%
-            left_join(distinct(subcorridors, Zone_Group, Zone))
+            left_join(distinct(subcorridors, Zone_Group, Zone), relationship = "many-to-many")
 
         tti <- tt %>%
             dplyr::select(-c(pti, bi, speed_mph))
@@ -1579,6 +1582,7 @@ tryCatch(
                 "Zone_Group", "Zone", "Corridor", "Subcorridor",
                 "CameraID", "Description", "Date"
             ),
+            relationship = "many-to-many",
             suffix = c("_511", "_enc")
         ) %>%
             complete(
@@ -1970,7 +1974,8 @@ tryCatch(
         cor_monthly_bpsi <- left_join(
             cor_monthly_bpsi,
             distinct(corridors, Zone_Group, Corridor),
-            by = "Corridor"
+            by = "Corridor",
+            relationship = "many-to-many"
         ) %>%
             relocate(Zone_Group, .before = "Corridor") %>%
             group_by(Zone_Group, Corridor) %>%
@@ -2048,7 +2053,8 @@ tryCatch(
         cor_monthly_rsi <- left_join(
             cor_monthly_rsi,
             distinct(corridors, Zone_Group, Corridor),
-            by = "Corridor"
+            by = "Corridor",
+            relationship = "many-to-many"
         ) %>%
             relocate(Zone_Group, .before = "Corridor") %>%
             group_by(Zone_Group, Corridor) %>%
@@ -2135,7 +2141,8 @@ tryCatch(
         monthly_crashes <- full_join(
             monthly_36mo_crashes,
             monthly_vpd,
-            by = c("SignalID", "Month")
+            by = c("SignalID", "Month"),
+            relationship = "many-to-many"
             ) %>%
             mutate(
                 cri = crashes_total * 1000 / (vpd * 3),
