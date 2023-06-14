@@ -271,7 +271,9 @@ get_outstanding_tasks_by_month <- function(df, task_param_) {
                  fill = list(Reported = 0, Resolved = 0)) %>%
         arrange(Corridor, Zone_Group, Month) %>%
         group_by(Zone_Group, Corridor, !!task_param_) %>%
-        mutate(cum_Reported = runner::fill_run(cum_Reported,
+        mutate(
+            cum_Reported = ifelse(row_number()==1 & is.na(cum_Reported), 0, cum_Reported),
+            cum_Reported = runner::fill_run(cum_Reported,
                                                run_for_first = TRUE,
                                                only_within = FALSE)) %>%
 
