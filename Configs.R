@@ -30,6 +30,9 @@ get_corridors <- function(corr_fn, filter_signals = TRUE, mark_only = FALSE) {
 
     df <- readxl::read_xlsx(corr_fn, col_types = unlist(col_types))
 
+    # Gracefully handle trailing spaces in Corridors field
+    df <- df %>% mutate(across(where(is.character), stringr::str_trim))
+
     # if filter_signals == FALSE, this creates all_corridors, which
     #   includes corridors without signals
     #   which is used for manual ped/det uptimes and camera uptimes
