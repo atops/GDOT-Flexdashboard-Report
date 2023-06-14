@@ -77,6 +77,66 @@ get_corridors <- function(corr_fn, filter_signals = TRUE, mark_only = FALSE) {
 
 
 
+check_corridors <- function(corridors) {
+    distinct_corridors <- corridors %>% distinct(Zone, Zone_Group, Corridor)
+
+    # Check 1: Same Corridor in multiple Zones
+    corridors_in_multiple_zones <- distinct_corridors %>%
+        group_by(Corridor) %>%
+        count() %>%
+        filter(n>1) %>%
+        pull(Corridor)
+
+    check1 <- distinct_corridors %>%
+        filter(Corridor %in% corridors_in_multiple_zones) %>%
+        arrange(Corridor, Zone, Zone_Group)
+
+
+    # Check 2: Corridors with different cases (e.g., one line has incorrect capitalization.)
+    corridors_with_case_mismatches <- corridors %>%
+        distinct(Corridor) %>%
+        group_by(corridor = tolower(Corridor)) %>%
+        count() %>% filter(n>1) %>%
+        pull(corridor)
+
+    check2 <- distinct_corridors %>%
+        filter(tolower(Corridor) %in% corridors_with_case_mismatches) %>%
+        arrange(Corridor, Zone, Zone_Group)
+
+
+    # Check 3: Corridors with simliar names. This is just a warning. Many are correct.
+    # unique_corridors <- unique(as.character(corridors$Corridor))
+    # m <- stringsimmatrix(unique_corridors, unique_corridors, method = "jw")
+    # m[!upper.tri(m)] <- 0
+    #
+    # max_values <- apply(m, 1, max)
+    # max_indexes <- apply(m, 1, which.max)
+    #
+    # similar_corridors <- data.frame(
+    #     Corridor = unique_corridors,
+    #     Closest_match = unique_corridors[max_indexes],
+    #     Match_Score = max_values
+    # )
+    #
+    # check3 <- similar_corridors %>%
+    #     filter(Match_Score > 0.96) %>%
+    #     arrange(desc(Match_Score)) %>%
+    #     left_join(distinct_corridors, by = c("Corridor")) %>%
+    #     left_join(distinct_corridors, by = c("Closest_match" = "Corridor"), suffix = c("_corr", "_match"))
+
+
+    if (nrow(check1)) {
+        print("Corridors in multiple zones:")
+        print(check1)
+    }
+    if (nrow(check2))  {
+        print("Same corridor, different cases:")
+        print(check2)
+    }
+    # print(check3)
+
+    pass_validation <- !(nrow(check1) | nrow(check2))
+}
 
 get_cam_config <- function(object, bucket, corridors) {
 
@@ -84,7 +144,7 @@ get_cam_config <- function(object, bucket, corridors) {
         read_excel,
         object = object,
         bucket = bucket
-	) %>%
+    ) %>%
         filter(Include == TRUE) %>%
         transmute(
             CameraID = factor(CameraID),
@@ -99,7 +159,7 @@ get_cam_config <- function(object, bucket, corridors) {
 
     left_join(corrs, cam_config0) %>%
         filter(!is.na(CameraID)) %>%
-	mutate(Description = paste(CameraID, Location, sep = ": ")) %>%
+        mutate(Description = paste(CameraID, Location, sep = ": ")) %>%
         arrange(Zone_Group, Zone, Corridor, CameraID)
 }
 

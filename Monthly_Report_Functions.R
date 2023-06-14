@@ -36,6 +36,7 @@ suppressMessages({
     library(qs)
     library(sp)
     library(future.apply)
+    # library(stringdist)
 })
 
 
