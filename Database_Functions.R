@@ -250,8 +250,8 @@ query_udc_trend <- function() {
     udc_list <- jsonlite::fromJSON(df$data)
     lapply(udc_list, function(x) {
         data <- as.data.frame(x) %>% mutate(Month = as_date(Month))
-	colnames(data) <- str_replace_all(colnames(data), "[:punct:]", " ")
-	data
+        colnames(data) <- str_replace_all(colnames(data), "[:punct:]", " ")
+        data
     })
 }
 
@@ -327,4 +327,71 @@ query_health_data <- function(
     })
 
     df
+}
+
+
+
+
+
+create_table <- function(aurora, table_name) {
+    stmt <- glue("CREATE TABLE `{table_name}_part` (
+          `Corridor` varchar(128) DEFAULT NULL,
+          `Zone_Group` varchar(128) DEFAULT NULL,
+          `Timeperiod` datetime NOT NULL,
+          `aog` double DEFAULT NULL,
+          `ones` double DEFAULT NULL,
+          `delta` double DEFAULT NULL,
+          `Description` varchar(128) DEFAULT NULL,
+          UNIQUE KEY `idx_{table_name}_unique` (`Timeperiod`,`Zone_Group`,`Corridor`),
+          KEY `idx_{table_name}_zone_period` (`Zone_Group`,`Timeperiod`),
+          KEY `idx_{table_name}_corridor_period` (`Corridor`,`Timeperiod`)
+        )
+        PARTITION BY RANGE COLUMNS (`Timeperiod`) (
+            PARTITION p_202208 VALUES LESS THAN ('2022-08-01 00:00:00'),
+            PARTITION p_202209 VALUES LESS THAN ('2022-09-01 00:00:00'),
+            PARTITION p_202210 VALUES LESS THAN ('2022-10-01 00:00:00'),
+            PARTITION p_202211 VALUES LESS THAN ('2022-11-01 00:00:00'),
+            PARTITION p_202212 VALUES LESS THAN ('2022-12-01 00:00:00'),
+            PARTITION p_202301 VALUES LESS THAN ('2023-01-01 00:00:00'),
+            PARTITION p_202302 VALUES LESS THAN ('2023-02-01 00:00:00'),
+            PARTITION p_202303 VALUES LESS THAN ('2023-03-01 00:00:00'),
+            PARTITION p_202304 VALUES LESS THAN ('2023-04-01 00:00:00'),
+            PARTITION p_202305 VALUES LESS THAN ('2023-05-01 00:00:00'),
+            PARTITION p_202306 VALUES LESS THAN ('2023-06-01 00:00:00'),
+            PARTITION p_202307 VALUES LESS THAN ('2023-07-01 00:00:00'),
+            PARTITION future VALUES LESS THAN (MAXVALUE)
+        )"
+    )
+    dbExecute(aurora, stmt)
+}
+
+
+get_partitions <- function(aurora, table_name) {
+    query <- glue(paste(
+        "SELECT PARTITION_NAME FROM information_schema.partitions",
+        "WHERE TABLE_SCHEMA ='mark1' AND TABLE_NAME = '{table_name}'"))
+    dbGetQuery(aurora, query) %>% pull(PARTITION_NAME)
+}
+
+
+add_partition <- function(aurora, table_name) {
+    mo <- Sys.Date() + months(2)
+    new_partition_date <- format(mo, "%Y-%m-01")
+    new_partition_name <- format(mo, "p_%Y%m")
+    if (!new_partition_name %in% get_partitions(aurora, table_name)) {
+        statement <- glue(paste(
+            "ALTER TABLE {table_name}",
+            "REORGANIZE PARTITION future INTO (",
+                "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date}'),",
+                "PARTITION future VALUES LESS THAN MAXVALUE)"))
+        dbExecute(aurora, statement)
+    }
+}
+
+drop_partition <- function(aurora, table_name, months_to_keep = 8) {
+    drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
+    if (drop_partition_name %in% get_partitions(aurora, table_name)) {
+        statement <- glue("ALTER TABLE {table_name} DROP PARTITION {drop_partition_name};")
+        dbExecute(aurora, statement)
+    }
 }
