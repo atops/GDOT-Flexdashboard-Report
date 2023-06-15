@@ -113,7 +113,7 @@ get_athena_connection_pool <- function(conf_athena) {
 }
 
 
-add_partition <- function(conf_athena, table_name, date_) {
+add_athena_partition <- function(conf_athena, table_name, date_) {
     tryCatch({
         conn_ <- get_athena_connection(conf_athena)
         dbExecute(conn_,
@@ -333,7 +333,7 @@ query_health_data <- function(
 
 
 
-create_table <- function(aurora, table_name) {
+create_aurora_partitioned_table <- function(aurora, table_name) {
     stmt <- glue("CREATE TABLE `{table_name}_part` (
           `Corridor` varchar(128) DEFAULT NULL,
           `Zone_Group` varchar(128) DEFAULT NULL,
@@ -366,7 +366,7 @@ create_table <- function(aurora, table_name) {
 }
 
 
-get_partitions <- function(aurora, table_name) {
+get_aurora_partitions <- function(aurora, table_name) {
     query <- glue(paste(
         "SELECT PARTITION_NAME FROM information_schema.partitions",
         "WHERE TABLE_SCHEMA ='mark1' AND TABLE_NAME = '{table_name}'"))
@@ -374,11 +374,12 @@ get_partitions <- function(aurora, table_name) {
 }
 
 
-add_partition <- function(aurora, table_name) {
-    mo <- Sys.Date() + months(2)
+add_aurora_partition <- function(aurora, table_name) {
+    mo <- Sys.Date() + months(1)
     new_partition_date <- format(mo, "%Y-%m-01")
     new_partition_name <- format(mo, "p_%Y%m")
-    if (!new_partition_name %in% get_partitions(aurora, table_name)) {
+    existing_partitions <- get_aurora_partitions(aurora, table_name)
+    if (!new_partition_name %in% existing_partitions & length(existing_partitions) > 1) {
         statement <- glue(paste(
             "ALTER TABLE {table_name}",
             "REORGANIZE PARTITION future INTO (",
@@ -388,9 +389,9 @@ add_partition <- function(aurora, table_name) {
     }
 }
 
-drop_partition <- function(aurora, table_name, months_to_keep = 8) {
+drop_aurora_partition <- function(aurora, table_name, months_to_keep = 8) {
     drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
-    if (drop_partition_name %in% get_partitions(aurora, table_name)) {
+    if (drop_partition_name %in% get_aurora_partitions(aurora, table_name)) {
         statement <- glue("ALTER TABLE {table_name} DROP PARTITION {drop_partition_name};")
         dbExecute(aurora, statement)
     }

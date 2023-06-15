@@ -29,7 +29,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
         opts = list(multipart = TRUE, body_as_string = TRUE)
     )
     
-    add_partition(conf_athena, table_name, date_)
+    add_athena_partition(conf_athena, table_name, date_)
 }
 
 

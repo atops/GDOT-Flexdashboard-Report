@@ -62,6 +62,10 @@ write_sigops_to_db <- function(
                     dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
                 } else {
                     if (table_name %in% dbListTables(conn)) {
+                        # Drop and add partitions
+                        drop_aurora_partition(conn, table_name)
+                        add_aurora_partition(conn, table_name)
+
                         # Clear head of table prior to report start date
                         if (!is.null(report_start_date) & length(datefield) == 1) {
                             dbExecute(conn, glue(paste(
