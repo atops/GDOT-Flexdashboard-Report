@@ -13,15 +13,19 @@ cred <- read_yaml("Monthly_Report_AWS.yaml")
 mydbAppendTable <- function(conn, name, value, chunksize = 1e4) {
 
     df <- value %>%
-        mutate(across(where(is.Date), ~format(., "%F"))) %>%
-        mutate(across(where(is.POSIXct), ~format(., "%F %X"))) %>%
-        mutate(across(where(is.factor), as.character)) %>%
-        mutate(across(where(is.character), ~str_replace_all(., "'", "\\\\'")))
+        mutate(
+            across(where(is.Date), ~format(., "%F")),
+            across(where(is.POSIXct), ~format(., "%F %H:%M:%S")),
+            across(where(is.factor), as.character),
+            across(where(is.character), ~replace(., is.na(.), "")),
+            across(where(is.character), ~str_replace_all(., "'", "\\\\'")),
+            across(where(is.character), ~paste0("'", ., "'")),
+            across(where(is.numeric), ~replace(., !is.finite(.), NA)))
 
     table_name <- name
 
-    vals <- unite(df, "z", names(df), sep = "','") %>% pull(z)
-    vals <- glue("('{vals}')")
+    vals <- unite(df, "z", names(df), sep = ",") %>% pull(z)
+    vals <- glue("({vals})") %>% str_replace_all("NA", "NULL")
     vals_list <- split(vals, ceiling(seq_along(vals)/chunksize))
 
     query0 <- glue("INSERT INTO {table_name} (`{paste0(colnames(df), collapse = '`, `')}`) VALUES ")
@@ -113,13 +117,18 @@ get_athena_connection_pool <- function(conf_athena) {
 }
 
 
+<<<<<<< Updated upstream
 add_athena_partition <- function(conf_athena, table_name, date_) {
+=======
+add_partition <- function(conf, table_name, s3_prefix, date_) {
+>>>>>>> Stashed changes
     tryCatch({
-        conn_ <- get_athena_connection(conf_athena)
+        conn_ <- get_athena_connection(conf$athena)
         dbExecute(conn_,
-                  sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
-                                 "ADD PARTITION (date='{date_}')"))))
-        print(glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}"))
+                  sql(glue(paste("ALTER TABLE {conf$athena$database}.{table_name}",
+                                 "ADD PARTITION (date='{date_}')"),
+                                 "LOCATION 's3://{conf$bucket}/{s3_prefix}/date={date_}'")))
+        print(glue("Successfully created partition (date='{date_}') for {conf$athena$database}.{table_name}"))
     }, error = function(e) {
         print(stringr::str_extract(as.character(e), "message:.*?\\."))
     }, finally = {

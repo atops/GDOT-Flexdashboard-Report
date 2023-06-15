@@ -32,6 +32,7 @@ write_sigops_to_db <- function(
     table_names <- c()
     for (per in pers) {
         for (tab in names(df[[per]])) { 
+            dbBegin(conn)  # Because of database cluster. Need to delete and write within the same transaction to avoid conflicts.
 
             table_name <- glue("{dfname}_{per}_{tab}")
             table_names <- append(table_names, table_name)
@@ -96,6 +97,7 @@ write_sigops_to_db <- function(
             }, error = function(e) {
                 print(glue("{Sys.time()} {e}"))
             })
+            dbCommit(conn)
         }
     }
     invisible(table_names)
@@ -147,9 +149,9 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
 }
 
 
-set_index_aurora <- function(aurora, table_name) {
+set_index_aurora <- function(conn, table_name) {
     
-    fields <- dbListFields(aurora, table_name)
+    fields <- dbListFields(conn, table_name)
     period <- intersect(fields, c("Month", "Date", "Hour", "Timeperiod", "Quarter"))
     
     if (length(period) > 1) {
@@ -157,28 +159,42 @@ set_index_aurora <- function(aurora, table_name) {
         return(0)
     }
 
-    indexes <- dbGetQuery(aurora, glue("SHOW INDEXES FROM {table_name}"))
+    indexes <- dbGetQuery(conn, glue("SHOW INDEXES FROM {table_name}"))
 
     # Indexes on Zone Group and Period
     if (!glue("idx_{table_name}_zone_period") %in% indexes$Key_name) {
-        dbExecute(aurora, glue(paste(
+        dbExecute(conn, glue(paste(
             "CREATE INDEX idx_{table_name}_zone_period", 
             "ON {table_name} (Zone_Group, {period})")))
     }
     
     # Indexes on Corridor and Period
     if (!glue("idx_{table_name}_corridor_period") %in% indexes$Key_name) {
-        dbExecute(aurora, glue(paste(
+        dbExecute(conn, glue(paste(
             "CREATE INDEX idx_{table_name}_corridor_period", 
             "ON {table_name} (Corridor, {period})")))
     }
 
     # Unique Index on Period, Zone Group and Corridor
     if (!glue("idx_{table_name}_unique") %in% indexes$Key_name) {
-        dbExecute(aurora, glue(paste(
+        dbExecute(conn, glue(paste(
             "CREATE UNIQUE INDEX idx_{table_name}_unique",
             "ON {table_name} ({period}, Zone_Group, Corridor)")))
     }
+}
+
+
+
+add_primary_key_id_field_aurora <- function(conn, table_name) {
+    print(glue("{Sys.time()} {table_name}"))
+    dbBegin(conn)
+    if (!"id" %in% dbListFields(conn, table_name)) {
+        try(
+            dbExecute(conn, glue(
+                "ALTER TABLE {table_name} ADD id INT UNSIGNED NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (id)"))
+        )
+    }
+    dbCommit(conn)
 }
 
 
@@ -275,6 +291,10 @@ recreate_database <- function(conn, df, dfname) {
             try(
                 set_index_aurora(conn, x)
             )
+        })
+        # Add Primary Key id field.
+        lapply(create_statements$Table, function(x) {
+            add_primary_key_id_field_aurora(conn, x)
         })
     }    
 }
