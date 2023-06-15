@@ -117,11 +117,7 @@ get_athena_connection_pool <- function(conf_athena) {
 }
 
 
-<<<<<<< Updated upstream
 add_athena_partition <- function(conf_athena, table_name, date_) {
-=======
-add_partition <- function(conf, table_name, s3_prefix, date_) {
->>>>>>> Stashed changes
     tryCatch({
         conn_ <- get_athena_connection(conf$athena)
         dbExecute(conn_,

@@ -502,12 +502,8 @@ add_subcorridor <- function(df)  {
         rename(SignalID = Subcorridor) %>%
         left_join(
             select(corridors, Zone, Corridor, Subcorridor, SignalID),
-<<<<<<< Updated upstream
             by = c("Zone", "Corridor", "SignalID"),
             relationship = "many-to-many") %>%
-=======
-            by = c("Zone", "Corridor", "SignalID")) %>%
->>>>>>> Stashed changes
         relocate(Subcorridor, .after = Corridor) %>%
         filter(!is.na(Subcorridor))
 }
@@ -529,7 +525,6 @@ ssd <- get_summary_data(sig) %>%
     # Give each CameraID its associated SignalID and combine with other metrics on SignalID
     left_join(
         select(cam_config, SignalID, CameraID),
-<<<<<<< Updated upstream
         by = c("Corridor" = "CameraID"),
         relationship = "many-to-many") %>%
     mutate(Corridor = as.factor(coalesce(as.character(SignalID), as.character(Corridor)))) %>%
@@ -540,18 +535,6 @@ ssd <- get_summary_data(sig) %>%
     slice_head(n = 1) %>%
     ungroup()%>%
     mutate(across(where(is.numeric), ~replace(.x, is.infinite(.x), NA)))
-=======
-        by = c("Corridor" = "CameraID")) %>%
-    mutate(
-        Corridor = factor(ifelse(!is.na(SignalID), as.character(SignalID), as.character(Corridor)))) %>%
-    select(-SignalID) %>%
-    filter(!grepl("CAM", Corridor)) %>%
-    group_by(Corridor, Zone_Group, Month) %>%
-    summarize(across(everything(), function(x) max(x, na.rm = T)), .groups = "drop")
-
-ssd <- do.call(data.frame, lapply(ssd, function(x) replace(x, is.infinite(x), NA))) %>% as_tibble()
-
->>>>>>> Stashed changes
 
 
 # input data frame for subcorridor health metrics
@@ -566,21 +549,12 @@ sig_health_data <- ssd %>%
     ) %>%
     left_join(
         select(corridors, Corridor, SignalID, Subcorridor),
-<<<<<<< Updated upstream
         by = c("Corridor", "SignalID"), relationship = "many-to-many") %>%
     inner_join(corridor_groupings, by = c("Corridor", "Subcorridor"), relationship = "many-to-many") %>%
     #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
     left_join(
         select(sub_health_data, Corridor, Subcorridor, Month, tti, pti),
         by = c("Corridor", "Subcorridor", "Month"), relationship = "many-to-many") %>%
-=======
-        by = c("Corridor", "SignalID")) %>%
-    inner_join(corridor_groupings, by = c("Corridor", "Subcorridor")) %>%
-    #hack to bring in TTI/PTI from corresponding subcorridors for each signal - only applies if context in 1-4
-    left_join(
-        select(sub_health_data, Corridor, Subcorridor, Month, tti, pti),
-        by = c("Corridor", "Subcorridor", "Month")) %>%
->>>>>>> Stashed changes
     mutate(
         tti.x = ifelse(Context %in% c(1:4), tti.y, NA),
         pti.x = ifelse(Context %in% c(1:4), pti.y, NA)
