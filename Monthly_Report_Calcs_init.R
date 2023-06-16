@@ -104,22 +104,9 @@ if (length(missing_partitions) > 10) {
     print(glue("Adding missing partition: date={missing_partitions}"))
     dbExecute(athena, glue("MSCK REPAIR TABLE {conf$athena$atspm_table}"))
 } else if (length(missing_partitions) > 0) {
-<<<<<<< Updated upstream
-    print(glue("Adding missing partition: date={missing_partitions}"))
-    for (date_ in missing_partitions) {
-        add_partition(conf$athena, conf$athena$atspm_table, date_)
-    }
-} else {
-    print("No missing athena partitions.")
-}
-dbDisconnect(athena)
-=======
     print("Adding missing partitions:")
     for (date_ in missing_partitions) {
         add_partition(conf, conf$athena$atspm_table, "atspm", date_)
     }
 }
 dbDisconnect(athena)
-
-
->>>>>>> Stashed changes
