@@ -69,6 +69,11 @@ tryCatch(
             select(SignalID, Timeperiod, CallPhase, Detector, vol) %>%
             anti_join(bad_ped_detectors)
 
+        paph <- lapply(all_days, function(d) {
+            all_timeperiods <- seq(as_datetime(d), as_datetime(d) + days(1) - minutes(15), by = "15 min")
+            paph %>% filter(as_date(Timeperiod) == d) %>% expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods)
+        }) %>% bind_rows() %>% left_join(paph) %>% replace_na(list(vol=0))
+
         pa_15min <- get_period_sum(paph, "vol", "Timeperiod")
         cor_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, corridors, "vol", "Timeperiod")
         sub_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, subcorridors, "vol", "Timeperiod")
