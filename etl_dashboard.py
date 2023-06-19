@@ -81,6 +81,10 @@ def etl2(s, date_, det_config, conf):
                 c.to_parquet(f's3://{bucket}/cycles/date={date_str}/cd_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
 
+                # Because DetTimeStamp gets adjusted by time from stop bar, it can go into tomorrow.
+                # Limit detector data to today to make downstream easier to interpret.
+                # May lose 1-2 vehs at midnight.
+                d = d[d.DetTimeStamp < date_ + timedelta(days=1)]
                 d.to_parquet(f's3://{bucket}/detections/date={date_str}/de_{s}_{date_str}.parquet',
                              allow_truncated_timestamps=True)
 
@@ -121,7 +125,7 @@ def main(start_date, end_date):
 
     bucket = conf['bucket']
     athena = conf['athena']
-    
+
     #-----------------------------------------------------------------------------------------
     # Placeholder for manual override of signalids
     #signalids = [7053]
