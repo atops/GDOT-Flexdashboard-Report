@@ -339,7 +339,13 @@ query_health_data <- function(
 
 
 create_aurora_partitioned_table <- function(aurora, table_name) {
-    stmt <- glue("CREATE TABLE `{table_name}_part` (
+    months <- seq(Sys.Date() - months(10), Sys.Date() + months(1), by = "1 month")
+    new_partition_dates <- format(months, "%Y-%m-01")
+    new_partition_names <- format(months, "p_%Y%m")
+    partitions <- glue("PARTITION {new_partition_names} VALUES LESS THAN ('{new_partition_dates} 00:00:00'),")
+
+    stmt <- glue(
+        "CREATE TABLE `{table_name}_part` (
           `Corridor` varchar(128) DEFAULT NULL,
           `Zone_Group` varchar(128) DEFAULT NULL,
           `Timeperiod` datetime NOT NULL,
@@ -352,18 +358,7 @@ create_aurora_partitioned_table <- function(aurora, table_name) {
           KEY `idx_{table_name}_corridor_period` (`Corridor`,`Timeperiod`)
         )
         PARTITION BY RANGE COLUMNS (`Timeperiod`) (
-            PARTITION p_202208 VALUES LESS THAN ('2022-08-01 00:00:00'),
-            PARTITION p_202209 VALUES LESS THAN ('2022-09-01 00:00:00'),
-            PARTITION p_202210 VALUES LESS THAN ('2022-10-01 00:00:00'),
-            PARTITION p_202211 VALUES LESS THAN ('2022-11-01 00:00:00'),
-            PARTITION p_202212 VALUES LESS THAN ('2022-12-01 00:00:00'),
-            PARTITION p_202301 VALUES LESS THAN ('2023-01-01 00:00:00'),
-            PARTITION p_202302 VALUES LESS THAN ('2023-02-01 00:00:00'),
-            PARTITION p_202303 VALUES LESS THAN ('2023-03-01 00:00:00'),
-            PARTITION p_202304 VALUES LESS THAN ('2023-04-01 00:00:00'),
-            PARTITION p_202305 VALUES LESS THAN ('2023-05-01 00:00:00'),
-            PARTITION p_202306 VALUES LESS THAN ('2023-06-01 00:00:00'),
-            PARTITION p_202307 VALUES LESS THAN ('2023-07-01 00:00:00'),
+            {paste(partitions, collapse=' ')}
             PARTITION future VALUES LESS THAN (MAXVALUE)
         )"
     )
@@ -388,16 +383,22 @@ add_aurora_partition <- function(aurora, table_name) {
         statement <- glue(paste(
             "ALTER TABLE {table_name}",
             "REORGANIZE PARTITION future INTO (",
-                "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date}'),",
+                "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date} 00:00:00'),",
                 "PARTITION future VALUES LESS THAN MAXVALUE)"))
         dbExecute(aurora, statement)
     }
 }
 
-drop_aurora_partition <- function(aurora, table_name, months_to_keep = 8) {
-    drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
-    if (drop_partition_name %in% get_aurora_partitions(aurora, table_name)) {
-        statement <- glue("ALTER TABLE {table_name} DROP PARTITION {drop_partition_name};")
-        dbExecute(aurora, statement)
+drop_aurora_partitions <- function(aurora, table_name, months_to_keep = 8) {
+    existing_partitions <- get_aurora_partitions(aurora, table_name)
+    if (length(existing_partitions)) {
+        drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
+        drop_partition_names <- existing_partitions[existing_partitions <= drop_partition_name]
+
+        for (partition_name in drop_partition_names) {
+            statement <- glue("ALTER TABLE {table_name} DROP PARTITION {partition_name};")
+            print(statement)
+            dbExecute(aurora, statement)
+        }
     }
 }

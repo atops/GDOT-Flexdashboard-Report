@@ -64,7 +64,7 @@ write_sigops_to_db <- function(
                 } else {
                     if (table_name %in% dbListTables(conn)) {
                         # Drop and add partitions
-                        drop_aurora_partition(conn, table_name)
+                        drop_aurora_partitions(conn, table_name)
                         add_aurora_partition(conn, table_name)
 
                         # Clear head of table prior to report start date
