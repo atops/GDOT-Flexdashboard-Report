@@ -70,6 +70,16 @@ tryCatch(
             select(SignalID, Hour, CallPhase, Detector, paph) %>%
             anti_join(bad_ped_detectors)
 
+        all_timeperiods <- seq(
+            floor_date(min(paph$Hour), unit = "days"),
+            floor_date(max(paph$Hour), unit = "days") + days(1) - hours(1),
+            by = "1 hour"
+        )
+        paph <- paph %>%
+            expand(nesting(SignalID, Detector, CallPhase), Hour = all_timeperiods)%>%
+            left_join(paph) %>%
+            replace_na(list(vol = 0))
+
         hourly_pa <- get_period_sum(paph, "paph", "Hour")
         cor_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, corridors, "paph", "Hour")
         sub_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, subcorridors, "paph", "Hour")
