@@ -391,7 +391,7 @@ add_aurora_partition <- function(aurora, table_name) {
 
 drop_aurora_partitions <- function(aurora, table_name, months_to_keep = 8) {
     existing_partitions <- get_aurora_partitions(aurora, table_name)
-    if (length(existing_partitions)) {
+    if (length(existing_partitions) & !is.na(existing_partitions)) {
         drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
         drop_partition_names <- existing_partitions[existing_partitions <= drop_partition_name]
 
