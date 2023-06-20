@@ -370,7 +370,12 @@ get_aurora_partitions <- function(aurora, table_name) {
     query <- glue(paste(
         "SELECT PARTITION_NAME FROM information_schema.partitions",
         "WHERE TABLE_SCHEMA ='mark1' AND TABLE_NAME = '{table_name}'"))
-    dbGetQuery(aurora, query) %>% pull(PARTITION_NAME)
+    df <- dbGetQuery(aurora, query)
+    if (nrow(df) > 1) {
+        df$PARTITION_NAME
+    } else {
+        NULL
+    }
 }
 
 
@@ -379,7 +384,7 @@ add_aurora_partition <- function(aurora, table_name) {
     new_partition_date <- format(mo, "%Y-%m-01")
     new_partition_name <- format(mo, "p_%Y%m")
     existing_partitions <- get_aurora_partitions(aurora, table_name)
-    if (!new_partition_name %in% existing_partitions & length(existing_partitions) > 1) {
+    if (!new_partition_name %in% existing_partitions & !is.null(existing_partitions)) {
         statement <- glue(paste(
             "ALTER TABLE {table_name}",
             "REORGANIZE PARTITION future INTO (",
@@ -391,7 +396,7 @@ add_aurora_partition <- function(aurora, table_name) {
 
 drop_aurora_partitions <- function(aurora, table_name, months_to_keep = 8) {
     existing_partitions <- get_aurora_partitions(aurora, table_name)
-    if (length(existing_partitions) & !is.na(existing_partitions)) {
+    if (!is.null(existing_partitions)) {
         drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
         drop_partition_names <- existing_partitions[existing_partitions <= drop_partition_name]
 
