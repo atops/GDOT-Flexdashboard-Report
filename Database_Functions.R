@@ -336,23 +336,32 @@ query_health_data <- function(
 
 
 
-
-
 create_aurora_partitioned_table <- function(aurora, table_name) {
     months <- seq(Sys.Date() - months(10), Sys.Date() + months(1), by = "1 month")
     new_partition_dates <- format(months, "%Y-%m-01")
     new_partition_names <- format(months, "p_%Y%m")
     partitions <- glue("PARTITION {new_partition_names} VALUES LESS THAN ('{new_partition_dates} 00:00:00'),")
 
+    table_suffix <- stringr::str_extract(table_name, "[^_]*$")
+    var <- case_when(
+        table_suffix == "aogh" ~ "aog",
+        table_suffix == "vph" ~ "vol",
+        table_suffix == "paph" ~ "vol",
+        table_suffix == "prh" ~ "pr",
+        table_suffix == "qsh" ~ "qs_freq",
+        table_suffix == "sfh" ~ "sf_freq")
+
     stmt <- glue(
         "CREATE TABLE `{table_name}_part` (
-          `Corridor` varchar(128) DEFAULT NULL,
           `Zone_Group` varchar(128) DEFAULT NULL,
+          `Corridor` varchar(128) DEFAULT NULL,
           `Timeperiod` datetime NOT NULL,
-          `aog` double DEFAULT NULL,
+          `{var}` double DEFAULT NULL,
           `ones` double DEFAULT NULL,
           `delta` double DEFAULT NULL,
           `Description` varchar(128) DEFAULT NULL,
+          `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+          PRIMARY KEY (`id`, `Timeperiod`),
           UNIQUE KEY `idx_{table_name}_unique` (`Timeperiod`,`Zone_Group`,`Corridor`),
           KEY `idx_{table_name}_zone_period` (`Zone_Group`,`Timeperiod`),
           KEY `idx_{table_name}_corridor_period` (`Corridor`,`Timeperiod`)
