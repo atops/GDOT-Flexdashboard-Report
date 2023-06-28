@@ -95,7 +95,7 @@ write_sigops_to_db <- function(
                 }
                 
             }, error = function(e) {
-                print(glue("{Sys.time()} {e}"))
+                print(glue("{Sys.time()} {table_name} {e}"))
             })
             dbCommit(conn)
         }
