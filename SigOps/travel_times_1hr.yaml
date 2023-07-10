@@ -1,3 +1,1 @@
-bin_minutes: 60 # 1hr bins
-dow: [2,3,4] # TWR
-table_suffix: 1hr
+../travel_times_1hr.yaml

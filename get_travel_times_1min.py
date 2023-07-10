@@ -26,7 +26,6 @@ from config import get_date_from_string
 
 s3 = boto3.client('s3')
 
-
 def is_success(response):
     x = json.loads(response.content.decode('utf-8'))
     if type(x) == dict and 'state' in x.keys() and x['state']=='SUCCEEDED':
@@ -167,15 +166,17 @@ def get_serious_injury_pct(df, df_reference, corridor_grouping):
 
 if __name__=='__main__':
 
+    s3root = sys.argv[1]
+
     with open('Monthly_Report_AWS.yaml') as yaml_file:
         cred = yaml.load(yaml_file, Loader=yaml.Loader)
 
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    if len(sys.argv) > 1:
-        start_date = sys.argv[1]
-        end_date = sys.argv[2]
+    if len(sys.argv) > 2:
+        start_date = sys.argv[2]
+        end_date = sys.argv[3]
     else:
         start_date = conf['start_date']
         end_date = conf['end_date']
@@ -237,7 +238,7 @@ if __name__=='__main__':
             table_name = 'travel_times_1min'
             filename = f'travel_times_1min_{date_str}.parquet'
             df.drop(columns=['date'])\
-                .to_parquet(f's3://{bucket}/mark/{table_name}/date={date_str}/{filename}')
+                .to_parquet(f's3://{bucket}/{s3root}/{table_name}/date={date_str}/{filename}')
         else:
             print('No records returned.')
 
@@ -253,7 +254,7 @@ if __name__=='__main__':
     for yyyy_mm in months:
 
         try:
-            df = dd.read_parquet(f's3://{bucket}/mark/travel_times_1min/date={yyyy_mm}*/*.parquet')
+            df = dd.read_parquet(f's3://{bucket}/{s3root}/travel_times_1min/date={yyyy_mm}*/*.parquet')
         except IndexError:
             df = pd.DataFrame()
             print(f'No data for {yyyy_mm}')
@@ -274,10 +275,10 @@ if __name__=='__main__':
             table_name = 'relative_speed_index'
 
             filename = f'rsi_sub_{yyyy_mm}-01.parquet'
-            df_rsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+            df_rsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
 
             filename = f'rsi_cor_{yyyy_mm}-01.parquet'
-            df_rsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+            df_rsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
 
             df_rsi_sub.to_csv(f'rsi_sub_{yyyy_mm}-01.csv', index=False)
             df_rsi_cor.to_csv(f'rsi_cor_{yyyy_mm}-01.csv', index=False)
@@ -295,10 +296,10 @@ if __name__=='__main__':
             table_name = 'bike_ped_safety_index'
 
             filename = f'bpsi_sub_{yyyy_mm}-01.parquet'
-            df_bpsi_sub.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+            df_bpsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
 
             filename = f'bpsi_cor_{yyyy_mm}-01.parquet'
-            df_bpsi_cor.to_parquet(f's3://{bucket}/mark/{table_name}/{filename}')
+            df_bpsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
 
             df_bpsi_sub.to_csv(f'bpsi_sub_{yyyy_mm}-01.csv', index=False)
             df_bpsi_cor.to_csv(f'bpsi_cor_{yyyy_mm}-01.csv', index=False)

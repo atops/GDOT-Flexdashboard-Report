@@ -91,8 +91,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
       "uuid": str(uuid.uuid1())
     }
     #----------------------------------------------------------
-    response = requests.post(uri.format('submit/export'), 
-                             params = {'key': key}, 
+    response = requests.post(uri.format('submit/export'),
+                             params = {'key': key},
                              json = payload)
     print('travel times response status code:', response.status_code)
 
@@ -107,7 +107,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
             step=30,
             timeout=600)
 
-        results = requests.get(uri.format('results/export'), 
+        results = requests.get(uri.format('results/export'),
                                params = {'key': key, 'uuid': payload['uuid']})
         print('travel times results received')
 
@@ -133,7 +133,7 @@ def get_corridor_travel_times(df, corr_grouping, bucket, table_name):
         date_string = df.date.values[0]
         filename = 'travel_times_{}.parquet'.format(date_string)
         df = df.drop(columns=['date'])
-        df.to_parquet(f's3://{bucket}/mark/{table_name}/date={date_string}/{filename}')
+        df.to_parquet(f's3://{bucket}/{s3root}/{table_name}/date={date_string}/{filename}')
 
     # Write to parquet files and upload to S3
     df.groupby(['date']).apply(uf)
@@ -160,7 +160,7 @@ def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
         date_string = df.date.values[0]
         filename = 'travel_time_metrics_{}.parquet'.format(date_string)
         df = df.drop(columns=['date'])
-        df.to_parquet(f's3://{bucket}/mark/{table_name}/date={date_string}/{filename}')
+        df.to_parquet(f's3://{bucket}/{s3root}/{table_name}/date={date_string}/{filename}')
 
     # Write to parquet files and upload to S3
     summ_df.reset_index().assign(date = lambda x: x.Hour.dt.date).groupby(['date']).apply(uf)
@@ -168,7 +168,9 @@ def get_corridor_travel_time_metrics(df, corr_grouping, bucket, table_name):
 
 if __name__=='__main__':
 
-    with open(sys.argv[1]) as yaml_file:
+    s3root = sys.argv[1]
+
+    with open(sys.argv[2]) as yaml_file:
         tt_conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
     with open('Monthly_Report_AWS.yaml') as yaml_file:
@@ -177,9 +179,9 @@ if __name__=='__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    if len(sys.argv) > 2:
-        start_date = sys.argv[2]
-        end_date = sys.argv[3]
+    if len(sys.argv) > 3:
+        start_date = sys.argv[3]
+        end_date = sys.argv[4]
     else:
         start_date = conf['start_date']
         end_date = conf['end_date']
@@ -193,7 +195,7 @@ if __name__=='__main__':
 
     bucket = conf['bucket']
 
-    os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID'] 
+    os.environ['AWS_ACCESS_KEY_ID'] = cred['AWS_ACCESS_KEY_ID']
     os.environ['AWS_SECRET_ACCESS_KEY'] = cred['AWS_SECRET_ACCESS_KEY']
     os.environ['AWS_DEFAULT_REGION'] = cred['AWS_DEFAULT_REGION']
 
@@ -219,12 +221,12 @@ if __name__=='__main__':
 
     try:
         tt_df = get_tmc_data(
-            start_date, 
-            end_date, 
-            tmc_list, 
-            cred['RITIS_KEY'], 
-            dow=tt_conf['dow'], 
-            bin_minutes=tt_conf['bin_minutes'], 
+            start_date,
+            end_date,
+            tmc_list,
+            cred['RITIS_KEY'],
+            dow=tt_conf['dow'],
+            bin_minutes=tt_conf['bin_minutes'],
             initial_sleep_sec=0
         )
 
@@ -254,13 +256,15 @@ if __name__=='__main__':
 
         for yyyy_mm in months:
             try:
-                df = dd.read_parquet(f's3://{bucket}/mark/{cor_table}/date={yyyy_mm}-*/*').compute()
+                df = dd.read_parquet(f's3://{bucket}/{s3root}/{cor_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
-                     get_corridor_travel_time_metrics(
-                         df, ['Corridor'], conf['bucket'], cor_metrics_table)
+                    df = df[df.Corridor != 'None']
+                    get_corridor_travel_time_metrics(
+                        df, ['Corridor'], conf['bucket'], cor_metrics_table)
 
+                df = dd.read_parquet(f's3://{bucket}/{s3root}/{sub_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
-                    df = dd.read_parquet(f's3://{bucket}/mark/{sub_table}/date={yyyy_mm}-*/*').compute()
+                    df = df[df.Subcorridor != 'None']
                     get_corridor_travel_time_metrics(
                         df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_metrics_table)
             except IndexError:

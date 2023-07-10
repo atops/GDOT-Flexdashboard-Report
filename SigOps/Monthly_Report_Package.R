@@ -3,7 +3,16 @@
 
 source("Monthly_Report_Package_init.R")
 
-# options(warn = 2)
+# # TRAVEL TIMES FROM RITIS API ###############################################
+
+print(glue("{Sys.time()} travel times [0 of 29(2)]"))
+
+if (conf$run$travel_times == TRUE) {
+    # Run python script asynchronously
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times.py sigops travel_times_1hr.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times.py sigops travel_times_15min.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times_1min.py sigops", wait = FALSE)
+}
 
 # # DETECTOR UPTIME ###########################################################
 
@@ -1415,6 +1424,7 @@ tryCatch(
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "cor_travel_time_metrics_1hr",
+            s3root = 'sigops',
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
@@ -1473,6 +1483,7 @@ tryCatch(
         tt <- s3_read_parquet_parallel(
             bucket = conf$bucket,
             table_name = "sub_travel_time_metrics_1hr",
+            s3root = 'sigops',
             start_date = calcs_start_date,
             end_date = report_end_date
         ) %>%
