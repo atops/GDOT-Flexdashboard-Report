@@ -144,21 +144,18 @@ keep_trying <- function(func, n_tries, ..., sleep = 1, timeout = Inf) {
     try_number <- 1
 
     while((!is.null(error) || is.null(result)) && try_number <= n_tries) {
-        if (try_number > 1) {
-            print(glue("{deparse(substitute(func))} Attempt: {try_number}"))
-        }
 
-        try_number = try_number + 1
         x <- R.utils::withTimeout(safely_func(...), timeout=timeout, onTimeout="error")
 
         result <- x$result
         error <- x$error
         if (!is.null(error)) {
-            print(error)
+            print(glue("{deparse(substitute(func))} Attempt {try_number} failed: {error}"))
         }
 
-	Sys.sleep(sleep)
-        sleep = sleep + 1
+        try_number = try_number + 1
+        Sys.sleep(sleep)
+        sleep = sleep * 2
     }
     return(result)
 }
@@ -392,10 +389,10 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
                 }
             }
 
-    	    aws.s3::s3write_using(dfp, qsave, bucket = conf$bucket, object = glue("{src}/{name}.qs"))
-    	    #readr::write_csv(dfp, paste0(name, ".csv"))
+            aws.s3::s3write_using(dfp, qsave, bucket = conf$bucket, object = glue("{src}/{name}.qs"))
+            #readr::write_csv(dfp, paste0(name, ".csv"))
         
-    	}
+        }
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
                 walk_nested_list(df[[n]], src, name = paste(name, n, sep="-"), indent = indent+10)
@@ -540,7 +537,7 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
     
-    add_athena_partition(conf_athena, "signal_details", plot_date)
+    add_athena_partition(conf_athena, conf$bucket, "signal_details", plot_date)
 }
 
 

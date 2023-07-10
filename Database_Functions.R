@@ -1,12 +1,12 @@
 
 # Database Functions
-library(odbc)
-library(RMariaDB)
-library(yaml)
-
+suppressMessages({
+    library(odbc)
+    library(RMariaDB)
+    library(yaml)
+})
 
 cred <- read_yaml("Monthly_Report_AWS.yaml")
-
 
 # My own function to perform multiple inserts at once.
 # Hadn't found a way to do this through native functions.
@@ -117,16 +117,22 @@ get_athena_connection_pool <- function(conf_athena) {
 }
 
 
-add_athena_partition <- function(conf_athena, table_name, date_) {
+add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
     tryCatch({
         conn_ <- get_athena_connection(conf$athena)
         dbExecute(conn_,
-                  sql(glue(paste("ALTER TABLE {conf$athena$database}.{table_name}",
+                  sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
                                  "ADD PARTITION (date='{date_}')"),
-                                 "LOCATION 's3://{conf$bucket}/{s3_prefix}/date={date_}'")))
-        print(glue("Successfully created partition (date='{date_}') for {conf$athena$database}.{table_name}"))
+                                 "LOCATION 's3://{bucket}/date={date_}'")))
+        msg <- glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}")
+        print(msg)
+        info(logger, msg)
     }, error = function(e) {
-        print(stringr::str_extract(as.character(e), "message:.*?\\."))
+        error_message <- stringr::str_extract(as.character(e), "message:.*?\\.")
+        error_message <- ifelse(is.na(error_message), as.character(e), error_message)
+        print(error_message)
+        msg <- glue("{error_message} - partition (date='{date_}') for {conf_athena$database}.{table_name}")
+        warn(logger, msg)
     }, finally = {
         dbDisconnect(conn_)
     })
