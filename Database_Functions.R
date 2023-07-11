@@ -126,13 +126,11 @@ add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
                                  "LOCATION 's3://{bucket}/date={date_}'")))
         msg <- glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}")
         print(msg)
-        info(logger, msg)
     }, error = function(e) {
         error_message <- stringr::str_extract(as.character(e), "message:.*?\\.")
         error_message <- ifelse(is.na(error_message), as.character(e), error_message)
         print(error_message)
         msg <- glue("{error_message} - partition (date='{date_}') for {conf_athena$database}.{table_name}")
-        warn(logger, msg)
     }, finally = {
         dbDisconnect(conn_)
     })

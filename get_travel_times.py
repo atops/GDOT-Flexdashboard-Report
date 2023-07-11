@@ -102,13 +102,13 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
         jobid = response.json()['id']
 
         polling.poll(
-            lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
-            check_success = is_success,
+            lambda: requests.get(uri.format('jobs/status'), params={'key': key, 'jobId': jobid}),
+            check_success=is_success,
             step=30,
-            timeout=600)
+            timeout=1800)
 
         results = requests.get(uri.format('results/export'),
-                               params = {'key': key, 'uuid': payload['uuid']})
+                               params={'key': key, 'uuid': payload['uuid']})
         print('travel times results received')
 
         # Save results (binary zip file with one csv)
@@ -186,10 +186,10 @@ if __name__=='__main__':
         start_date = conf['start_date']
         end_date = conf['end_date']
 
-    # start_date is 7 days ago or conf['start_date'], whichever is earlier
-    start_date = get_date_from_string(start_date)
-    sd = datetime.fromisoformat(start_date)
-    start_date = min(sd, sd - timedelta(days=7)).strftime('%Y-%m-%d')
+        # start_date is 7 days ago or conf['start_date'], whichever is earlier
+        start_date = get_date_from_string(start_date)
+        sd = datetime.fromisoformat(start_date)
+        start_date = min(sd, sd - timedelta(days=7)).strftime('%Y-%m-%d')
 
     end_date = get_date_from_string(end_date)
 
@@ -247,10 +247,10 @@ if __name__=='__main__':
         df = df.drop_duplicates()
 
         get_corridor_travel_times(
-            df, ['Corridor'], conf['bucket'], cor_table)
+            df[df.Corridor != 'None'], ['Corridor'], conf['bucket'], cor_table)
 
         get_corridor_travel_times(
-            df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_table)
+            df[df.Subcorridor != 'None'], ['Corridor', 'Subcorridor'], conf['bucket'], sub_table)
 
         months = list(set([pd.Timestamp(d).strftime('%Y-%m') for d in pd.date_range(start_date, end_date, freq='D')]))
 
@@ -258,13 +258,11 @@ if __name__=='__main__':
             try:
                 df = dd.read_parquet(f's3://{bucket}/{s3root}/{cor_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
-                    df = df[df.Corridor != 'None']
                     get_corridor_travel_time_metrics(
                         df, ['Corridor'], conf['bucket'], cor_metrics_table)
 
                 df = dd.read_parquet(f's3://{bucket}/{s3root}/{sub_table}/date={yyyy_mm}-*/*').compute()
                 if not df.empty:
-                    df = df[df.Subcorridor != 'None']
                     get_corridor_travel_time_metrics(
                         df, ['Corridor', 'Subcorridor'], conf['bucket'], sub_metrics_table)
             except IndexError:
