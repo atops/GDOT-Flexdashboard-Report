@@ -382,7 +382,7 @@ create_aurora_partitioned_table <- function(aurora, table_name) {
 get_aurora_partitions <- function(aurora, table_name) {
     query <- glue(paste(
         "SELECT PARTITION_NAME FROM information_schema.partitions",
-        "WHERE TABLE_SCHEMA ='mark1' AND TABLE_NAME = '{table_name}'"))
+        "WHERE TABLE_NAME = '{table_name}'"))
     df <- dbGetQuery(aurora, query)
     if (nrow(df) > 1) {
         df$PARTITION_NAME
@@ -403,14 +403,16 @@ add_aurora_partition <- function(aurora, table_name) {
             "REORGANIZE PARTITION future INTO (",
                 "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date} 00:00:00'),",
                 "PARTITION future VALUES LESS THAN MAXVALUE)"))
+        print(statement)
         dbExecute(aurora, statement)
     }
 }
 
 drop_aurora_partitions <- function(aurora, table_name, months_to_keep = 8) {
     existing_partitions <- get_aurora_partitions(aurora, table_name)
+    existing_partitions <- existing_partitions[existing_partitions != "future"]
     if (!is.null(existing_partitions)) {
-        drop_partition_name <- format(Sys.Date() - months(months_to_keep-1), "p_%Y%m")
+        drop_partition_name <- format(Sys.Date() - months(months_to_keep), "p_%Y%m")
         drop_partition_names <- existing_partitions[existing_partitions <= drop_partition_name]
 
         for (partition_name in drop_partition_names) {
