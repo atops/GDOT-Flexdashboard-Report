@@ -1987,23 +1987,23 @@ tryCatch(
         sub_monthly_rsi <- bind_rows(
             sub_monthly_rsi,
             mutate(cor_monthly_rsi, Subcorridor = Corridor)
-        ) %>% 
+        ) %>%
             rename(Zone_Group = Corridor, Corridor = Subcorridor) %>%
-            group_by(Zone_Group, Corridor) %>% 
-            arrange(Month) %>% 
+            group_by(Zone_Group, Corridor) %>%
+            arrange(Month) %>%
             mutate(
                 ones = NA,
                 delta = (rsi - lag(rsi))/lag(rsi)) %>%
             ungroup()
 
         cor_monthly_rsi <- left_join(
-            cor_monthly_rsi, 
-            distinct(corridors, Zone_Group, Corridor), 
+            cor_monthly_rsi,
+            distinct(corridors, Zone_Group, Corridor),
             by = "Corridor"
-        ) %>% 
+        ) %>%
             relocate(Zone_Group, .before = "Corridor") %>%
-            group_by(Zone_Group, Corridor) %>% 
-            arrange(Month) %>% 
+            group_by(Zone_Group, Corridor) %>%
+            arrange(Month) %>%
             mutate(
                 ones = NA,
                 delta = (rsi - lag(rsi))/lag(rsi)) %>%
@@ -2030,14 +2030,14 @@ print(glue("{Sys.time()} Crash Indices [26 of 29]"))
 tryCatch(
     {
         crashes <- s3read_using(
-            read_excel, 
-            bucket = conf$bucket, 
+            read_excel,
+            bucket = conf$bucket,
             object = "Collisions Dataset 2017-2019.xlsm"
         ) %>%
             transmute(
                 SignalID = as.factor(Signal_ID_Clean),
                 Month = as.Date(Month),
-                crashes_k, 
+                crashes_k,
                 crashes_a,
                 crashes_b,
                 crashes_c,
@@ -2053,39 +2053,39 @@ tryCatch(
         monthly_vpd <- readRDS("monthly_vpd.rds")
 
         # Running 12-months of volumes
-        monthly_vpd <- monthly_vpd %>% 
+        monthly_vpd <- monthly_vpd %>%
             complete(SignalID, Month) %>%
             arrange(SignalID, Month) %>%
-            group_by(SignalID) %>% 
+            group_by(SignalID) %>%
             mutate(vpd12 = runner::mean_run(vpd, lag = 0, k = 12)) %>%
             ungroup()
 
         # Running 36 months of crashes
-        monthly_36mo_crashes <- crashes %>% 
+        monthly_36mo_crashes <- crashes %>%
             complete(SignalID, Month) %>%
             replace(is.na(.), 0) %>%
-            arrange(SignalID, Month) %>% 
-            group_by(SignalID) %>% 
+            arrange(SignalID, Month) %>%
+            group_by(SignalID) %>%
 
             mutate(across(
-                starts_with("crashes"), 
+                starts_with("crashes"),
                 function(x) {runner::sum_run(x, lag = 0, k = 36)}
-            )) %>% 
+            )) %>%
             mutate(cost = runner::sum_run(cost, lag = 0, k = 36)) %>%
             ungroup()
 
         # -- Hack to use a fixed 36 month period for all months in report (which is the same as the vpd months)
         monthly_36mo_crashes <- filter(monthly_36mo_crashes, Month == max(Month))
         monthly_36mo_crashes <- lapply(
-            unique(monthly_vpd$Month), 
+            unique(monthly_vpd$Month),
             function(m) mutate(monthly_36mo_crashes, Month = m)
-            ) %>% 
+            ) %>%
             bind_rows()
         # -- ---------------------------------------------------
 
         monthly_crashes <- full_join(
-            monthly_36mo_crashes, 
-            monthly_vpd, 
+            monthly_36mo_crashes,
+            monthly_vpd,
             by = c("SignalID", "Month")
             ) %>%
             mutate(

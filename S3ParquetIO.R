@@ -17,7 +17,7 @@ s3_upload_parquet <- function(df, date_, fn, bucket, table_name, conf_athena) {
     if ("SignalID" %in% names(df)) {
         df <- mutate(df, SignalID = as.character(SignalID))
     }
-    
+
     keep_trying(
         s3write_using,
         n_tries = 5,

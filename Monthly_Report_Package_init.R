@@ -34,19 +34,19 @@ all_corridors <- s3read_using(
 
 signals_list <- unique(corridors$SignalID)
 
-subcorridors <- corridors %>% 
+subcorridors <- corridors %>%
     filter(!is.na(Subcorridor)) %>%
-    select(-Zone_Group) %>% 
+    select(-Zone_Group) %>%
     rename(
-        Zone_Group = Zone, 
-        Zone = Corridor, 
-        Corridor = Subcorridor) 
+        Zone_Group = Zone,
+        Zone = Corridor,
+        Corridor = Subcorridor)
 
 
 conn <- get_athena_connection(conf$athena)
 
 cam_config <- get_cam_config(
-    object = conf$cctv_config_filename, 
+    object = conf$cctv_config_filename,
     bucket = conf$bucket,
     corridors = all_corridors)
 

@@ -1,7 +1,7 @@
 library(maps)
 library(sf)
 library(tidyverse)
-    
+
 # Download Teams Locations Report from TEAMS Application as Excel
 locs <- readxl::read_excel("TEAMS-Locations-MVID_2021-07-01.xlsx") %>%
     rename(Latitude = "Latitude...16",
@@ -40,26 +40,26 @@ mins <- apply(dists, 1, min)
 
 locs$dist <- mins
 locations <- dplyr::bind_cols(
-    rename(locs, Latitude_teams = Latitude, Longitude_teams = Longitude), 
-    sigops[minids,]) %>% 
+    rename(locs, Latitude_teams = Latitude, Longitude_teams = Longitude),
+    sigops[minids,]) %>%
     arrange(`Assummed MVID`, dist)
 readr::write_csv(locations, "teams_locations2.csv")
 
-l <- locations %>% 
-    group_by(MVID = as.integer(`Assumed MVID`)) %>% 
+l <- locations %>%
+    group_by(MVID = as.integer(`Assumed MVID`)) %>%
     summarize(
-        n = n(), 
-        mindist = min(dist), 
-        maxdist = max(dist)) %>% 
+        n = n(),
+        mindist = min(dist),
+        maxdist = max(dist)) %>%
     ungroup()
 sigops2 <- left_join(mutate(sigops, MVID = as.integer(MVID)), l, by = c("MVID"))
 
 readr::write_csv(sigops2, "sigops2.csv")
 
-leaflet::leaflet() %>% 
+leaflet::leaflet() %>%
     leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron) %>%
     leaflet::addCircleMarkers(
         data = locations,
-        lat = ~Latitude_teams, 
+        lat = ~Latitude_teams,
         lng = ~Longitude_teams,
         color = ~dist)

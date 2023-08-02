@@ -66,7 +66,7 @@ if __name__ == '__main__':
     som = start_date - timedelta(start_date.day - 1)
     months = pd.date_range(start=som, end=end_date, freq='MS')
     re_today = re.compile(datetime.today().strftime('%Y-%m-%d'))
-    
+
     bucket = conf['bucket']
     athena = conf['athena']
 

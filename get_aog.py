@@ -41,7 +41,7 @@ def get_det_config(date_, conf):
     date_str = date_.strftime('%Y-%m-%d')
 
     bucket = conf['bucket']
-    
+
     bd_key = f's3://{bucket}/mark/bad_detectors/date={date_str}/bad_detectors_{date_str}.parquet'
     bd = pd.read_parquet(bd_key).assign(
             SignalID = lambda x: x.SignalID.astype('int64'),
@@ -66,9 +66,9 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
     '''
     try:
         date_str = date_.strftime('%Y-%m-%d')
-        
+
         bucket = conf['bucket']
-                
+
         all_hours = pd.date_range(date_, date_ + pd.Timedelta(1, unit='days'), freq=per, inclusive='left')
 
         de_fn = f'../detections/Date={date_str}/SignalID={signalid}/de_{signalid}_{date_str}.parquet'
@@ -137,7 +137,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
 
             aog = pd.concat([aog, gC], axis=1).assign(pr=lambda x: x.AOG/x.gC)
             aog = aog[~aog.Green_Arrivals.isna()]
-            
+
             print('.', end='')
 
             return aog
@@ -154,10 +154,10 @@ def main(conf, start_date, end_date):
     for date_ in dates:
       try:
         t0 = time.time()
-        
-        date_str = date_.strftime('%Y-%m-%d') 
+
+        date_str = date_.strftime('%Y-%m-%d')
         print(date_str)
-        
+
         print('Getting detector configuration...', end='')
         det_config = get_det_config(date_, conf)
         print('done.')
@@ -175,7 +175,7 @@ def main(conf, start_date, end_date):
                 list(itertools.product(signalids, [date_], [det_config], [conf], ['H'])))
             pool.close()
             pool.join()
-    
+
         dfs = results.get()
         df = (pd.concat(dfs)
               .reset_index()[['SignalID', 'Phase', 'Hour', 'AOG', 'pr', 'All_Arrivals']]
@@ -188,23 +188,23 @@ def main(conf, start_date, end_date):
               .assign(SignalID=lambda x: x.SignalID.astype('str'),
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
-   
+
         df.to_parquet(f's3://{bucket}/mark/arrivals_on_green/date={date_str}/aog_{date_str}.parquet')
 
         num_signals = len(list(set(df.SignalID.values)))
         t1 = round(time.time() - t0, 1)
         print(f'\n{num_signals} signals done in {t1} seconds.')
-        
+
 
         print('\n15 minutes')
-        
+
         with get_context('spawn').Pool(processes=24) as pool:
             results = pool.starmap_async(
                 get_aog,
                 list(itertools.product(signalids, [date_], [det_config], [conf], ['15min'])))
             pool.close()
             pool.join()
-    
+
         dfs = results.get()
         df = (pd.concat(dfs)
               .reset_index()[['SignalID', 'Phase', 'Hour', 'AOG', 'pr', 'All_Arrivals']]
@@ -217,7 +217,7 @@ def main(conf, start_date, end_date):
               .assign(SignalID=lambda x: x.SignalID.astype('str'),
                       CallPhase=lambda x: x.CallPhase.astype('str'),
                       vol=lambda x: x.vol.astype('int32')))
-    
+
         df.to_parquet(f's3://{bucket}/mark/arrivals_on_green_15min/date={date_str}/aog_{date_str}.parquet')
 
         num_signals = len(list(set(df.SignalID.values)))
@@ -231,7 +231,7 @@ def main(conf, start_date, end_date):
 
 
 if __name__=='__main__':
-    
+
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
@@ -245,7 +245,7 @@ if __name__=='__main__':
 
     start_date = get_date_from_string(start_date)
     end_date = get_date_from_string(end_date)
-    
+
 
     main(conf, start_date, end_date)
 

@@ -22,13 +22,13 @@ print("Created.")
 
 
 
-month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>% 
+month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>%
     rev() %>% format("%b %Y")
 last_month <- dmy(paste(1, month_options[[1]]))
 
 all_zones <- paste("Zone", c(seq(7), "7m", "7d", 8))
 initial_zone <- all_zones[1]
-                   
+
 
 get_last_modified <- function(zmdf_, zone_ = NULL, month_ = NULL) {
     df <- zmdf_ %>%
@@ -65,12 +65,12 @@ read_from_db <- function(conn) {
 
 add_row_to_zmdf <- function(zmdf, month, zone, comments) {
     new_row <- data.frame(
-        uuid = uuid::UUIDgenerate(), 
-        Month = month, 
-        Zone = zone, 
-        Comments = comments, 
+        uuid = uuid::UUIDgenerate(),
+        Month = month,
+        Zone = zone,
+        Comments = comments,
         LastModified = now())
-    
+
     bind_rows(zmdf, new_row)
 }
 
@@ -78,10 +78,10 @@ add_row_to_zmdf <- function(zmdf, month, zone, comments) {
 write_rows_to_db <- function(conn, rows) {
     if (nrow(rows) > 0) {
         dbWriteTable(
-            conn, 
-            "progress_report_content", 
-            rows, 
-            append = TRUE, 
+            conn,
+            "progress_report_content",
+            rows,
+            append = TRUE,
             row.names = FALSE)
     }
 }
@@ -146,30 +146,30 @@ editor_opts <-
     }'
 
 default_comment <- paste0(
-    "<h3>Construction/Coordination</h3>", 
+    "<h3>Construction/Coordination</h3>",
     "<p>comments here.</p>",
-    "<h3>Maintenance Activities</h3>", 
+    "<h3>Maintenance Activities</h3>",
     "<p>comments here.</p>",
-    "<h3>Performance Metrics</h3>", 
+    "<h3>Performance Metrics</h3>",
     "<p>comments here.</p>",
-    "<h3>Other</h3>", 
+    "<h3>Other</h3>",
     "<p>comments here.</p>")
 
 
 
 shinyApp(
-    
+
     ui = fluidPage(
         tags$head(tags$script(src = "message-handler.js")),
-        
+
         h4('Zone Manager Progress Report Editor', style = "padding-top: 12px"),
         hr(),
-        
+
         div(
             style = "display: grid;
                              grid-template-columns: 50px 120px 50px 120px;
                              grid-column-gap: 20px; padding-top: 6px",
-            
+
             div("Zone:",
                 style = "height: 34px; padding-top: 6px"
             ),
@@ -179,7 +179,7 @@ shinyApp(
                 ),
                 style = "height: 34px;"
             ),
-            
+
             div("Month:",
                 style = "height: 34px; padding-top: 6px"
             ),
@@ -191,8 +191,8 @@ shinyApp(
                 style = "height: 34px;"
             )
         ),
-        
-        
+
+
         fluidRow(
             column(width = 9,
                    hr(),
@@ -205,13 +205,13 @@ shinyApp(
                    actionButton("save_zm_edits", "Save Edits"))
         )
     ),
-    
+
     server <- function(input, output, session) {
-        
+
         onStop(function() {
             pool::poolReturn(conn)
         })
-        
+
         print("Checkout connection from pool...")
         conn <- pool::poolCheckout(conn_pool)
         print("Checked out.")
@@ -219,57 +219,57 @@ shinyApp(
         zone_group <- reactive({
             input$zone
         })
-        
+
         current_month <- reactive({
             dmy(paste(1, input$month))
         })
-        
+
         zmdf <- read_from_db(conn)
-        
+
         # Populate last month with default comments if nothing entered for any zone in this month.
         for (zone in all_zones) {
             if (nrow(get_last_modified(zmdf, zone_ = zone, month_ = last_month)) == 0) {
                 zmdf <- add_row_to_zmdf(
-                    zmdf, 
-                    month = last_month, 
-                    zone = zone, 
+                    zmdf,
+                    month = last_month,
+                    zone = zone,
                     comments = default_comment)
                 zmdf <- sync_db(conn, zmdf)
             }
         }
 
         zmdf <- sync_db(conn, zmdf)
-        
+
         memory = reactiveValues(zone = initial_zone, month = last_month)
-        
+
 
         # Update Editor with ZM Data on user selection of new Zone or Group
         # only if editor text has changed
         observe({
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
-                
+
                 if (!is.null(input$editor1) && input$editor1 != "" && input$editor1 != latest_comment) {
 
                     zmdf <<- add_row_to_zmdf(
                         zmdf,
-                        month = memory$month, 
-                        zone = memory$zone, 
+                        month = memory$month,
+                        zone = memory$zone,
                         comments = input$editor1)
                 }
             })
-            
+
             updateTinyMCE(
                 session,
                 'editor1',
                 get_latest_comment(zmdf, zone_group(), current_month())
             )
-            
+
             memory$month <- current_month()
             memory$zone <- zone_group()
         })
-        
-        
+
+
         # Undo Button
         observeEvent(input$undo_zm_edits, {
             showModal(modalDialog(
@@ -280,20 +280,20 @@ shinyApp(
                 )
             ))
         })
-        
+
         # On Undo, reload ZM Data from S3.
         observeEvent(input$confirmUndo, {
             zmdf <<- read_from_db(conn)
 
             removeModal()
-            
+
             updateTinyMCE(
                 session,
                 'editor1',
                 get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month))
             )
         })
-        
+
         observeEvent(input$save_zm_edits, {
             showModal(modalDialog(
                 title = "Save edits?",
@@ -303,17 +303,17 @@ shinyApp(
                 )
             ))
         })
-        
+
         observeEvent(input$confirmSave, {
-            
+
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
                 if (is.null(input$editor1) || is.null(latest_comment) || input$editor1 != latest_comment) {
                     zmdf <- add_row_to_zmdf(
                         zmdf,
-                        month = memory$month, 
-                        zone = memory$zone, 
+                        month = memory$month,
+                        zone = memory$zone,
                         comments = input$editor1)
                     zmdf <<- sync_db(conn, zmdf)
                 }
@@ -321,9 +321,9 @@ shinyApp(
 
             removeModal()
         })
-        
+
     },
-    
+
     options = list(height = 800)
 )
 
@@ -344,10 +344,10 @@ shinyApp(
 # dbSendQuery(conn, q)
 # dbSendQuery(conn, "CREATE UNIQUE INDEX idx_progress_report_content ON progress_report_content (uuid)")
 # dbSendQuery(conn, "CREATE INDEX idx_progress_report_content_2 ON progress_report_content (Month, Zone)")
-# 
+#
 # zmdf$uuid <- uuid::UUIDgenerate(n = nrow(zmdf))
 # dbWriteTable(conn, "progress_report_content", zmdf, append = TRUE, row.names = FALSE)
-# 
+#
 # # Test
 # q <- paste("CREATE TABLE `progress_report_content_test` (",
 #            "`uuid` VARCHAR(36),",
@@ -359,7 +359,7 @@ shinyApp(
 # dbSendQuery(conn, q)
 # dbSendQuery(conn, "CREATE UNIQUE INDEX idx_progress_report_content_test ON progress_report_content_test (uuid)")
 # dbSendQuery(conn, "CREATE INDEX idx_progress_report_content_test_2 ON progress_report_content_test (Month, Zone)")
-# 
+#
 # zmdf$uuid <- uuid::UUIDgenerate(n = nrow(zmdf))
 # dbWriteTable(conn, "progress_report_content_test", zmdf, append = TRUE, row.names = FALSE)
 # #--- End once-off database table set up steps ---

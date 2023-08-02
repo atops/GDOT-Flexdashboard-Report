@@ -219,7 +219,7 @@ def get_udc_data(start_date,
 
     corridors_to_run = list(filter(
         lambda x: not os.path.exists(f'user_delay_costs/{start_date_1yr}/{get_filename(x)}'),
-        zcdf1.Corridor)) 
+        zcdf1.Corridor))
     print(f'{len(corridors_to_run)} corridors to run')
     zcdf1 = zcdf1[zcdf1.Corridor.isin(corridors_to_run)]
 
@@ -248,7 +248,7 @@ def get_udc_data(start_date,
 
     shutil.rmtree(f'user_delay_costs/{start_date}/')
     shutil.rmtree(f'user_delay_costs/{start_date_1yr}/')
-    
+
     print(f'{len(df)} records')
     return df
 

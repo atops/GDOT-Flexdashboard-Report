@@ -1,11 +1,11 @@
-# All this is implemented (plus bugfixes!) in the ggnewscale package: 
+# All this is implemented (plus bugfixes!) in the ggnewscale package:
 # https://github.com/eliocamp/ggnewscale
 # If you have any issues, I prefer it if you send them as issues here:
 # https://github.com/eliocamp/ggnewscale/issues
 
-#' Allows to add another scale 
-#' 
-#' @param new_aes character with the aesthetic for which new scales will be 
+#' Allows to add another scale
+#'
+#' @param new_aes character with the aesthetic for which new scales will be
 #' created
 #'
 new_scale <- function(new_aes) {
@@ -27,7 +27,7 @@ new_scale_colour <- function() {
 
 #' Special behaviour of the "+" for adding a `new_aes` object
 #' It changes the name of the aesthethic for the previous layers, appending
-#' "_new" to them. 
+#' "_new" to them.
 ggplot_add.new_aes <- function(object, plot, object_name) {
   plot$layers <- lapply(plot$layers, bump_aes, new_aes = object)
   plot$scales$scales <- lapply(plot$scales$scales, bump_aes, new_aes = object)
@@ -43,9 +43,9 @@ bump_aes <- function(layer, new_aes) {
 bump_aes.Scale <- function(layer, new_aes) {
   old_aes <- layer$aesthetics[remove_new(layer$aesthetics) %in% new_aes]
   new_aes <- paste0(old_aes, "_new")
-  
+
   layer$aesthetics[layer$aesthetics %in% old_aes] <- new_aes
-  
+
   if (is.character(layer$guide)) {
     layer$guide <- match.fun(paste("guide_", layer$guide, sep = ""))()
   }
@@ -55,46 +55,46 @@ bump_aes.Scale <- function(layer, new_aes) {
 
 bump_aes.Layer <- function(layer, new_aes) {
   original_aes <- new_aes
-  
+
   old_aes <- names(layer$mapping)[remove_new(names(layer$mapping)) %in% new_aes]
   new_aes <- paste0(old_aes, "_new")
-  
+
   old_geom <- layer$geom
-  
+
   old_setup <- old_geom$handle_na
   new_setup <- function(self, data, params) {
     colnames(data)[colnames(data) %in% new_aes] <- original_aes
     old_setup(data, params)
   }
-  
+
   new_geom <- ggplot2::ggproto(paste0("New", class(old_geom)[1]), old_geom,
                                handle_na = new_setup)
-  
+
   new_geom$default_aes <- change_name(new_geom$default_aes, old_aes, new_aes)
   new_geom$non_missing_aes <- change_name(new_geom$non_missing_aes, old_aes, new_aes)
   new_geom$required_aes <- change_name(new_geom$required_aes, old_aes, new_aes)
   new_geom$optional_aes <- change_name(new_geom$optional_aes, old_aes, new_aes)
-  
+
   layer$geom <- new_geom
-  
+
   old_stat <- layer$stat
-  
+
   old_setup2 <- old_stat$handle_na
   new_setup <- function(self, data, params) {
     colnames(data)[colnames(data) %in% new_aes] <- original_aes
     old_setup2(data, params)
   }
-  
+
   new_stat <- ggplot2::ggproto(paste0("New", class(old_stat)[1]), old_stat,
                                handle_na = new_setup)
-  
+
   new_stat$default_aes <- change_name(new_stat$default_aes, old_aes, new_aes)
   new_stat$non_missing_aes <- change_name(new_stat$non_missing_aes, old_aes, new_aes)
   new_stat$required_aes <- change_name(new_stat$required_aes, old_aes, new_aes)
   new_stat$optional_aes <- change_name(new_stat$optional_aes, old_aes, new_aes)
-  
+
   layer$stat <- new_stat
-  
+
   layer$mapping <- change_name(layer$mapping, old_aes, new_aes)
   layer
 }
@@ -102,7 +102,7 @@ bump_aes.Layer <- function(layer, new_aes) {
 bump_aes.list <- function(layer, new_aes) {
   old_aes <-  names(layer)[remove_new(names(layer)) %in% new_aes]
   new_aes <- paste0(old_aes, "_new")
-  
+
   names(layer)[names(layer) %in% old_aes] <- new_aes
   layer
 }
@@ -149,4 +149,4 @@ ggplot(mapping = aes(x, y)) +
   scale_color_viridis_c(option = "D") +
   new_scale_color() +   # geoms below can use another color scale!
   geom_point(data = d, size = 3, aes(color = abund)) +
-  scale_color_viridis_c(option = "A") 
+  scale_color_viridis_c(option = "A")

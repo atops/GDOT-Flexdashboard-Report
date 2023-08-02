@@ -4,7 +4,7 @@ library(qs)
 
 
 load_bulk_data <- function(conn, table_name, df_) {
-    
+
     dbcols <- dbListFields(conn, table_name)
     dfcols <- names(df_)
     cols_ <- intersect(dbcols, dfcols)  # Columns common to both df and db tables
@@ -20,18 +20,18 @@ load_data <- function(conn_pool, table_name, df_) {
 }
 
 write_sigops_to_db <- function(
-    conn, df, dfname, recreate = FALSE, 
-        calcs_start_date = NULL, 
+    conn, df, dfname, recreate = FALSE,
+        calcs_start_date = NULL,
         report_start_date = NULL,
         report_end_date = NULL) {
-    
+
     # Aggregation periods: qu, mo, wk, dy, ...
     pers <- names(df)
     pers <- pers[pers != "summary_data"]
 
     table_names <- c()
     for (per in pers) {
-        for (tab in names(df[[per]])) { 
+        for (tab in names(df[[per]])) {
             dbBegin(conn)  # Because of database cluster. Need to delete and write within the same transaction to avoid conflicts.
 
             table_name <- glue("{dfname}_{per}_{tab}")
@@ -44,20 +44,20 @@ write_sigops_to_db <- function(
             } else {
                 start_date <- calcs_start_date
             }
-            
+
             # Sort to align with index to hopefully speed up database writes
             if (length(intersect(names(df_), c(datefield, "Zone_Group", "Corridor"))) == 3) {
                 df_ <- arrange(df_, !!as.name(datefield), Zone_Group, Corridor)
             }
-            
+
             tryCatch({
                 if (recreate) {
                     print(glue("{Sys.time()} Writing {table_name} | 3 | recreate = {recreate}"))
                     # Overwrite to create initial data types
                     DBI::dbWriteTable(
-                        conn, 
-                        table_name, 
-                        head(df_, 3), 
+                        conn,
+                        table_name,
+                        head(df_, 3),
                         overwrite = TRUE,
                         row.names = FALSE)
                     dbExecute(conn, glue("TRUNCATE TABLE {table_name}"))
@@ -88,12 +88,12 @@ write_sigops_to_db <- function(
                         if (!is.null(report_end_date) & length(datefield) == 1) {
                             df_ <- filter(df_, !!as.name(datefield) < ymd(report_end_date) + months(1))
                         }
-                        
+
                         print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df_))} | recreate = {recreate}"))
                         load_bulk_data(conn, table_name, df_)
                     }
                 }
-                
+
             }, error = function(e) {
                 print(glue("{Sys.time()} {table_name} {e}"))
             })
@@ -104,11 +104,11 @@ write_sigops_to_db <- function(
 }
 
 write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start_date = NULL, report_end_date = NULL) {
-    
+
     table_name <- dfname
     datefield <- intersect(names(df), c("Month", "Date", "Hour", "Timeperiod"))
     start_date <- calcs_start_date
-    
+
     tryCatch({
         if (recreate) {
             print(glue("{Sys.time()} Writing {table_name} | 3 | recreate = {recreate}"))
@@ -128,10 +128,10 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
                 if (!is.null(report_end_date) & length(datefield) == 1) {
                     df <- filter(df, !!as.name(datefield) < ymd(report_end_date) + months(1))
                 }
-               
+
                 print(glue("{Sys.time()} Writing {table_name} | {scales::comma_format()(nrow(df))} | recreate = {recreate}"))
                 # load_bulk_data(conn, table_name, df)
-           
+
                 DBI::dbWriteTable(
                     conn,
                     table_name,
@@ -142,7 +142,7 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
                 )
             }
         }
-        
+
     }, error = function(e) {
         print(glue("{Sys.time()} {e}"))
     })
@@ -150,10 +150,10 @@ write_to_db_once_off <- function(conn, df, dfname, recreate = FALSE, calcs_start
 
 
 set_index_aurora <- function(conn, table_name) {
-    
+
     fields <- dbListFields(conn, table_name)
     period <- intersect(fields, c("Month", "Date", "Hour", "Timeperiod", "Quarter"))
-    
+
     if (length(period) > 1) {
         print("More than one possible period in table fields")
         return(0)
@@ -164,14 +164,14 @@ set_index_aurora <- function(conn, table_name) {
     # Indexes on Zone Group and Period
     if (!glue("idx_{table_name}_zone_period") %in% indexes$Key_name) {
         dbExecute(conn, glue(paste(
-            "CREATE INDEX idx_{table_name}_zone_period", 
+            "CREATE INDEX idx_{table_name}_zone_period",
             "ON {table_name} (Zone_Group, {period})")))
     }
-    
+
     # Indexes on Corridor and Period
     if (!glue("idx_{table_name}_corridor_period") %in% indexes$Key_name) {
         dbExecute(conn, glue(paste(
-            "CREATE INDEX idx_{table_name}_corridor_period", 
+            "CREATE INDEX idx_{table_name}_corridor_period",
             "ON {table_name} (Corridor, {period})")))
     }
 
@@ -201,10 +201,10 @@ add_primary_key_id_field_aurora <- function(conn, table_name) {
 
 convert_to_key_value_df <- function(key, df) {
     data.frame(
-        key = key, 
-        data = rjson::toJSON(df), 
+        key = key,
+        data = rjson::toJSON(df),
         stringsAsFactors = FALSE)
-    
+
 }
 
 
@@ -221,14 +221,14 @@ recreate_database <- function(conn, df, dfname) {
     if ("safety" %in% names(df$mo)) {
         df$mo$safety <- mutate(df$mo$safety, Zone_Group = Zone)
     }
-    
+
     # This is a more complex data structure. Convert to a JSON string that can be unwound on query.
     if ("udc_trend_table" %in% names(df$mo)) {
         df$mo$udc_trend_table <- convert_to_key_value_df("udc", df$mo$udc_trend_table)
     }
-    
+
     table_names <- write_sigops_to_db(conn, df, dfname, recreate = TRUE)
-    
+
     if ("udc_trend_table" %in% names(df$mo)) {
         write_to_db_once_off(conn, df$mo$udc_trend_table, glue("{dfname}_mo_udc_trend"), recreate = TRUE)
     }
@@ -238,13 +238,13 @@ recreate_database <- function(conn, df, dfname) {
     if ("summary_data" %in% names(df)) {
         write_to_db_once_off(conn, df$summary_data, glue("{dfname}_summary_data"), recreate = TRUE)
     }
-    
+
     if (class(conn) == "MySQLConnection" | class(conn)[[1]] == "MariaDBConnection") { # Aurora
         print(glue("{Sys.time()} Aurora Database Connection"))
-        
+
         # Get CREATE TABLE Statements for each Table
         create_dfs <- lapply(
-            table_names, 
+            table_names,
             function(table_name) {
                 tryCatch({
                     dbGetQuery(conn, glue("show create table {table_name};"))
@@ -252,17 +252,17 @@ recreate_database <- function(conn, df, dfname) {
                     NULL
                 })
             })
-        
-        create_statements <- bind_rows(create_dfs) %>% 
+
+        create_statements <- bind_rows(create_dfs) %>%
             as_tibble()
-        
-        # Modify CREATE TABLE Statements 
+
+        # Modify CREATE TABLE Statements
         # To change text to VARCHAR with fixed size because this is required for indexing these fields
         # This is needed for Aurora
         for (swap in list(
             c("bigint[^ ,]+", "INT"),
             c("varchar[^ ,]+", "VARCHAR(128)"),
-            c("`Zone_Group` [^ ,]+", "`Zone_Group` VARCHAR(128)"), 
+            c("`Zone_Group` [^ ,]+", "`Zone_Group` VARCHAR(128)"),
             c("`Corridor` [^ ,]+", "`Corridor` VARCHAR(128)"),
             c("`Quarter` [^ ,]+", "`Quarter` VARCHAR(8)"),
             c("`Date` [^ ,]+", "`Date` DATE"),
@@ -272,13 +272,13 @@ recreate_database <- function(conn, df, dfname) {
             c( "delta` [^ ,]+", "delta` DOUBLE"),
             c("`ones` [^ ,]+", "`ones` DOUBLE"),
             c("`data` [^ ,]+", "`data` mediumtext"),
-            c("`Description` [^ ,]+", "`Description` VARCHAR(128)"), 
+            c("`Description` [^ ,]+", "`Description` VARCHAR(128)"),
             c( "Score` [^ ,]+", "Score` DOUBLE")
         )
         ) {
             create_statements[["Create Table"]] <- stringr::str_replace_all(create_statements[["Create Table"]], swap[1], swap[2])
         }
-        
+
         # Delete and recreate with proper data types
         lapply(create_statements$Table, function(x) {
             dbRemoveTable(conn, x)
@@ -296,7 +296,7 @@ recreate_database <- function(conn, df, dfname) {
         lapply(create_statements$Table, function(x) {
             add_primary_key_id_field_aurora(conn, x)
         })
-    }    
+    }
 }
 
 

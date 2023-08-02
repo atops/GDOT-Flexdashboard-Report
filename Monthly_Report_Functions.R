@@ -58,11 +58,11 @@ conf$athena$pwd <- aws_conf$AWS_SECRET_ACCESS_KEY
 if (Sys.info()["sysname"] == "Windows") {
     home_path <- dirname(path.expand("~"))
     python_path <- file.path(home_path, "Anaconda3", "python.exe")
-    
+
 } else if (Sys.info()["sysname"] == "Linux") {
     home_path <- "~"
     python_path <- file.path(home_path, "miniconda3", "bin", "python")
-    
+
 } else {
     stop("Unknown operating system.")
 }
@@ -99,7 +99,7 @@ if (Sys.info()["nodename"] %in% c("GOTO3213490", "Lenny")) { # The SAM or Lenny
         use_proxy("gdot-enterprise", port = 8080,
                   username = Sys.getenv("GDOT_USERNAME"),
                   password = Sys.getenv("GDOT_PASSWORD")))
-    
+
 } else { # shinyapps.io
     Sys.setenv(TZ="America/New_York")
 }

@@ -48,7 +48,7 @@ if [[ ${H#0} -lt 6 ]]; then
     fi
 
     aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1 --no-follow-symlinks
-    
+
     # Shut down when script completes
     aws ec2 stop-instances --instance-ids i-0ddfe60da0c6fe4bd
 

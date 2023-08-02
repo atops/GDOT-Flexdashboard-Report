@@ -1,21 +1,21 @@
 
 get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, TWR_only = FALSE) {
-    
+
     if (lubridate::wday(date_, label = TRUE) %in% c("Tue", "Wed", "Thu") || (TWR_only == FALSE)) {
-        
+
         df <- df %>%
             filter(eventcode == event_code)
-        
+
         # Group by hour using Athena/Presto SQL
         if (units == "hours") {
-            df <- df %>% 
+            df <- df %>%
                 group_by(timeperiod = date_trunc('hour', timestamp),
                          signalid,
                          eventparam)
-            
+
             # Group by 15 minute interval using Athena/Presto SQL
         } else if (units == "15min") {
-            df <- df %>% 
+            df <- df %>%
                 mutate(timeperiod = date_trunc('minute', timestamp)) %>%
                 group_by(timeperiod = date_add('second',
                                                as.integer(-1 * mod(to_unixtime(timeperiod), 15*60)),
@@ -23,7 +23,7 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
                          signalid,
                          eventparam)
         }
-        
+
         df <- df %>%
             count() %>%
             ungroup() %>%
@@ -45,21 +45,21 @@ get_counts <- function(df, det_config, units = "hours", date_, event_code = 82, 
 
 
 get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE) {
-    
+
     atspm_query <- sql(glue(paste(
-        "select distinct timestamp, signalid, eventcode, eventparam", 
-        "from {conf_athena$database}.{conf_athena$atspm_table}", 
+        "select distinct timestamp, signalid, eventcode, eventparam",
+        "from {conf_athena$database}.{conf_athena$atspm_table}",
         "where date = '{date_}'")))
-    
+
     if (counts == TRUE) {
         det_config <- get_det_config(date_) %>%
-            transmute(SignalID = factor(SignalID), 
-                      Detector = factor(Detector), 
+            transmute(SignalID = factor(SignalID),
+                      Detector = factor(Detector),
                       CallPhase = factor(CallPhase))
-        
+
         ped_config <- get_ped_config(date_) %>%
-            transmute(SignalID = factor(SignalID), 
-                      Detector = factor(Detector), 
+            transmute(SignalID = factor(SignalID),
+                      Detector = factor(Detector),
                       CallPhase = factor(CallPhase))
     }
 
@@ -74,50 +74,50 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 #     select(signalid=SignalID, timestamp=Timestamp, eventcode=EventCode, eventparam=EventParam)
 
     print(paste("-- Get Counts for:", date_, "-----------"))
-    
+
     if (uptime == TRUE) {
-        
-        
+
+
         # Uptime is updated as of July 2020
         # Takes comm codes from MaxView EventLog table (500,501,502,503,504)
-        # These codes show comm attempts, failures and percent failures every 5 minutes. 
+        # These codes show comm attempts, failures and percent failures every 5 minutes.
         # If failure rate is less than 100% we say we have comm at that time period
-        # We average up the periods with comms to get the uptime for the day. 
+        # We average up the periods with comms to get the uptime for the day.
         # Typically (# periods with some comm)/(total number of periods) = % uptime
         #
         # When we start pulling from the ATSPM database for events, we'll have
         # to pull these codes separately since they only appear in MaxView's EventLog
         #
         conn <- get_athena_connection(conf_athena)
-        
+
         print(glue("Communications uptime {date_}"))
-        comm_uptime <- tbl(conn, atspm_query) %>% 
+        comm_uptime <- tbl(conn, atspm_query) %>%
             filter(eventcode %in% c(502,503)) %>%
-            collect() %>% 
-            group_by(signalid) %>% 
+            collect() %>%
+            group_by(signalid) %>%
             summarize(
                 success_rate = sum(eventparam[eventcode==502]<100, na.rm=TRUE),
                 denom = sum(eventparam[eventcode==502]>-1, na.rm=TRUE),
-                response_ms = mean(eventparam[eventcode==503], na.rm=TRUE), 
+                response_ms = mean(eventparam[eventcode==503], na.rm=TRUE),
                 .groups = "drop") %>%
             mutate(SignalID = factor(signalid),
                    CallPhase = factor(0),
                    uptime = success_rate/denom,
                    Date_Hour = as_datetime(date_),
                    Date = date(date_),
-                   DOW = wday(date_), 
+                   DOW = wday(date_),
                    Week = week(date_)) %>%
             dplyr::select(SignalID, CallPhase, Date, Date_Hour, DOW, Week, uptime, response_ms)
-            
+
         dbDisconnect(conn)
-        
-        s3_upload_parquet(comm_uptime, date_, 
-                          fn = glue("cu_{date_}"), 
+
+        s3_upload_parquet(comm_uptime, date_,
+                          fn = glue("cu_{date_}"),
                           bucket = bucket,
                           table_name = "comm_uptime",
                           conf_athena = conf_athena)
     }
-    
+
     if (counts == TRUE) {
 
         counts_1hr_fn <- glue("counts_1hr_{date_}")
@@ -125,17 +125,17 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 
         counts_ped_1hr_fn <- glue("counts_ped_1hr_{date_}")
         counts_ped_15min_fn <- glue("counts_ped_15min_{date_}")
-        
+
         filtered_counts_1hr_fn <- glue("filtered_counts_1hr_{date_}")
         filtered_counts_15min_fn <- glue("filtered_counts_15min_{date_}")
-        
+
         conn <- get_athena_connection(conf_athena)
-        
+
         # get 1hr counts
         print("1-hour counts")
         counts_1hr <- get_counts(
-            tbl(conn, atspm_query), 
-            det_config, 
+            tbl(conn, atspm_query),
+            det_config,
             "hours",
             date_,
             event_code = 82,

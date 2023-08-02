@@ -23,16 +23,11 @@ source("Classes.R")
 # [x] No Peak Period Volumes
 # [ ] Make a place on S3 for images
 
-get_quarterly_data <- function(conf) {
+get_quarterly_data <- function() {
 
-    aws.s3::save_object(
-        bucket = conf$bucket,
-        object = "code/sigops.duckdb", 
-        file = "sigops.duckdb", 
-        show_progress = TRUE)
-    conn <- get_duckdb_connection("sigops.duckdb")
+    conn <- get_aurora_connection()
 
-    lapply(
+    df <- lapply(
         list(vpd,
              am_peak_vph,
              pm_peak_vph,
@@ -59,52 +54,77 @@ get_quarterly_data <- function(conf) {
             print(metric$label)
             dbReadTable(conn, glue("cor_qu_{metric$table}")) %>%
                 mutate(Metric = metric$label) %>%
-                rename(value = metric$variable) %>%
-                select(Metric, Zone_Group, Corridor, Quarter, value)
+                rename(value = metric$variable)
         }
-    ) %>% bind_rows() %>% 
-        separate(Quarter, into = c("yr", "qu"), sep = "\\.") %>% 
+    ) %>% bind_rows() %>%
+        filter(Zone_Group != "NA") %>%
+        as_tibble() %>%
+        select(Metric, Zone_Group, Corridor, Quarter, value, ones, vol, num) %>%
+        mutate(weight = coalesce(as.numeric(ones), as.numeric(num), as.numeric(vol))) %>%
+        select(-c(ones, vol, num)) %>%
+        filter(grepl("\\d{4}.\\d{1}", Quarter)) %>%
+        separate(Quarter, into = c("yr", "qu"), sep = "\\.") %>%
         mutate(date = ymd(glue("{yr}-{(as.integer(qu)-1)*3+1}-01")),  # date - start of quarter
                date = date + months(3) - days(1)) %>%  # date - end of quarter
-        mutate(Quarter = as.character(lubridate::quarter(date, with_year = TRUE, fiscal_start = 7))) %>%
+        mutate(Quarter = as.character(lubridate::quarter(date, with_year = TRUE, fiscal_start = 7)))
+
+    dfz <- df %>%
         filter(as.character(Zone_Group) == as.character(Corridor)) %>%
-        rename(District = Zone_Group) %>% 
+        rename(District = Zone_Group) %>%
         arrange(District, Quarter) %>%
         select(District, date, Quarter, Metric, value)
-}    
+
+
+    regions <- unique(dfz$District)
+
+    dfd <- df %>%
+        filter(as.character(Zone_Group) != as.character(Corridor)) %>%
+        rename(District = Zone_Group) %>%
+        filter(!District %in% regions) %>%
+        group_by(District, date, Quarter, Metric) %>%
+        summarize(value = weighted.mean(value, weight), .groups = "drop") %>%
+        arrange(District, Quarter) %>%
+        select(District, date, Quarter, Metric, value)
+
+    bind_rows(dfz, dfd) %>%
+        arrange(District, Quarter)
+}
 
 write_quarterly_data <- function(qdata, filename = "quarterly_data.csv") {
     readr::write_csv(qdata, filename)
-}	
+}
 
 #---------- Bottlenecks -----------
 
-get_quarterly_bottlenecks <- function(conf) {
+get_quarterly_bottlenecks <- function() {
     tmcs <- s3read_using(
         read_excel,
-        bucket = conf$bucket,
-        object = "Corridor_TMCs_Latest.xlsx"
+        bucket = "",
+        object = ""
     )
-    
+
     bottlenecks <- lapply(c("2020-10-01", "2020-11-01", "2020-12-01"), function(x) {
         s3read_using(
-            read_parquet, 
-            bucket = conf$bucket,
+            read_parquet,
+            bucket = "gdot-spm",
             object = glue("mark/bottlenecks/date={x}/bottleneck_rankings_{x}.parquet"))
     }) %>% bind_rows()
-    
-    
+
+
     bottlenecks$length_current <- purrr::map(bottlenecks$tmcs_current, function(x) {
         sum(tmcs[tmcs$tmc %in% x,]$length)
     }) %>% unlist()
-    
+
     bottlenecks$length_1yr <- purrr::map(bottlenecks$tmcs_1yr, function(x) {
         sum(tmcs[tmcs$tmc %in% x,]$length)
     }) %>% unlist()
-    
+
     bottlenecks %>% select(-c(tmcs_current, tmcs_1yr))
     }
 
 write_quarterly_bottlenecks <- function(bottlenecks, filename = "quarterly_bottlenecks.csv") {
     readr::write_csv(bottlenecks, filename)
 }
+
+df <- get_quarterly_data()
+write_quarterly_data(df)

@@ -1023,12 +1023,12 @@ tryCatch(
     	cor_daily_vph <- get_cor_weekly_vph(hourly_vol, corridors)
     	sub_daily_vph <- get_cor_weekly_vph(hourly_vol, subcorridors) %>%
     	    filter(!is.na(Corridor))
-    	
+
     	daily_vph_peak <- get_weekly_vph_peak(hourly_vol)
     	cor_daily_vph_peak <- get_cor_weekly_vph_peak(cor_daily_vph)
     	sub_daily_vph_peak <- get_cor_weekly_vph_peak(sub_daily_vph) %>%
     	    map(~ filter(., !is.na(Corridor)))
-    	
+
         weekly_vph <- get_weekly_vph(vph)
         cor_weekly_vph <- get_cor_weekly_vph(weekly_vph, corridors)
         sub_weekly_vph <- get_cor_weekly_vph(weekly_vph, subcorridors) %>%

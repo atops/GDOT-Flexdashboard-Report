@@ -94,8 +94,8 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
       "uuid": str(uuid.uuid1())
     }
     #----------------------------------------------------------
-    response = requests.post(uri.format('submit/export'), 
-                             params = {'key': key}, 
+    response = requests.post(uri.format('submit/export'),
+                             params = {'key': key},
                              json = payload)
     print('travel times response status code:', response.status_code)
 
@@ -110,7 +110,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             step=60,
             timeout=3600)
 
-        results = requests.get(uri.format('results/export'), 
+        results = requests.get(uri.format('results/export'),
                                params = {'key': key, 'uuid': payload['uuid']})
         print('travel times results received')
 

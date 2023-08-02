@@ -24,10 +24,10 @@ def get_pairs(df, a, b):
             .rename(columns={'TimeStamp':'EndTimeStamp','EventCode':'delete'})
             .sort_values('EndTimeStamp'))
 
-    j = (pd.merge_asof(left=ldf, 
-                            right=rdf, 
-                            left_on=['EndTimeStamp'], 
-                            right_on=['StartTimeStamp'], 
+    j = (pd.merge_asof(left=ldf,
+                            right=rdf,
+                            left_on=['EndTimeStamp'],
+                            right_on=['StartTimeStamp'],
                             by=['SignalID','EventParam'])
             .drop('delete', axis=1)
             .reset_index()
@@ -37,7 +37,7 @@ def get_pairs(df, a, b):
     j['Duration'] = (j.EndTimeStamp - j.StartTimeStamp) / np.timedelta64(1, 's')
     j = j[['StartTimeStamp','EndTimeStamp','EventCode','Duration']]
 
-    # Remove secondary matches when there are multiple matches on the first item    
+    # Remove secondary matches when there are multiple matches on the first item
     j = j.set_index('StartTimeStamp', append=True).sort_index()
     j['rank'] = j.groupby(level=[0,1,2]).rank()['Duration']
     j = j.loc[j['rank']==1].drop(columns='rank').reset_index(level=-1, drop=False)
@@ -66,11 +66,11 @@ def assign_cycle(df, cycles):
     ldf = df.reset_index().sort_values(['StartTimeStamp']).dropna()
     rdf = cycles.reset_index().sort_values(['TimeStamp']).dropna()
 
-    df = (pd.merge_asof(left=ldf, 
-                        right=rdf, 
-                        left_on=['StartTimeStamp'], 
-                        right_on=['TimeStamp'], 
-                        left_by=['SignalID'], 
+    df = (pd.merge_asof(left=ldf,
+                        right=rdf,
+                        left_on=['StartTimeStamp'],
+                        right_on=['TimeStamp'],
+                        left_by=['SignalID'],
                         right_by=['SignalID'])
            .dropna()
            .rename(columns={'EventParam':'Phase',
@@ -125,11 +125,11 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
                                'Duration':'gyrDuration'})
            [['SignalID','Phase','EventCode','CycleStart','PhaseStart','TimeInCycle','gyrDuration']])
 
-    df = (pd.merge_asof(left=ldf, 
-                        right=rdf, 
-                        left_on=['DetTimeStamp'], 
-                        right_on=['PhaseStart'], 
-                        left_by=['SignalID','Phase'], 
+    df = (pd.merge_asof(left=ldf,
+                        right=rdf,
+                        left_on=['DetTimeStamp'],
+                        right_on=['PhaseStart'],
+                        left_by=['SignalID','Phase'],
                         right_by=['SignalID','Phase'])
            .dropna()
            .set_index(['SignalID','Phase'])
@@ -163,9 +163,9 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
 
     # clean up
     df = (gyr.reset_index()
-             .merge(right=volumes, 
-                    how='outer', 
-                    left_on=['SignalID','Phase','EventCode','StartTimeStamp'], 
+             .merge(right=volumes,
+                    how='outer',
+                    left_on=['SignalID','Phase','EventCode','StartTimeStamp'],
                     right_on=['SignalID','Phase','EventCode','PhaseStart'])
              .drop('PhaseStart', axis=1)
              .rename(columns={'StartTimeStamp':'PhaseStart',
@@ -205,7 +205,7 @@ def etl_main(df, det_config):
     df.EventCode = df.EventCode.astype('int64')
     df.EventParam = df.EventParam.astype('int64')
 
-    # cycles are common to all phases       
+    # cycles are common to all phases
     cycles = (df.query('EventCode==31 and EventParam==1')
                 .set_index(['SignalID'])['TimeStamp'])
 
@@ -229,10 +229,10 @@ def etl_main(df, det_config):
         gyrv, detections_by_cycle = get_volume_by_phase(gyr, detections, aggregate=False)
 
         # Add termination type to green phase
-        gyrvt = (pd.merge(left=gyrv.reset_index(), 
-                          right=terminations.reset_index(), 
-                          how='outer', 
-                          left_on=['SignalID','Phase','PhaseEnd'], 
+        gyrvt = (pd.merge(left=gyrv.reset_index(),
+                          right=terminations.reset_index(),
+                          how='outer',
+                          left_on=['SignalID','Phase','PhaseEnd'],
                           right_on=['SignalID','EventParam','TimeStamp'])
                    .set_index(['SignalID','Phase'])
                    .drop(['TimeStamp','EventParam'], axis=1)
