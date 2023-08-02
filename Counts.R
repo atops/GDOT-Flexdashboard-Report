@@ -154,41 +154,40 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
         conn <- get_athena_connection(conf_athena)
 
         print("1-hour filtered counts")
-        if (nrow(counts_1hr) > 0) {
-            filtered_counts_1hr <- get_filtered_counts_3stream(
-                counts_1hr,
-                interval = "1 hour")
+        filtered_counts_1hr <- get_filtered_counts_3stream(
+            date_,
+            counts_1hr,
+            interval = "1 hour")
 
-            filtered_counts_1hr <- filtered_counts_hack(filtered_counts_1hr)
+        filtered_counts_1hr <- filtered_counts_hack(filtered_counts_1hr)
 
-            s3_upload_parquet(filtered_counts_1hr, date_,
-                              fn = filtered_counts_1hr_fn,
-                              bucket = bucket,
-                              table_name = "filtered_counts_1hr",
-                              conf_athena = conf_athena)
-            rm(counts_1hr)
+        s3_upload_parquet(filtered_counts_1hr, date_,
+                          fn = filtered_counts_1hr_fn,
+                          bucket = bucket,
+                          table_name = "filtered_counts_1hr",
+                          conf_athena = conf_athena)
+        rm(counts_1hr)
 
-            # BAD DETECTORS
-            print(glue("detectors: {date_}"))
-            get_bad_detectors(filtered_counts_1hr) %>%
-                s3_upload_parquet_date_split(
-                    bucket = conf$bucket,
-                    prefix = "bad_detectors",
-                    table_name = "bad_detectors",
-                    conf_athena = conf$athena
-                )
+        # BAD DETECTORS
+        print(glue("detectors: {date_}"))
+        get_bad_detectors(filtered_counts_1hr) %>%
+            s3_upload_parquet_date_split(
+                bucket = conf$bucket,
+                prefix = "bad_detectors",
+                table_name = "bad_detectors",
+                conf_athena = conf$athena
+            )
 
-            # # DAILY DETECTOR UPTIME
-            print(glue("ddu: {date_}"))
-            get_daily_detector_uptime(filtered_counts_1hr) %>%
-                bind_rows() %>%
-                s3_upload_parquet_date_split(
-                    bucket = conf$bucket,
-                    prefix = "ddu",
-                    table_name = "detector_uptime_pd",
-                    conf_athena = conf$athena
-                )
-        }
+        # # DAILY DETECTOR UPTIME
+        print(glue("ddu: {date_}"))
+        get_daily_detector_uptime(filtered_counts_1hr) %>%
+            bind_rows() %>%
+            s3_upload_parquet_date_split(
+                bucket = conf$bucket,
+                prefix = "ddu",
+                table_name = "detector_uptime_pd",
+                conf_athena = conf$athena
+            )
 
         dbDisconnect(conn)
 
@@ -263,17 +262,16 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 
         # get 15min filtered counts
         print("15-minute filtered counts")
-        if (nrow(counts_15min) > 0) {
-            get_filtered_counts_3stream(
-                counts_15min,
-                interval = "15 min") %>%
-                s3_upload_parquet(
-                    date_,
-                    fn = filtered_counts_15min_fn,
-                    bucket = bucket,
-                    table_name = "filtered_counts_15min",
-                    conf_athena = conf_athena)
-        }
+        get_filtered_counts_3stream(
+            date_,
+            counts_15min,
+            interval = "15 min") %>%
+            s3_upload_parquet(
+                date_,
+                fn = filtered_counts_15min_fn,
+                bucket = bucket,
+                table_name = "filtered_counts_15min",
+                conf_athena = conf_athena)
 
         conn <- get_athena_connection(conf_athena)
 
@@ -320,7 +318,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 #  Streak of 5 "flatlined" hours,
 #  Five hours exceeding max volume,
 #  Mean Absolute Deviation greater than a threshold
-get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
+get_filtered_counts_3stream <- function(date_, counts, interval = "1 hour") { # interval (e.g., "1 hour", "15 min")
 
     if (interval == "1 hour") {
         max_volume <- 1200  # 1000 - increased on 3/19/2020 (down to 2000 on 3/31) to accommodate mainline ramp meters
@@ -350,13 +348,10 @@ get_filtered_counts_3stream <- function(counts, interval = "1 hour") { # interva
 
     # Identify detectors/phases from detector config file. Expand.
     #  This ensures all detectors are included in the bad detectors calculation.
-    all_days <- unique(date(counts$Timeperiod))
-    det_config <- lapply(all_days, function(d) {
-        all_timeperiods <- seq(as_datetime(d), as_datetime(d) + days(1) - seconds(1), by = interval)
-        get_det_config(d) %>%
-            expand(nesting(SignalID, Detector, CallPhase, ApproachDesc), ## ApproachDesc is new
-                   Timeperiod = all_timeperiods)
-    }) %>% bind_rows() %>%
+    all_timeperiods <- seq(as_datetime(date_), as_datetime(date_) + days(1) - seconds(1), by = interval)
+    det_config <- get_det_config(date_) %>%
+        expand(nesting(SignalID, Detector, CallPhase, ApproachDesc), ## ApproachDesc is new
+                   Timeperiod = all_timeperiods) %>%
         transmute(SignalID = factor(SignalID),
                   Timeperiod = Timeperiod,
                   Detector = factor(Detector),

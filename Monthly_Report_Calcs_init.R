@@ -9,7 +9,7 @@ library(glue)
 source("Monthly_Report_Functions.R")
 
 
-print(glue("{Sys.time()} Starting Calcs Script"))
+writeLines(glue("\n\n{Sys.time()} Starting Calcs Script"))
 
 if (interactive()) {
     plan(multisession)

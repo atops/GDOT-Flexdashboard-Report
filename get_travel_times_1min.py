@@ -274,14 +274,8 @@ if __name__=='__main__':
 
             table_name = 'relative_speed_index'
 
-            filename = f'rsi_sub_{yyyy_mm}-01.parquet'
-            df_rsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
-
-            filename = f'rsi_cor_{yyyy_mm}-01.parquet'
-            df_rsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
-
-            df_rsi_sub.to_csv(f'rsi_sub_{yyyy_mm}-01.csv', index=False)
-            df_rsi_cor.to_csv(f'rsi_cor_{yyyy_mm}-01.csv', index=False)
+            df_rsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/rsi_sub_{yyyy_mm}-01.parquet')
+            df_rsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/rsi_cor_{yyyy_mm}-01.parquet')
 
             # bike-ped safety index for month
 
@@ -295,11 +289,5 @@ if __name__=='__main__':
             #do we need to add a column to this that has month? right now is just grouping/serious injury %
             table_name = 'bike_ped_safety_index'
 
-            filename = f'bpsi_sub_{yyyy_mm}-01.parquet'
-            df_bpsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
-
-            filename = f'bpsi_cor_{yyyy_mm}-01.parquet'
-            df_bpsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/{filename}')
-
-            df_bpsi_sub.to_csv(f'bpsi_sub_{yyyy_mm}-01.csv', index=False)
-            df_bpsi_cor.to_csv(f'bpsi_cor_{yyyy_mm}-01.csv', index=False)
+            df_bpsi_sub.to_parquet(f's3://{bucket}/{s3root}/{table_name}/bpsi_sub_{yyyy_mm}-01.parquet')
+            df_bpsi_cor.to_parquet(f's3://{bucket}/{s3root}/{table_name}/bpsi_cor_{yyyy_mm}-01.parquet')

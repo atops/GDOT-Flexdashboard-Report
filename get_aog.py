@@ -143,7 +143,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
             return aog
 
     except Exception as e:
-        print('{s}|{d}: Error--{e}'.format(e=e, s=signalid, d=date_str))
+        print(f'\n{signalid}|{date_str}: Error--{e}')
         return pd.DataFrame()
 
 
@@ -226,7 +226,7 @@ def main(conf, start_date, end_date):
 
 
       except Exception as e:
-        print(f'{date_}: Error: {e}')
+        print(f'\n{date_}: Error: {e}')
 
 
 
