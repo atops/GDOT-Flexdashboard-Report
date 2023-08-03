@@ -656,7 +656,7 @@ get_gamma_p0 <- function(df) {
 }
 
 
-get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_date) {
+get_pau_gamma <- function(dates, papd, paph, corridors, wk_calcs_start_date, pau_start_date) {
 
     # A pushbutton input (aka "detector") is failed for a given day if:
     # the streak of days with no actuations is greater that what
@@ -676,14 +676,14 @@ get_pau_gamma <- function(papd, paph, corridors, wk_calcs_start_date, pau_start_
     too_high <- get_pau_high_(paph, wk_calcs_start_date)
 
 
-    begin_date <- min(papd$Date)
+    begin_date <- min(dates)
 
     corrs <- corridors %>%
         group_by(SignalID) %>%
         summarize(Asof = min(Asof),
                   .groups = "drop")
 
-    ped_config <- lapply(unique(papd$Date), function(d) {
+    ped_config <- lapply(dates, function(d) {
         get_ped_config(d) %>%
             mutate(Date = d) %>%
             filter(SignalID %in% papd$SignalID)
