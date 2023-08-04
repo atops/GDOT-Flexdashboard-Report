@@ -23,6 +23,9 @@ import io
 import boto3
 import dask.dataframe as dd
 from config import get_date_from_string
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 s3 = boto3.client('s3')
 
