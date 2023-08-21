@@ -120,7 +120,7 @@ get_counts_based_measures <- function(month_abbrs) {
         })
 
         mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(x) {
-            write_signal_details(x, conf$athena, signals_list)
+            write_signal_details(x, conf, signals_list)
         })
 
 

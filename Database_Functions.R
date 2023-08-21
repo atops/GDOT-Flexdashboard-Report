@@ -119,7 +119,7 @@ get_athena_connection_pool <- function(conf_athena) {
 
 add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
     tryCatch({
-        conn_ <- get_athena_connection(conf$athena)
+        conn_ <- get_athena_connection(conf_athena)
         dbExecute(conn_,
                   sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
                                  "ADD PARTITION (date='{date_}')"),
@@ -130,7 +130,7 @@ add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
         error_message <- stringr::str_extract(as.character(e), "message:.*?\\.")
         error_message <- ifelse(is.na(error_message), as.character(e), error_message)
         print(error_message)
-        msg <- glue("{error_message} - partition (date='{date_}') for {conf_athena$database}.{table_name}")
+        msg <- glue("{error_message} Partition (date='{date_}') for {conf_athena$database}.{table_name}")
     }, finally = {
         dbDisconnect(conn_)
     })

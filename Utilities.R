@@ -470,7 +470,7 @@ get_corridor_summary_data <- function(cor) {
 
 
 
-write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
+write_signal_details <- function(plot_date, conf, signals_list = NULL) {
     print(plot_date)
     #--- This takes approx one minute per day -----------------------
     rc <- s3_read_parquet(
@@ -537,7 +537,7 @@ write_signal_details <- function(plot_date, conf_athena, signals_list = NULL) {
         object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
         opts = list(multipart=TRUE))
 
-    add_athena_partition(conf_athena, conf$bucket, "signal_details", plot_date)
+    add_athena_partition(conf$athena, conf$bucket, "signal_details", plot_date)
 }
 
 
