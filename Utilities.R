@@ -528,16 +528,16 @@ write_signal_details <- function(plot_date, conf, signals_list = NULL) {
         Hour = hour(Timeperiod)) %>%
         select(-Timeperiod) %>%
         relocate(Hour) %>%
-        nest(data = -c(SignalID))
+        nest(data = -c(SignalID)) %>%
+        mutate(Date = plot_date)
 
-    s3write_using(
+    s3_upload_parquet_date_split(
         df,
-        write_parquet,
+        prefix = "sg",
         bucket = conf$bucket,
-        object = glue("mark/signal_details/date={plot_date}/sg_{plot_date}.parquet"),
-        opts = list(multipart=TRUE))
-
-    add_athena_partition(conf$athena, conf$bucket, "signal_details", plot_date)
+        table_name = "signal_details",
+        conf_athena = conf$athena,
+        parallel = FALSE)
 }
 
 

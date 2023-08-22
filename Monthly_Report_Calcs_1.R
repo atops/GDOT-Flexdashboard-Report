@@ -119,8 +119,9 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         })
 
-        mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(x) {
-            write_signal_details(x, conf, signals_list)
+        mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
+            date_str <- format(date_, "%F")
+            write_signal_details(date_str, conf, signals_list)
         })
 
 
