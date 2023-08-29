@@ -528,16 +528,23 @@ write_signal_details <- function(plot_date, conf, signals_list = NULL) {
         Hour = hour(Timeperiod)) %>%
         select(-Timeperiod) %>%
         relocate(Hour) %>%
-        nest(data = -c(SignalID)) %>%
-        mutate(Date = plot_date)
+        nest(data = -c(SignalID))
 
-    s3_upload_parquet_date_split(
+    table_name <- "signal_details"
+    prefix <- "sg"
+    date_ <- plot_date
+    fn = glue("{prefix}_{date_}")
+
+    keep_trying(
+        s3write_using,
+        n_tries = 5,
         df,
-        prefix = "sg",
+        write_parquet,
+        use_deprecated_int96_timestamps = TRUE,
         bucket = conf$bucket,
-        table_name = "signal_details",
-        conf_athena = conf$athena,
-        parallel = FALSE)
+        object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+        opts = list(multipart = TRUE, body_as_string = TRUE)
+    )
 }
 
 
