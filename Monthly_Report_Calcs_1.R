@@ -67,10 +67,6 @@ print("\n---------------------- Finished counts ---------------------------\n")
 
 print(glue("{Sys.time()} monthly cu [5 of 11]"))
 
-
-signals_list <- as.integer(as.character(corridors$SignalID))
-signals_list <- unique(as.character(signals_list[signals_list > 0]))
-
 # Group into months to calculate filtered and adjusted counts
 # adjusted counts needs a full month to fill in gaps based on monthly averages
 
@@ -119,7 +115,7 @@ get_counts_based_measures <- function(month_abbrs) {
             )
         })
 
-        mclapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
+        lapply(date_range, mc.cores = usable_cores, mc.preschedule = FALSE, FUN = function(date_) {
             date_str <- format(date_, "%F")
             write_signal_details(date_str, conf, signals_list)
         })

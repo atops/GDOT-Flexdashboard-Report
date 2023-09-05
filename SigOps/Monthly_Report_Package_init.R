@@ -19,17 +19,68 @@ usable_cores <- get_usable_cores()
 doParallel::registerDoParallel(cores = usable_cores)
 
 
-corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = TRUE),
-    object = conf$corridors_filename_s3,
-    bucket = conf$bucket
-)
+xlsx_filename <- conf$corridors_filename_s3
+xlsx_last_modified <- get_last_modified_s3(bucket = conf$bucket, object = xlsx_filename)
 
-all_corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = FALSE),
-    object = conf$corridors_filename_s3,
-    bucket = conf$bucket
-)
+qs_filename <- sub("\\..*", ".qs", conf$corridors_filename_s3)
+qs_last_modified <- get_last_modified_s3(bucket = conf$bucket, object = qs_filename)
+
+if (as_datetime(xlsx_last_modified) > as_datetime(qs_last_modified)) {
+    corridors <- s3read_using(
+        function(x) get_corridors(x, filter_signals = TRUE),
+        object = conf$corridors_filename_s3,
+        bucket = conf$bucket
+    )
+    feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
+    write_feather(corridors, feather_filename)
+    aws.s3::put_object(
+        file = feather_filename,
+        object = feather_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+    qs_filename <- sub("\\..*", ".qs", conf$corridors_filename_s3)
+    qsave(corridors, qs_filename)
+    aws.s3::put_object(
+        file = qs_filename,
+        object = qs_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+
+    all_corridors <- s3read_using(
+        function(x) get_corridors(x, filter_signals = FALSE),
+        object = conf$corridors_filename_s3,
+        bucket = conf$bucket
+    )
+    feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
+    write_feather(all_corridors, feather_filename)
+    aws.s3::put_object(
+        file = feather_filename,
+        object = feather_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+    qs_filename <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+    qsave(all_corridors, qs_filename)
+    aws.s3::put_object(
+        file = qs_filename,
+        object = qs_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+} else {
+    corridors <- s3read_using(
+        qread,
+        bucket = conf$bucket,
+        object = sub("\\..*", ".qs", conf$corridors_filename_s3)
+    )
+    all_corridors <- s3read_using(
+        qread,
+        bucket = conf$bucket,
+        object = sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+    )
+}
 
 
 signals_list <- unique(corridors$SignalID)
@@ -62,7 +113,7 @@ doParallel::registerDoParallel(cores = usable_cores)
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
 report_end_date <- Sys.Date() - days(1)
-report_start_date <- floor_date(report_end_date - months(18), unit = "months")
+report_start_date <- floor_date(report_end_date, unit = "months") - months(18)
 
 if (conf$report_end_date == "yesterday") {
     report_end_date <- Sys.Date() - days(1)

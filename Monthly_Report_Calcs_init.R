@@ -40,51 +40,72 @@ month_abbrs <- get_month_abbrs(start_date, end_date)
 
 # -- Code to update corridors file/table from Excel file
 
-corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = TRUE),
-    object = conf$corridors_filename_s3,
-    bucket = conf$bucket
-)
-feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
-write_feather(corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
-    object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
-)
+xlsx_filename <- conf$corridors_filename_s3
+xlsx_last_modified <- get_last_modified_s3(bucket = conf$bucket, object = xlsx_filename)
+
 qs_filename <- sub("\\..*", ".qs", conf$corridors_filename_s3)
-qsave(corridors, qs_filename)
-aws.s3::put_object(
-    file = qs_filename,
-    object = qs_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
-)
+qs_last_modified <- get_last_modified_s3(bucket = conf$bucket, object = qs_filename)
 
-all_corridors <- s3read_using(
-    function(x) get_corridors(x, filter_signals = FALSE),
-    object = conf$corridors_filename_s3,
-    bucket = conf$bucket
-)
-feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
-write_feather(all_corridors, feather_filename)
-aws.s3::put_object(
-    file = feather_filename,
-    object = feather_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
-)
-qs_filename <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
-qsave(all_corridors, qs_filename)
-aws.s3::put_object(
-    file = qs_filename,
-    object = qs_filename,
-    bucket = conf$bucket,
-    multipart = TRUE
-)
+if (as_datetime(xlsx_last_modified) > as_datetime(qs_last_modified)) {
+    corridors <- s3read_using(
+        function(x) get_corridors(x, filter_signals = TRUE),
+        object = conf$corridors_filename_s3,
+        bucket = conf$bucket
+    )
+    feather_filename <- sub("\\..*", ".feather", conf$corridors_filename_s3)
+    write_feather(corridors, feather_filename)
+    aws.s3::put_object(
+        file = feather_filename,
+        object = feather_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+    qs_filename <- sub("\\..*", ".qs", conf$corridors_filename_s3)
+    qsave(corridors, qs_filename)
+    aws.s3::put_object(
+        file = qs_filename,
+        object = qs_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
 
-signals_list <- unique(corridors$SignalID)
+    all_corridors <- s3read_using(
+        function(x) get_corridors(x, filter_signals = FALSE),
+        object = conf$corridors_filename_s3,
+        bucket = conf$bucket
+    )
+    feather_filename <- sub("\\..*", ".feather", paste0("all_", conf$corridors_filename_s3))
+    write_feather(all_corridors, feather_filename)
+    aws.s3::put_object(
+        file = feather_filename,
+        object = feather_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+    qs_filename <- sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+    qsave(all_corridors, qs_filename)
+    aws.s3::put_object(
+        file = qs_filename,
+        object = qs_filename,
+        bucket = conf$bucket,
+        multipart = TRUE
+    )
+} else {
+    corridors <- s3read_using(
+        qread,
+        bucket = conf$bucket,
+        object = sub("\\..*", ".qs", conf$corridors_filename_s3)
+    )
+    all_corridors <- s3read_using(
+        qread,
+        bucket = conf$bucket,
+        object = sub("\\..*", ".qs", paste0("all_", conf$corridors_filename_s3))
+    )
+}
+
+signals_list <- lapply(seq(as_date(start_date), as_date(end_date), by = "1 day"), get_signalids_from_s3) %>%
+    unlist() %>%
+    unique()
 
 
 # Most recent detector config. Needed for Watchdog Notes, as feather files

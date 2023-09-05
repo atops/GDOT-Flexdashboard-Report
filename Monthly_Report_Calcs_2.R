@@ -4,9 +4,6 @@
 source("Monthly_Report_Calcs_init.R")
 
 
-signals_list <- as.integer(as.character(corridors$SignalID))
-signals_list <- unique(as.character(signals_list[signals_list > 0]))
-
 # -- Run etl_dashboard (Python): cycledata, detectionevents to S3/Athena --
 print(glue("{Sys.time()} etl [7 of 11]"))
 

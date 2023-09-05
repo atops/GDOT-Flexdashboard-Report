@@ -117,12 +117,6 @@ def main(start_date, end_date):
 
     dates = pd.date_range(start_date, end_date, freq='1D')
 
-    corridors_filename = re.sub('\..*', '.feather', conf['corridors_filename_s3'])
-    corridors = pd.read_feather(corridors_filename)
-    corridors = corridors[~corridors.SignalID.isna()]
-
-    signalids = list(corridors.SignalID.astype('int').values)
-
     bucket = conf['bucket']
     athena = conf['athena']
 
@@ -151,6 +145,8 @@ def main(start_date, end_date):
                 .assign(SignalID = lambda x: x.SignalID.astype('int64'))\
                 .assign(Detector = lambda x: x.Detector.astype('int64'))\
                 .rename(columns={'CallPhase': 'Call Phase'})
+
+        signalids = det_config_raw['SignalID'].drop_duplicates().astype('int64').values
 
         try:
             bad_detectors = pd.read_parquet(

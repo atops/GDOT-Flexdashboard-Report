@@ -115,8 +115,8 @@ print(glue("{Sys.time()} Ped Pushbutton Uptime [2 of 29]"))
 tryCatch(
     {
         pau_start_date <- pmin(
-            ymd(calcs_start_date),
-            floor_date(ymd(report_end_date) - as.duration("6 months"), "month")
+            as_date(calcs_start_date),
+            floor_date(as_date(report_end_date), unit = "months") - months(6)
         ) %>%
             format("%F")
 
@@ -403,7 +403,7 @@ tryCatch(
         # -- Alerts: CCTV downtime --
 
         bad_cam <- lapply(
-            seq(floor_date(today() %m-% months(6), "month"), today() %m-% days(1), by = "1 month"),
+            seq(floor_date(today(), unit = "months") - months(6), today() - days(1), by = "1 month"),
             function(date_) {
                 key <- glue("mark/cctv_uptime/month={date_}/cctv_uptime_{date_}.parquet")
                 tryCatch(
@@ -1752,7 +1752,7 @@ tryCatch(
                         analysis_month = ymd(yyyymmdd),
                         month_hour = as_date(date),
                         month_hour = month_hour - days(day(month_hour)) + days(1),
-                        Month = date(floor_date(month_hour, "month")),
+                        Month = date(floor_date(month_hour, unit = "months")),
                         delay_cost = combined.delay_cost
                     )
             }
