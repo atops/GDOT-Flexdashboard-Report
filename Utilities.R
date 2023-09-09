@@ -14,13 +14,16 @@ sizeof <- function(x) {
     format(object.size(x), units = "Mb")
 }
 
+
 apply_style <- function(filename) {
     styler::style_file(filename, transformers = styler::tidyverse_style(indent_by = 4))
 }
 
+
 get_most_recent_monday <- function(date_) {
     date_ + days(1 - lubridate::wday(date_, week_start = 1))
 }
+
 
 get_date_from_string <- function(x) {
     if (x == "yesterday") {
@@ -32,6 +35,7 @@ get_date_from_string <- function(x) {
         x
     }
 }
+
 
 get_signalids_from_s3 <- function(date_, s3prefix="atspm") {
     if (class(date_) == "Date") {
@@ -53,8 +57,7 @@ get_last_modified_s3 <- function(bucket, object) {
 }
 
 
-get_usable_cores <- function() {
-    # Usable cores is one per 8 GB of RAM.
+get_usable_cores <- function(GB=8) {
     # Get RAM from system file and divide
 
     if (Sys.info()["sysname"] == "Windows") {
@@ -73,7 +76,7 @@ get_usable_cores <- function() {
         mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
         mem <- as.integer(mem)
         mem <- round(mem, -6)
-        max(floor(mem/8e6), 1)
+        max(floor(mem/(GB*1e6)), 1)
 
     } else {
         stop("Unknown operating system.")
@@ -137,7 +140,6 @@ split_wrapper <- function(FUN) {
         # Read in each temporary file and run adjusted counts in parallel. Afterward, clean up.
         print("Running for each SignalID...")
         df <- mclapply(file_names, mc.cores = usable_cores, FUN = function(fn) {
-            #df <- lapply(file_names, function(fn) {
             cat('.')
             FUN(read_fst(fn), ...)
         }) %>% bind_rows()
@@ -262,48 +264,62 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
         if (class(csd) == "character") csd <- as_date(csd)
 
         # Extract aggregation period from the data fields
-        periods <- intersect(c("Month", "Date", "Hour", "Timeperiod"), names(df0))
+        periods <- intersect(c("Quarter", "Month", "Date", "Hour", "Timeperiod"), names(df0))
         per_ <- as.name(periods)
 
-        # Remove everything after calcs_start_date (csd)
-        # and before report_start_date (rsd) in original df
-        df0 <- df0 %>% filter(!!per_ >= rsd, !!per_ < csd)
+        if ("Quarter" %in% periods) {
+            x <- df
+        } else {
+            # Remove everything after calcs_start_date (csd)
+            # and before report_start_date (rsd) in original df
+            df0 <- df0 %>% filter(!!per_ >= rsd, !!per_ < csd)
 
-        # Make sure new data starts on csd
-        # This is especially important for when csd is the start of the month
-        # and we've run calcs going back to the start of the week, which is in
-        # the previous month, e.g., 3/31/2020 is a Tuesday.
-        df <- df %>% filter(!!per_ >= csd)
+            # Make sure new data starts on csd
+            # This is especially important for when csd is the start of the month
+            # and we've run calcs going back to the start of the week, which is in
+            # the previous month, e.g., 3/31/2020 is a Tuesday.
+            df <- df %>% filter(!!per_ >= csd)
 
-        # Extract aggregation groupings from the data fields
-        # to calculate period-to-period deltas
+            # Extract aggregation groupings from the data fields
+            # to calculate period-to-period deltas
 
-        groupings <- intersect(c("Zone_Group", "Corridor", "SignalID"), names(df0))
-        groups_ <- sapply(groupings, as.name)
+            groupings <- intersect(c("Zone_Group", "Corridor", "SignalID"), names(df0))
+            groups_ <- sapply(groupings, as.name)
 
-        group_arrange <- c(periods, groupings) %>%
-            sapply(as.name)
+            group_arrange <- c(periods, groupings) %>%
+                sapply(as.name)
 
-        var_ <- as.name(delta_var)
+            var_ <- as.name(delta_var)
 
-        # Combine old and new
-        x <- bind_rows_keep_factors(list(df0, df)) %>%
+            # Combine old and new
+            x <- bind_rows_keep_factors(list(df0, df)) %>%
 
-            # Recalculate deltas from prior periods over combined df
-            group_by(!!!groups_) %>%
-            arrange(!!!group_arrange) %>%
-            mutate(lag_ = lag(!!var_),
-                   delta = ((!!var_) - lag_)/lag_) %>%
-            ungroup() %>%
-            dplyr::select(-lag_)
-
+                # Recalculate deltas from prior periods over combined df
+                group_by(!!!groups_) %>%
+                arrange(!!!group_arrange) %>%
+                mutate(lag_ = lag(!!var_),
+                       delta = ((!!var_) - lag_)/lag_) %>%
+                ungroup() %>%
+                dplyr::select(-lag_)
+        }
         x
     }
 
+    if (tools::file_ext(fn)=="rds") {
+        read_func <- readRDS
+        write_func <- saveRDS
+    } else if (tools::file_ext(fn)=="parquet") {
+        read_func <- read_parquet
+        write_func <- write_parquet
+    }
+
     if (!file.exists(fn)) {
-        saveRDS(df, fn)
+        if (!file.exists(dirname(fn))) {
+            dir.create(dirname(fn), recursive=T)
+        }
+        write_func(df, fn)
     } else {
-        df0 <- readRDS(fn)
+        df0 <- read_func(fn)
         if (is.list(df) && is.list(df0) &&
             !is.data.frame(df) && !is.data.frame(df0) &&
             identical(names(df), names(df0))) {
@@ -311,7 +327,7 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
         } else {
             x <- combine_dfs(df0, df, delta_var, rsd, csd)
         }
-        saveRDS(x, fn)
+        write_func(x, fn)
         x
     }
 
@@ -357,11 +373,10 @@ multicore_decorator <- function(FUN) {
     function(x) {
         x %>%
             split(.$SignalID) %>%
-            mclapply(FUN, mc.cores = usable_cores) %>% #floor(parallel::detectCores()*3/4)) %>%
+            mclapply(FUN, mc.cores = usable_cores) %>%
             bind_rows()
     }
 }
-
 
 
 get_Tuesdays <- function(df) {
@@ -409,10 +424,9 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
                 }
             }
 
-            aws.s3::s3write_using(dfp, qsave, bucket = conf$bucket, object = glue("{src}/{name}.qs"))
-            #readr::write_csv(dfp, paste0(name, ".csv"))
-
+            s3write_using(dfp, qsave, bucket = conf$bucket, object = glue("{src}/{name}.qs"))
         }
+
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
                 walk_nested_list(df[[n]], src, name = paste(name, n, sep="-"), indent = indent+10)
@@ -443,8 +457,6 @@ compare_dfs <- function(df1, df2) {
 }
 
 
-
-
 get_corridor_summary_data <- function(cor) {
 
     #' Converts cor data set to a single data frame for the current_month
@@ -454,12 +466,13 @@ get_corridor_summary_data <- function(cor) {
     #' @param current_month Current month in date format
     #' @return A data frame, monthly data of all metrics by Zone and Corridor
 
+
     data <- list(
         rename(cor$mo$du, du = uptime, du.delta = delta), # detector uptime - note that zone group is factor not character
         rename(cor$mo$pau, pau = uptime, pau.delta = delta),
         rename(cor$mo$cctv, cctvu = uptime, cctvu.delta = delta),
         rename(cor$mo$cu, cu = uptime, cu.delta = delta),
-        rename(cor$mo$tp, tp = vph, tp.delta = delta), # no longer pulling from vpd (volume) table - this is throughput
+        rename(cor$mo$tp, tp = vph, tp.delta = delta),
         rename(cor$mo$aogd, aog.delta = delta),
         rename(cor$mo$qsd, qs = qs_freq, qs.delta = delta),
         rename(cor$mo$sfd, sf = sf_freq, sf.delta = delta),
@@ -487,84 +500,102 @@ get_corridor_summary_data <- function(cor) {
 }
 
 
-
-
-
 write_signal_details <- function(plot_date, conf, signals_list = NULL) {
-    print(plot_date)
-    #--- This takes approx one minute per day -----------------------
-    rc <- s3_read_parquet(
-        bucket = conf$bucket,
-        object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet")) %>%
-        convert_to_utc() %>%
-        select(
-            SignalID, Date, Timeperiod, Detector, CallPhase, vol)
 
-    fc <- s3_read_parquet(
-        bucket = conf$bucket,
-        object = glue("mark/filtered_counts_1hr/date={plot_date}/filtered_counts_1hr_{plot_date}.parquet")) %>%
-        convert_to_utc() %>%
-        select(
-            SignalID, Date, Timeperiod, Detector, CallPhase, Good_Day)
+    print(glue("Writing signal details for {plot_date}"))
 
-    ac <- s3_read_parquet(
-        bucket = conf$bucket,
-        object = glue("mark/adjusted_counts_1hr/date={plot_date}/adjusted_counts_1hr_{plot_date}.parquet")) %>%
-        convert_to_utc() %>%
-        select(
-            SignalID, Date, Timeperiod, Detector, CallPhase, vol)
+    tryCatch({
+        #--- This takes approx one minute per day -----------------------
+        rc <- s3_read_parquet(
+            bucket = conf$bucket,
+            object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet"))
+        if (nrow(rc) > 0) {
+            rc <- rc %>%
+            convert_to_utc() %>%
+            select(
+                SignalID, Date, Timeperiod, Detector, CallPhase, vol)
+        } else {
+            return(NULL)
+        }
 
-    if (!is.null(signals_list)) {
-        rc <- rc %>%
-            filter(as.character(SignalID) %in% signals_list)
-        fc <- fc %>%
-            filter(as.character(SignalID) %in% signals_list)
-        ac <- ac %>%
-            filter(as.character(SignalID) %in% signals_list)
-    }
+        fc <- s3_read_parquet(
+            bucket = conf$bucket,
+            object = glue("mark/filtered_counts_1hr/date={plot_date}/filtered_counts_1hr_{plot_date}.parquet"))
+        if (nrow(fc) > 0) {
+            fc <- fc %>%
+            convert_to_utc() %>%
+            select(
+                SignalID, Date, Timeperiod, Detector, CallPhase, Good_Day)
+        } else {
+            return(NULL)
+        }
 
-    df <- list(
-        rename(rc, vol_rc = vol),
-        fc,
-        rename(ac, vol_ac = vol)) %>%
-        reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
-        ) %>%
-        mutate(bad_day = if_else(Good_Day==0, TRUE, FALSE)) %>%
-        transmute(
-            SignalID = as.integer(SignalID),
-            Timeperiod = Timeperiod,
-            Detector = as.integer(Detector),
-            CallPhase = as.integer(CallPhase),
-            vol_rc = as.integer(vol_rc),
-            vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
-            bad_day) %>%
-        arrange(
-            SignalID,
-            Detector,
-            Timeperiod)
-    #----------------------------------------------------------------
+        ac <- s3_read_parquet(
+            bucket = conf$bucket,
+            object = glue("mark/adjusted_counts_1hr/date={plot_date}/adjusted_counts_1hr_{plot_date}.parquet"))
+        if (nrow(ac) > 0) {
+            ac <- ac %>%
+            convert_to_utc() %>%
+            select(
+                SignalID, Date, Timeperiod, Detector, CallPhase, vol)
+        } else {
+            return(NULL)
+        }
 
-    df <- df %>% mutate(
-        Hour = hour(Timeperiod)) %>%
-        select(-Timeperiod) %>%
-        relocate(Hour) %>%
-        nest(data = -c(SignalID))
+        if (!is.null(signals_list)) {
+            rc <- rc %>%
+                filter(as.character(SignalID) %in% signals_list)
+            fc <- fc %>%
+                filter(as.character(SignalID) %in% signals_list)
+            ac <- ac %>%
+                filter(as.character(SignalID) %in% signals_list)
+        }
 
-    table_name <- "signal_details"
-    prefix <- "sg"
-    date_ <- plot_date
-    fn = glue("{prefix}_{date_}")
+        df <- list(
+            rename(rc, vol_rc = vol),
+            fc,
+            rename(ac, vol_ac = vol)) %>%
+            reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+            ) %>%
+            mutate(bad_day = if_else(Good_Day==0, TRUE, FALSE)) %>%
+            transmute(
+                SignalID = as.integer(SignalID),
+                Timeperiod = Timeperiod,
+                Detector = as.integer(Detector),
+                CallPhase = as.integer(CallPhase),
+                vol_rc = as.integer(vol_rc),
+                vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
+                bad_day) %>%
+            arrange(
+                SignalID,
+                Detector,
+                Timeperiod)
+        #----------------------------------------------------------------
 
-    keep_trying(
-        s3write_using,
-        n_tries = 5,
-        df,
-        write_parquet,
-        use_deprecated_int96_timestamps = TRUE,
-        bucket = conf$bucket,
-        object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
-        opts = list(multipart = TRUE, body_as_string = TRUE)
-    )
+        df <- df %>% mutate(
+            Hour = hour(Timeperiod)) %>%
+            select(-Timeperiod) %>%
+            relocate(Hour) %>%
+            nest(data = -c(SignalID))
+
+        table_name <- "signal_details"
+        prefix <- "sg"
+        date_ <- plot_date
+        fn = glue("{prefix}_{date_}")
+
+        keep_trying(
+            s3write_using,
+            n_tries = 5,
+            df,
+            write_parquet,
+            use_deprecated_int96_timestamps = TRUE,
+            bucket = conf$bucket,
+            object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+            opts = list(multipart = TRUE, body_as_string = TRUE)
+        )
+    }, error = function(e) {
+        print(glue("Can't write signal details for {plot_date}"))
+    })
 }
 
 

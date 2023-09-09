@@ -80,8 +80,7 @@ print(glue("{Sys.time()} counts-based measures [6 of 11]"))
 
 get_counts_based_measures <- function(month_abbrs) {
     lapply(month_abbrs, function(yyyy_mm) {
-        # yyyy_mm <- month_abbrs # for debugging
-        invisible(gc())
+        # yyyy_mm <- month_abbrs[1] # for debugging
 
         #-----------------------------------------------
         # 1-hour counts, filtered, adjusted, bad detectors
@@ -97,15 +96,27 @@ get_counts_based_measures <- function(month_abbrs) {
         prep_db_for_adjusted_counts_arrow("filtered_counts_1hr", conf, date_range)
         get_adjusted_counts_arrow("filtered_counts_1hr", "adjusted_counts_1hr", conf)
 
-        fc_ds <- arrow::open_dataset(sources = "filtered_counts_1hr/")
-        ac_ds <- arrow::open_dataset(sources = "adjusted_counts_1hr/")
+        fc_ds <- keep_trying(
+            function() arrow::open_dataset(sources = "filtered_counts_1hr/"),
+            n_tries = 3, timeout = 60)
+        ac_ds <- keep_trying(
+            function() arrow::open_dataset(sources = "adjusted_counts_1hr/"),
+            n_tries = 3, timeout = 60)
 
         lapply(date_range, function(date_) {
-            # print(date_)
-            adjusted_counts_1hr <- ac_ds %>%
-                filter(Date == date_) %>%
-                select(-c(Date, date)) %>%
-                collect()
+            if (nrow(head(ac_ds))==0) {
+                adjusted_counts_1hr <- tibble(
+                    SignalID=character(0),
+                    CallPhase=integer(0),
+                    Detector=integer(0),
+                    Timeperiod=as.POSIXct(NA),
+                    vol=integer(0))
+            } else {
+                adjusted_counts_1hr <- ac_ds %>%
+                    filter(Date == date_) %>%
+                    select(-c(Date, date)) %>%
+                    collect()
+            }
             s3_upload_parquet_date_split(
                 adjusted_counts_1hr,
                 bucket = conf$bucket,
@@ -125,11 +136,14 @@ get_counts_based_measures <- function(month_abbrs) {
             date_str <- format(date_, "%F")
 
             print(glue("reading adjusted_counts_1hr: {date_str}"))
-            adjusted_counts_1hr <- ac_ds %>%
-                filter(date == date_str) %>%
-                select(-date) %>%
-                collect()
-
+            if (nrow(head(ac_ds))==0) {
+                adjusted_counts_1hr <- ac_ds
+            } else {
+                adjusted_counts_1hr <- ac_ds %>%
+                    filter(date == date_str) %>%
+                    select(-date) %>%
+                    collect()
+            }
             if (!is.null(adjusted_counts_1hr) && nrow(adjusted_counts_1hr)) {
                 adjusted_counts_1hr <- adjusted_counts_1hr %>%
                     mutate(
@@ -176,21 +190,31 @@ get_counts_based_measures <- function(month_abbrs) {
         # FOR EVERY TUE, WED, THU OVER THE WHOLE MONTH
         print("15-minute counts and throughput")
 
-        print("Prep 15-minute adjusted counts")
+        print("15-minute adjusted counts")
         prep_db_for_adjusted_counts_arrow("filtered_counts_15min", conf, date_range)
-        print("Calculate 15-minute adjusted counts")
         get_adjusted_counts_arrow("filtered_counts_15min", "adjusted_counts_15min", conf)
 
-        cat('adjusted counts created. Opening dataset.\n')
-        ac_ds <- arrow::open_dataset(sources = "adjusted_counts_15min/")
-        cat('dataset read.\n')
+        fc_ds <- keep_trying(
+            function() arrow::open_dataset(sources = "filtered_counts_15min/"),
+            n_tries = 3, timeout = 60)
+        ac_ds <- keep_trying(
+            function() arrow::open_dataset(sources = "adjusted_counts_15min/"),
+            n_tries = 3, timeout = 60)
 
         lapply(date_range, function(date_) {
-            print(date_)
-            adjusted_counts_15min <- ac_ds %>%
-                filter(Date == date_) %>%
-                select(-c(Date, date)) %>%
-                collect()
+            if (nrow(head(ac_ds))==0) {
+                adjusted_counts_15min <- tibble(
+                    SignalID=character(0),
+                    CallPhase=integer(0),
+                    Detector=integer(0),
+                    Timeperiod=as.POSIXct(NA),
+                    vol=integer(0))
+            } else {
+                adjusted_counts_15min <- ac_ds %>%
+                    filter(Date == date_) %>%
+                    select(-c(Date, date)) %>%
+                    collect()
+            }
             s3_upload_parquet_date_split(
                 adjusted_counts_15min,
                 bucket = conf$bucket,

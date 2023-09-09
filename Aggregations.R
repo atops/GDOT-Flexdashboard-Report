@@ -223,7 +223,7 @@ get_weekly_sum_by_day <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        left_join(Tuesdays) %>%
+        left_join(Tuesdays, by = c("Week")) %>%
         dplyr::select(SignalID, Date, Week, !!var_, delta)
 }
 
@@ -260,7 +260,7 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        left_join(Tuesdays) %>%
+        left_join(Tuesdays, by = c("Week")) %>%
         dplyr::select(SignalID, Date, Week, !!var_, !!wt_, delta) %>%
         ungroup()
 }
@@ -611,7 +611,9 @@ get_daily_detector_uptime <- function(filtered_counts) {
         mutate(Date_Hour = Timeperiod,
                Date = date(Date_Hour)) %>%
         dplyr::select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
-        ungroup() %>%
+        ungroup()
+    if (nrow(ddu) > 0) {
+        ddu <- ddu %>%
         mutate(setback = ifelse(CallPhase %in% c(2,6), "Setback", "Presence"),
                setback = factor(setback),
                SignalID = factor(SignalID)) %>%
@@ -624,6 +626,7 @@ get_daily_detector_uptime <- function(filtered_counts) {
                 mutate(uptime = uptime/all,
                        all = as.double(all))
         })
+    }
     ddu
 }
 

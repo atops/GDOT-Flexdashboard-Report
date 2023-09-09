@@ -106,20 +106,24 @@ get_sf_date_range <- function(start_date, end_date) {
 
         sf <- get_sf_utah(date_, conf, signals_list, intervals = c("hour", "15min"))
 
-        s3_upload_parquet_date_split(
-            sf$hour,
-            bucket = conf$bucket,
-            prefix = "sf",
-            table_name = "split_failures",
-            conf_athena = conf$athena
-        )
-        s3_upload_parquet_date_split(
-            sf$`15min`,
-            bucket = conf$bucket,
-            prefix = "sf",
-            table_name = "split_failures_15min",
-            conf_athena = conf$athena
-        )
+        if (nrow(sf$hour) > 0) {
+            s3_upload_parquet_date_split(
+                sf$hour,
+                bucket = conf$bucket,
+                prefix = "sf",
+                table_name = "split_failures",
+                conf = conf
+            )
+        }
+        if (nrow(sf$`15min`) > 0) {
+            s3_upload_parquet_date_split(
+                sf$`15min`,
+                bucket = conf$bucket,
+                prefix = "sf",
+                table_name = "split_failures_15min",
+                conf = conf
+            )
+        }
     })
 }
 

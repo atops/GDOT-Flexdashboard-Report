@@ -100,7 +100,6 @@ tryCatch(
         rm(sub_avg_daily_detector_uptime)
         rm(sub_weekly_detector_uptime)
         rm(sub_monthly_detector_uptime)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -167,16 +166,19 @@ tryCatch(
         # We have do to this here rather than in Monthly_Report_Calcs
         # because we need a longer time series to calculate ped detector uptime
         # based on the exponential distribution method (as least 6 months)
-        get_bad_ped_detectors(pau) %>%
-            filter(Date >= calcs_start_date) %>% # ymd(report_end_date) - days(90)) %>%
+        bad_detectors <- get_bad_ped_detectors(pau) %>%
+            filter(Date >= calcs_start_date)
 
+        if (nrow(bad_detectors)) {
             s3_upload_parquet_date_split(
+                bad_detectors,
                 bucket = conf$bucket,
                 prefix = "bad_ped_detectors",
                 table_name = "bad_ped_detectors",
                 conf_athena = conf$athena,
                 parallel = FALSE
             )
+        }
 
         # Hack to make the aggregation functions work
         addtoRDS(
@@ -194,19 +196,19 @@ tryCatch(
             get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
         sub_daily_pa_uptime <-
             get_cor_weekly_avg_by_day(daily_pa_uptime, subcorridors, "uptime") %>%
-            filter(!is.na(Corridor))
+                filter(!is.na(Corridor))
 
         cor_weekly_pa_uptime <-
             get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
         sub_weekly_pa_uptime <-
             get_cor_weekly_avg_by_day(weekly_pa_uptime, subcorridors, "uptime") %>%
-            filter(!is.na(Corridor))
+                filter(!is.na(Corridor))
 
         cor_monthly_pa_uptime <-
             get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
         sub_monthly_pa_uptime <-
             get_cor_monthly_avg_by_day(monthly_pa_uptime, subcorridors, "uptime") %>%
-            filter(!is.na(Corridor))
+                filter(!is.na(Corridor))
 
         addtoRDS(
             daily_pa_uptime, "daily_pa_uptime.rds", "uptime",
@@ -274,24 +276,13 @@ print(glue("{Sys.time()} watchdog alerts [3 of 29]"))
 tryCatch(
     {
         # -- Alerts: detector downtime --
-
-        bad_det <- lapply(
-            seq(today() %m-% days(180), today() %m-% days(1), by = "1 day"),
-            function(date_) {
-                key <- glue("mark/bad_detectors/date={date_}/bad_detectors_{date_}.parquet")
-                tryCatch(
-                    {
-                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
-                            select(SignalID, Detector) %>%
-                            mutate(Date = date_)
-                    },
-                    error = function(e) {
-                        data.frame()
-                    }
-                )
-            }
+        bad_det <- s3_read_parquet_parallel(
+            "bad_detectors",
+            start_date = today() - days(90),
+            end_date = today() - days(1),
+            bucket = conf$bucket,
+            conf = conf
         ) %>%
-            bind_rows() %>%
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector)
@@ -338,66 +329,53 @@ tryCatch(
                 Alert = factor("Bad Vehicle Detection"),
                 Name = factor(if_else(Corridor == "Ramp Meter", sub("@", "-", Name), Name)),
                 ApproachDesc = if_else(
-		    is.na(ApproachDesc),
-		    "",
-		    as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}")))
+                    is.na(ApproachDesc),
+                    "",
+                    as.character(glue("{trimws(ApproachDesc)} Lane {LaneNumber}"))
+                )
             )
 
         # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
-
-        s3write_using(
+        s3_write_parquet(
             bad_det,
-            FUN = write_parquet,
-            object = "mark/watchdog/bad_detectors.parquet",
-            bucket = conf$bucket,
-            opts = list(multipart = TRUE)
+            object = file.path(conf$key_prefix, "mark/watchdog/bad_detectors.parquet", fsep = "/"),
+            bucket = conf$bucket
         )
         rm(bad_det)
         rm(det_config)
 
         # -- Alerts: pedestrian detector downtime --
-
-        bad_ped <- lapply(
-            seq(today() %m-% days(90), today() %m-% days(1), by = "1 day"),
-            function(date_) {
-                key <- glue("mark/bad_ped_detectors/date={date_}/bad_ped_detectors_{date_}.parquet")
-                tryCatch(
-                    {
-                        s3read_using(read_parquet, bucket = conf$bucket, object = key) %>%
-                            mutate(Date = date_)
-                    },
-                    error = function(e) {
-                        data.frame()
-                    }
-                )
-            }
-        ) %>%
-            bind_rows() %>%
-            mutate(
-                SignalID = factor(SignalID),
-                Detector = factor(Detector)
-            ) %>%
-            left_join(
-                dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                by = c("SignalID"),
-                relationship = "many-to-many"
-            ) %>%
-            transmute(Zone_Group,
-                Zone,
-                Corridor = factor(Corridor),
-                SignalID = factor(SignalID),
-                Detector = factor(Detector),
-                Date,
-                Alert = factor("Bad Ped Pushbuttons"),
-                Name = factor(Name)
-            )
-
-        s3write_using(
-            bad_ped,
-            FUN = write_parquet,
-            object = "mark/watchdog/bad_ped_pushbuttons.parquet",
-            bucket = conf$bucket
+        bad_ped <- s3_read_parquet_parallel(
+            "bad_ped_detectors",
+            start_date = today() - days(90),
+            end_date = today() - days(1),
+            bucket = conf$bucket,
+            conf = conf
         )
+
+        if (nrow(bad_ped)) {
+            bad_ped %>%
+                mutate(SignalID = factor(SignalID),
+                       Detector = factor(Detector)) %>%
+
+                left_join(
+                    dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
+                    by = c("SignalID")
+                ) %>%
+                transmute(Zone_Group,
+                          Zone,
+                          Corridor = factor(Corridor),
+                          SignalID = factor(SignalID),
+                          Detector = factor(Detector),
+                          Date,
+                          Alert = factor("Bad Ped Detection"),
+                          Name = factor(Name)
+                )
+            s3_write_parquet(
+                bad_ped,
+                object = file.path(conf$key_prefix, "mark/watchdog/bad_ped_pushbuttons.parquet", fsep = "/"),
+                bucket = conf$bucket)
+        }
         rm(bad_ped)
 
         # -- Alerts: CCTV downtime --
@@ -716,18 +694,11 @@ tryCatch(
         cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
         # Subcorridors
         sub_weekly_vpd <-
-            (get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
-                filter(!is.na(Corridor)))
-
-        # Monthly volumes for bar charts and % change ---------------------------------
-        monthly_vpd <- get_monthly_vpd(vpd)
-
-        # Group into corridors
-        cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
-        # Subcorridors
+            get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
+                filter(!is.na(Corridor))
         sub_monthly_vpd <-
-            (get_cor_monthly_vpd(monthly_vpd, subcorridors) %>%
-                filter(!is.na(Corridor)))
+            get_cor_monthly_vpd(monthly_vpd, subcorridors) %>%
+                filter(!is.na(Corridor))
 
         # Monthly % change from previous month by corridor ----------------------------
         addtoRDS(weekly_vpd, "weekly_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
@@ -744,7 +715,6 @@ tryCatch(
         rm(cor_monthly_vpd)
         rm(sub_weekly_vpd)
         rm(sub_monthly_vpd)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -885,7 +855,6 @@ tryCatch(
         rm(cor_monthly_throughput)
         rm(sub_weekly_throughput)
         rm(sub_monthly_throughput)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -977,7 +946,6 @@ tryCatch(
         rm(monthly_aog_by_hr)
         rm(cor_monthly_aog_by_hr)
         rm(sub_monthly_aog_by_hr)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1051,7 +1019,6 @@ tryCatch(
         rm(monthly_pr_by_hr)
         rm(cor_monthly_pr_by_hr)
         rm(sub_monthly_pr_by_hr)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1236,7 +1203,6 @@ tryCatch(
         rm(cor_monthly_qsd)
         rm(sub_wqs)
         rm(sub_monthly_qsd)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1270,7 +1236,6 @@ tryCatch(
         rm(mqsh)
         rm(cor_mqsh)
         rm(sub_mqsh)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")

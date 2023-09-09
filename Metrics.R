@@ -7,12 +7,12 @@ get_uptime <- function(df, start_date, end_time) {
         collect()
 
     signals <- unique(ts_sig$signalid)
-    bookend1 <- expand.grid(SignalID = as.integer(signals), Timestamp = ymd_hms(glue("{start_date} 00:00:00")))
-    bookend2 <- expand.grid(SignalID = as.integer(signals), Timestamp = ymd_hms(end_time))
+    bookend1 <- expand.grid(SignalID = as.integer(signals), Timestamp = as_datetime(glue("{start_date} 00:00:00")))
+    bookend2 <- expand.grid(SignalID = as.integer(signals), Timestamp = as_datetime(end_time))
 
 
     ts_sig <- ts_sig %>%
-        transmute(SignalID = signalid, Timestamp = ymd_hms(timestamp)) %>%
+        transmute(SignalID = signalid, Timestamp = as_datetime(timestamp)) %>%
         bind_rows(., bookend1, bookend2) %>%
         distinct() %>%
         arrange(SignalID, Timestamp)
@@ -428,6 +428,12 @@ get_sf <- function(df) {
 # SPM Queue Spillback - updated 2/20/2020
 get_qs <- function(detection_events, intervals = c("hour")) {
 
+    if (is.null(detection_events)) {
+        return_list <- lapply(intervals, function(x) data.frame())
+        names(return_list) <- intervals
+	return(return_list)
+    }
+
     cat('.')
     qs_df <- detection_events %>%
 
@@ -613,10 +619,19 @@ get_pau_high_ <- function(paph, pau_start_date) {
         filter(toohigh_nn)
 
     too_high <- list(too_high_distn, too_high_am, too_high_nn) %>%
-        reduce(full_join, by = c("SignalID", "Detector", "CallPhase", "Date"), relationship = "many-to-many") %>%
-        transmute(
-            SignalID, Detector, CallPhase, Date,
-            toohigh = as.logical(max(c_across(starts_with("toohigh")), na.rm = TRUE)))
+        reduce(full_join, by = c("SignalID", "Detector", "CallPhase", "Date"), relationship = "many-to-many")
+
+    too_high <- if (nrow(too_high) > 0) {
+        too_high %>%
+            transmute(
+                SignalID, Detector, CallPhase, Date,
+                toohigh = as.logical(max(c_across(starts_with("toohigh")), na.rm = TRUE)))
+    } else {
+        too_high %>%
+            transmute(
+                SignalID, Detector, CallPhase, Date,
+                toohigh = FALSE)
+    }
 
     too_high
 }
