@@ -280,8 +280,7 @@ tryCatch(
             "bad_detectors",
             start_date = today() - days(90),
             end_date = today() - days(1),
-            bucket = conf$bucket,
-            conf = conf
+            bucket = conf$bucket
         ) %>%
             mutate(
                 SignalID = factor(SignalID),
@@ -349,8 +348,7 @@ tryCatch(
             "bad_ped_detectors",
             start_date = today() - days(90),
             end_date = today() - days(1),
-            bucket = conf$bucket,
-            conf = conf
+            bucket = conf$bucket
         )
 
         if (nrow(bad_ped)) {
