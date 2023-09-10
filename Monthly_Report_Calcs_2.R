@@ -112,7 +112,7 @@ get_sf_date_range <- function(start_date, end_date) {
                 bucket = conf$bucket,
                 prefix = "sf",
                 table_name = "split_failures",
-                conf = conf
+                conf_athena = conf$athena
             )
         }
         if (nrow(sf$`15min`) > 0) {
@@ -121,7 +121,7 @@ get_sf_date_range <- function(start_date, end_date) {
                 bucket = conf$bucket,
                 prefix = "sf",
                 table_name = "split_failures_15min",
-                conf = conf
+                conf_athena = conf$athena
             )
         }
     })
