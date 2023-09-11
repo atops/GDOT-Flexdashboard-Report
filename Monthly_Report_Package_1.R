@@ -335,9 +335,10 @@ tryCatch(
             )
 
         # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
-        s3_write_parquet(
+        s3write_using(
+            FUN = write_parquet,
             bad_det,
-            object = file.path(conf$key_prefix, "mark/watchdog/bad_detectors.parquet", fsep = "/"),
+            object = "mark/watchdog/bad_detectors.parquet",
             bucket = conf$bucket
         )
         rm(bad_det)
@@ -358,7 +359,8 @@ tryCatch(
 
                 left_join(
                     dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
-                    by = c("SignalID")
+                    by = c("SignalID"),
+                    relationship = "many-to-many"
                 ) %>%
                 transmute(Zone_Group,
                           Zone,
@@ -369,10 +371,12 @@ tryCatch(
                           Alert = factor("Bad Ped Detection"),
                           Name = factor(Name)
                 )
-            s3_write_parquet(
+            s3write_using(
+                FUN = write_parquet,
                 bad_ped,
-                object = file.path(conf$key_prefix, "mark/watchdog/bad_ped_pushbuttons.parquet", fsep = "/"),
-                bucket = conf$bucket)
+                object = "mark/watchdog/bad_ped_pushbuttons.parquet",
+                bucket = conf$bucket
+            )
         }
         rm(bad_ped)
 
@@ -688,8 +692,13 @@ tryCatch(
 
         weekly_vpd <- get_weekly_vpd(vpd)
 
+        # Monthly volumes for bar charts and % change ---------------------------------
+        monthly_vpd <- get_monthly_vpd(vpd)
+
         # Group into corridors --------------------------------------------------------
+        cor_monthly_vpd <- get_cor_monthly_vpd(monthly_vpd, corridors)
         cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
+
         # Subcorridors
         sub_weekly_vpd <-
             get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
