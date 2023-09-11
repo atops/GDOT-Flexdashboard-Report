@@ -159,7 +159,7 @@ read_zipped_feather <- function(x) {
 
 keep_trying <- function(func, n_tries, ..., sleep = 1, timeout = Inf) {
 
-    safely_func = purrr::safely(func, otherwise = NULL)
+    safely_func <- purrr::safely(func, otherwise = NULL)
 
     result <- NULL
     error <- 1

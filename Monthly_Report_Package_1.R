@@ -335,11 +335,13 @@ tryCatch(
             )
 
         # Zone_Group | Zone | Corridor | SignalID/CameraID | CallPhase | DetectorID | Date | Alert | Name
+
         s3write_using(
             FUN = write_parquet,
             bad_det,
             object = "mark/watchdog/bad_detectors.parquet",
-            bucket = conf$bucket
+            bucket = conf$bucket,
+            opts = list(multipart = TRUE)
         )
         rm(bad_det)
         rm(det_config)
@@ -661,7 +663,6 @@ tryCatch(
         rm(sub_daily_comm_uptime)
         rm(sub_weekly_comm_uptime)
         rm(sub_monthly_comm_uptime)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -691,6 +692,13 @@ tryCatch(
             )
 
         weekly_vpd <- get_weekly_vpd(vpd)
+
+        # Group into corridors --------------------------------------------------------
+        cor_weekly_vpd <- get_cor_weekly_vpd(weekly_vpd, corridors)
+        # Subcorridors
+        sub_weekly_vpd <-
+            (get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
+                filter(!is.na(Corridor)))
 
         # Monthly volumes for bar charts and % change ---------------------------------
         monthly_vpd <- get_monthly_vpd(vpd)
@@ -803,7 +811,6 @@ tryCatch(
         rm(cor_monthly_vph_peak)
         rm(sub_weekly_vph_peak)
         rm(sub_monthly_vph_peak)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1157,8 +1164,6 @@ tryCatch(
         rm(msfh)
         rm(cor_msfh)
         rm(sub_msfh)
-
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1385,8 +1390,6 @@ tryCatch(
         rm(sub_monthly_pti_by_hr)
         rm(sub_monthly_bi)
         rm(sub_monthly_bi_by_hr)
-
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1829,7 +1832,6 @@ tryCatch(
         rm(monthly_flash)
         rm(cor_monthly_flash)
         rm(sub_monthly_flash)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -1909,7 +1911,6 @@ tryCatch(
 
         rm(cor_monthly_bpsi)
         rm(sub_monthly_bpsi)
-        # gc()
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")

@@ -436,14 +436,17 @@ conn <- keep_trying(func = get_aurora_connection, n_tries = 6, sleep = 10)
 print("Database connection created.")
 # recreate_database(conn)
 
-append_to_database(
-    conn, cor, "cor",
-    calcs_start_date, report_start_date, report_end_date = NULL)
-append_to_database(
-    conn, sub, "sub",
-    calcs_start_date, report_start_date, report_end_date = NULL)
-append_to_database(
-    conn, sig, "sig",
-    calcs_start_date, report_start_date, report_end_date = NULL)
-
-dbDisconnect(conn)
+tryCatch({
+    append_to_database(
+        conn, cor, "cor",
+        calcs_start_date, report_start_date, report_end_date = NULL)
+    append_to_database(
+        conn, sub, "sub",
+        calcs_start_date, report_start_date, report_end_date = NULL)
+    append_to_database(
+        conn, sig, "sig",
+        calcs_start_date, report_start_date, report_end_date = NULL)
+},
+finally = {
+    dbDisconnect(conn)
+})

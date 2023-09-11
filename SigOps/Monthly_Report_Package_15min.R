@@ -525,11 +525,15 @@ source("write_sigops_to_db.R")
 aurora <- keep_trying(func = get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
 
-append_to_database(
-    aurora, cor2, "cor", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-append_to_database(
-    aurora, sub2, "sub", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-append_to_database(
-    aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-
-dbDisconnect(aurora)
+tryCatch(
+{
+    append_to_database(
+        aurora, cor2, "cor", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+    append_to_database(
+        aurora, sub2, "sub", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+    append_to_database(
+        aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+},
+finally = {
+    dbDisconnect(aurora)
+})
