@@ -108,6 +108,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
             lambda: requests.get(uri.format('jobs/status'), params={'key': key, 'jobId': jobid}),
             check_success=is_success,
             step=30,
+            step_function=polling.step_linear_double,
             timeout=1800)
 
         results = requests.get(uri.format('results/export'),

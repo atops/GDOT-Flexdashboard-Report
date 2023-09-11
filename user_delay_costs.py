@@ -22,6 +22,9 @@ import re
 import dask.dataframe as dd
 from multiprocessing import get_context
 from config import get_date_from_string
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 os.environ['TZ'] = 'America/New_York'
 

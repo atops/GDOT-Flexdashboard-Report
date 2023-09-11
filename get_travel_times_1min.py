@@ -23,6 +23,9 @@ import io
 import boto3
 import dask.dataframe as dd
 from config import get_date_from_string
+import warnings
+
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 s3 = boto3.client('s3')
 
@@ -108,6 +111,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             lambda: requests.get(uri.format('jobs/status'), params = {'key': key, 'jobId': jobid}),
             check_success = is_success,
             step=60,
+            step_function=polling.step_linear_double,
             timeout=3600)
 
         results = requests.get(uri.format('results/export'),
