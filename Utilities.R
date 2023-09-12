@@ -622,11 +622,9 @@ get_signals_chunks <- function(df, rows = 1e6) {
     records <- records$n
 
     if ("SignalID" %in% colnames(df)) {
-        signals_list <- df %>% distinct(SignalID) %>% arrange(SignalID) %>% collect()
-        signals_list <- signals_list$SignalID
+        signals_list <- df %>% distinct(SignalID) %>% arrange(SignalID) %>% collect() %>% pull(SignalID)
     } else if ("signalid" %in% colnames(df)) {
-        signals_list <- df %>% distinct(signalid) %>% arrange(signalid) %>% collect()
-        signals_list <- signals_list$signalid
+        signals_list <- df %>% distinct(signalid) %>% arrange(signalid) %>% collect() %>% pull(SignalID)
     }
 
     # keep this to about a million records per core
@@ -648,7 +646,7 @@ get_signals_chunks_arrow <- function(df, rows = 1e6) {
     extract <- df %>% select(SignalID) %>% collect()
     records <- nrow(extract)
 
-    signals_list <- (extract %>% distinct(SignalID) %>% arrange(SignalID))$SignalID
+    signals_list <- extract %>% distinct(SignalID) %>% arrange(SignalID) %>% pull(SignalID)
 
     # keep this to about a million records per core
     # based on the average number of records per signal.
