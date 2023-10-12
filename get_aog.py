@@ -42,11 +42,13 @@ def get_det_config(date_, conf):
 
     bucket = conf['bucket']
 
+    # Read bad detectors
     bd_key = f's3://{bucket}/mark/bad_detectors/date={date_str}/bad_detectors_{date_str}.parquet'
     bd = pd.read_parquet(bd_key).assign(
             SignalID = lambda x: x.SignalID.astype('int64'),
             Detector = lambda x: x.Detector.astype('int64'))
 
+    # Read detector config
     dc_key = f'config/atspm_det_config_good/date={date_str}/ATSPM_Det_Config_Good.feather'
     with io.BytesIO() as data:
         boto3.resource('s3').Bucket(bucket).download_fileobj(
@@ -54,6 +56,7 @@ def get_det_config(date_, conf):
         dc = pd.read_feather(data)[['SignalID', 'Detector', 'DetectionTypeDesc']]
     dc.loc[dc.DetectionTypeDesc.isna(), 'DetectionTypeDesc'] = '[]'
 
+    # Anti-join: detectors in dc (detector config table) not in bd (bad detectors table)
     df = pd.merge(dc, bd, how='outer', on=['SignalID','Detector']).fillna(value={'Good_Day': 1})
     df = df.loc[df.Good_Day==1].drop(columns=['Good_Day'])
 
@@ -78,7 +81,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
             de_fn = f's3://{bucket}/detections/date={date_str}/de_{signalid}_{date_str}.parquet'
             detection_events = pd.read_parquet(de_fn).drop_duplicates()
 
-
+        # Join detector type with detection events table. Choose only 'Advanced Count'
         df = (pd.merge(
                 detection_events,
                 det_config[det_config.DetectionTypeDesc.str.contains('Advanced Count')],
@@ -91,19 +94,22 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
             print('#', end='')
             return pd.DataFrame()
         else:
+            # Get number and fraction of arrivals by Interval in every period, per
             df_aog = (df.assign(Hour=lambda x: x.DetTimeStamp.dt.floor(per))
                       .rename(columns={'Detector': 'Arrivals',
                                        'EventCode': 'Interval'})
                       .groupby(['Hour', 'SignalID', 'Phase', 'Interval'])
                       .count()[['Arrivals']])
-            df_aog['All_Arrivals'] = df_aog.groupby(level=[0, 1, 2]).transform('sum')
+            df_aog['All_Arrivals'] = df_aog.groupby(level=['Hour', 'SignalID', 'Phase']).transform('sum')
             df_aog['AOG'] = df_aog['Arrivals']/df_aog['All_Arrivals']
 
+            # Filter only the arrivals on Interval=1, Green
             aog = (df_aog.reset_index('Interval')
                    .query('Interval == 1')
                    .drop(columns=['Interval'])
                    .rename(columns={'Arrivals': 'Green_Arrivals'}))
 
+            # For Progress Ration, get the fraction of green time in each hour
             df_gc = (df[['SignalID', 'Phase', 'PhaseStart', 'EventCode']]
                      .drop_duplicates()
                      .rename(columns={'PhaseStart': 'IntervalStart',
