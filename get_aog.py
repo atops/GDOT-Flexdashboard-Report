@@ -109,7 +109,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
                    .drop(columns=['Interval'])
                    .rename(columns={'Arrivals': 'Green_Arrivals'}))
 
-            # For Progress Ration, get the fraction of green time in each hour
+            # For Progress Ratio, get the fraction of green time in each hour
             df_gc = (df[['SignalID', 'Phase', 'PhaseStart', 'EventCode']]
                      .drop_duplicates()
                      .rename(columns={'PhaseStart': 'IntervalStart',
@@ -123,7 +123,7 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
                             [df_gc.index.levels[0],
                              df_gc.index.levels[1],
                              all_hours],
-                            names=['SignalID', 'Phase', 'IntervalStart']))
+                    names=['SignalID', 'Phase', 'IntervalStart']))
 
             df_gc = (pd.concat([df_gc, x])
                      .sort_index()
