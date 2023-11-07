@@ -66,7 +66,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 #     athena <- get_athena_connection()
 #     df <- tbl(athena, "atspm2") %>%
 #         filter(date == date_) %>%
-# 	select(signalid, timestamp, eventcode, eventparam)
+#         select(signalid, timestamp, eventcode, eventparam)
 #
 #     mssql <- get_atspm_connection(conf$atspm)
 #     df <- tbl(mssql, "Controller_Event_Log") %>%
@@ -213,7 +213,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           table_name = "counts_ped_1hr",
                           conf_athena = conf_athena)
 
-	# PAPD - pedestrian activations per day
+        # PAPD - pedestrian activations per day
         print("papd")
         get_vpd(counts_ped_1hr, mainline_only = FALSE) %>%
             ungroup() %>%
@@ -225,7 +225,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                 conf_athena = conf$athena
         )
 
-	# PAPH - pedestrian activations per hour
+        # PAPH - pedestrian activations per hour
         print("paph")
         get_vph(counts_ped_1hr, interval = "1 hour", mainline_only = FALSE) %>%
             rename(paph = vph) %>%
@@ -236,7 +236,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                 conf_athena = conf$athena
         )
 
-	rm(counts_ped_1hr)
+        rm(counts_ped_1hr)
 
         conn <- get_athena_connection(conf_athena)
 
@@ -275,7 +275,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
 
         conn <- get_athena_connection(conf_athena)
 
-	# get 15min ped counts
+        # get 15min ped counts
         print("15-minute pedestrian activation counts")
         counts_ped_15min <- get_counts(
             tbl(conn, atspm_query),
@@ -295,7 +295,7 @@ get_counts2 <- function(date_, bucket, conf_athena, uptime = TRUE, counts = TRUE
                           table_name = "counts_ped_15min",
                           conf_athena = conf_athena)
 
-	# PA15 - pedestrian activations per 15min
+        # PA15 - pedestrian activations per 15min
         print("pa15")
         get_vph(counts_ped_15min, interval = "15 min", mainline_only = FALSE) %>%
             rename(pa15 = vph) %>%
