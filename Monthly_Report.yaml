@@ -38,9 +38,9 @@ end_date: yesterday
 calcs_start_date: auto
 report_end_date: yesterday
 
-corridors_filename_s3: Corridors_Latest_w_SigOps.xlsx
-corridors_TMCs_filename_s3: Corridor_TMCs_Latest.xlsx
-cctv_config_filename: Cameras_v3_Latest.xlsx
+corridors_filename_s3: Corridors_Mark1.xlsx
+corridors_TMCs_filename_s3: Corridor_TMCs_Mark1.xlsx
+cctv_config_filename: Cameras_Mark1.xlsx
 
 
 AM_PEAK_HOURS: [6, 7, 8, 9]

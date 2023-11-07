@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.3.1",
+    "Version": "4.3.2",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -1011,10 +1011,10 @@
     },
     "lattice": {
       "Package": "lattice",
-      "Version": "0.21-8",
+      "Version": "0.22-5",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "0b8a6d63c8770f02a8b5635f3c431e6b",
+      "Hash": "7c5e89f04e72d6611c77451f6331a091",
       "Requirements": []
     },
     "lazyeval": {

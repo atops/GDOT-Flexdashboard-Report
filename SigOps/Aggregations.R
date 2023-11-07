@@ -577,14 +577,14 @@ get_daily_detector_uptime <- function(filtered_counts) {
     usable_cores <- get_usable_cores()
 
     # this seems ripe for optimization
-    bad_comms <- filtered_counts %>%
-        group_by(SignalID, Timeperiod) %>%
-        summarize(vol = sum(vol, na.rm = TRUE),
-                  .groups = "drop") %>%
-        dplyr::filter(vol == 0) %>%
-        dplyr::select(-vol)
-    fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
-        ungroup()
+    # bad_comms <- filtered_counts %>%
+    #     group_by(SignalID, Timeperiod) %>%
+    #     summarize(vol = sum(vol, na.rm = TRUE),
+    #               .groups = "drop") %>%
+    #     dplyr::filter(vol == 0) %>%
+    #     dplyr::select(-vol)
+    # fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
+    #     ungroup()
 
     ddu <- fc %>%
         mutate(Date_Hour = Timeperiod,

@@ -46,10 +46,11 @@ get_signalids_from_s3 <- function(date_, s3prefix="atspm") {
     sort(signalids)
 }
 
+
 get_last_modified_s3 <- function(bucket, object) {
-    x <- get_bucket(bucket = bucket, prefix = object)[[1]]
-    lm <- if (!is.null(x)) {
-        as_datetime(x$LastModified)
+    x <- get_bucket(bucket = bucket, prefix = object)
+    lm <- if (length(x)) {
+        as_datetime(x[[1]]$LastModified)
     } else {
         as_datetime("1900-01-01")
     }
