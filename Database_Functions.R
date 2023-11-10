@@ -340,7 +340,7 @@ query_health_data <- function(
 
 
 
-create_aurora_partitioned_table <- function(aurora, table_name) {
+create_aurora_partitioned_table <- function(aurora, table_name, period_field = "Timeperiod") {
     months <- seq(Sys.Date() - months(10), Sys.Date() + months(1), by = "1 month")
     new_partition_dates <- format(months, "%Y-%m-01")
     new_partition_names <- format(months, "p_%Y%m")
@@ -359,18 +359,18 @@ create_aurora_partitioned_table <- function(aurora, table_name) {
         "CREATE TABLE `{table_name}_part` (
           `Zone_Group` varchar(128) DEFAULT NULL,
           `Corridor` varchar(128) DEFAULT NULL,
-          `Timeperiod` datetime NOT NULL,
+          `{period_field}` datetime NOT NULL,
           `{var}` double DEFAULT NULL,
           `ones` double DEFAULT NULL,
           `delta` double DEFAULT NULL,
           `Description` varchar(128) DEFAULT NULL,
           `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-          PRIMARY KEY (`id`, `Timeperiod`),
-          UNIQUE KEY `idx_{table_name}_unique` (`Timeperiod`,`Zone_Group`,`Corridor`),
-          KEY `idx_{table_name}_zone_period` (`Zone_Group`,`Timeperiod`),
-          KEY `idx_{table_name}_corridor_period` (`Corridor`,`Timeperiod`)
+          PRIMARY KEY (`id`, `{period_field}`),
+          UNIQUE KEY `idx_{table_name}_unique` (`{period_field}`, `Zone_Group`, `Corridor`),
+          KEY `idx_{table_name}_zone_period` (`Zone_Group`, `{period_field}`),
+          KEY `idx_{table_name}_corridor_period` (`Corridor`, `{period_field}`)
         )
-        PARTITION BY RANGE COLUMNS (`Timeperiod`) (
+        PARTITION BY RANGE COLUMNS (`{period_field}`) (
             {paste(partitions, collapse=' ')}
             PARTITION future VALUES LESS THAN (MAXVALUE)
         )"
