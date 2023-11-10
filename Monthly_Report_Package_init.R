@@ -71,12 +71,10 @@ if (conf$report_end_date == "yesterday") {
 }
 
 if (conf$calcs_start_date == "auto") {
-    if (day(Sys.Date()) < 15) {
-        calcs_start_date <- Sys.Date() - months(1)
-    } else {
-        calcs_start_date <- Sys.Date()
+    calcs_start_date <- floor_date(Sys.Date(), unit = "months")
+    if (day(Sys.Date()) <= 7) {
+        calcs_start_date <- calcs_start_date - months(1)
     }
-    day(calcs_start_date) <- 1
 } else {
     calcs_start_date <- conf$calcs_start_date
 }
