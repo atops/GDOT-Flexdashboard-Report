@@ -349,8 +349,8 @@ create_aurora_partitioned_table <- function(aurora, table_name, period_field = "
     table_suffix <- stringr::str_extract(table_name, "[^_]*$")
     var <- case_when(
         table_suffix == "aogh" ~ "aog",
-        table_suffix == "vph" ~ "vol",
-        table_suffix == "paph" ~ "vol",
+        table_suffix == "vph" ~ ifelse(period_field == "Timeperiod", "vol", "vph"),
+        table_suffix == "paph" ~ ifelse(period_field == "Timeperiod", "vol", "paph"),
         table_suffix == "prh" ~ "pr",
         table_suffix == "qsh" ~ "qs_freq",
         table_suffix == "sfh" ~ "sf_freq")
