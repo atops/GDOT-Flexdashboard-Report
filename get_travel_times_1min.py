@@ -57,11 +57,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
           "start": start_date
         }
       ],
-      "dow": [ #only pull T-Th data
-        2,
-        3,
-        4
-      ],
+      "dow": [2, 3, 4], # only pull T-Th data
       "dsFields": [
         {
           "columns": [
@@ -70,23 +66,18 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             "TRAVEL_TIME_MINUTES",
             "CONFIDENCE_SCORE"
           ],
-          "dataSource": "vpp_here",
-          "qualityFilter": {
-            "max": 1,
-            "min": 0.71, #only accept data w/ quality >= 0.71
-            "thresholds": [
-              30,
-              20,
-              10
-            ]
-          }
+          "dataSource": "vpp_here"
+          # "qualityFilter": {
+          #   "max": 1,
+          #   "min": 0.71
+          # }
         }
       ],
       "granularity": {
         "type": "minutes",
         "value": 1
       },
-      "times": [ #pulling all 24 hours
+      "times": [ # pulling all 24 hours
         {
           "end": None,
           "start": "00:00:00.000"

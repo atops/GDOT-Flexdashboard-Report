@@ -29,9 +29,9 @@ print(glue("{Sys.time()} travel times [3 of 11]"))
 
 if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
-    system("~/miniconda3/bin/conda run -n sigops python get_travel_times.py mark travel_times_1hr.yaml", wait = FALSE)
-    system("~/miniconda3/bin/conda run -n sigops python get_travel_times.py mark travel_times_15min.yaml", wait = FALSE)
-    system("~/miniconda3/bin/conda run -n sigops python get_travel_times_1min.py mark", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times_v2.py mark travel_times_1hr.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times_v2.py mark travel_times_15min.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python get_travel_times_1min_v2.py mark", wait = FALSE)
 }
 
 # # COUNTS ####################################################################

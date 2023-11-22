@@ -9,9 +9,9 @@ print(glue("{Sys.time()} travel times [0 of 29(2)]"))
 
 if (conf$run$travel_times == TRUE) {
     # Run python script asynchronously
-    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times.py sigops ../travel_times_1hr.yaml", wait = FALSE)
-    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times.py sigops ../travel_times_15min.yaml", wait = FALSE)
-    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times_1min.py sigops", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times_v2.py sigops ../travel_times_1hr.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times_v2.py sigops ../travel_times_15min.yaml", wait = FALSE)
+    system("~/miniconda3/bin/conda run -n sigops python ../get_travel_times_1min_v2.py sigops", wait = FALSE)
 }
 
 # # DETECTOR UPTIME ###########################################################

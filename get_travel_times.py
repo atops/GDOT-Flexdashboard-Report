@@ -45,6 +45,9 @@ def is_success(response):
 
 def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, initial_sleep_sec=0):
 
+    # date range is exclusive of end_date, so add a day to end_date to include it.
+    end_date = (datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%F')
+
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
@@ -67,16 +70,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
             "TRAVEL_TIME_MINUTES",
             "CONFIDENCE_SCORE"
           ],
-          "dataSource": "vpp_here",
-          "qualityFilter": {
-            "max": 1,
-            "min": 0,
-            "thresholds": [
-              30,
-              20,
-              10
-            ]
-          }
+          "dataSource": "vpp_here"
         }
       ],
       "granularity": {
