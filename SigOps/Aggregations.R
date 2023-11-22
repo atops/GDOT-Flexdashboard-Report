@@ -202,7 +202,7 @@ get_weekly_sum_by_day <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        left_join(Tuesdays) %>%
+        left_join(Tuesdays, by = c("Week")) %>%
         dplyr::select(SignalID, Date, Week, !!var_, delta)
 }
 
@@ -239,7 +239,7 @@ get_weekly_avg_by_day <- function(df, var_, wt_ = "ones", peak_only = TRUE) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        left_join(Tuesdays) %>%
+        left_join(Tuesdays, by = c("Week")) %>%
         dplyr::select(SignalID, Date, Week, !!var_, !!wt_, delta) %>%
         ungroup()
 }
@@ -574,23 +574,13 @@ summarize_by_peak <- function(df, date_col) {
 
 get_daily_detector_uptime <- function(filtered_counts) {
 
-    usable_cores <- get_usable_cores()
-
-    # this seems ripe for optimization
-    bad_comms <- filtered_counts %>%
-        group_by(SignalID, Timeperiod) %>%
-        summarize(vol = sum(vol, na.rm = TRUE),
-                  .groups = "drop") %>%
-        dplyr::filter(vol == 0) %>%
-        dplyr::select(-vol)
-    fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
-        ungroup()
-
-    ddu <- fc %>%
+    ddu <- filtered_counts %>%
         mutate(Date_Hour = Timeperiod,
                Date = date(Date_Hour)) %>%
         dplyr::select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
-        ungroup() %>%
+        ungroup()
+    if (nrow(ddu) > 0) {
+        ddu <- ddu %>%
         mutate(setback = ifelse(CallPhase %in% c(2,6), "Setback", "Presence"),
                setback = factor(setback),
                SignalID = factor(SignalID)) %>%
@@ -603,6 +593,7 @@ get_daily_detector_uptime <- function(filtered_counts) {
                 mutate(uptime = uptime/all,
                        all = as.double(all))
         })
+    }
     ddu
 }
 
@@ -652,8 +643,9 @@ get_cor_avg_daily_detector_uptime <- function(avg_daily_detector_uptime, corrido
                                    get_cor_weekly_avg_by_day(corridors, "uptime", "ones"))
 
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
-              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
-        left_join(dplyr::select(cor_daily_all_uptime, -c(ones, delta))) %>%
+              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta)),
+              relationship = "many-to-many") %>%
+        left_join(dplyr::select(cor_daily_all_uptime, -c(ones, delta)), relationship = "many-to-many") %>%
         mutate(Zone_Group = factor(Zone_Group))
 }
 
@@ -859,8 +851,9 @@ get_cor_monthly_detector_uptime <- function(avg_daily_detector_uptime, corridors
                                    get_cor_monthly_avg_by_day(corridors, "uptime", "all"))
 
     full_join(dplyr::select(cor_daily_sb_uptime, -c(all.sb, delta)),
-              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta))) %>%
-        left_join(dplyr::select(cor_daily_all_uptime, -c(all))) %>%
+              dplyr::select(cor_daily_pr_uptime, -c(all.pr, delta)),
+              relationship = "many-to-many") %>%
+        left_join(dplyr::select(cor_daily_all_uptime, -c(all)), relationship = "many-to-many") %>%
         mutate(Corridor = factor(Corridor),
                Zone_Group = factor(Zone_Group))
 }

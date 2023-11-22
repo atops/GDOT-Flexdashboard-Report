@@ -89,7 +89,7 @@ group_corridors_ <- function(df, per_, var_, wt_, gr_ = group_corridor_by_) {
 
 
 get_hourly <- function(df, var_, corridors) {
-    full_join(df, corridors, by = "SignalID") %>%
+    full_join(df, corridors, by = "SignalID", relationship = "many-to-many") %>%
         filter(!is.na(Corridor)) %>%
         group_by(SignalID) %>%
         mutate(lag_ = lag(!!as.name(var_)),
@@ -200,8 +200,6 @@ get_daily_sum <- function(df, var_) {
         mutate(lag_ = lag(!!var_),
                delta = ((!!var_) - lag_)/lag_) %>%
         ungroup() %>%
-        complete(SignalID, !!per_ := full_seq(!!per_, 1)) %>%
-        mutate(!!var_ := ifelse(is.na(!!var_), 0, !!var_)) %>%
         dplyr::select(SignalID, !!per_, !!var_, delta)
 }
 
@@ -595,19 +593,7 @@ summarize_by_peak <- function(df, date_col) {
 
 get_daily_detector_uptime <- function(filtered_counts) {
 
-    usable_cores <- get_usable_cores()
-
-    # this seems ripe for optimization
-    bad_comms <- filtered_counts %>%
-        group_by(SignalID, Timeperiod) %>%
-        summarize(vol = sum(vol, na.rm = TRUE),
-                  .groups = "drop") %>%
-        dplyr::filter(vol == 0) %>%
-        dplyr::select(-vol)
-    fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
-        ungroup()
-
-    ddu <- fc %>%
+    ddu <- filtered_counts %>%
         mutate(Date_Hour = Timeperiod,
                Date = date(Date_Hour)) %>%
         dplyr::select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
