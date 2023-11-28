@@ -127,7 +127,9 @@ if (length(missing_partitions) > 10) {
 } else if (length(missing_partitions) > 0) {
     print("Adding missing partitions:")
     for (date_ in missing_partitions) {
-        add_athena_partition(conf$athena, bucket, conf$athena$atspm_table, date_)
+        add_athena_partition(conf$athena, conf$bucket, conf$athena$atspm_table, date_)
     }
 }
 dbDisconnect(athena)
+
+source("cel_ped_detectors_shim.R")
