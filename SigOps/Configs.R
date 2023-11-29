@@ -200,7 +200,27 @@ get_ped_config_ <- function(bucket) {
     }
 }
 
-get_ped_config <- get_ped_config_(conf$bucket)
+
+
+get_ped_config_cel_ <- function(bucket, conf_athena) {
+
+    function(date_) {
+
+        ped_start_date <- floor_date(as_date(date_), unit = "months") - months(6)
+
+        arrow::open_dataset(sources = glue("s3://{bucket}/config/cel_ped_detectors/")) %>% 
+            filter(date >= ped_start_date) %>%
+            distinct(SignalID, Detector, CallPhase) %>%
+            collect()
+
+    }
+}
+
+
+
+get_ped_config <- get_ped_config_cel_(conf$bucket)
+
+
 
 ## -- --- Adds CountPriority from detector config file --------------------- -- ##
 ## This determines which detectors to use for counts when there is more than
