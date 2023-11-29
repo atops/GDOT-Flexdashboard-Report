@@ -574,7 +574,18 @@ summarize_by_peak <- function(df, date_col) {
 
 get_daily_detector_uptime <- function(filtered_counts) {
 
-    ddu <- filtered_counts %>%
+    # Remove time periods with no volume on all detectors - the source of much back-and-forth
+    bad_comms <- filtered_counts %>%
+        group_by(SignalID, Timeperiod) %>%
+        summarize(vol = sum(vol, na.rm = TRUE),
+                  .groups = "drop") %>%
+        dplyr::filter(vol == 0) %>%
+        dplyr::select(-vol)
+    fc <- anti_join(filtered_counts, bad_comms, by = c("SignalID", "Timeperiod")) %>%
+        ungroup()
+ 
+    ddu <- fc %>%
+    # ddu <- filtered_counts %>%   # If reverting this change back, delete the above and uncomment this line.
         mutate(Date_Hour = Timeperiod,
                Date = date(Date_Hour)) %>%
         dplyr::select(SignalID, CallPhase, Detector, Date, Date_Hour, Good_Day) %>%
