@@ -10,6 +10,9 @@ calcs_start_date <- max(calcs_start_date, as_date(get_date_from_string(conf$star
 # Need to keep some data in rds prior to the calcs_start_date to calculate accurate deltas
 rds_start_date <- calcs_start_date - days(1)
 
+# Only keep 6 months of data for 1hr aggregations
+report_start_date <- floor_date(as_date(report_end_date), unit = "months") - months(6)
+
 
 # # DETECTOR UPTIME ###########################################################
 
@@ -82,7 +85,6 @@ tryCatch(
 
         hourly_pa <- get_period_sum(paph, "paph", "Hour")
         cor_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, corridors, "paph", "Hour")
-        sub_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, subcorridors, "paph", "Hour")
 
         hourly_pa <- sigify(hourly_pa, cor_hourly_pa, corridors) %>%
                 select(Zone_Group, Corridor, Hour, paph, delta)
@@ -91,18 +93,11 @@ tryCatch(
         addtoRDS(
             hourly_pa, "hourly_pa.rds", "paph", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_pa, "cor_hourly_pa.rds", "paph", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_pa, "sub_hourly_pa.rds", "paph", rds_start_date, calcs_start_date
-        )
 
         rm(paph)
         rm(bad_ped_detectors)
         rm(hourly_pa)
         rm(cor_hourly_pa)
-        rm(sub_hourly_pa)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -143,7 +138,6 @@ tryCatch(
 
         hourly_vol <- get_period_sum(vph, "vph", "Hour")
         cor_hourly_vol <- get_cor_monthly_avg_by_period(hourly_vol, corridors, "vph", "Hour")
-        sub_hourly_vol <- get_cor_monthly_avg_by_period(hourly_vol, subcorridors, "vph", "Hour")
 
         hourly_vol <- sigify(hourly_vol, cor_hourly_vol, corridors) %>%
                 select(Zone_Group, Corridor, Hour, vph, delta)
@@ -152,17 +146,10 @@ tryCatch(
         addtoRDS(
             hourly_vol, "hourly_vol.rds", "vph", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_vol, "cor_hourly_vol.rds", "vph", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_vol, "sub_hourly_vol.rds", "vph", rds_start_date, calcs_start_date
-        )
 
         rm(vph)
         rm(hourly_vol)
         rm(cor_hourly_vol)
-        rm(sub_hourly_vol)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -214,7 +201,6 @@ tryCatch(
             ) %>%
             get_period_avg("aog", "Hour", "vol")
         cor_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, corridors, "aog", "Hour")
-        sub_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, subcorridors, "aog", "Hour")
 
         hourly_aog <- sigify(hourly_aog, cor_hourly_aog, corridors) %>%
                 select(Zone_Group, Corridor, Hour, aog, delta)
@@ -223,16 +209,9 @@ tryCatch(
         addtoRDS(
             hourly_aog, "hourly_aog.rds", "aog", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_aog, "cor_hourly_aog.rds", "aog", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_aog, "sub_hourly_aog.rds", "aog", rds_start_date, calcs_start_date
-        )
 
         rm(hourly_aog)
         rm(cor_hourly_aog)
-        rm(sub_hourly_aog)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -260,7 +239,6 @@ tryCatch(
             get_period_avg("pr", "Hour", "vol")
 
         cor_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, corridors, "pr", "Hour")
-        sub_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, subcorridors, "pr", "Hour")
 
         hourly_pr <- sigify(hourly_pr, cor_hourly_pr, corridors) %>%
                 select(Zone_Group, Corridor, Hour, pr, delta)
@@ -269,17 +247,10 @@ tryCatch(
         addtoRDS(
             hourly_pr, "hourly_pr.rds", "pr", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_pr, "cor_hourly_pr.rds", "pr", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_pr, "sub_hourly_pr.rds", "pr", rds_start_date, calcs_start_date
-        )
 
         rm(aog)
         rm(hourly_pr)
         rm(cor_hourly_pr)
-        rm(sub_hourly_pr)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -324,7 +295,6 @@ tryCatch(
             get_period_avg("sf_freq", "Hour")
 
         cor_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, corridors, "sf_freq", "Hour")
-        sub_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, subcorridors, "sf_freq", "Hour")
 
         hourly_sf <- sigify(hourly_sf, cor_hourly_sf, corridors) %>%
                 select(Zone_Group, Corridor, Hour, sf_freq, delta)
@@ -333,17 +303,10 @@ tryCatch(
         addtoRDS(
             hourly_sf, "hourly_sf.rds", "sf_freq", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_sf, "cor_hourly_sf.rds", "sf_freq", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_sf, "sub_hourly_sf.rds", "sf_freq", rds_start_date, calcs_start_date
-        )
 
         rm(sf)
         rm(hourly_sf)
         rm(cor_hourly_sf)
-        rm(sub_hourly_sf)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -387,7 +350,6 @@ tryCatch(
             get_period_avg("qs_freq", "Hour")
 
         cor_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, corridors, "qs_freq", "Hour")
-        sub_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, subcorridors, "qs_freq", "Hour")
 
         hourly_qs <- sigify(hourly_qs, cor_hourly_qs, corridors) %>%
                 select(Zone_Group, Corridor, Hour, qs_freq, delta)
@@ -396,17 +358,10 @@ tryCatch(
         addtoRDS(
             hourly_qs, "hourly_qs.rds", "qs_freq", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            cor_hourly_qs, "cor_hourly_qs.rds", "qs_freq", rds_start_date, calcs_start_date
-        )
-        addtoRDS(
-            sub_hourly_qs, "sub_hourly_qs.rds", "qs_freq", rds_start_date, calcs_start_date
-        )
 
         rm(qs)
         rm(hourly_qs)
         rm(cor_hourly_qs)
-        rm(sub_hourly_qs)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -456,47 +411,8 @@ print(glue("{Sys.time()} Crash Indices [26 of 29(3)]"))
 
 tryCatch(
     {
-        cor2 <- list()
-        cor2$hr <- list(
-            "vph" = readRDS("cor_hourly_vol.rds"),
-            "paph" = readRDS("cor_hourly_pa.rds"),
-            "aogh" = readRDS("cor_hourly_aog.rds"),
-            "prh" = readRDS("cor_hourly_pr.rds"),
-            "sfh" = readRDS("cor_hourly_sf.rds"),
-            "qsh" = readRDS("cor_hourly_qs.rds")
-        )
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
-
-
-tryCatch(
-    {
-        sub2 <- list()
-        sub2$hr <- list(
-            "vph" = readRDS("sub_hourly_vol.rds"),
-            "paph" = readRDS("sub_hourly_pa.rds"),
-            "aogh" = readRDS("sub_hourly_aog.rds"),
-            "prh" = readRDS("sub_hourly_pr.rds"),
-            "sfh" = readRDS("sub_hourly_sf.rds"),
-            "qsh" = readRDS("sub_hourly_qs.rds")
-        )
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
-
-
-
-tryCatch(
-    {
-        sig2 <- list()
-        sig2$hr <- list(
+        sig <- list()
+        sig$hr <- list(
             "vph" = readRDS("hourly_vol.rds"),
             "paph" = readRDS("hourly_pa.rds"),
             "aogh" = readRDS("hourly_aog.rds"),
@@ -528,15 +444,8 @@ aurora <- keep_trying(func = get_aurora_connection, n_tries = 5)
 
 tryCatch({
     append_to_database(
-        aurora, cor2, "cor", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-    append_to_database(
-        aurora, sub2, "sub", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-    append_to_database(
-        aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+        aurora, sig, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
 },
 finally = {
     dbDisconnect(aurora)
 })
-
-
-

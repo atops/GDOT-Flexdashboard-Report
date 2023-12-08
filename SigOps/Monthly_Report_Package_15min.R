@@ -10,6 +10,9 @@ calcs_start_date <- max(calcs_start_date, as_date(get_date_from_string(conf$star
 # Need to keep some data in rds prior to the calcs_start_date to calculate accurate deltas
 rds_start_date <- calcs_start_date - days(1)
 
+# Only keep 6 months of data for 15min aggregations.
+report_start_date <- floor_date(as_date(report_end_date), unit = "months") - months(6)
+
 
 # # DETECTOR UPTIME ###########################################################
 
@@ -81,7 +84,6 @@ tryCatch(
 
         pa_15min <- get_period_sum(paph, "vol", "Timeperiod")
         cor_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, corridors, "vol", "Timeperiod")
-        sub_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, subcorridors, "vol", "Timeperiod")
 
         pa_15min <- sigify(pa_15min, cor_15min_pa, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, vol, delta)
@@ -93,15 +95,11 @@ tryCatch(
         addtoRDS(
             cor_15min_pa, "cor_15min_pa.rds", "vol", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_pa, "sub_15min_pa.rds", "vol", rds_start_date, calcs_start_date
-        )
 
         rm(paph)
         rm(bad_ped_detectors)
         rm(pa_15min)
         rm(cor_15min_pa)
-        rm(sub_15min_pa)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -143,7 +141,6 @@ tryCatch(
 
         vol_15min <- get_period_sum(vph, "vol", "Timeperiod")
         cor_15min_vol <- get_cor_monthly_avg_by_period(vol_15min, corridors, "vol", "Timeperiod")
-        sub_15min_vol <- get_cor_monthly_avg_by_period(vol_15min, subcorridors, "vol", "Timeperiod")
 
         vol_15min <- sigify(vol_15min, cor_15min_vol, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, vol, delta)
@@ -154,14 +151,10 @@ tryCatch(
         addtoRDS(
             cor_15min_vol, "cor_15min_vol.rds", "vol", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_vol, "sub_15min_vol.rds", "vol", rds_start_date, calcs_start_date
-        )
 
         rm(vph)
         rm(vol_15min)
         rm(cor_15min_vol)
-        rm(sub_15min_vol)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -214,7 +207,6 @@ tryCatch(
             get_period_avg("aog", "Timeperiod", "vol")
 
         cor_15min_aog <- get_cor_monthly_avg_by_period(aog_15min, corridors, "aog", "Timeperiod")
-        sub_15min_aog <- get_cor_monthly_avg_by_period(aog_15min, subcorridors, "aog", "Timeperiod")
 
         aog_15min <- sigify(aog_15min, cor_15min_aog, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, aog, delta)
@@ -226,13 +218,9 @@ tryCatch(
         addtoRDS(
             cor_15min_aog, "cor_15min_aog.rds", "aog", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_aog, "sub_15min_aog.rds", "aog", rds_start_date, calcs_start_date
-        )
 
         rm(aog_15min)
         rm(cor_15min_aog)
-        rm(sub_15min_aog)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -260,7 +248,6 @@ tryCatch(
             get_period_avg("pr", "Timeperiod", "vol")
 
         cor_15min_pr <- get_cor_monthly_avg_by_period(pr_15min, corridors, "pr", "Timeperiod")
-        sub_15min_pr <- get_cor_monthly_avg_by_period(pr_15min, subcorridors, "pr", "Timeperiod")
 
         pr_15min <- sigify(pr_15min, cor_15min_pr, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, pr, delta)
@@ -272,14 +259,10 @@ tryCatch(
         addtoRDS(
             cor_15min_pr, "cor_15min_pr.rds", "pr", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_pr, "sub_15min_pr.rds", "pr", rds_start_date, calcs_start_date
-        )
 
         rm(aog)
         rm(pr_15min)
         rm(cor_15min_pr)
-        rm(sub_15min_pr)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -324,7 +307,6 @@ tryCatch(
             get_period_avg("sf_freq", "Timeperiod")
 
         cor_15min_sf <- get_cor_monthly_avg_by_period(sf_15min, corridors, "sf_freq", "Timeperiod")
-        sub_15min_sf <- get_cor_monthly_avg_by_period(sf_15min, subcorridors, "sf_freq", "Timeperiod")
 
         sf_15min <- sigify(sf_15min, cor_15min_sf, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, sf_freq, delta)
@@ -336,14 +318,10 @@ tryCatch(
         addtoRDS(
             cor_15min_sf, "cor_15min_sf.rds", "sf_freq", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_sf, "sub_15min_sf.rds", "sf_freq", rds_start_date, calcs_start_date
-        )
 
         rm(sf)
         rm(sf_15min)
         rm(cor_15min_sf)
-        rm(sub_15min_sf)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -386,7 +364,6 @@ tryCatch(
             get_period_avg("qs_freq", "Timeperiod")
 
         cor_15min_qs <- get_cor_monthly_avg_by_period(qs_15min, corridors, "qs_freq", "Timeperiod")
-        sub_15min_qs <- get_cor_monthly_avg_by_period(qs_15min, subcorridors, "qs_freq", "Timeperiod")
 
         qs_15min <- sigify(qs_15min, cor_15min_qs, corridors) %>%
                 select(Zone_Group, Corridor, Timeperiod, qs_freq, delta)
@@ -398,14 +375,10 @@ tryCatch(
         addtoRDS(
             cor_15min_qs, "cor_15min_qs.rds", "qs_freq", rds_start_date, calcs_start_date
         )
-        addtoRDS(
-            sub_15min_qs, "sub_15min_qs.rds", "qs_freq", rds_start_date, calcs_start_date
-        )
 
         rm(qs)
         rm(qs_15min)
         rm(cor_15min_qs)
-        rm(sub_15min_qs)
     },
     error = function(e) {
         print("ENCOUNTERED AN ERROR:")
@@ -455,47 +428,8 @@ print(glue("{Sys.time()} Package for Monthly Report [27 of 29(4)]"))
 
 tryCatch(
     {
-        cor2 <- list()
-        cor2$qhr <- list(
-            "vph" = readRDS("cor_15min_vol.rds"),
-            "paph" = readRDS("cor_15min_pa.rds"),
-            "aogh" = readRDS("cor_15min_aog.rds"),
-            "prh" = readRDS("cor_15min_pr.rds"),
-            "sfh" = readRDS("cor_15min_sf.rds"),
-            "qsh" = readRDS("cor_15min_qs.rds")
-        )
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
-
-
-tryCatch(
-    {
-        sub2 <- list()
-        sub2$qhr <- list(
-            "vph" = readRDS("sub_15min_vol.rds"),
-            "paph" = readRDS("sub_15min_pa.rds"),
-            "aogh" = readRDS("sub_15min_aog.rds"),
-            "prh" = readRDS("sub_15min_pr.rds"),
-            "sfh" = readRDS("sub_15min_sf.rds"),
-            "qsh" = readRDS("sub_15min_qs.rds")
-        )
-    },
-    error = function(e) {
-        print("ENCOUNTERED AN ERROR:")
-        print(e)
-    }
-)
-
-
-
-tryCatch(
-    {
-        sig2 <- list()
-        sig2$qhr <- list(
+        sig <- list()
+        sig$qhr <- list(
             "vph" = readRDS("vol_15min.rds"),
             "paph" = readRDS("pa_15min.rds"),
             "aogh" = readRDS("aog_15min.rds"),
@@ -528,11 +462,7 @@ aurora <- keep_trying(func = get_aurora_connection, n_tries = 5)
 tryCatch(
 {
     append_to_database(
-        aurora, cor2, "cor", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-    append_to_database(
-        aurora, sub2, "sub", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-    append_to_database(
-        aurora, sig2, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
+        aurora, sig, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
 },
 finally = {
     dbDisconnect(aurora)
