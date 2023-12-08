@@ -22,6 +22,8 @@ if [[ ${H#0} -lt 6 ]]; then
     # this was moved to crontab to run at midnight. creates empty nightly.log.
     /usr/sbin/logrotate /home/rstudio/logrotate_nightly.conf --state /home/rstudio/logrotate-state
 
+    conda run -n sigops python get_cctv.py # shim to guard against SAM not working
+
     # Rscript Monthly_Report_Calcs_ec2.R
     Rscript Monthly_Report_Calcs_1.R
     Rscript Monthly_Report_Calcs_2.R
@@ -38,6 +40,8 @@ if [[ ${H#0} -lt 6 ]]; then
     echo "------------------------"
     Rscript Monthly_Report_Package_15min.R
     cd ..
+
+    conda run -n sigops python get_cctv.py # shim to guard against SAM not working
 
     # Run User Delay Cost on the 1st, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
