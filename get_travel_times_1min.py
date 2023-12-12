@@ -29,6 +29,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 s3 = boto3.client('s3')
 
+
 def is_success(response):
     x = json.loads(response.content.decode('utf-8'))
     if type(x) == dict and 'state' in x.keys() and x['state']=='SUCCEEDED':
@@ -206,7 +207,7 @@ if __name__=='__main__':
             tt_df = get_tmc_data(date_str, ed_str, tmc_list, cred['RITIS_KEY'], 0)
             end_time = time.perf_counter()
             process_time = end_time - start_time
-            print(f'Time to pull {len(tmc_list)} TMCs for 1 day: {round(process_time/60)} minutes')
+            print(f'Time to pull {len(tmc_list)} TMCs for {date_str}: {round(process_time/60)} minutes')
 
         except Exception as e:
             print(f'ERROR retrieving tmc records - {str(e)}')

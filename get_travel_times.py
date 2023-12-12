@@ -77,7 +77,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, i
         "type": "minutes",
         "value": bin_minutes
       },
-      "times": [ #pulling all 24 hours
+      "times": [ # pulling all 24 hours
         {
           "end": None,
           "start": "00:00:00.000"
