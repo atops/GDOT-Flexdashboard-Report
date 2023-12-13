@@ -19,12 +19,17 @@ import s3io
 
 from mark1_logger import mark1_logger
 
+
+def now(tz):
+    return datetime.now().astimezone(pytz.timezone(tz))
+
+
 base_path = '.'
 
 logs_path = os.path.join(base_path, 'logs')
 if not os.path.exists(logs_path):
     os.mkdir(logs_path)
-logger = mark1_logger(os.path.join(logs_path, f'get_cctv_{datetime.today().strftime("%F")}.log'))
+logger = mark1_logger(os.path.join(logs_path, f'get_cctv_{now("US/Eastern").strftime("%F")}.log'))
 
 s3 = boto3.client('s3')
 
@@ -80,22 +85,25 @@ def get_camera_data(camid):
             if 'Last-Modified' in dict_.keys():
                 dt = datetime.strptime(dict_['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z')
                 dt_ = dt.replace(tzinfo=pytz.utc).astimezone(pytz.timezone('US/Eastern'))
-                now_ = datetime.now().astimezone(pytz.timezone('US/Eastern'))
+                now_ = now('US/Eastern')
 
                 if (now_ - dt_).total_seconds()/60 < 120:  # not older than two hours
                     #logger.info(f'{camid} - Successfully captured image')
-                    print(f'{camid} - Successfully captured image')
+                    #print(f'{camid} - Successfully captured image')
                     return json_data
                 else:
                     #logger.warning(f'{camid} - Image too old')
-                    print(f'{camid} - Image too old')
+                    #print(f'{camid} - Image too old')
+                   pass
         else:
             #logger.warning(f'{camid} - No data')
-            print(f'{camid} - No data')
+            #print(f'{camid} - No data')
+            pass
 
     except Exception as e:
         #logger.error(f'{camid} - {str(e)}')
-        print(f'{camid} - {str(e)}')
+        #print(f'{camid} - {str(e)}')
+        pass
 
 
 
@@ -104,8 +112,7 @@ if __name__ == '__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    hmsf = datetime.today().strftime('%H%M%S%f')
-
+    hmsf = now('US/Eastern').strftime('%H%M%S%f')
     camids = get_camids_nav()
 
     logger.info(f'{len(camids)} cameras to ping')
