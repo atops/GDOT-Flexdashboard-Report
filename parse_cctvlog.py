@@ -95,7 +95,7 @@ if __name__ == '__main__':
                 df = pd.concat(dfs).drop_duplicates()
 
                 # Daily summary (stdev of image size for the day as a proxy for uptime: sd > 0 = working)
-                summ = df.groupby(['CameraID', 'Date']).agg(np.std).fillna(0)
+                summ = df.groupby(['CameraID', 'Date']).std().fillna(0)
 
                 s3key = 's3://{b}/mark/cctv_uptime/month={d}/cctv_uptime_{d}.parquet'.format(
                     b=bucket, d=mo.strftime('%Y-%m-%d'))

@@ -15,6 +15,7 @@ import pandas as pd
 import re
 import boto3
 from multiprocessing import Pool
+from io import StringIO
 import s3io
 
 from mark1_logger import mark1_logger
@@ -136,7 +137,7 @@ if __name__ == "__main__":
     jsons = [d for d in data if d is not None]
 
     json_string = "[{}]".format(",".join(jsons))
-    df = pd.read_json(json_string).rename(columns={"Date": "Datetime"})
+    df = pd.read_json(StringIO(json_string)).rename(columns={"Date": "Datetime"})
 
     df["LMD"] = pd.to_datetime(df["Last-Modified"], format="%a, %d %b %Y %H:%M:%S %Z")
     df["LMD"] = df.LMD.dt.tz_convert("US/Eastern")
