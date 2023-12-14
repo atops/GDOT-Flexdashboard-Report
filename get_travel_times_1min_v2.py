@@ -43,12 +43,15 @@ def is_success(response):
         return False
 
 
-def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
+def get_tmc_data(start_date, end_date, tmcs, key, dow=[2,3,4], bin_minutes=60, initial_sleep_sec=0):
+
+    # date range is exclusive of end_date, so add a day to end_date to include it.
+    end_date = (datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%F')
 
     # Allow sleep time to space out requests when running in a loop
     time.sleep(initial_sleep_sec)
 
-    uri = 'http://pda-api.ritis.org:8080/{}'
+    uri = 'https://pda-api.ritis.org/v2/{}'
 
     #----------------------------------------------------------
     payload = {
@@ -58,34 +61,33 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
           "start": start_date
         }
       ],
-      "dow": [2, 3, 4], # only pull T-Th data
+      "dow": dow,
       "dsFields": [
         {
           "columns": [
-            "SPEED",
-            "REFERENCE_SPEED",
-            "TRAVEL_TIME_MINUTES",
-            "CONFIDENCE_SCORE"
+            "speed",
+            "reference_speed",
+            "travel_time_minutes",
+            "confidence_score"
           ],
-          "dataSource": "vpp_here"
-          # "qualityFilter": {
-          #   "max": 1,
-          #   "min": 0.71
-          # }
+          "id": "here_tmc"
         }
       ],
       "granularity": {
         "type": "minutes",
-        "value": 1
+        "value": bin_minutes
       },
-      "times": [ # pulling all 24 hours
+      "segments": {
+        "ids": tmcs,
+        "type": "tmc"
+      },
+      "times": [ #pulling all 24 hours
         {
           "end": None,
           "start": "00:00:00.000"
         }
       ],
-      "tmcs": tmcs,
-      "travelTimeUnits": "MINUTES",
+      "travelTimeUnits": "minutes",
       "uuid": str(uuid.uuid1())
     }
     #----------------------------------------------------------
@@ -107,7 +109,7 @@ def get_tmc_data(start_date, end_date, tmcs, key, initial_sleep_sec=0):
             timeout=3600)
 
         results = requests.get(uri.format('results/export'),
-                               params = {'key': key, 'uuid': payload['uuid']})
+                               params={'key': key, 'uuid': payload['uuid']})
         print('travel times results received')
 
         # Save results (binary zip file with one csv)
@@ -200,11 +202,10 @@ if __name__=='__main__':
     for date_ in dates:
 
         date_str = date_.strftime('%F')
-        ed_str = (date_ + timedelta(days=1)).strftime('%F')
 
         try:
             start_time = time.perf_counter()
-            tt_df = get_tmc_data(date_str, ed_str, tmc_list, cred['RITIS_KEY'], 0)
+            tt_df = get_tmc_data(date_str, date_str, tmc_list, cred['RITIS_KEY'], bin_minutes=1, initial_sleep_sec=0)
             end_time = time.perf_counter()
             process_time = end_time - start_time
             print(f'Time to pull {len(tmc_list)} TMCs for {date_str}: {round(process_time/60)} minutes')

@@ -6,6 +6,7 @@ Created on Mon Nov 27 16:27:29 2017
 """
 import sys
 from datetime import datetime, timedelta
+import pytz
 from multiprocessing import get_context
 import pandas as pd
 import sqlalchemy as sq
@@ -22,11 +23,27 @@ from spm_events import etl_main
 from parquet_lib import read_parquet_file
 from config import get_date_from_string
 
+from mark1_logger import mark1_logger
+
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 s3 = boto3.client('s3')
 ath = boto3.client('athena')
 
+
+def now(tz):
+    return datetime.now().astimezone(pytz.timezone(tz))
+
+
+base_path = "."
+
+logs_path = os.path.join(base_path, "logs")
+if not os.path.exists(logs_path):
+    os.mkdir(logs_path)
+# logger = mark1_logger(
+#     os.path.join(logs_path, f'etl_{now("US/Eastern").strftime("%F")}.log')
+# )
+logfilename = os.path.join(logs_path, f'etl_{now("US/Eastern").strftime("%F")}.log')
 
 '''
     df:
@@ -52,8 +69,6 @@ def etl2(s, date_, det_config, conf):
 
     start_date = date_
     end_date = date_ + pd.DateOffset(days=1) - pd.DateOffset(seconds=0.1)
-
-    logfilename = f'etl_{date_str}.log'
 
     t0 = time.time()
 
