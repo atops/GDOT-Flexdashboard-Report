@@ -35,7 +35,8 @@ def get_pairs(df, a, b):
             .set_index(['SignalID','EventParam']))
 
     j['Duration'] = (j.EndTimeStamp - j.StartTimeStamp) / np.timedelta64(1, 's')
-    j = j[['StartTimeStamp','EndTimeStamp','EventCode','Duration']]
+    j = j[['StartTimeStamp', 'EndTimeStamp', 'EventCode', 'Duration']]
+    j = j.astype({'StartTimeStamp': 'datetime64[ns]', 'EndTimeStamp': 'datetime64[ns]'})
 
     # Remove secondary matches when there are multiple matches on the first item
     j = j.set_index('StartTimeStamp', append=True).sort_index()

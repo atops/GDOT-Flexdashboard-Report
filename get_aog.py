@@ -136,13 +136,13 @@ def get_aog(signalid, date_, det_config, conf, per='H'):
             df_gc = df_gc.reset_index(drop=False).set_index(['Hour', 'SignalID', 'Phase', 'Interval'])
 
             interval_duration = df_gc.groupby(level=['Hour', 'SignalID', 'Phase', 'Interval'])['IntervalDuration'].sum()
-            phase_duration = interval_duration.groupby(level=['Hour', 'SignalID', 'Phase']).transform('sum')
-            df_gc['gC'] = interval_duration/phase_duration
+            phase_duration = interval_duration.groupby(level=['Hour', 'SignalID', 'Phase']).sum()
+            gC = interval_duration/phase_duration
 
-            gC = (df_gc.reset_index('Interval')
+            gC = (gC.reset_index('Interval')
                   .query('Interval == 1')
                   .drop(columns=['Interval'])
-                  .rename(columns={'IntervalDuration': 'Green_Duration'}))
+                  .rename(columns={'IntervalDuration': 'gC'}))
 
             aog = pd.merge(aog, gC, left_index=True, right_index=True).assign(pr=lambda x: x.AOG/x.gC)
             aog = aog[~aog.Green_Arrivals.isna()]
