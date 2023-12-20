@@ -90,7 +90,8 @@ def get_detector_pairs(df, det_config):
     # det_config is what comes from MaxTime Detector Plans
     dc = (det_config.rename(columns = {'Detector': 'EventParam'})
                     .fillna(value = {'TimeFromStopBar': 0})
-                    .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar', 'CountDetector']]
+                    .set_index(['SignalID','EventParam'])
+                    .filter(['Call Phase', 'TimeFromStopBar', 'CountDetector']))
 
     df = (get_pairs(df, 82, 81)
             .join(dc).dropna() # map detector ID to phase
@@ -102,8 +103,8 @@ def get_detector_pairs(df, det_config):
             .rename(columns={'EventParam':'Detector'})
             .rename(columns={'Call Phase':'Phase'})
             .set_index(['Phase'], append=True)
-            .drop(['EndTimeStamp'], axis=1))
-    df = df.astype({'StartTimeStamp': 'datetime64[us]', 'Detector': 'int64'})
+            .drop(['EndTimeStamp'], axis=1)
+            .astype({'StartTimeStamp': 'datetime64[us]', 'Detector': 'int64'}))
 
     # returns SignalID|Phase||StartTimeStamp|82|Duration
     return df
@@ -120,8 +121,8 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
               .dropna()
               .sort_values(['StartTimeStamp'])
               .rename(columns={'StartTimeStamp':'PhaseStart',
-                               'Duration':'gyrDuration'}))
-    rdf = rdf[['SignalID','Phase','EventCode','CycleStart','PhaseStart','TimeInCycle','gyrDuration']]
+                               'Duration':'gyrDuration'})
+              .filter(['SignalID','Phase','EventCode','CycleStart','PhaseStart','TimeInCycle','gyrDuration']))
 
     df = (pd.merge_asof(left=ldf,
                         right=rdf,
