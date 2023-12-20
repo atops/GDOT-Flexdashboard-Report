@@ -36,7 +36,7 @@ def get_pairs(df, a, b):
 
     j['Duration'] = (j.EndTimeStamp - j.StartTimeStamp) / np.timedelta64(1, 's')
     j = j[['StartTimeStamp', 'EndTimeStamp', 'EventCode', 'Duration']]
-    j = j.astype({'StartTimeStamp': 'datetime64[ns]', 'EndTimeStamp': 'datetime64[ns]'})
+    j = j.astype({'StartTimeStamp': 'datetime64[us]', 'EndTimeStamp': 'datetime64[us]'})
 
     # Remove secondary matches when there are multiple matches on the first item
     j = j.set_index('StartTimeStamp', append=True).sort_index()
@@ -92,10 +92,9 @@ def get_detector_pairs(df, det_config):
                     .fillna(value = {'TimeFromStopBar': 0})
                     .set_index(['SignalID','EventParam']))[['Call Phase', 'TimeFromStopBar', 'CountDetector']]
 
-    df = get_pairs(df, 82, 81).join(dc).dropna() # map detector ID to phase
-
-    df['Call Phase'] = df['Call Phase'].astype('int64')
-    df['EventCode'] = df['EventCode'].astype('int64')
+    df = (get_pairs(df, 82, 81)
+            .join(dc).dropna() # map detector ID to phase
+            .astype({'Call Phase': 'int64', 'EventCode': 'int64'}))
 
     df.StartTimeStamp = df.StartTimeStamp + pd.to_timedelta(df.TimeFromStopBar, 's')
 
@@ -104,9 +103,8 @@ def get_detector_pairs(df, det_config):
             .rename(columns={'Call Phase':'Phase'})
             .set_index(['Phase'], append=True)
             .drop(['EndTimeStamp'], axis=1))
-    df.Detector = df.Detector.astype('int64')
+    df = df.astype({'StartTimeStamp': 'datetime64[us]', 'Detector': 'int64'})
 
-    #df.EventCode = df.EventCode.astype('int64')
     # returns SignalID|Phase||StartTimeStamp|82|Duration
     return df
 
@@ -116,15 +114,14 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
                      .dropna()
                      .sort_values(['StartTimeStamp'])
                      .rename(columns={'StartTimeStamp':'DetTimeStamp'})
-                     .assign(SignalID = lambda x: x.SignalID.astype('int64'))
-                     .assign(Phase = lambda x: x.Phase.astype('int64')))
+                     .astype({'SignalID': 'int64', 'Phase': 'int64'}))
 
     rdf = (gyr.reset_index()
               .dropna()
               .sort_values(['StartTimeStamp'])
               .rename(columns={'StartTimeStamp':'PhaseStart',
-                               'Duration':'gyrDuration'})
-           [['SignalID','Phase','EventCode','CycleStart','PhaseStart','TimeInCycle','gyrDuration']])
+                               'Duration':'gyrDuration'}))
+    rdf = rdf[['SignalID','Phase','EventCode','CycleStart','PhaseStart','TimeInCycle','gyrDuration']]
 
     df = (pd.merge_asof(left=ldf,
                         right=rdf,
@@ -141,9 +138,8 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
 
     df = (df.drop('EventCode_x', axis=1)
             .rename(columns={'EventCode_y':'EventCode',
-                             'Duration':'DetDuration'}))
-    df.EventCode = df.EventCode.astype('int64')
-
+                             'Duration':'DetDuration'})
+            .astype({'EventCode': 'int64'}))
 
     # Disaggregate. All detection events at point in cycle/phase
     detections_by_cycle = df[['Detector', 'CycleStart','PhaseStart','EventCode','DetTimeStamp',
@@ -157,10 +153,8 @@ def get_volume_by_phase(gyr, detections, aggregate=True):
                  .groupby(level=[0,1,2,3])
                  .count()[['DetTimeStamp']]
                  .rename(columns={'DetTimeStamp':'Volume'})
-                 .reset_index())
-
-    volumes.EventCode = volumes.EventCode.astype('int64')
-    volumes.Volume = volumes.Volume.astype('int64')
+                 .reset_index()
+                 .astype({'EventCode': 'int64', 'Volume': 'int64'}))
 
     # clean up
     df = (gyr.reset_index()
@@ -203,8 +197,7 @@ def etl_main(df, det_config):
         Detector [int64]
         Call Phase [int64]
     '''
-    df.EventCode = df.EventCode.astype('int64')
-    df.EventParam = df.EventParam.astype('int64')
+    df = df.astype({'TimeStamp': 'datetime64[us]', 'EventCode': 'int64', 'EventParam': 'int64'})
 
     # cycles are common to all phases
     cycles = (df.query('EventCode==31 and EventParam==1')
@@ -224,8 +217,8 @@ def etl_main(df, det_config):
         gyr = (pd.concat([assign_cycle(gt, cycles),
                           assign_cycle(yt, cycles),
                           assign_cycle(rt, cycles)])
-                 .sort_values(['CycleStart','StartTimeStamp']).sort_index())
-        gyr.EventCode = gyr.EventCode.astype('int64')
+                 .sort_values(['CycleStart','StartTimeStamp']).sort_index()
+                 .astype({'EventCode': 'int64'}))
 
         gyrv, detections_by_cycle = get_volume_by_phase(gyr, detections, aggregate=False)
 
