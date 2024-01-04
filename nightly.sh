@@ -41,6 +41,8 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Package_15min.R
     cd ..
 
+    Rscript checkdb.R  # Query the database for records by date for monitoring.
+
     conda run -n sigops python get_cctv.py # shim to guard against SAM not working
 
     # Run User Delay Cost on the 1st, 11th and 21st of the month

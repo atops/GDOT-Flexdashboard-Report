@@ -38,10 +38,35 @@ future_lapply(tables, function(tabl) {
 })
 print(glue("all {length(tables)} tables written"))
 
-lapply(tables, function(tabl) read_parquet(glue("tables/{tabl}.parquet"))) %>%
+sigops_data <- lapply(tables, function(tabl) read_parquet(glue("tables/{tabl}.parquet"))) %>%
     bind_rows() %>%
+    arrange(Date) %>%
     pivot_wider(names_from = "Date", values_from = "Records", values_fill = 0) %>%
-    mutate(across(where(is.double), as.integer)) %>%
-    write_csv("sigops_data.csv")
+    mutate(across(where(is.double), as.integer))
 
-aws.s3::put_object("sigops_data.csv", bucket = conf$bucket, object = "code/sigops_data.csv")
+wk_dates <- names(sigops_data)[3:length(names(sigops_data))]
+wk_dates <- wk_dates[lapply(wk_dates, wday) == 3]
+
+sigops_data %>%
+    select(table, period, all_of(wk_dates)) %>%
+    filter(grepl("_wk", table)) %>%
+    write_csv("sigops_data_wk.csv")
+
+sigops_data %>%
+    select(table, period, ends_with("-01")) %>%
+    filter(grepl("_mo_", table)) %>%
+    write_csv("sigops_data_mo.csv")
+
+sigops_data %>%
+    filter(!grepl("(_wk_)|(_mo_)", table)) %>%
+    write_csv("sigops_data_dy.csv")
+
+for (per in c("wk", "mo", "dy")) {
+    aws.s3::put_object(
+        glue("sigops_data_{per}.csv"),
+        bucket = conf$bucket,
+        object = glue("code/sigops_data_{per}.csv")
+    )
+print(glue("all tables uploaded"))
+}
+
