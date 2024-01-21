@@ -25,12 +25,32 @@ get_most_recent_monday <- function(date_) {
 }
 
 
-get_date_from_string <- function(x) {
+get_date_from_string <- function(x, table_regex_pattern = "_dy_", exceptions = 5) {
     if (x == "yesterday") {
-        format(today() - days(1), "%Y-%m-%d")
+        format(today() - days(1), "%F")
     } else if (!is.na(str_extract(x, "\\d+(?= days ago)"))) {
         d <- str_extract(x, "\\d+(?= days ago)")
-        format(today() - days(d), "%Y-%m-%d")
+        format(today() - days(d), "%F")
+    } else if (x == "first_missing") {
+	aurora <- get_aurora_connection()
+
+        tabls <- dbListTables(aurora)
+        tabls <- tabls[grepl(table_regex_pattern, tabls)]
+        tabls <- tabls[!grepl("_[rto]", tabls)]
+
+        fields <- dbListFields(aurora, tabls[1])
+        period <- intersect(c("Quarter", "Month", "Date", "Hour", "Timeperiod"), fields)
+
+        d <- lapply(tabls, function(tabl) dbGetQuery(aurora, glue("SELECT DATE(MAX({period})) AS MaxDate FROM {tabl}"))) %>%
+            bind_rows() %>%
+            group_by(MaxDate) %>%
+            count() %>%
+            arrange(MaxDate) %>%
+            filter(n > exceptions) %>%
+            first() %>%
+            pull(MaxDate)
+        dbDisconnect(aurora)
+        d
     } else {
         x
     }

@@ -189,8 +189,8 @@ if __name__=='__main__':
 
         # start_date is 7 days ago or conf['start_date'], whichever is earlier
         start_date = get_date_from_string(start_date)
-        sd = datetime.fromisoformat(start_date)
-        start_date = min(sd, sd - timedelta(days=7)).strftime('%Y-%m-%d')
+        start_date = datetime.fromisoformat(start_date)
+        start_date = min(start_date, datetime.today() - timedelta(days=7)).strftime('%Y-%m-%d')
 
     end_date = get_date_from_string(end_date)
 
@@ -242,7 +242,7 @@ if __name__=='__main__':
 
         df['reference_minutes'] = df['miles'] / df['reference_speed'] * 60
         df = (df.reset_index(drop=True)
-                .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %H:%M:%S'),
+                .assign(measurement_tstamp = lambda x: pd.to_datetime(x.measurement_tstamp, format='%Y-%m-%d %X'),
                         date = lambda x: x.measurement_tstamp.dt.date)
                 .rename(columns = {'measurement_tstamp': 'Hour'}))
         df = df.drop_duplicates()

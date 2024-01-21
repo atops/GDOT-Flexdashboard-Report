@@ -32,7 +32,7 @@ run:
     split_failures: TRUE
 
 
-start_date: 2 days ago
+start_date: first_missing  # 2 days ago
 end_date: yesterday
 
 calcs_start_date: auto

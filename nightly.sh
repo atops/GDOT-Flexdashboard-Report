@@ -39,9 +39,10 @@ if [[ ${H#0} -lt 6 ]]; then
     Rscript Monthly_Report_Package_1hr.R
     echo "------------------------"
     Rscript Monthly_Report_Package_15min.R
+    echo "------------------------"
+    Rscript checkdb.R  # Query the database for records by date for monitoring.
     cd ..
 
-    Rscript checkdb.R  # Query the database for records by date for monitoring.
 
     conda run -n sigops python get_cctv.py # shim to guard against SAM not working
 
