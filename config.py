@@ -28,9 +28,10 @@ def get_date_from_string(x, table_regex_pattern="_dy_"):
             with engine.connect() as conn:
                 tabls = pd.read_sql_query("SHOW TABLES", con=conn)['Tables_in_mark1'].values
 
-                dy_tabls = [tabl for tabl in tabls if re.search(table_regex_pattern, tabl)]
-                dy_tabls = [tabl for tabl in dy_tabls if not re.search("_[rto]", tabl)]
-                x = (pd.concat([pd.read_sql_query(f"SELECT MAX(Date) AS MaxDate FROM {tabl}", con=conn) for tabl in dy_tabls])
+                tabls = [tabl for tabl in tabls if re.search(table_regex_pattern, tabl)]
+                tabls = [tabl for tabl in tabls if not re.search("_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ", tabl)]
+
+                x = (pd.concat([pd.read_sql_query(f"SELECT MAX(Date) AS MaxDate FROM {tabl}", con=conn) for tabl in tabls])
                     .reset_index()
                     .groupby("MaxDate")
                     .count()

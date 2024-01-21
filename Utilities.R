@@ -36,7 +36,7 @@ get_date_from_string <- function(x, table_regex_pattern = "_dy_", exceptions = 5
 
         tabls <- dbListTables(aurora)
         tabls <- tabls[grepl(table_regex_pattern, tabls)]
-        tabls <- tabls[!grepl("_[rto]", tabls)]
+        tabls <- tabls[!grepl("_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ", tabls)]
 
         fields <- dbListFields(aurora, tabls[1])
         period <- intersect(c("Quarter", "Month", "Date", "Hour", "Timeperiod"), fields)
