@@ -4,7 +4,7 @@
 source("Monthly_Report_Package_init.R")
 
 # For hourly counts (no monthly or weekly), go back to first missing day in the database
-calcs_start_date <- as_date(get_date_from_string(conf$start_date, "sig_qhr_", exceptions = 0)) + days(1)
+calcs_start_date <- get_date_from_string(conf$start_date, "sig_qhr_", exceptions = 0)
 print(glue("{Sys.time()} Calcs Start Date: {calcs_start_date}"))
 
 # Need to keep some data in rds prior to the calcs_start_date to calculate accurate deltas

@@ -52,7 +52,7 @@ get_date_from_string <- function(x, table_regex_pattern = "_dy_", exceptions = 5
         dbDisconnect(aurora)
         d
     } else {
-        x
+        x + days(1)
     }
 }
 
