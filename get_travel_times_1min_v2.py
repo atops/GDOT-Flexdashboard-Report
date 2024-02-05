@@ -179,11 +179,10 @@ if __name__=='__main__':
         start_date = conf['start_date']
         end_date = conf['end_date']
 
-        start_date = get_date_from_string(
-                start_date, s3bucket=conf['bucket'], s3prefix=f'{s3root}/travel_times_1min'
-            )
-        start_date = datetime.fromisoformat(start_date)
-
+    start_date = get_date_from_string(
+            start_date, s3bucket=conf['bucket'], s3prefix=f'{s3root}/travel_times_1min'
+        )
+    start_date = datetime.fromisoformat(start_date)
     end_date = get_date_from_string(end_date)
 
     bucket = conf['bucket']

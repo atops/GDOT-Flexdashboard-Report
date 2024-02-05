@@ -187,13 +187,10 @@ if __name__=='__main__':
         start_date = conf['start_date']
         end_date = conf['end_date']
 
-        # start_date is 7 days ago or conf['start_date'], whichever is earlier
-        start_date = get_date_from_string(
-            start_date, s3bucket=conf['bucket'], s3prefix=f'{s3root}/cor_travel_times_'
-        )
-        start_date = datetime.fromisoformat(start_date)
-        # start_date = min(start_date, datetime.today() - timedelta(days=7)).strftime('%Y-%m-%d')
-
+    start_date = get_date_from_string(
+        start_date, s3bucket=conf['bucket'], s3prefix=f'{s3root}/cor_travel_times_'
+    )
+    start_date = datetime.fromisoformat(start_date)
     end_date = get_date_from_string(end_date)
 
     bucket = conf['bucket']

@@ -3,9 +3,7 @@ from datetime import datetime, timedelta
 import re
 import sqlalchemy as sq
 import yaml
-import pandas as pd
 import boto3
-from datetime import datetime, timedelta
 
 def get_aurora_engine():
     with open('Monthly_Report_AWS.yaml') as f:
