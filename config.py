@@ -4,7 +4,8 @@ import re
 import sqlalchemy as sq
 import yaml
 import pandas as pd
-
+import boto3
+from datetime import datetime, timedelta
 
 def get_aurora_engine():
     with open('Monthly_Report_AWS.yaml') as f:
@@ -13,7 +14,13 @@ def get_aurora_engine():
     return engine
 
 
-def get_date_from_string(x, table_regex_pattern="_dy_"):
+def get_date_from_string(
+    x,
+    s3bucket = None,
+    s3prefix = None,
+    table_include_regex_pattern="_dy_",
+    table_exclude_regex_pattern="_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ"
+):
     if type(x) == str:
         re_da = re.compile('\d+(?= *days ago)')
         if x == 'today':
@@ -24,25 +31,14 @@ def get_date_from_string(x, table_regex_pattern="_dy_"):
             d = int(re_da.search(x).group())
             x = (datetime.today() - timedelta(days=d)).strftime('%F')
         elif x == 'first_missing':
-            engine = get_aurora_engine()
-            with engine.connect() as conn:
-                tabls = pd.read_sql_query("SHOW TABLES", con=conn)['Tables_in_mark1'].values
-
-                tabls = [tabl for tabl in tabls if re.search(table_regex_pattern, tabl)]
-                tabls = [tabl for tabl in tabls if not re.search("_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ", tabl)]
-
-                x = (pd.concat([pd.read_sql_query(f"SELECT MAX(Date) AS MaxDate FROM {tabl}", con=conn) for tabl in tabls])
-                    .reset_index()
-                    .groupby("MaxDate")
-                    .count()
-                    .reset_index()
-                    .sort_values("MaxDate")
-                    .query("index > 5")
-                    .iloc[0]
-                    .MaxDate
-                ) + timedelta(days=1)
-                x = x.strftime('%F')
-
+            if s3bucket is not None and s3prefix is not None:
+                s3 = boto3.resource('s3')
+                all_dates = [re.search("(?<=date\=)(\d+-\d+-\d+)", obj.key).group() for obj in s3.Bucket(s3bucket).objects.filter(Prefix=s3prefix)]
+                first_missing = datetime.strptime(max(all_dates), "%Y-%m-%d") + timedelta(days=1)
+                first_missing = min(first_missing, datetime.today() - timedelta(days=1))
+                x = first_missing.strftime("%F")
+            else:
+                raise Exception("Must include arguments for s3bucket and s3prefix")
     else:
         x = x.strftime('%F')
     return x

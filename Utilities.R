@@ -25,32 +25,47 @@ get_most_recent_monday <- function(date_) {
 }
 
 
-get_date_from_string <- function(x, table_regex_pattern = "_dy_", exceptions = 5) {
+get_date_from_string <- function(
+    x,
+    s3bucket = NULL,
+    s3prefix = NULL,
+    table_include_regex_pattern = "_dy_",
+    table_exclude_regex_pattern = "_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ",
+    exceptions = 5
+) {
     if (x == "yesterday") {
         format(today() - days(1), "%F")
     } else if (!is.na(str_extract(x, "\\d+(?= days ago)"))) {
         d <- str_extract(x, "\\d+(?= days ago)")
         format(today() - days(d), "%F")
     } else if (x == "first_missing") {
-	aurora <- get_aurora_connection()
+        if (!is.null(s3bucket) & !is.null(s3prefix)) {
+            print(glue("first missing from s3 bucket {s3bucket}, prefix {s3prefix}"))
+            objs <- get_bucket(bucket = s3bucket, prefix = s3prefix, max = Inf)
+            all_dates <- sapply(objs, function(obj) str_extract(obj$Key, "(?<=date\\=)(\\d+-\\d+-\\d+)"))
+            first_missing <- as_date(max(all_dates)) + days(1)
+            min(first_missing, today() - days(1))
+        } else {
+            print("first missing from database")
+	    aurora <- get_aurora_connection()
+            tabls <- dbListTables(aurora)
+            tabls <- tabls[grepl(table_include_regex_pattern, tabls)]
+            tabls <- tabls[!grepl(table_exclude_regex_pattern, tabls)]
 
-        tabls <- dbListTables(aurora)
-        tabls <- tabls[grepl(table_regex_pattern, tabls)]
-        tabls <- tabls[!grepl("_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ", tabls)]
+            fields <- dbListFields(aurora, tabls[1])
+            period <- intersect(c("Quarter", "Month", "Date", "Hour", "Timeperiod"), fields)
 
-        fields <- dbListFields(aurora, tabls[1])
-        period <- intersect(c("Quarter", "Month", "Date", "Hour", "Timeperiod"), fields)
-
-        d <- lapply(tabls, function(tabl) dbGetQuery(aurora, glue("SELECT DATE(MAX({period})) AS MaxDate FROM {tabl}"))) %>%
-            bind_rows() %>%
-            group_by(MaxDate) %>%
-            count() %>%
-            arrange(MaxDate) %>%
-            filter(n > exceptions) %>%
-            first() %>%
-            pull(MaxDate)
-        dbDisconnect(aurora)
-        d
+            d <- lapply(tabls, function(tabl) dbGetQuery(aurora, glue("SELECT DATE(MAX({period})) AS MaxDate FROM {tabl}"))) %>%
+                bind_rows() %>%
+                group_by(MaxDate) %>%
+                count() %>%
+                arrange(MaxDate) %>%
+                filter(n > exceptions) %>%
+                first() %>%
+                pull(MaxDate)
+            dbDisconnect(aurora)
+            d
+        }
     } else {
         x + days(1)
     }
