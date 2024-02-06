@@ -57,7 +57,7 @@ if __name__ == '__main__':
     with open('Monthly_Report.yaml') as yaml_file:
         conf = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    start_date = get_date_from_string(conf['start_date'])
+    start_date = get_date_from_string(conf['start_date'], s3bucket=conf['bucket'], s3prefix='mark/cctvlogs')
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
 
     end_date = get_date_from_string(conf['end_date'])
