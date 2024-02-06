@@ -209,7 +209,7 @@ get_ped_config_cel_ <- function(bucket, conf_athena) {
         ped_start_date <- floor_date(as_date(date_), unit = "months") - months(6)
 
         arrow::open_dataset(sources = glue("s3://{bucket}/config/cel_ped_detectors/")) %>% 
-            filter(date >= ped_start_date) %>%
+            filter(as_date(date) >= ped_start_date) %>%
             distinct(SignalID, Detector, CallPhase) %>%
             collect()
 
