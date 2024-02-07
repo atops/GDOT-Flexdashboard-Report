@@ -174,7 +174,7 @@ tryCatch(
         # because we need a longer time series to calculate ped detector uptime
         # based on the exponential distribution method (as least 6 months)
         get_bad_ped_detectors(pau) %>%
-            filter(Date >= calcs_start_date) %>% # ymd(report_end_date) - days(90)) %>%
+            filter(Date >= calcs_start_date) %>%
 
             s3_upload_parquet_date_split(
                 bucket = conf$bucket,
