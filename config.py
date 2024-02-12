@@ -31,7 +31,8 @@ def get_date_from_string(
         elif x == 'first_missing':
             if s3bucket is not None and s3prefix is not None:
                 s3 = boto3.resource('s3')
-                all_dates = [re.search("(?<=date\=)(\d+-\d+-\d+)", obj.key).group() for obj in s3.Bucket(s3bucket).objects.filter(Prefix=s3prefix)]
+                all_dates = [re.search("(?<=date\=)(\d+-\d+-\d+)", obj.key) for obj in s3.Bucket(s3bucket).objects.filter(Prefix=s3prefix)]
+                all_dates = [date_.group() for date_ in all_dates if date_ is not None]
                 first_missing = datetime.strptime(max(all_dates), "%Y-%m-%d") + timedelta(days=1)
                 first_missing = min(first_missing, datetime.today() - timedelta(days=1))
                 x = first_missing.strftime("%F")

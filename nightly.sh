@@ -48,10 +48,9 @@ if [[ ${H#0} -lt 6 ]]; then
 
     # Run User Delay Cost on the 1st, 11th and 21st of the month
     if [[ $(date +%d) =~ 01|11|21 ]]; then
-        conda activate sigops
         echo "------------------------"
         echo "Run user delay costs"
-        python user_delay_costs.py
+        conda run -n sigops python user_delay_costs.py
     fi
 
     aws s3 sync /home/rstudio/ s3://$bucket/logs --exclude "*" --include "nightly.lo*" --region us-east-1 --no-follow-symlinks

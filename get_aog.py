@@ -252,7 +252,9 @@ if __name__=='__main__':
         start_date = conf['start_date']
         end_date = conf['end_date']
 
-    start_date = get_date_from_string(start_date)
+    start_date = get_date_from_string(
+        start_date, s3bucket=conf['bucket'], s3prefix="mark/arrivals_on_green"
+    )
     end_date = get_date_from_string(end_date)
 
 
