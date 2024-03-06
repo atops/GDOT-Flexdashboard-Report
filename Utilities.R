@@ -64,7 +64,7 @@ get_date_from_string <- function(
                 first() %>%
                 pull(MaxDate)
             dbDisconnect(aurora)
-            d
+            d + days(1)
         }
     } else {
         x + days(1)
