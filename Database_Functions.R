@@ -341,7 +341,8 @@ query_health_data <- function(
 
 
 create_aurora_partitioned_table <- function(aurora, table_name, period_field = "Timeperiod") {
-    months <- seq(Sys.Date() - months(10), Sys.Date() + months(1), by = "1 month")
+    this_month <- floor_date(Sys.Date(), unit = "months")
+    months <- seq(this_month - months(10), this_month + months(1), by = "1 month")
     new_partition_dates <- format(months, "%Y-%m-01")
     new_partition_names <- format(months, "p_%Y%m")
     partitions <- glue("PARTITION {new_partition_names} VALUES LESS THAN ('{new_partition_dates} 00:00:00'),")
@@ -393,9 +394,9 @@ get_aurora_partitions <- function(aurora, table_name) {
 
 
 add_aurora_partition <- function(aurora, table_name) {
-    mo <- Sys.Date() + months(1)
-    new_partition_date <- format(mo, "%Y-%m-01")
-    new_partition_name <- format(mo, "p_%Y%m")
+    next_month <- floor_date(Sys.Date(), unit = "months") + months(1)
+    new_partition_date <- format(next_month, "%Y-%m-01")
+    new_partition_name <- format(next_month, "p_%Y%m")
     existing_partitions <- get_aurora_partitions(aurora, table_name)
     if (!new_partition_name %in% existing_partitions & !is.null(existing_partitions)) {
         statement <- glue(paste(
