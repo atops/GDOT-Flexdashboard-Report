@@ -23,7 +23,8 @@ print("Created.")
 
 
 month_options <- seq(ymd(conf$report_start_date), ymd(conf$production_report_end_date), by = "1 month") %>%
-    rev() %>% format("%b %Y")
+    rev() %>%
+    format("%b %Y")
 last_month <- dmy(paste(1, month_options[[1]]))
 
 all_zones <- paste("Zone", c(seq(7), "7m", "7d", 8))
@@ -58,8 +59,10 @@ read_from_db <- function(conn) {
         group_by(Month, Zone) %>%
         top_n(10, LastModified) %>%
         ungroup() %>%
-        mutate(Month = date(Month),
-               LastModified = lubridate::as_datetime(LastModified))
+        mutate(
+            Month = date(Month),
+            LastModified = lubridate::as_datetime(LastModified)
+        )
 }
 
 
@@ -69,7 +72,8 @@ add_row_to_zmdf <- function(zmdf, month, zone, comments) {
         Month = month,
         Zone = zone,
         Comments = comments,
-        LastModified = now())
+        LastModified = now()
+    )
 
     bind_rows(zmdf, new_row)
 }
@@ -82,7 +86,8 @@ write_rows_to_db <- function(conn, rows) {
             "progress_report_content",
             rows,
             append = TRUE,
-            row.names = FALSE)
+            row.names = FALSE
+        )
     }
 }
 
@@ -104,14 +109,15 @@ tinyMCE <- function(inputId, content, options = NULL) {
             id = inputId,
             class = "shinytinymce",
             content,
-            style = "resize: none; width: 100%; height: 100%; border-style: none; background: gainsboro;"),
-        tags$script(paste0('tinymce.init({selector:".shinytinymce", ', options, '});')),
-        singleton(tags$head(tags$script(src = 'shinyMCE/shiny-tinymce-bindings.js')))
+            style = "resize: none; width: 100%; height: 100%; border-style: none; background: gainsboro;"
+        ),
+        tags$script(paste0('tinymce.init({selector:".shinytinymce", ', options, "});")),
+        singleton(tags$head(tags$script(src = "shinyMCE/shiny-tinymce-bindings.js")))
     )
 }
 
 
-tinymce_api_key <- 'ee9qvzyyw4te05yjk9lxcmdephacz40a5qpni2kwh2cu74la'
+tinymce_api_key <- "ee9qvzyyw4te05yjk9lxcmdephacz40a5qpni2kwh2cu74la"
 
 editor_opts <-
     'plugins: ["advlist autolink lists link image charmap print preview anchor",
@@ -153,61 +159,60 @@ default_comment <- paste0(
     "<h3>Performance Metrics</h3>",
     "<p>comments here.</p>",
     "<h3>Other</h3>",
-    "<p>comments here.</p>")
+    "<p>comments here.</p>"
+)
 
 
 
 shinyApp(
-
     ui = fluidPage(
         tags$head(tags$script(src = "message-handler.js")),
-
-        h4('Zone Manager Progress Report Editor', style = "padding-top: 12px"),
+        h4("Zone Manager Progress Report Editor", style = "padding-top: 12px"),
         hr(),
-
         div(
             style = "display: grid;
                              grid-template-columns: 50px 120px 50px 120px;
                              grid-column-gap: 20px; padding-top: 6px",
-
             div("Zone:",
                 style = "height: 34px; padding-top: 6px"
             ),
-            div(selectInput(
-                inputId = "zone", label = NULL,
-                choices = all_zones
+            div(
+                selectInput(
+                    inputId = "zone", label = NULL,
+                    choices = all_zones
                 ),
                 style = "height: 34px;"
             ),
-
             div("Month:",
                 style = "height: 34px; padding-top: 6px"
             ),
-            div(selectInput(
-                inputId = "month", label = NULL,
-                choices = month_options,
-                selected = ymd(conf$production_report_end_date)
+            div(
+                selectInput(
+                    inputId = "month", label = NULL,
+                    choices = month_options,
+                    selected = ymd(conf$production_report_end_date)
                 ),
                 style = "height: 34px;"
             )
         ),
-
-
         fluidRow(
-            column(width = 9,
-                   hr(),
-                   tinyMCE('editor1',
-                           "",
-                           editor_opts)
+            column(
+                width = 9,
+                hr(),
+                tinyMCE(
+                    "editor1",
+                    "",
+                    editor_opts
+                )
             ),
-            column(width = 3,
-                   actionButton("undo_zm_edits", "Undo Edits"),
-                   actionButton("save_zm_edits", "Save Edits"))
+            column(
+                width = 3,
+                actionButton("undo_zm_edits", "Undo Edits"),
+                actionButton("save_zm_edits", "Save Edits")
+            )
         )
     ),
-
     server <- function(input, output, session) {
-
         onStop(function() {
             pool::poolReturn(conn)
         })
@@ -233,14 +238,15 @@ shinyApp(
                     zmdf,
                     month = last_month,
                     zone = zone,
-                    comments = default_comment)
+                    comments = default_comment
+                )
                 zmdf <- sync_db(conn, zmdf)
             }
         }
 
         zmdf <- sync_db(conn, zmdf)
 
-        memory = reactiveValues(zone = initial_zone, month = last_month)
+        memory <- reactiveValues(zone = initial_zone, month = last_month)
 
 
         # Update Editor with ZM Data on user selection of new Zone or Group
@@ -250,18 +256,18 @@ shinyApp(
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
 
                 if (!is.null(input$editor1) && input$editor1 != "" && input$editor1 != latest_comment) {
-
                     zmdf <<- add_row_to_zmdf(
                         zmdf,
                         month = memory$month,
                         zone = memory$zone,
-                        comments = input$editor1)
+                        comments = input$editor1
+                    )
                 }
             })
 
             updateTinyMCE(
                 session,
-                'editor1',
+                "editor1",
                 get_latest_comment(zmdf, zone_group(), current_month())
             )
 
@@ -289,7 +295,7 @@ shinyApp(
 
             updateTinyMCE(
                 session,
-                'editor1',
+                "editor1",
                 get_latest_comment(zmdf, isolate(memory$zone), isolate(memory$month))
             )
         })
@@ -305,7 +311,6 @@ shinyApp(
         })
 
         observeEvent(input$confirmSave, {
-
             # Update ZM Data with what's in the current editor if it's changed.
             isolate({
                 latest_comment <- get_latest_comment(zmdf, memory$zone, memory$month)
@@ -314,16 +319,15 @@ shinyApp(
                         zmdf,
                         month = memory$month,
                         zone = memory$zone,
-                        comments = input$editor1)
+                        comments = input$editor1
+                    )
                     zmdf <<- sync_db(conn, zmdf)
                 }
             })
 
             removeModal()
         })
-
     },
-
     options = list(height = 800)
 )
 
@@ -363,4 +367,3 @@ shinyApp(
 # zmdf$uuid <- uuid::UUIDgenerate(n = nrow(zmdf))
 # dbWriteTable(conn, "progress_report_content_test", zmdf, append = TRUE, row.names = FALSE)
 # #--- End once-off database table set up steps ---
-

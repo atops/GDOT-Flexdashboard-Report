@@ -1,4 +1,3 @@
-
 # Monthly_Report_Package.R
 
 source("Monthly_Report_Package_init.R")
@@ -86,16 +85,12 @@ tryCatch(
             "tpri" = readRDS("tasks_by_priority.rds")$cor_monthly,
             "tsou" = readRDS("tasks_by_source.rds")$cor_monthly,
             "tasks" = readRDS("tasks_all.rds")$cor_monthly,
-
-
             "reported" = readRDS("tasks_all.rds")$cor_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Reported, delta = delta.rep),
             "resolved" = readRDS("tasks_all.rds")$cor_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Resolved, delta = delta.res),
             "outstanding" = readRDS("tasks_all.rds")$cor_monthly %>%
                 transmute(Zone_Group, Corridor, Month, Outstanding, delta = delta.out),
-
-
             "over45" = readRDS("cor_tasks_by_date.rds") %>%
                 transmute(Zone_Group, Corridor, Month, over45, delta = delta.over45),
             "mttr" = readRDS("cor_tasks_by_date.rds") %>%
@@ -436,17 +431,25 @@ conn <- keep_trying(func = get_aurora_connection, n_tries = 6, sleep = 10)
 print("Database connection created.")
 # recreate_database(conn)
 
-tryCatch({
-    append_to_database(
-        conn, cor, "cor",
-        calcs_start_date, report_start_date, report_end_date = NULL)
-    append_to_database(
-        conn, sub, "sub",
-        calcs_start_date, report_start_date, report_end_date = NULL)
-    append_to_database(
-        conn, sig, "sig",
-        calcs_start_date, report_start_date, report_end_date = NULL)
-},
-finally = {
-    dbDisconnect(conn)
-})
+tryCatch(
+    {
+        append_to_database(
+            conn, cor, "cor",
+            calcs_start_date, report_start_date,
+            report_end_date = NULL
+        )
+        append_to_database(
+            conn, sub, "sub",
+            calcs_start_date, report_start_date,
+            report_end_date = NULL
+        )
+        append_to_database(
+            conn, sig, "sig",
+            calcs_start_date, report_start_date,
+            report_end_date = NULL
+        )
+    },
+    finally = {
+        dbDisconnect(conn)
+    }
+)

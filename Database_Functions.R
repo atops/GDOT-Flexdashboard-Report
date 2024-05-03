@@ -1,4 +1,3 @@
-
 # Database Functions
 suppressMessages({
     library(odbc)
@@ -11,27 +10,27 @@ cred <- read_yaml("Monthly_Report_AWS.yaml")
 # My own function to perform multiple inserts at once.
 # Hadn't found a way to do this through native functions.
 mydbAppendTable <- function(conn, name, value, chunksize = 1e4) {
-
     df <- value %>%
         mutate(
-            across(where(is.Date), ~format(., "%F")),
-            across(where(is.POSIXct), ~format(., "%F %H:%M:%S")),
+            across(where(is.Date), ~ format(., "%F")),
+            across(where(is.POSIXct), ~ format(., "%F %H:%M:%S")),
             across(where(is.factor), as.character),
-            across(where(is.character), ~replace(., is.na(.), "")),
-            across(where(is.character), ~str_replace_all(., "'", "\\\\'")),
-            across(where(is.character), ~paste0("'", ., "'")),
-            across(where(is.numeric), ~replace(., !is.finite(.), NA)))
+            across(where(is.character), ~ replace(., is.na(.), "")),
+            across(where(is.character), ~ str_replace_all(., "'", "\\\\'")),
+            across(where(is.character), ~ paste0("'", ., "'")),
+            across(where(is.numeric), ~ replace(., !is.finite(.), NA))
+        )
 
     table_name <- name
 
     vals <- unite(df, "z", names(df), sep = ",") %>% pull(z)
     vals <- glue("({vals})") %>% str_replace_all("NA", "NULL")
-    vals_list <- split(vals, ceiling(seq_along(vals)/chunksize))
+    vals_list <- split(vals, ceiling(seq_along(vals) / chunksize))
 
     query0 <- glue("INSERT INTO {table_name} (`{paste0(colnames(df), collapse = '`, `')}`) VALUES ")
 
     for (v in vals_list) {
-        query <- paste0(query0, paste0(v, collapse = ','))
+        query <- paste0(query0, paste0(v, collapse = ","))
         dbExecute(conn, query)
     }
 }
@@ -40,41 +39,37 @@ mydbAppendTable <- function(conn, name, value, chunksize = 1e4) {
 # -- Previously from Monthly_Report_Functions.R
 
 get_atspm_connection <- function(conf_atspm) {
-
     if (Sys.info()["sysname"] == "Windows") {
-
         dbConnect(odbc::odbc(),
-                  dsn = conf_atspm$odbc_dsn,
-                  uid = Sys.getenv(conf_atspm$uid_env),
-                  pwd = Sys.getenv(conf_atspm$pwd_env))
-
+            dsn = conf_atspm$odbc_dsn,
+            uid = Sys.getenv(conf_atspm$uid_env),
+            pwd = Sys.getenv(conf_atspm$pwd_env)
+        )
     } else if (Sys.info()["sysname"] == "Linux") {
-
         dbConnect(odbc::odbc(),
-                  driver = "FreeTDS",
-                  dsn = conf_atspm$odbc_dsn,
-                  uid = Sys.getenv(conf_atspm$uid_env),
-                  pwd = Sys.getenv(conf_atspm$pwd_env))
+            driver = "FreeTDS",
+            dsn = conf_atspm$odbc_dsn,
+            uid = Sys.getenv(conf_atspm$uid_env),
+            pwd = Sys.getenv(conf_atspm$pwd_env)
+        )
     }
 }
 
 
 get_maxview_connection <- function(dsn = "maxview") {
-
     if (Sys.info()["sysname"] == "Windows") {
-
         dbConnect(odbc::odbc(),
-                  dsn = dsn,
-                  uid = Sys.getenv("MAXV_USERNAME"),
-                  pwd = Sys.getenv("MAXV_PASSWORD"))
-
+            dsn = dsn,
+            uid = Sys.getenv("MAXV_USERNAME"),
+            pwd = Sys.getenv("MAXV_PASSWORD")
+        )
     } else if (Sys.info()["sysname"] == "Linux") {
-
         dbConnect(odbc::odbc(),
-                  driver = "FreeTDS",
-                  dsn = dsn,
-                  uid = Sys.getenv("MAXV_USERNAME"),
-                  pwd = Sys.getenv("MAXV_PASSWORD"))
+            driver = "FreeTDS",
+            dsn = dsn,
+            uid = Sys.getenv("MAXV_USERNAME"),
+            pwd = Sys.getenv("MAXV_PASSWORD")
+        )
     }
 }
 
@@ -90,16 +85,16 @@ get_cel_connection <- get_maxview_eventlog_connection
 get_aurora_connection <- function(
     f = RMariaDB::dbConnect,
     driver = RMariaDB::MariaDB(),
-    load_data_local_infile = FALSE
-) {
-
-    f(drv = driver,
-      host = cred$RDS_HOST,
-      port = 3306,
-      dbname = cred$RDS_DATABASE,
-      username = cred$RDS_USERNAME,
-      password = cred$RDS_PASSWORD,
-      load_data_local_infile = load_data_local_infile)
+    load_data_local_infile = FALSE) {
+    f(
+        drv = driver,
+        host = cred$RDS_HOST,
+        port = 3306,
+        dbname = cred$RDS_DATABASE,
+        username = cred$RDS_USERNAME,
+        password = cred$RDS_PASSWORD,
+        load_data_local_infile = load_data_local_infile
+    )
 }
 
 get_aurora_connection_pool <- function() {
@@ -120,10 +115,16 @@ get_athena_connection_pool <- function(conf_athena) {
 add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
     tryCatch({
         conn_ <- get_athena_connection(conf_athena)
-        dbExecute(conn_,
-                  sql(glue(paste("ALTER TABLE {conf_athena$database}.{table_name}",
-                                 "ADD PARTITION (date='{date_}')"),
-                                 "LOCATION 's3://{bucket}/mark/{table_name}/date={date_}'")))
+        dbExecute(
+            conn_,
+            sql(glue(
+                paste(
+                    "ALTER TABLE {conf_athena$database}.{table_name}",
+                    "ADD PARTITION (date='{date_}')"
+                ),
+                "LOCATION 's3://{bucket}/mark/{table_name}/date={date_}'"
+            ))
+        )
         msg <- glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}")
         print(msg)
     }, error = function(e) {
@@ -148,23 +149,22 @@ query_data <- function(
     month = NULL,
     quarter = NULL,
     upto = TRUE) {
-
     # metric is one of {vpd, tti, aog, ...}
     # level is one of {corridor, subcorridor, signal}
     # resolution is one of {quarterly, monthly, weekly, daily}
 
-    per <- switch(
-        resolution,
+    per <- switch(resolution,
         "quarterly" = "qu",
         "monthly" = "mo",
         "weekly" = "wk",
-        "daily" = "dy")
+        "daily" = "dy"
+    )
 
-    mr_ <- switch(
-        level,
+    mr_ <- switch(level,
         "corridor" = "cor",
         "subcorridor" = "sub",
-        "signal" = "sig")
+        "signal" = "sig"
+    )
 
     tab <- if (hourly & !is.null(metric$hourly_table)) {
         metric$hourly_table
@@ -186,7 +186,7 @@ query_data <- function(
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
         where_clause <- paste(where_clause, "AND Corridor NOT LIKE 'Zone%'")
-    } else if (zone_group == "Zone 7" ) {
+    } else if (zone_group == "Zone 7") {
         zones <- c("Zone 7", "Zone 7m", "Zone 7d")
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
@@ -200,7 +200,8 @@ query_data <- function(
 
     query <- glue(paste(
         "SELECT * FROM {table}",
-        where_clause))
+        where_clause
+    ))
 
     comparison <- ifelse(upto, "<=", "=")
 
@@ -219,34 +220,35 @@ query_data <- function(
         query <- paste(query, glue("AND Month {comparison} '{month}'"))
     } else if (resolution == "quarterly") { # current_quarter is not null
         query <- paste(query, glue("AND Quarter {comparison} {quarter}"))
-
     } else if (resolution == "weekly" | resolution == "daily") {
         query <- paste(query, glue("AND Date {comparison} '{month + months(1) - days(1)}'"))
-
     } else {
         "oops"
     }
 
     df <- data.frame()
 
-    tryCatch({
-        df <- dbGetQuery(sigops_connection_pool, query)
+    tryCatch(
+        {
+            df <- dbGetQuery(sigops_connection_pool, query)
 
-        if (!is.null(corridor)) {
-            df <- filter(df, Corridor == corridor)
-        }
+            if (!is.null(corridor)) {
+                df <- filter(df, Corridor == corridor)
+            }
 
-        date_string <- intersect(c("Month", "Date"), names(df))
-        if (length(date_string)) {
-            df[[date_string]] = as_date(df[[date_string]])
+            date_string <- intersect(c("Month", "Date"), names(df))
+            if (length(date_string)) {
+                df[[date_string]] <- as_date(df[[date_string]])
+            }
+            datetime_string <- intersect(c("Hour"), names(df))
+            if (length(datetime_string)) {
+                df[[datetime_string]] <- as_datetime(df[[datetime_string]])
+            }
+        },
+        error = function(e) {
+            print(e)
         }
-        datetime_string <- intersect(c("Hour"), names(df))
-        if (length(datetime_string)) {
-            df[[datetime_string]] = as_datetime(df[[datetime_string]])
-        }
-    }, error = function(e) {
-        print(e)
-    })
+    )
 
     df
 }
@@ -286,25 +288,24 @@ query_health_data <- function(
     zone_group,
     corridor = NULL,
     month = NULL) {
-
     # metric is one of {ops, maint, safety}
     # level is one of {corridor, subcorridor, signal}
     # resolution is one of {quarterly, monthly, weekly, daily}
 
     per <- "mo"
 
-    mr_ <- switch(
-        level,
+    mr_ <- switch(level,
         "corridor" = "sub",
         "subcorridor" = "sub",
-        "signal" = "sig")
+        "signal" = "sig"
+    )
 
     tab <- health_metric
 
     table <- glue("{mr_}_{per}_{tab}")
 
     # Special cases--groups of corridors
-    if ((level == "corridor" | level == "subcorridor") & (grepl("RTOP", zone_group)) | zone_group == "Zone 7" ) {
+    if ((level == "corridor" | level == "subcorridor") & (grepl("RTOP", zone_group)) | zone_group == "Zone 7") {
         if (zone_group == "All RTOP") {
             zones <- c("All RTOP", "RTOP1", "RTOP2", RTOP1_ZONES, RTOP2_ZONES)
         } else if (zone_group == "RTOP1") {
@@ -317,23 +318,27 @@ query_health_data <- function(
         zones <- paste(glue("'{zones}'"), collapse = ",")
         where_clause <- glue("WHERE Zone_Group in ({zones})")
     } else if ((level == "corridor" | level == "subcorridor") & corridor == "All Corridors") {
-        where_clause <- glue("WHERE Zone_Group = '{zone_group}'")  # Zone_Group is a proxy for Zone
-    } else {  #} if (level == "corridor" | level == "subcorridor") {
+        where_clause <- glue("WHERE Zone_Group = '{zone_group}'") # Zone_Group is a proxy for Zone
+    } else { # } if (level == "corridor" | level == "subcorridor") {
         where_clause <- glue("WHERE Corridor = '{corridor}'")
     }
     where_clause <- glue("{where_clause} AND Month = '{month}'")
 
     query <- glue(paste(
         "SELECT * FROM {table}",
-        where_clause))
+        where_clause
+    ))
 
-    tryCatch({
-        df <- dbGetQuery(sigops_connection_pool, query)
-        df$Month = as_date(df$Month)
-        #df <- subset(df, select = -Zone_Group)  # This was a proxy for Zone for indexing consistency
-    }, error = function(e) {
-        print(e)
-    })
+    tryCatch(
+        {
+            df <- dbGetQuery(sigops_connection_pool, query)
+            df$Month <- as_date(df$Month)
+            # df <- subset(df, select = -Zone_Group)  # This was a proxy for Zone for indexing consistency
+        },
+        error = function(e) {
+            print(e)
+        }
+    )
 
     df
 }
@@ -354,7 +359,8 @@ create_aurora_partitioned_table <- function(aurora, table_name, period_field = "
         table_suffix == "paph" ~ ifelse(period_field == "Timeperiod", "vol", "paph"),
         table_suffix == "prh" ~ "pr",
         table_suffix == "qsh" ~ "qs_freq",
-        table_suffix == "sfh" ~ "sf_freq")
+        table_suffix == "sfh" ~ "sf_freq"
+    )
 
     stmt <- glue(
         "CREATE TABLE `{table_name}_part` (
@@ -383,7 +389,8 @@ create_aurora_partitioned_table <- function(aurora, table_name, period_field = "
 get_aurora_partitions <- function(aurora, table_name) {
     query <- glue(paste(
         "SELECT PARTITION_NAME FROM information_schema.partitions",
-        "WHERE TABLE_NAME = '{table_name}'"))
+        "WHERE TABLE_NAME = '{table_name}'"
+    ))
     df <- dbGetQuery(aurora, query)
     if (nrow(df) > 1) {
         df$PARTITION_NAME
@@ -402,8 +409,9 @@ add_aurora_partition <- function(aurora, table_name) {
         statement <- glue(paste(
             "ALTER TABLE {table_name}",
             "REORGANIZE PARTITION future INTO (",
-                "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date} 00:00:00'),",
-                "PARTITION future VALUES LESS THAN MAXVALUE)"))
+            "PARTITION {new_partition_name} VALUES LESS THAN ('{new_partition_date} 00:00:00'),",
+            "PARTITION future VALUES LESS THAN MAXVALUE)"
+        ))
         print(statement)
         dbExecute(aurora, statement)
     }

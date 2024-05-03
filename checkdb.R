@@ -1,4 +1,3 @@
-
 source("Monthly_Report_Package_init.R")
 
 library("future.apply")
@@ -25,16 +24,17 @@ invisible({
         start_date <- as_date(Sys.Date()) - days(60)
         try(
             if (!file.exists(glue("tables/{tabl}.parquet"))) {
-            dbGetQuery(conn, glue(paste(
-            "SELECT CAST({dt_field} AS DATE) AS Date, count(*) as Records",
-            "FROM {tabl} WHERE {dt_field} > '{start_date}'",
-            "GROUP BY CAST({dt_field} AS DATE)"))
-        ) %>%
-            tibble::add_column(table = tabl, .before = 1) %>%
-                arrange(Date) %>%
-                mutate(period = stringr::str_extract(table, "(?<=_)([^_]+)")) %>%
-                write_parquet(glue("tables/{tabl}.parquet"))
-        })
+                dbGetQuery(conn, glue(paste(
+                    "SELECT CAST({dt_field} AS DATE) AS Date, count(*) as Records",
+                    "FROM {tabl} WHERE {dt_field} > '{start_date}'",
+                    "GROUP BY CAST({dt_field} AS DATE)"
+                ))) %>%
+                    tibble::add_column(table = tabl, .before = 1) %>%
+                    arrange(Date) %>%
+                    mutate(period = stringr::str_extract(table, "(?<=_)([^_]+)")) %>%
+                    write_parquet(glue("tables/{tabl}.parquet"))
+            }
+        )
         dbDisconnect(conn)
     })
 })
@@ -69,6 +69,5 @@ for (per in c("wk", "mo", "dy")) {
         bucket = conf$bucket,
         object = glue("code/sigops_data_{per}.csv")
     )
-print(glue("all tables uploaded"))
+    print(glue("all tables uploaded"))
 }
-

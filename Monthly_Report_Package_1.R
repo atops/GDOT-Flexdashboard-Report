@@ -1,4 +1,3 @@
-
 # Monthly_Report_Package.R
 
 source("Monthly_Report_Package_init.R")
@@ -127,7 +126,7 @@ tryCatch(
             signals_list = signals_list,
             parallel = FALSE
         ) %>%
-            filter(!is.na(CallPhase)) %>%   # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
+            filter(!is.na(CallPhase)) %>% # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector),
@@ -196,19 +195,19 @@ tryCatch(
             get_cor_weekly_avg_by_day(daily_pa_uptime, corridors, "uptime")
         sub_daily_pa_uptime <-
             get_cor_weekly_avg_by_day(daily_pa_uptime, subcorridors, "uptime") %>%
-                filter(!is.na(Corridor))
+            filter(!is.na(Corridor))
 
         cor_weekly_pa_uptime <-
             get_cor_weekly_avg_by_day(weekly_pa_uptime, corridors, "uptime")
         sub_weekly_pa_uptime <-
             get_cor_weekly_avg_by_day(weekly_pa_uptime, subcorridors, "uptime") %>%
-                filter(!is.na(Corridor))
+            filter(!is.na(Corridor))
 
         cor_monthly_pa_uptime <-
             get_cor_monthly_avg_by_day(monthly_pa_uptime, corridors, "uptime")
         sub_monthly_pa_uptime <-
             get_cor_monthly_avg_by_day(monthly_pa_uptime, subcorridors, "uptime") %>%
-                filter(!is.na(Corridor))
+            filter(!is.na(Corridor))
 
         addtoRDS(
             daily_pa_uptime, "daily_pa_uptime.rds", "uptime",
@@ -356,22 +355,23 @@ tryCatch(
 
         if (nrow(bad_ped)) {
             bad_ped %>%
-                mutate(SignalID = factor(SignalID),
-                       Detector = factor(Detector)) %>%
-
+                mutate(
+                    SignalID = factor(SignalID),
+                    Detector = factor(Detector)
+                ) %>%
                 left_join(
                     dplyr::select(corridors, Zone_Group, Zone, Corridor, SignalID, Name),
                     by = c("SignalID"),
                     relationship = "many-to-many"
                 ) %>%
                 transmute(Zone_Group,
-                          Zone,
-                          Corridor = factor(Corridor),
-                          SignalID = factor(SignalID),
-                          Detector = factor(Detector),
-                          Date,
-                          Alert = factor("Bad Ped Detection"),
-                          Name = factor(Name)
+                    Zone,
+                    Corridor = factor(Corridor),
+                    SignalID = factor(SignalID),
+                    Detector = factor(Detector),
+                    Date,
+                    Alert = factor("Bad Ped Detection"),
+                    Name = factor(Name)
                 )
             s3write_using(
                 FUN = write_parquet,
@@ -710,10 +710,10 @@ tryCatch(
         # Subcorridors
         sub_weekly_vpd <-
             get_cor_weekly_vpd(weekly_vpd, subcorridors) %>%
-                filter(!is.na(Corridor))
+            filter(!is.na(Corridor))
         sub_monthly_vpd <-
             get_cor_monthly_vpd(monthly_vpd, subcorridors) %>%
-                filter(!is.na(Corridor))
+            filter(!is.na(Corridor))
 
         # Monthly % change from previous month by corridor ----------------------------
         addtoRDS(weekly_vpd, "weekly_vpd.rds", "vpd", report_start_date, wk_calcs_start_date)
@@ -1263,7 +1263,6 @@ print(glue("{Sys.time()} Travel Time Indexes [19 of 29]"))
 
 tryCatch(
     {
-
         # ------- Corridor Travel Time Metrics ------- #
 
         tt <- s3_read_parquet_parallel(
@@ -1859,7 +1858,8 @@ tryCatch(
                         rename(bpsi = overall_pct)
                 }
             }
-        ) %>% bind_rows() %>%
+        ) %>%
+            bind_rows() %>%
             mutate(
                 Corridor = factor(Corridor),
                 Subcorridor = factor(Subcorridor)
@@ -1876,7 +1876,8 @@ tryCatch(
                         rename(bpsi = overall_pct)
                 }
             }
-        ) %>% bind_rows() %>%
+        ) %>%
+            bind_rows() %>%
             mutate(
                 Corridor = factor(Corridor)
             )
@@ -1890,7 +1891,8 @@ tryCatch(
             arrange(Month) %>%
             mutate(
                 ones = NA,
-                delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
+                delta = (bpsi - lag(bpsi)) / lag(bpsi)
+            ) %>%
             ungroup()
 
         cor_monthly_bpsi <- left_join(
@@ -1903,7 +1905,8 @@ tryCatch(
             arrange(Month) %>%
             mutate(
                 ones = NA,
-                delta = (bpsi - lag(bpsi))/lag(bpsi)) %>%
+                delta = (bpsi - lag(bpsi)) / lag(bpsi)
+            ) %>%
             ungroup()
 
         addtoRDS(cor_monthly_bpsi, "cor_monthly_bpsi.rds", "bpsi", report_start_date, calcs_start_date)
@@ -1937,7 +1940,8 @@ tryCatch(
                         mutate(Month = d, .before = "rsi")
                 }
             }
-        ) %>% bind_rows() %>%
+        ) %>%
+            bind_rows() %>%
             mutate(
                 Corridor = factor(Corridor),
                 Subcorridor = factor(Subcorridor)
@@ -1953,7 +1957,8 @@ tryCatch(
                         mutate(Month = d, .before = "rsi")
                 }
             }
-        ) %>% bind_rows() %>%
+        ) %>%
+            bind_rows() %>%
             mutate(
                 Corridor = factor(Corridor)
             )
@@ -1967,7 +1972,8 @@ tryCatch(
             arrange(Month) %>%
             mutate(
                 ones = NA,
-                delta = (rsi - lag(rsi))/lag(rsi)) %>%
+                delta = (rsi - lag(rsi)) / lag(rsi)
+            ) %>%
             ungroup()
 
         cor_monthly_rsi <- left_join(
@@ -1980,7 +1986,8 @@ tryCatch(
             arrange(Month) %>%
             mutate(
                 ones = NA,
-                delta = (rsi - lag(rsi))/lag(rsi)) %>%
+                delta = (rsi - lag(rsi)) / lag(rsi)
+            ) %>%
             ungroup()
 
         addtoRDS(cor_monthly_rsi, "cor_monthly_rsi.rds", "rsi", report_start_date, calcs_start_date)
@@ -2017,7 +2024,8 @@ tryCatch(
                 crashes_c,
                 crashes_o,
                 crashes_total,
-                cost) %>%
+                cost
+            ) %>%
             drop_na() %>%
             arrange(SignalID, Month) %>%
             group_by(SignalID, Month) %>%
@@ -2040,10 +2048,11 @@ tryCatch(
             replace(is.na(.), 0) %>%
             arrange(SignalID, Month) %>%
             group_by(SignalID) %>%
-
             mutate(across(
                 starts_with("crashes"),
-                function(x) {runner::sum_run(x, lag = 0, k = 36)}
+                function(x) {
+                    runner::sum_run(x, lag = 0, k = 36)
+                }
             )) %>%
             mutate(cost = runner::sum_run(cost, lag = 0, k = 36)) %>%
             ungroup()
@@ -2053,7 +2062,7 @@ tryCatch(
         monthly_36mo_crashes <- lapply(
             unique(monthly_vpd$Month),
             function(m) mutate(monthly_36mo_crashes, Month = m)
-            ) %>%
+        ) %>%
             bind_rows()
         # -- ---------------------------------------------------
 
@@ -2061,7 +2070,7 @@ tryCatch(
             monthly_36mo_crashes,
             monthly_vpd,
             by = c("SignalID", "Month")
-            ) %>%
+        ) %>%
             mutate(
                 cri = crashes_total * 1000 / (vpd * 3),
                 kabco = cost / (vpd * 3),
@@ -2075,17 +2084,21 @@ tryCatch(
         monthly_kabco_index <- get_monthly_avg_by_day(monthly_crashes, "kabco")
 
         cor_monthly_crash_rate_index <- get_cor_monthly_avg_by_day(
-            monthly_crash_rate_index, corridors, "cri")
+            monthly_crash_rate_index, corridors, "cri"
+        )
 
         cor_monthly_kabco_index <- get_cor_monthly_avg_by_day(
-            monthly_kabco_index, corridors, "kabco")
+            monthly_kabco_index, corridors, "kabco"
+        )
 
 
         sub_monthly_crash_rate_index <- get_cor_monthly_avg_by_day(
-            monthly_crash_rate_index, subcorridors, "cri")
+            monthly_crash_rate_index, subcorridors, "cri"
+        )
 
         sub_monthly_kabco_index <- get_cor_monthly_avg_by_day(
-            monthly_kabco_index, subcorridors, "kabco")
+            monthly_kabco_index, subcorridors, "kabco"
+        )
 
 
         addtoRDS(monthly_crash_rate_index, "monthly_crash_rate_index.rds", "cri", report_start_date, calcs_start_date)

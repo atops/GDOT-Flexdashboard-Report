@@ -1,5 +1,3 @@
-
-
 get_cor <- function() {
     s3read_using(qs::qread, bucket = conf$bucket, object = "cor_ec2.qs")
 }
@@ -31,8 +29,7 @@ get_date_from_string <- function(
     s3prefix = NULL,
     table_include_regex_pattern = "_dy_",
     table_exclude_regex_pattern = "_outstand|_report|_resolv|_task|_tpri|_tsou|_tsub|_ttyp|_kabco|_maint|_ops|_safety|_alert|_udc|_summ",
-    exceptions = 5
-) {
+    exceptions = 5) {
     if (x == "yesterday") {
         format(today() - days(1), "%F")
     } else if (!is.na(str_extract(x, "\\d+(?= days ago)"))) {
@@ -47,7 +44,7 @@ get_date_from_string <- function(
             min(first_missing, today() - days(1))
         } else {
             print("first missing from database")
-	    aurora <- get_aurora_connection()
+            aurora <- get_aurora_connection()
             tabls <- dbListTables(aurora)
             tabls <- tabls[grepl(table_include_regex_pattern, tabls)]
             tabls <- tabls[!grepl(table_exclude_regex_pattern, tabls)]
@@ -72,11 +69,13 @@ get_date_from_string <- function(
 }
 
 
-get_signalids_from_s3 <- function(date_, s3prefix="atspm") {
+get_signalids_from_s3 <- function(date_, s3prefix = "atspm") {
     if (class(date_) == "Date") {
         date_ <- format(date_, "%F")
     }
-    keys <- aws.s3::get_bucket_df(conf$bucket, prefix = glue("{s3prefix}/date={date_}"), max=Inf) %>% as_tibble() %>% pull(Key)
+    keys <- aws.s3::get_bucket_df(conf$bucket, prefix = glue("{s3prefix}/date={date_}"), max = Inf) %>%
+        as_tibble() %>%
+        pull(Key)
     signalids <- as.integer(stringr::str_extract(keys, glue("(?<={s3prefix}_)\\d+")))
     sort(signalids)
 }
@@ -93,27 +92,25 @@ get_last_modified_s3 <- function(bucket, object) {
 }
 
 
-get_usable_cores <- function(GB=8) {
+get_usable_cores <- function(GB = 8) {
     # Get RAM from system file and divide
 
     if (Sys.info()["sysname"] == "Windows") {
-        x <- suppressWarnings(shell('systeminfo | findstr Memory', intern = TRUE))
+        x <- suppressWarnings(shell("systeminfo | findstr Memory", intern = TRUE))
 
         memline <- x[grepl("Total Physical Memory", x)]
-        mem <- stringr::str_extract(string =  memline, pattern = "\\d+,\\d+")
+        mem <- stringr::str_extract(string = memline, pattern = "\\d+,\\d+")
         mem <- as.numeric(gsub(",", "", mem))
         mem <- round(mem, -3)
-        max(floor(mem/8e3), 1)
-
+        max(floor(mem / 8e3), 1)
     } else if (Sys.info()["sysname"] == "Linux") {
-        x <- readLines('/proc/meminfo')
+        x <- readLines("/proc/meminfo")
 
         memline <- x[grepl("MemAvailable", x)]
-        mem <- stringr::str_extract(string =  memline, pattern = "\\d+")
+        mem <- stringr::str_extract(string = memline, pattern = "\\d+")
         mem <- as.integer(mem)
         mem <- round(mem, -6)
-        max(floor(mem/(GB*1e6)), 1)
-
+        max(floor(mem / (GB * 1e6)), 1)
     } else {
         stop("Unknown operating system.")
     }
@@ -123,20 +120,21 @@ get_usable_cores <- function(GB=8) {
 # From: https://billpetti.github.io/2017-10-13-retry-scrape-function-automatically-r-rstats/
 retry_function <- function(.f, max_attempts = 5,
                            wait_seconds = 5) {
-
     force(max_attempts)
     force(wait_seconds)
 
     for (i in seq_len(max_attempts)) {
-
-        tryCatch({
-            output <- .f
-        }, error = function(e) {
-            if (wait_seconds > 0) {
-                message(paste0("Retrying at ", Sys.time() + wait_seconds))
-                Sys.sleep(wait_seconds)
+        tryCatch(
+            {
+                output <- .f
+            },
+            error = function(e) {
+                if (wait_seconds > 0) {
+                    message(paste0("Retrying at ", Sys.time() + wait_seconds))
+                    Sys.sleep(wait_seconds)
+                }
             }
-        })
+        )
     }
 
     stop()
@@ -144,7 +142,6 @@ retry_function <- function(.f, max_attempts = 5,
 
 
 split_wrapper <- function(FUN) {
-
     # Creates a function that runs a function, splits by signalid and recombines
 
     f <- function(df, split_size, ...) {
@@ -153,33 +150,34 @@ split_wrapper <- function(FUN) {
         if (!dir.exists(temp_dir)) {
             dir.create(temp_dir)
         }
-        temp_file_root <- stringi::stri_rand_strings(1,8)
+        temp_file_root <- stringi::stri_rand_strings(1, 8)
         temp_path_root <- file.path(temp_dir, temp_file_root)
         print(temp_path_root)
 
 
         print("Writing to temporary files by SignalID...")
         signalids <- as.character(unique(df$SignalID))
-        splits <- split(signalids, ceiling(seq_along(signalids)/split_size))
+        splits <- split(signalids, ceiling(seq_along(signalids) / split_size))
         lapply(
             names(splits),
             function(i) {
-                cat('.')
+                cat(".")
                 df %>%
                     filter(SignalID %in% splits[[i]]) %>%
                     write_fst(paste0(temp_path_root, "_", i, ".fst"))
-            })
-        cat('.', sep='\n')
+            }
+        )
+        cat(".", sep = "\n")
 
         file_names <- paste0(temp_path_root, "_", names(splits), ".fst")
 
         # Read in each temporary file and run adjusted counts in parallel. Afterward, clean up.
         print("Running for each SignalID...")
         df <- mclapply(file_names, mc.cores = usable_cores, FUN = function(fn) {
-            cat('.')
+            cat(".")
             FUN(read_fst(fn), ...)
         }) %>% bind_rows()
-        cat('.', sep='\n')
+        cat(".", sep = "\n")
 
         lapply(file_names, FUN = file.remove)
 
@@ -194,16 +192,14 @@ read_zipped_feather <- function(x) {
 
 
 keep_trying <- function(func, n_tries, ..., sleep = 1, timeout = Inf) {
-
     safely_func <- purrr::safely(func, otherwise = NULL)
 
     result <- NULL
     error <- 1
     try_number <- 1
 
-    while((!is.null(error) || is.null(result)) && try_number <= n_tries) {
-
-        x <- R.utils::withTimeout(safely_func(...), timeout=timeout, onTimeout="error")
+    while ((!is.null(error) || is.null(result)) && try_number <= n_tries) {
+        x <- R.utils::withTimeout(safely_func(...), timeout = timeout, onTimeout = "error")
 
         result <- x$result
         error <- x$error
@@ -214,9 +210,9 @@ keep_trying <- function(func, n_tries, ..., sleep = 1, timeout = Inf) {
             print(glue("{deparse(substitute(func))} Attempt {try_number} succeeded."))
         }
 
-        try_number = try_number + 1
+        try_number <- try_number + 1
         Sys.sleep(sleep)
-        sleep = sleep * 2
+        sleep <- sleep * 2
     }
     return(result)
 }
@@ -234,12 +230,11 @@ readRDS_multiple <- function(pattern) {
 # where R wants to convert UTC to local time zone on read
 # Switch date or datetime fields back to UTC. Run on read.
 convert_to_utc <- function(df) {
-
     # -- This may be a more elegant alternative. Needs testing. --
-    #df %>% mutate_if(is.POSIXct, ~with_tz(., "UTC"))
+    # df %>% mutate_if(is.POSIXct, ~with_tz(., "UTC"))
 
     is_datetime <- sapply(names(df), function(x) sum(class(df[[x]]) == "POSIXct"))
-    datetimes <- names(is_datetime[is_datetime==1])
+    datetimes <- names(is_datetime[is_datetime == 1])
 
     for (col in datetimes) {
         df[[col]] <- with_tz(df[[col]], "UTC")
@@ -251,7 +246,7 @@ convert_to_utc <- function(df) {
 
 week <- function(d) {
     d0 <- ymd("2016-12-25")
-    as.integer(trunc((ymd(d) - d0)/dweeks(1)))
+    as.integer(trunc((ymd(d) - d0) / dweeks(1)))
 }
 
 
@@ -260,7 +255,9 @@ get_month_abbrs <- function(start_date, end_date) {
     day(start_date) <- 1
     end_date <- ymd(end_date)
 
-    sapply(seq(start_date, end_date, by = "1 month"), function(d) { format(d, "%Y-%m")} )
+    sapply(seq(start_date, end_date, by = "1 month"), function(d) {
+        format(d, "%Y-%m")
+    })
 }
 
 
@@ -276,13 +273,12 @@ bind_rows_keep_factors <- function(dfs) {
 
 
 match_type <- function(val, val_type_to_match) {
-    eval(parse(text=paste0('as.',class(val_type_to_match), "(", val, ")")))
+    eval(parse(text = paste0("as.", class(val_type_to_match), "(", val, ")")))
 }
 
 
 
 addtoRDS <- function(df, fn, delta_var, rsd, csd) {
-
     #' combines data frame in local rds file with newly calculated data
     #' trimming the current data and appending the new data to prevent overlaps
     #' and/or duplicates. Used throughout Monthly_Report_Package code
@@ -298,7 +294,6 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
     #' addtoRDS(avg_daily_detector_uptime, "avg_daily_detector_uptime.rds", report_start_date, calc_start_date)
 
     combine_dfs <- function(df0, df, delta_var, rsd, csd) {
-
         if (class(rsd) == "character") rsd <- as_date(rsd)
         if (class(csd) == "character") csd <- as_date(csd)
 
@@ -332,29 +327,30 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
 
             # Combine old and new
             x <- bind_rows_keep_factors(list(df0, df)) %>%
-
                 # Recalculate deltas from prior periods over combined df
                 group_by(!!!groups_) %>%
                 arrange(!!!group_arrange) %>%
-                mutate(lag_ = lag(!!var_),
-                       delta = ((!!var_) - lag_)/lag_) %>%
+                mutate(
+                    lag_ = lag(!!var_),
+                    delta = ((!!var_) - lag_) / lag_
+                ) %>%
                 ungroup() %>%
                 dplyr::select(-lag_)
         }
         x
     }
 
-    if (tools::file_ext(fn)=="rds") {
+    if (tools::file_ext(fn) == "rds") {
         read_func <- readRDS
         write_func <- saveRDS
-    } else if (tools::file_ext(fn)=="parquet") {
+    } else if (tools::file_ext(fn) == "parquet") {
         read_func <- read_parquet
         write_func <- write_parquet
     }
 
     if (!file.exists(fn)) {
         if (!file.exists(dirname(fn))) {
-            dir.create(dirname(fn), recursive=T)
+            dir.create(dirname(fn), recursive = T)
         }
         write_func(df, fn)
     } else {
@@ -369,13 +365,11 @@ addtoRDS <- function(df, fn, delta_var, rsd, csd) {
         write_func(x, fn)
         x
     }
-
 }
 
 
 write_fst_ <- function(df, fn, append = FALSE) {
     if (append == TRUE & file.exists(fn)) {
-
         factors <- unique(unlist(
             map(list(df), ~ select_if(df, is.factor) %>% names())
         ))
@@ -395,7 +389,6 @@ write_fst_ <- function(df, fn, append = FALSE) {
 get_unique_timestamps <- function(df) {
     df %>%
         dplyr::select(Timestamp) %>%
-
         distinct() %>%
         mutate(SignalID = 0) %>%
         dplyr::select(SignalID, Timestamp)
@@ -406,7 +399,6 @@ get_unique_timestamps <- function(df) {
 
 
 multicore_decorator <- function(FUN) {
-
     usable_cores <- get_usable_cores()
 
     function(x) {
@@ -428,8 +420,7 @@ get_Tuesdays <- function(df) {
 
 
 
-walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
-
+walk_nested_list <- function(df, src, name = deparse(substitute(df)), indent = 0) {
     cat(paste(strrep(" ", indent)))
     print(name)
 
@@ -468,7 +459,7 @@ walk_nested_list <- function(df, src, name=deparse(substitute(df)), indent=0) {
 
         for (n in names(df)) {
             if (!is.null(names(df[[n]]))) {
-                walk_nested_list(df[[n]], src, name = paste(name, n, sep="-"), indent = indent+10)
+                walk_nested_list(df[[n]], src, name = paste(name, n, sep = "-"), indent = indent + 10)
             }
         }
     } else {
@@ -490,14 +481,13 @@ compare_dfs <- function(df1, df2) {
     rows_in_y_but_not_in_x <- y[[2]]
 
     list(
-        rows_in_x_but_not_in_y = df1[rows_in_x_but_not_in_y,],
-        rows_in_y_but_not_in_x = df2[rows_in_y_but_not_in_x,]
+        rows_in_x_but_not_in_y = df1[rows_in_x_but_not_in_y, ],
+        rows_in_y_but_not_in_x = df2[rows_in_y_but_not_in_x, ]
     )
 }
 
 
 get_corridor_summary_data <- function(cor) {
-
     #' Converts cor data set to a single data frame for the current_month
     #' for use in get_corridor_summary_table function
     #'
@@ -517,7 +507,7 @@ get_corridor_summary_data <- function(cor) {
         rename(cor$mo$sfd, sf = sf_freq, sf.delta = delta),
         rename(cor$mo$tti, tti.delta = delta),
         rename(cor$mo$pti, pti.delta = delta),
-        rename(cor$mo$tasks, tasks = Outstanding, tasks.delta = delta.out) #tasks added 10/29/19
+        rename(cor$mo$tasks, tasks = Outstanding, tasks.delta = delta.out) # tasks added 10/29/19
     ) %>%
         reduce(left_join, by = c("Zone_Group", "Corridor", "Month")) %>%
         filter(
@@ -533,108 +523,120 @@ get_corridor_summary_data <- function(cor) {
             -starts_with("pct"),
             -starts_with("vol"),
             -starts_with("Description"),
-            -c(All,Reported,Resolved,cum_Reported,cum_Resolved,delta.rep,delta.res) #tasks added 10/29/19
+            -c(All, Reported, Resolved, cum_Reported, cum_Resolved, delta.rep, delta.res) # tasks added 10/29/19
         )
     return(data)
 }
 
 
 write_signal_details <- function(plot_date, conf, signals_list = NULL) {
-
     print(glue("Writing signal details for {plot_date}"))
 
-    tryCatch({
-        #--- This takes approx one minute per day -----------------------
-        rc <- s3_read_parquet(
-            bucket = conf$bucket,
-            object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet"))
-        if (nrow(rc) > 0) {
-            rc <- rc %>%
-            convert_to_utc() %>%
-            select(
-                SignalID, Date, Timeperiod, Detector, CallPhase, vol)
-        } else {
-            return(NULL)
-        }
+    tryCatch(
+        {
+            #--- This takes approx one minute per day -----------------------
+            rc <- s3_read_parquet(
+                bucket = conf$bucket,
+                object = glue("mark/counts_1hr/date={plot_date}/counts_1hr_{plot_date}.parquet")
+            )
+            if (nrow(rc) > 0) {
+                rc <- rc %>%
+                    convert_to_utc() %>%
+                    select(
+                        SignalID, Date, Timeperiod, Detector, CallPhase, vol
+                    )
+            } else {
+                return(NULL)
+            }
 
-        fc <- s3_read_parquet(
-            bucket = conf$bucket,
-            object = glue("mark/filtered_counts_1hr/date={plot_date}/filtered_counts_1hr_{plot_date}.parquet"))
-        if (nrow(fc) > 0) {
-            fc <- fc %>%
-            convert_to_utc() %>%
-            select(
-                SignalID, Date, Timeperiod, Detector, CallPhase, Good_Day)
-        } else {
-            return(NULL)
-        }
+            fc <- s3_read_parquet(
+                bucket = conf$bucket,
+                object = glue("mark/filtered_counts_1hr/date={plot_date}/filtered_counts_1hr_{plot_date}.parquet")
+            )
+            if (nrow(fc) > 0) {
+                fc <- fc %>%
+                    convert_to_utc() %>%
+                    select(
+                        SignalID, Date, Timeperiod, Detector, CallPhase, Good_Day
+                    )
+            } else {
+                return(NULL)
+            }
 
-        ac <- s3_read_parquet(
-            bucket = conf$bucket,
-            object = glue("mark/adjusted_counts_1hr/date={plot_date}/adjusted_counts_1hr_{plot_date}.parquet"))
-        if (nrow(ac) > 0) {
-            ac <- ac %>%
-            convert_to_utc() %>%
-            select(
-                SignalID, Date, Timeperiod, Detector, CallPhase, vol)
-        } else {
-            return(NULL)
-        }
+            ac <- s3_read_parquet(
+                bucket = conf$bucket,
+                object = glue("mark/adjusted_counts_1hr/date={plot_date}/adjusted_counts_1hr_{plot_date}.parquet")
+            )
+            if (nrow(ac) > 0) {
+                ac <- ac %>%
+                    convert_to_utc() %>%
+                    select(
+                        SignalID, Date, Timeperiod, Detector, CallPhase, vol
+                    )
+            } else {
+                return(NULL)
+            }
 
-        if (!is.null(signals_list)) {
-            rc <- rc %>%
-                filter(as.character(SignalID) %in% signals_list)
-            fc <- fc %>%
-                filter(as.character(SignalID) %in% signals_list)
-            ac <- ac %>%
-                filter(as.character(SignalID) %in% signals_list)
-        }
+            if (!is.null(signals_list)) {
+                rc <- rc %>%
+                    filter(as.character(SignalID) %in% signals_list)
+                fc <- fc %>%
+                    filter(as.character(SignalID) %in% signals_list)
+                ac <- ac %>%
+                    filter(as.character(SignalID) %in% signals_list)
+            }
 
-        df <- list(
-            rename(rc, vol_rc = vol),
-            fc,
-            rename(ac, vol_ac = vol)) %>%
-            reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")
+            df <- list(
+                rename(rc, vol_rc = vol),
+                fc,
+                rename(ac, vol_ac = vol)
             ) %>%
-            mutate(bad_day = if_else(Good_Day==0, TRUE, FALSE)) %>%
-            transmute(
-                SignalID = as.integer(SignalID),
-                Timeperiod = Timeperiod,
-                Detector = as.integer(Detector),
-                CallPhase = as.integer(CallPhase),
-                vol_rc = as.integer(vol_rc),
-                vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
-                bad_day) %>%
-            arrange(
-                SignalID,
-                Detector,
-                Timeperiod)
-        #----------------------------------------------------------------
+                reduce(full_join, by = c("SignalID", "Date", "Timeperiod", "Detector", "CallPhase")) %>%
+                mutate(bad_day = if_else(Good_Day == 0, TRUE, FALSE)) %>%
+                transmute(
+                    SignalID = as.integer(SignalID),
+                    Timeperiod = Timeperiod,
+                    Detector = as.integer(Detector),
+                    CallPhase = as.integer(CallPhase),
+                    vol_rc = as.integer(vol_rc),
+                    vol_ac = ifelse(bad_day, as.integer(vol_ac), NA),
+                    bad_day
+                ) %>%
+                arrange(
+                    SignalID,
+                    Detector,
+                    Timeperiod
+                )
+            #----------------------------------------------------------------
 
-        df <- df %>% mutate(
-            Hour = hour(Timeperiod)) %>%
-            select(-Timeperiod) %>%
-            relocate(Hour) %>%
-            nest(data = -c(SignalID))
+            df <- df %>%
+                mutate(
+                    Hour = hour(Timeperiod)
+                ) %>%
+                select(-Timeperiod) %>%
+                relocate(Hour) %>%
+                nest(data = -c(SignalID))
 
-        table_name <- "signal_details"
-        prefix <- "sg"
-        date_ <- plot_date
-        fn = glue("{prefix}_{date_}")
+            table_name <- "signal_details"
+            prefix <- "sg"
+            date_ <- plot_date
+            fn <- glue("{prefix}_{date_}")
 
-        keep_trying(
-            s3write_using,
-            n_tries = 5,
-            df,
-            write_parquet,
-            use_deprecated_int96_timestamps = TRUE,
-            bucket = conf$bucket,
-            object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
-            opts = list(multipart = TRUE, body_as_string = TRUE)
-        )
-    }, error = function(e) {
-        print(glue("Can't write signal details for {plot_date}"))
-    })
+            keep_trying(
+                s3write_using,
+                n_tries = 5,
+                df,
+                write_parquet,
+                use_deprecated_int96_timestamps = TRUE,
+                bucket = conf$bucket,
+                object = glue("mark/{table_name}/date={date_}/{fn}.parquet"),
+                opts = list(multipart = TRUE, body_as_string = TRUE)
+            )
+        },
+        error = function(e) {
+            print(glue("Can't write signal details for {plot_date}"))
+        }
+    )
 }
 
 
@@ -649,57 +651,72 @@ cleanup_cycle_data <- function(date_) {
 
 # Get chunks of size 'rows' from a data source that answers to 'collect()'
 get_signals_chunks <- function(df, rows = 1e6) {
-
     chunk <- function(d, n) {
-        split(d, ceiling(seq_along(d)/n))
+        split(d, ceiling(seq_along(d) / n))
     }
 
-    records <- df %>% count() %>% collect()
+    records <- df %>%
+        count() %>%
+        collect()
     records <- records$n
 
     if ("SignalID" %in% colnames(df)) {
-        signals_list <- df %>% distinct(SignalID) %>% arrange(SignalID) %>% collect() %>% pull(SignalID)
+        signals_list <- df %>%
+            distinct(SignalID) %>%
+            arrange(SignalID) %>%
+            collect() %>%
+            pull(SignalID)
     } else if ("signalid" %in% colnames(df)) {
-        signals_list <- df %>% distinct(signalid) %>% arrange(signalid) %>% collect() %>% pull(SignalID)
+        signals_list <- df %>%
+            distinct(signalid) %>%
+            arrange(signalid) %>%
+            collect() %>%
+            pull(SignalID)
     }
 
     # keep this to about a million records per core
     # based on the average number of records per signal.
     # number of chunks will increase (chunk_length will decrease) with more days
     # but memory usage should stay consistent per core
-    chunk_length <- round(rows/(records/length(signals_list)))
+    chunk_length <- round(rows / (records / length(signals_list)))
     chunk(signals_list, chunk_length)
 }
 
 
 # Get chunks of size 'rows' from an arrow data source
 get_signals_chunks_arrow <- function(df, rows = 1e6) {
-
     chunk <- function(d, n) {
-        split(d, ceiling(seq_along(d)/n))
+        split(d, ceiling(seq_along(d) / n))
     }
 
-    extract <- df %>% select(SignalID) %>% collect()
+    extract <- df %>%
+        select(SignalID) %>%
+        collect()
     records <- nrow(extract)
 
-    signals_list <- extract %>% distinct(SignalID) %>% arrange(SignalID) %>% pull(SignalID)
+    signals_list <- extract %>%
+        distinct(SignalID) %>%
+        arrange(SignalID) %>%
+        pull(SignalID)
 
     # keep this to about a million records per core
     # based on the average number of records per signal.
     # number of chunks will increase (chunk_length will decrease) with more days
     # but memory usage should stay consistent per core
-    chunk_length <- round(rows/(records/length(signals_list)))
+    chunk_length <- round(rows / (records / length(signals_list)))
     chunk(signals_list, chunk_length)
 }
 
 
-show_largest_objects <- function(n=20) {
-
+show_largest_objects <- function(n = 20) {
     df <- sapply(
         ls(envir = globalenv()),
-        function(x) { object.size(get(x)) }
-        ) %>% as.data.frame()
-    names(df) <- c('Size')
-    df %>% arrange(desc(Size)) %>% head(n)
+        function(x) {
+            object.size(get(x))
+        }
+    ) %>% as.data.frame()
+    names(df) <- c("Size")
+    df %>%
+        arrange(desc(Size)) %>%
+        head(n)
 }
-

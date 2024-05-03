@@ -1,11 +1,11 @@
-
 # Monthly_Report_Package.R -- For 15-min Data
 
 source("Monthly_Report_Package_init.R")
 
 # For hourly counts (no monthly or weekly), go back to first missing day in the database
 calcs_start_date <- get_date_from_string(
-    conf$start_date, table_include_regex_pattern = "sig_qhr_", exceptions = 0
+    conf$start_date,
+    table_include_regex_pattern = "sig_qhr_", exceptions = 0
 )
 print(glue("{Sys.time()} 15min Package Start Date: {calcs_start_date}"))
 
@@ -46,7 +46,7 @@ tryCatch(
             signals_list = signals_list,
             parallel = FALSE
         ) %>%
-            filter(!is.na(CallPhase)) %>%   # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
+            filter(!is.na(CallPhase)) %>% # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector),
@@ -67,7 +67,8 @@ tryCatch(
         ) %>%
             mutate(
                 SignalID = factor(SignalID),
-                Detector = factor(Detector))
+                Detector = factor(Detector)
+            )
 
         # Filter out bad days
         paph <- paph %>%
@@ -80,7 +81,7 @@ tryCatch(
             by = "15 min"
         )
         paph <- paph %>%
-            expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods)%>%
+            expand(nesting(SignalID, Detector, CallPhase), Timeperiod = all_timeperiods) %>%
             left_join(paph) %>%
             replace_na(list(vol = 0))
 
@@ -88,7 +89,7 @@ tryCatch(
         cor_15min_pa <- get_cor_monthly_avg_by_period(pa_15min, corridors, "vol", "Timeperiod")
 
         pa_15min <- sigify(pa_15min, cor_15min_pa, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, vol, delta)
+            select(Zone_Group, Corridor, Timeperiod, vol, delta)
 
 
         addtoRDS(
@@ -145,7 +146,7 @@ tryCatch(
         cor_15min_vol <- get_cor_monthly_avg_by_period(vol_15min, corridors, "vol", "Timeperiod")
 
         vol_15min <- sigify(vol_15min, cor_15min_vol, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, vol, delta)
+            select(Zone_Group, Corridor, Timeperiod, vol, delta)
 
         addtoRDS(
             vol_15min, "vol_15min.rds", "vol", rds_start_date, calcs_start_date
@@ -211,7 +212,7 @@ tryCatch(
         cor_15min_aog <- get_cor_monthly_avg_by_period(aog_15min, corridors, "aog", "Timeperiod")
 
         aog_15min <- sigify(aog_15min, cor_15min_aog, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, aog, delta)
+            select(Zone_Group, Corridor, Timeperiod, aog, delta)
 
 
         addtoRDS(
@@ -252,7 +253,7 @@ tryCatch(
         cor_15min_pr <- get_cor_monthly_avg_by_period(pr_15min, corridors, "pr", "Timeperiod")
 
         pr_15min <- sigify(pr_15min, cor_15min_pr, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, pr, delta)
+            select(Zone_Group, Corridor, Timeperiod, pr, delta)
 
 
         addtoRDS(
@@ -311,7 +312,7 @@ tryCatch(
         cor_15min_sf <- get_cor_monthly_avg_by_period(sf_15min, corridors, "sf_freq", "Timeperiod")
 
         sf_15min <- sigify(sf_15min, cor_15min_sf, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, sf_freq, delta)
+            select(Zone_Group, Corridor, Timeperiod, sf_freq, delta)
 
 
         addtoRDS(
@@ -351,7 +352,8 @@ tryCatch(
             mutate(
                 SignalID = factor(SignalID),
                 CallPhase = factor(CallPhase),
-                Date = date(Date))
+                Date = date(Date)
+            )
 
         qs <- qs %>%
             rename(Timeperiod = Date_Hour) %>%
@@ -368,7 +370,7 @@ tryCatch(
         cor_15min_qs <- get_cor_monthly_avg_by_period(qs_15min, corridors, "qs_freq", "Timeperiod")
 
         qs_15min <- sigify(qs_15min, cor_15min_qs, corridors) %>%
-                select(Zone_Group, Corridor, Timeperiod, qs_freq, delta)
+            select(Zone_Group, Corridor, Timeperiod, qs_freq, delta)
 
 
         addtoRDS(
@@ -462,10 +464,13 @@ aurora <- keep_trying(func = get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
 
 tryCatch(
-{
-    append_to_database(
-        aurora, sig, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-},
-finally = {
-    dbDisconnect(aurora)
-})
+    {
+        append_to_database(
+            aurora, sig, "sig", calcs_start_date,
+            report_start_date = report_start_date, report_end_date = NULL
+        )
+    },
+    finally = {
+        dbDisconnect(aurora)
+    }
+)

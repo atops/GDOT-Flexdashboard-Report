@@ -1,4 +1,3 @@
-
 # Monthly_Report_Package_init.R
 
 source("renv/activate.R")
@@ -40,7 +39,8 @@ subcorridors <- corridors %>%
     rename(
         Zone_Group = Zone,
         Zone = Corridor,
-        Corridor = Subcorridor)
+        Corridor = Subcorridor
+    )
 
 
 conn <- get_athena_connection(conf$athena)
@@ -48,7 +48,8 @@ conn <- get_athena_connection(conf$athena)
 cam_config <- get_cam_config(
     object = conf$cctv_config_filename,
     bucket = conf$bucket,
-    corridors = all_corridors)
+    corridors = all_corridors
+)
 
 
 usable_cores <- get_usable_cores()
@@ -81,7 +82,7 @@ if (conf$calcs_start_date == "auto") {
 
 round_to_tuesday <- function(date_) {
     if (is.null(date_)) {
-        return (NULL)
+        return(NULL)
     }
     if (is.character(date_)) {
         date_ <- ymd(date_)
@@ -103,4 +104,4 @@ print(glue("{Sys.time()} Report End Date: {report_end_date}"))
 date_range <- seq(ymd(report_start_date), ymd(report_end_date), by = "1 day")
 date_range_str <- paste0("{", paste0(as.character(date_range), collapse = ","), "}")
 
-#options(warn = 2) # Turn warnings into errors we can run a traceback on. For debugging only.
+# options(warn = 2) # Turn warnings into errors we can run a traceback on. For debugging only.

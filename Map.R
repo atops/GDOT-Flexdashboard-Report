@@ -1,6 +1,4 @@
-
 points_to_line <- function(data, long, lat, id_field = NULL, sort_field = NULL) {
-
     # Convert to SpatialPointsDataFrame
     coordinates(data) <- c(long, lat)
 
@@ -15,14 +13,12 @@ points_to_line <- function(data, long, lat, id_field = NULL, sort_field = NULL) 
 
     # If there is only one path...
     if (is.null(id_field)) {
-
         lines <- SpatialLines(list(Lines(list(Line(data)), "id")))
 
         return(lines)
 
         # Now, if we have multiple lines...
     } else if (!is.null(id_field)) {
-
         # Split into a list by ID field
         paths <- sp::split(data, data[[id_field]])
 
@@ -50,8 +46,10 @@ get_tmc_coords <- function(coords_string) {
     tmc_coords <- purrr::transpose(coord_list) %>%
         lapply(unlist) %>%
         as.data.frame(., col.names = c("longitude", "latitude")) %>%
-        mutate(latitude = as.numeric(trimws(latitude)),
-               longitude = as.numeric(trimws(longitude)))
+        mutate(
+            latitude = as.numeric(trimws(latitude)),
+            longitude = as.numeric(trimws(longitude))
+        )
     as_tibble(tmc_coords)
 }
 #----------------------------------------------------------
@@ -62,17 +60,20 @@ get_geom_coords <- function(coords_string) {
         geom_coords <- purrr::transpose(coord_list) %>%
             lapply(unlist) %>%
             as.data.frame(., col.names = c("longitude", "latitude")) %>%
-            mutate(latitude = as.numeric(trimws(latitude)),
-                   longitude = as.numeric(trimws(longitude)))
+            mutate(
+                latitude = as.numeric(trimws(latitude)),
+                longitude = as.numeric(trimws(longitude))
+            )
         as_tibble(geom_coords)
     }
 }
 
 
 get_signals_sp <- function(bucket, corridors) {
-
-    corridor_palette <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
-                          "#ff7f00", "#ffff33", "#a65628", "#f781bf")
+    corridor_palette <- c(
+        "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
+        "#ff7f00", "#ffff33", "#a65628", "#f781bf"
+    )
 
     rtop_corridors <- corridors %>%
         filter(grepl("^Zone", Zone)) %>%
@@ -82,8 +83,9 @@ get_signals_sp <- function(bucket, corridors) {
 
     corridor_colors <- rtop_corridors %>%
         mutate(
-            color = rep(corridor_palette, ceiling(num_corridors/8))[1:num_corridors]) %>%
-        #color = rep(RColorBrewer::brewer.pal(7, "Dark2"),
+            color = rep(corridor_palette, ceiling(num_corridors / 8))[1:num_corridors]
+        ) %>%
+        # color = rep(RColorBrewer::brewer.pal(7, "Dark2"),
         #            ceiling(num_corridors/7))[1:num_corridors]) %>%
         bind_rows(data.frame(Corridor = c("None"), color = GRAY)) %>%
         mutate(Corridor = factor(Corridor))
@@ -97,7 +99,9 @@ get_signals_sp <- function(bucket, corridors) {
     most_recent_intersections_list_key <- max(
         aws.s3::get_bucket_df(
             bucket = bucket,
-            prefix = "maxv_atspm_intersections")$Key)
+            prefix = "maxv_atspm_intersections"
+        )$Key
+    )
     ints <- s3read_using(
         read_csv,
         col_types = cols(
@@ -121,22 +125,25 @@ get_signals_sp <- function(bucket, corridors) {
 
     signals_sp <- left_join(ints, corridors, by = c("SignalID")) %>%
         mutate(
-            Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")) %>%
-        left_join(corridor_colors, by = c("Corridor")) %>%
-        mutate(SignalID = factor(SignalID), Corridor = factor(Corridor),
-               Description = if_else(
-                   is.na(Description),
-                   glue("{as.character(SignalID)}: {PrimaryName} @ {SecondaryName}"),
-                   Description)
+            Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")
         ) %>%
-
+        left_join(corridor_colors, by = c("Corridor")) %>%
+        mutate(
+            SignalID = factor(SignalID), Corridor = factor(Corridor),
+            Description = if_else(
+                is.na(Description),
+                glue("{as.character(SignalID)}: {PrimaryName} @ {SecondaryName}"),
+                Description
+            )
+        ) %>%
         mutate(
             # If part of a Zone (RTOP), fill is black, otherwise white
             fill_color = ifelse(grepl("^Z", Zone), BLACK, WHITE),
             # If not part of a corridor, gray outer color, otherwise black
             stroke_color = ifelse(Corridor == "None", GRAY, BLACK),
             # If part of a Zone (RTOP), override black outer to corridor color
-            stroke_color = ifelse(grepl("^Z", Zone), color, stroke_color))
+            stroke_color = ifelse(grepl("^Z", Zone), color, stroke_color)
+        )
     Encoding(signals_sp$Description) <- "utf-8"
     signals_sp
 }
@@ -144,20 +151,22 @@ get_signals_sp <- function(bucket, corridors) {
 
 
 get_map_data <- function(conf) {
-
     BLACK <- "#000000"
     WHITE <- "#FFFFFF"
     GRAY <- "#D0D0D0"
     DARK_GRAY <- "#7A7A7A"
     DARK_DARK_GRAY <- "#494949"
 
-    corridor_palette <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
-                          "#ff7f00", "#ffff33", "#a65628", "#f781bf")
+    corridor_palette <- c(
+        "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
+        "#ff7f00", "#ffff33", "#a65628", "#f781bf"
+    )
 
     corridors <- s3read_using(
         read_feather,
         bucket = conf$bucket,
-        object = "all_Corridors_Latest.feather")
+        object = "all_Corridors_Latest.feather"
+    )
 
     rtop_corridors <- corridors %>%
         filter(grepl("^Zone", Zone)) %>%
@@ -167,7 +176,8 @@ get_map_data <- function(conf) {
 
     corridor_colors <- rtop_corridors %>%
         mutate(
-            color = rep(corridor_palette, ceiling(num_corridors/8))[1:num_corridors]) %>%
+            color = rep(corridor_palette, ceiling(num_corridors / 8))[1:num_corridors]
+        ) %>%
         bind_rows(data.frame(Corridor = c("None"), color = GRAY)) %>%
         mutate(Corridor = factor(Corridor))
 
@@ -178,25 +188,29 @@ get_map_data <- function(conf) {
 
     zone_colors <- data.frame(
         zone = glue("Zone {seq_len(8)}"),
-        color = corridor_palette) %>%
-        mutate(color = if_else(color=="#ffff33", "#f7f733", as.character(color)))
+        color = corridor_palette
+    ) %>%
+        mutate(color = if_else(color == "#ffff33", "#f7f733", as.character(color)))
 
     # this takes a while: sp::coordinates is slow
     tmcs <- s3read_using(
         read_excel,
         bucket = conf$bucket,
-        object = "Corridor_TMCs_Latest.xlsx") %>%
+        object = "Corridor_TMCs_Latest.xlsx"
+    ) %>%
         mutate(
-            Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")) %>%
+            Corridor = forcats::fct_explicit_na(Corridor, na_level = "None")
+        ) %>%
         left_join(corridor_colors, by = "Corridor") %>%
         mutate(
             Corridor = factor(Corridor),
-            color = if_else(Corridor!="None" & is.na(color), DARK_DARK_GRAY, color),
+            color = if_else(Corridor != "None" & is.na(color), DARK_DARK_GRAY, color),
             tmc_coords = purrr::map(coordinates, get_tmc_coords),
             sp_data = purrr::map(
                 tmc_coords, function(y) {
                     points_to_line(data = y, long = "longitude", lat = "latitude")
-                })
+                }
+            )
         )
 
     corridors_sp <- do.call(rbind, tmcs$sp_data) %>%
@@ -213,7 +227,8 @@ get_map_data <- function(conf) {
     map_data <- list(
         corridors_sp = corridors_sp,
         subcorridors_sp = subcorridors_sp,
-        signals_sp = signals_sp)
+        signals_sp = signals_sp
+    )
 
     map_data
 }

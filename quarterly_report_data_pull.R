@@ -1,4 +1,3 @@
-
 source("Monthly_Report_Functions.R")
 source("Classes.R")
 
@@ -24,39 +23,41 @@ source("Classes.R")
 # [ ] Make a place on S3 for images
 
 get_quarterly_data <- function() {
-
     conn <- get_aurora_connection()
 
     df <- lapply(
-        list(vpd,
-             am_peak_vph,
-             pm_peak_vph,
-             throughput,
-             arrivals_on_green,
-             progression_ratio,
-             queue_spillback_rate,
-             peak_period_split_failures,
-             off_peak_split_failures,
-             travel_time_index,
-             planning_time_index,
-             average_speed,
-             daily_pedestrian_pushbuttons,
-             detector_uptime,
-             ped_button_uptime,
-             cctv_uptime,
-             comm_uptime,
-             tasks_reported,
-             tasks_resolved,
-             tasks_outstanding,
-             tasks_over45,
-             tasks_mttr),
+        list(
+            vpd,
+            am_peak_vph,
+            pm_peak_vph,
+            throughput,
+            arrivals_on_green,
+            progression_ratio,
+            queue_spillback_rate,
+            peak_period_split_failures,
+            off_peak_split_failures,
+            travel_time_index,
+            planning_time_index,
+            average_speed,
+            daily_pedestrian_pushbuttons,
+            detector_uptime,
+            ped_button_uptime,
+            cctv_uptime,
+            comm_uptime,
+            tasks_reported,
+            tasks_resolved,
+            tasks_outstanding,
+            tasks_over45,
+            tasks_mttr
+        ),
         function(metric) {
             print(metric$label)
             dbReadTable(conn, glue("cor_qu_{metric$table}")) %>%
                 mutate(Metric = metric$label) %>%
                 rename(value = metric$variable)
         }
-    ) %>% bind_rows() %>%
+    ) %>%
+        bind_rows() %>%
         filter(Zone_Group != "NA") %>%
         as_tibble() %>%
         select(Metric, Zone_Group, Corridor, Quarter, value, ones, vol, num) %>%
@@ -64,8 +65,10 @@ get_quarterly_data <- function() {
         select(-c(ones, vol, num)) %>%
         filter(grepl("\\d{4}.\\d{1}", Quarter)) %>%
         separate(Quarter, into = c("yr", "qu"), sep = "\\.") %>%
-        mutate(date = ymd(glue("{yr}-{(as.integer(qu)-1)*3+1}-01")),  # date - start of quarter
-               date = date + months(3) - days(1)) %>%  # date - end of quarter
+        mutate(
+            date = ymd(glue("{yr}-{(as.integer(qu)-1)*3+1}-01")), # date - start of quarter
+            date = date + months(3) - days(1)
+        ) %>% # date - end of quarter
         mutate(Quarter = as.character(lubridate::quarter(date, with_year = TRUE, fiscal_start = 7)))
 
     dfz <- df %>%
@@ -107,20 +110,21 @@ get_quarterly_bottlenecks <- function() {
         s3read_using(
             read_parquet,
             bucket = "gdot-spm",
-            object = glue("mark/bottlenecks/date={x}/bottleneck_rankings_{x}.parquet"))
+            object = glue("mark/bottlenecks/date={x}/bottleneck_rankings_{x}.parquet")
+        )
     }) %>% bind_rows()
 
 
     bottlenecks$length_current <- purrr::map(bottlenecks$tmcs_current, function(x) {
-        sum(tmcs[tmcs$tmc %in% x,]$length)
+        sum(tmcs[tmcs$tmc %in% x, ]$length)
     }) %>% unlist()
 
     bottlenecks$length_1yr <- purrr::map(bottlenecks$tmcs_1yr, function(x) {
-        sum(tmcs[tmcs$tmc %in% x,]$length)
+        sum(tmcs[tmcs$tmc %in% x, ]$length)
     }) %>% unlist()
 
     bottlenecks %>% select(-c(tmcs_current, tmcs_1yr))
-    }
+}
 
 write_quarterly_bottlenecks <- function(bottlenecks, filename = "quarterly_bottlenecks.csv") {
     readr::write_csv(bottlenecks, filename)

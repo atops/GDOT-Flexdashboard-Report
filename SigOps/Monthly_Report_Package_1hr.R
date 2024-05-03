@@ -1,11 +1,11 @@
-
 # Monthly_Report_Package.R -- For Hourly Data
 
 source("Monthly_Report_Package_init.R")
 
 # For hourly counts (no monthly or weekly), go back to first missing day in the database
 calcs_start_date <- get_date_from_string(
-    conf$start_date, table_include_regex_pattern = "sig_hr_", exceptions = 0
+    conf$start_date,
+    table_include_regex_pattern = "sig_hr_", exceptions = 0
 )
 print(glue("{Sys.time()} 1hr Package Start Date: {calcs_start_date}"))
 
@@ -46,7 +46,7 @@ tryCatch(
             signals_list = signals_list,
             parallel = FALSE
         ) %>%
-            filter(!is.na(CallPhase)) %>%   # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
+            filter(!is.na(CallPhase)) %>% # Added 1/14/20 to perhaps exclude non-programmed ped pushbuttons
             mutate(
                 SignalID = factor(SignalID),
                 Detector = factor(Detector),
@@ -67,7 +67,8 @@ tryCatch(
         ) %>%
             mutate(
                 SignalID = factor(SignalID),
-                Detector = factor(Detector))
+                Detector = factor(Detector)
+            )
 
         # Filter out bad days
         paph <- paph %>%
@@ -81,7 +82,7 @@ tryCatch(
             by = "1 hour"
         )
         paph <- paph %>%
-            expand(nesting(SignalID, Detector, CallPhase), Hour = all_timeperiods)%>%
+            expand(nesting(SignalID, Detector, CallPhase), Hour = all_timeperiods) %>%
             left_join(paph) %>%
             replace_na(list(vol = 0))
 
@@ -89,7 +90,7 @@ tryCatch(
         cor_hourly_pa <- get_cor_monthly_avg_by_period(hourly_pa, corridors, "paph", "Hour")
 
         hourly_pa <- sigify(hourly_pa, cor_hourly_pa, corridors) %>%
-                select(Zone_Group, Corridor, Hour, paph, delta)
+            select(Zone_Group, Corridor, Hour, paph, delta)
 
 
         addtoRDS(
@@ -142,7 +143,7 @@ tryCatch(
         cor_hourly_vol <- get_cor_monthly_avg_by_period(hourly_vol, corridors, "vph", "Hour")
 
         hourly_vol <- sigify(hourly_vol, cor_hourly_vol, corridors) %>%
-                select(Zone_Group, Corridor, Hour, vph, delta)
+            select(Zone_Group, Corridor, Hour, vph, delta)
 
 
         addtoRDS(
@@ -205,7 +206,7 @@ tryCatch(
         cor_hourly_aog <- get_cor_monthly_avg_by_period(hourly_aog, corridors, "aog", "Hour")
 
         hourly_aog <- sigify(hourly_aog, cor_hourly_aog, corridors) %>%
-                select(Zone_Group, Corridor, Hour, aog, delta)
+            select(Zone_Group, Corridor, Hour, aog, delta)
 
 
         addtoRDS(
@@ -243,7 +244,7 @@ tryCatch(
         cor_hourly_pr <- get_cor_monthly_avg_by_period(hourly_pr, corridors, "pr", "Hour")
 
         hourly_pr <- sigify(hourly_pr, cor_hourly_pr, corridors) %>%
-                select(Zone_Group, Corridor, Hour, pr, delta)
+            select(Zone_Group, Corridor, Hour, pr, delta)
 
 
         addtoRDS(
@@ -299,7 +300,7 @@ tryCatch(
         cor_hourly_sf <- get_cor_monthly_avg_by_period(hourly_sf, corridors, "sf_freq", "Hour")
 
         hourly_sf <- sigify(hourly_sf, cor_hourly_sf, corridors) %>%
-                select(Zone_Group, Corridor, Hour, sf_freq, delta)
+            select(Zone_Group, Corridor, Hour, sf_freq, delta)
 
 
         addtoRDS(
@@ -354,7 +355,7 @@ tryCatch(
         cor_hourly_qs <- get_cor_monthly_avg_by_period(hourly_qs, corridors, "qs_freq", "Hour")
 
         hourly_qs <- sigify(hourly_qs, cor_hourly_qs, corridors) %>%
-                select(Zone_Group, Corridor, Hour, qs_freq, delta)
+            select(Zone_Group, Corridor, Hour, qs_freq, delta)
 
 
         addtoRDS(
@@ -444,10 +445,14 @@ source("write_sigops_to_db.R")
 aurora <- keep_trying(func = get_aurora_connection, n_tries = 5)
 # recreate_database(conn)
 
-tryCatch({
-    append_to_database(
-        aurora, sig, "sig", calcs_start_date, report_start_date = report_start_date, report_end_date = NULL)
-},
-finally = {
-    dbDisconnect(aurora)
-})
+tryCatch(
+    {
+        append_to_database(
+            aurora, sig, "sig", calcs_start_date,
+            report_start_date = report_start_date, report_end_date = NULL
+        )
+    },
+    finally = {
+        dbDisconnect(aurora)
+    }
+)

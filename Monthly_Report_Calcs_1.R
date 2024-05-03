@@ -1,4 +1,3 @@
-
 # Monthly_Report_Calcs_1.R
 
 source("Monthly_Report_Calcs_init.R")
@@ -51,7 +50,8 @@ if (conf$run$counts == TRUE) {
         )
     } else {
         foreach(date_ = date_range, .errorhandling = "pass") %dopar% {
-            keep_trying(get_counts2, n_tries = 2,
+            keep_trying(get_counts2,
+                n_tries = 2,
                 date_,
                 bucket = conf$bucket,
                 conf_athena = conf$athena,
@@ -98,19 +98,22 @@ get_counts_based_measures <- function(month_abbrs) {
 
         fc_ds <- keep_trying(
             function() arrow::open_dataset(sources = "filtered_counts_1hr/"),
-            n_tries = 3, timeout = 60)
+            n_tries = 3, timeout = 60
+        )
         ac_ds <- keep_trying(
             function() arrow::open_dataset(sources = "adjusted_counts_1hr/"),
-            n_tries = 3, timeout = 60)
+            n_tries = 3, timeout = 60
+        )
 
         lapply(date_range, function(date_) {
-            if (nrow(head(ac_ds))==0) {
+            if (nrow(head(ac_ds)) == 0) {
                 adjusted_counts_1hr <- tibble(
-                    SignalID=character(0),
-                    CallPhase=integer(0),
-                    Detector=integer(0),
-                    Timeperiod=as.POSIXct(NA),
-                    vol=integer(0))
+                    SignalID = character(0),
+                    CallPhase = integer(0),
+                    Detector = integer(0),
+                    Timeperiod = as.POSIXct(NA),
+                    vol = integer(0)
+                )
             } else {
                 adjusted_counts_1hr <- ac_ds %>%
                     filter(Date == date_) %>%
@@ -136,7 +139,7 @@ get_counts_based_measures <- function(month_abbrs) {
             date_str <- format(date_, "%F")
 
             print(glue("reading adjusted_counts_1hr: {date_str}"))
-            if (nrow(head(ac_ds))==0) {
+            if (nrow(head(ac_ds)) == 0) {
                 adjusted_counts_1hr <- ac_ds
             } else {
                 adjusted_counts_1hr <- ac_ds %>%
@@ -196,19 +199,22 @@ get_counts_based_measures <- function(month_abbrs) {
 
         fc_ds <- keep_trying(
             function() arrow::open_dataset(sources = "filtered_counts_15min/"),
-            n_tries = 3, timeout = 60)
+            n_tries = 3, timeout = 60
+        )
         ac_ds <- keep_trying(
             function() arrow::open_dataset(sources = "adjusted_counts_15min/"),
-            n_tries = 3, timeout = 60)
+            n_tries = 3, timeout = 60
+        )
 
         lapply(date_range, function(date_) {
-            if (nrow(head(ac_ds))==0) {
+            if (nrow(head(ac_ds)) == 0) {
                 adjusted_counts_15min <- tibble(
-                    SignalID=character(0),
-                    CallPhase=integer(0),
-                    Detector=integer(0),
-                    Timeperiod=as.POSIXct(NA),
-                    vol=integer(0))
+                    SignalID = character(0),
+                    CallPhase = integer(0),
+                    Detector = integer(0),
+                    Timeperiod = as.POSIXct(NA),
+                    vol = integer(0)
+                )
             } else {
                 adjusted_counts_15min <- ac_ds %>%
                     filter(Date == date_) %>%

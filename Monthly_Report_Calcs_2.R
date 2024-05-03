@@ -1,4 +1,3 @@
-
 # Monthly_Report_Calcs_2.R
 
 source("Monthly_Report_Calcs_init.R")
@@ -8,7 +7,6 @@ source("Monthly_Report_Calcs_init.R")
 print(glue("{Sys.time()} etl [7 of 11]"))
 
 if (conf$run$etl == TRUE) {
-
     # run python script and wait for completion
     system(glue("~/miniconda3/bin/conda run -n sigops python etl_dashboard.py {start_date} {end_date}"))
 }
@@ -19,7 +17,6 @@ if (conf$run$etl == TRUE) {
 print(glue("{Sys.time()} aog [8 of 11]"))
 
 if (conf$run$arrivals_on_green == TRUE) {
-
     # run python script and wait for completion
     system(glue("~/miniconda3/bin/conda run -n sigops python get_aog.py {start_date} {end_date}"))
 }
@@ -34,7 +31,6 @@ get_queue_spillback_date_range <- function(start_date, end_date) {
 
         detection_events <- get_detection_events(date_, date_, conf$athena, signals_list)
         if (nrow(collect(head(detection_events))) > 0) {
-
             qs <- get_qs(detection_events, intervals = c("hour", "15min"))
 
             s3_upload_parquet_date_split(

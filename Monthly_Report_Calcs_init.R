@@ -1,4 +1,3 @@
-
 # Monthly_Report_Calcs.R
 
 source("renv/activate.R")
@@ -27,7 +26,8 @@ doParallel::registerDoParallel(cores = usable_cores)
 #----- DEFINE DATE RANGE FOR CALCULATIONS ------------------------------------#
 
 start_date <- get_date_from_string(
-    conf$start_date, s3bucket = conf$bucket, s3prefix = "mark/split_failures"
+    conf$start_date,
+    s3bucket = conf$bucket, s3prefix = "mark/split_failures"
 )
 end_date <- get_date_from_string(conf$end_date)
 
