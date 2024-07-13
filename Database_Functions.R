@@ -32,6 +32,7 @@ mydbAppendTable <- function(conn, name, value, chunksize = 1e4) {
     for (v in vals_list) {
         query <- paste0(query0, paste0(v, collapse = ","))
         dbExecute(conn, query)
+        Sys.sleep(1)
     }
 }
 

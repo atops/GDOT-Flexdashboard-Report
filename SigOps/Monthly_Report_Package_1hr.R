@@ -7,7 +7,10 @@ calcs_start_date <- get_date_from_string(
     conf$start_date,
     table_include_regex_pattern = "sig_hr_", exceptions = 0
 )
+report_end_date <- min(as_date(report_end_date), calcs_start_date + days(7))
+
 print(glue("{Sys.time()} 1hr Package Start Date: {calcs_start_date}"))
+print(glue("{Sys.time()} Report End Date: {report_end_date}"))
 
 # Need to keep some data in rds prior to the calcs_start_date to calculate accurate deltas
 rds_start_date <- calcs_start_date - days(1)
