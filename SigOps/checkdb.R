@@ -60,10 +60,18 @@ sigops_data %>%
     write_csv("sigops_data_mo.csv")
 
 sigops_data %>%
-    filter(!grepl("(_wk_)|(_mo_)", table)) %>%
+    filter(grepl("_dy_", table)) %>%
     write_csv("sigops_data_dy.csv")
 
-for (per in c("wk", "mo", "dy")) {
+sigops_data %>%
+    filter(grepl("_hr_", table)) %>%
+    write_csv("sigops_data_hr.csv")
+
+sigops_data %>%
+    filter(grepl("_qhr_", table)) %>%
+    write_csv("sigops_data_qhr.csv")
+
+for (per in c("wk", "mo", "dy", "hr", "qhr")) {
     aws.s3::put_object(
         glue("sigops_data_{per}.csv"),
         bucket = conf$bucket,

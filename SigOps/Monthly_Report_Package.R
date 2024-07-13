@@ -2,6 +2,11 @@
 
 source("Monthly_Report_Package_init.R")
 
+print(glue("{Sys.time()} Week Calcs Start Date: {wk_calcs_start_date}"))
+print(glue("{Sys.time()} Calcs Start Date: {calcs_start_date}"))
+print(glue("{Sys.time()} Report End Date: {report_end_date}"))
+
+
 # # TRAVEL TIMES FROM RITIS API ###############################################
 
 print(glue("{Sys.time()} travel times [0 of 29(2)]"))

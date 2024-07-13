@@ -2,7 +2,12 @@
 
 source("Monthly_Report_Package_init.R")
 
+print(glue("{Sys.time()} Week Calcs Start Date: {wk_calcs_start_date}"))
+print(glue("{Sys.time()} Calcs Start Date: {calcs_start_date}"))
+print(glue("{Sys.time()} Report End Date: {report_end_date}"))
+
 # options(warn = 2)
+
 
 # # DETECTOR UPTIME ###########################################################
 
