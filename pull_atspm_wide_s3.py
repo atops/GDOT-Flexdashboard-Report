@@ -270,6 +270,19 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
     ped_input_codes = [89, 90]
     df.loc[df.EventCode.isin(ped_input_codes), 'PedInput'] = df.loc[df.EventCode.isin(ped_input_codes), 'EventParam']
 
+    ped_phase_codes = list(range(21, 25))
+    df.loc[df.EventCode.isin(ped_phase_codes), 'PedPhase'] = df.loc[df.EventCode.isin(ped_phase_codes), 'EventParam']
+
+    df = copy_down(
+        df,
+        eventcodes=ped_phase_codes,
+        new_field_name="PedIndication",
+        group_fields=["SignalID", "PedPhase"],
+        copy_field="EventCode",
+        apply_to_timestamp=None
+    )
+
+
     # Global (Signal-wide) copy-downs. Uses two-step function to create new field and copy down
     if 31 in codes:
         df = copy_down(df, 31, 'Ring', ['SignalID'], 'EventParam')
@@ -386,7 +399,7 @@ def widen(s, date_, det_config=None, source='s3'): # or source = 'db'
              'CycleLength','ActualCycleLength','ActualNaturalCycleLength','CycleOffset','ActualCycleOffset',
              'Phase','PhaseStart','Interval','TermType','ProgrammedSplit','RecordedSplit',
              'Detector','DetectorFault','DetectorOff','DetectorDuration',
-             'PedInput','PedWait','PedInputOff','PedInputDuration']]
+             'PedInput','PedWait','PedInputOff','PedInputDuration', 'PedPhase', 'PedIndication']]
 
     print('{} | {} done.'.format(date_str, s))
 
