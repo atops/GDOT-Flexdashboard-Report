@@ -4,7 +4,7 @@
 agency: GDOT
 bucket: gdot-spm
 athena:
-    staging_dir: s3://gdot-spm-athena  # this has to be <bucket>-athena
+    staging_dir: s3://gdot-spm-athena
     database: gdot_spm
     atspm_table: atspm2
     region: us-east-1
@@ -27,6 +27,7 @@ run:
     queue_spillback: TRUE
     ped_delay: TRUE
     split_failures: TRUE
+    flash_events: TRUE
 
 
 start_date: first_missing  # 2 days ago
@@ -38,10 +39,6 @@ report_end_date: yesterday
 corridors_filename_s3: Corridors_v5_Latest.xlsx
 corridors_TMCs_filename_s3: Corridor_TMCs_v5.xlsx
 cctv_config_filename: Cameras_v4_Latest.xlsx
-
-# cctv_parsed_filename: parsed_cctv.feather
-# teams_tasks_filename: TEAMS_Reports/tasks.csv
-# tmc_filename: tmc_routes.feather
 
 AM_PEAK_HOURS: [6, 7, 8, 9]
 PM_PEAK_HOURS: [15, 16, 17, 18, 19]

@@ -130,4 +130,14 @@ if (conf$run$split_failures == TRUE) {
 
 
 
+# # FLASH EVENTS #############################################################
+print(glue("{Sys.time()} flash events [12 of 12]"))
+
+if (conf$run$flash_events == TRUE) {
+    # run python script and wait for completion
+    system(glue("~/miniconda3/bin/conda run -n sigops python get_flash_events.py"))
+}
+invisible(gc())
+
+
 print("\n--------------------- End Monthly Report calcs -----------------------\n")

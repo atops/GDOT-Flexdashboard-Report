@@ -122,8 +122,7 @@ add_athena_partition <- function(conf_athena, bucket, table_name, date_) {
                 paste(
                     "ALTER TABLE {conf_athena$database}.{table_name}",
                     "ADD PARTITION (date='{date_}')"
-                ),
-                "LOCATION 's3://{bucket}/mark/{table_name}/date={date_}'"
+                )
             ))
         )
         msg <- glue("Successfully created partition (date='{date_}') for {conf_athena$database}.{table_name}")

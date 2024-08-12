@@ -30,6 +30,7 @@ run:
     queue_spillback: TRUE
     ped_delay: TRUE
     split_failures: TRUE
+    flash_events: TRUE
 
 
 start_date: first_missing  # 2 days ago
