@@ -63,7 +63,7 @@ if __name__ == "__main__":
     dates = pd.date_range(start_date, end_date, freq="1D")
 
     for date_ in dates:
-        date_ = date_.strftime("%F")
+        date_str = date_.strftime("%F")
 
         athena = conf["athena"]
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
                    eventparam as EventParam
             FROM {athena['atspm_table']} 
             WHERE eventcode = 173 
-            AND date = '{date_}'
+            AND date = '{date_str}'
         """
         flashes = query_athena(
             query, database=athena["database"], staging_dir=athena["staging_dir"]
@@ -95,7 +95,7 @@ if __name__ == "__main__":
             flashes = flashes[~flashes["EventParam"].isin([2, 3, 4])]
 
             flash_s3object = (
-                f"mark/flash_events/date={start_date}/flashes_{start_date}.parquet"
+                f"mark/flash_events/date={date_str}/flashes_{date_str}.parquet"
             )
             with io.BytesIO() as data:
                 flashes.to_parquet(data)
@@ -105,4 +105,4 @@ if __name__ == "__main__":
             flash_s3key = os.path.join("s3://", bucket, flash_s3object)
             logger.info(f"{flash_s3key} written")
         else:
-            logger.warning(f"No flash events on {start_date}")
+            logger.warning(f"No flash events on {date_str}")
