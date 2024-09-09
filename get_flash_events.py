@@ -44,12 +44,10 @@ if __name__ == "__main__":
         start_date = sys.argv[1]
         end_date = sys.argv[2]
     else:
-        start_date = conf["start_date"]
+        start_date = get_date_from_string(
+            conf["start_date"], s3bucket=conf["bucket"], s3prefix="mark/flash_events"
+        )
         end_date = conf["end_date"]
-
-    start_date = get_date_from_string(
-        start_date, s3bucket=conf["bucket"], s3prefix="mark/flash_events"
-    )
     end_date = get_date_from_string(end_date)
 
     # Placeholder for manual override of start/end dates
@@ -80,6 +78,7 @@ if __name__ == "__main__":
         )
 
         if not flashes.empty:
+            flashes["SignalID"] = flashes["SignalID"].astype(str)
             flashes["TimeStamp"] = pd.to_datetime(flashes["TimeStamp"])
             flashes = flashes.sort_values(["SignalID", "TimeStamp"]).reset_index(drop=True)
             flashes["EventChange"] = flashes.groupby(["SignalID"])[["EventParam"]].diff()
